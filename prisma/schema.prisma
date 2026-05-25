@@ -1,0 +1,392 @@
+// NEEJEE Database Schema
+// PostgreSQL via Prisma ORM
+// Run: npx prisma db push && npx prisma generate
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============ USERS & AUTH ============
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  phone         String?   @unique
+  name          String?
+  passwordHash  String?
+  role          Role      @default(CUSTOMER)
+  emailVerified DateTime?
+  image         String?
+  addresses     Address[]
+  orders        Order[]
+  reviews       Review[]
+  wishlist      Wishlist[]
+  aiPreviews    AiPreview[]
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+}
+
+enum Role {
+  CUSTOMER
+  SELLER
+  ADMIN
+  SUPER_ADMIN
+  QC_TEAM
+  CONTENT_EDITOR
+}
+
+model Address {
+  id       String  @id @default(cuid())
+  userId   String
+  user     User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name     String
+  phone    String
+  line1    String
+  line2    String?
+  city     String
+  state    String
+  pincode  String
+  country  String  @default("IN")
+  isDefault Boolean @default(false)
+  orders   Order[]
+}
+
+// ============ CATALOG ============
+model Category {
+  id          String     @id @default(cuid())
+  slug        String     @unique
+  name        String
+  parentId    String?
+  parent      Category?  @relation("CategoryHierarchy", fields: [parentId], references: [id])
+  children    Category[] @relation("CategoryHierarchy")
+  image       String?
+  description String?
+  seoTitle    String?
+  seoDesc     String?
+  products    Product[]
+  order       Int        @default(0)
+}
+
+model Product {
+  id              String   @id @default(cuid())
+  slug            String   @unique
+  sku             String   @unique
+  name            String
+  shortName       String?
+  poeticLine      String?
+  description     String?
+  // Brand & origin
+  sellerId        String?
+  seller          Seller?  @relation(fields: [sellerId], references: [id])
+  craft           String?  // Banarasi, Chanderi, etc.
+  region          String?  // Varanasi, Kanchipuram, etc.
+  state           String?
+  cluster         String?
+  artisanName     String?
+  // Classification
+  categoryId      String
+  category        Category @relation(fields: [categoryId], references: [id])
+  material        String?
+  technique       String?
+  occasion        String?
+  // Pricing
+  mrp             Int      // in paise (₹1 = 100 paise)
+  sellingPrice    Int
+  salePrice       Int?
+  gstRate         Float    @default(5.0)
+  hsnCode         String?
+  // Variants
+  variants        Variant[]
+  // Media
+  images          String[] @default([])
+  video           String?
+  // Content
+  story           String?
+  craftNote       String?
+  careInstructions String?
+  sustainabilityNote String?
+  // Status
+  status          ProductStatus @default(DRAFT)
+  badges          String[] @default([])
+  // SEO
+  seoTitle        String?
+  seoDesc         String?
+  // AI eligibility
+  aiTryOnEligible Boolean @default(false)
+  aiRoomEligible  Boolean @default(false)
+  // Relations
+  reviews         Review[]
+  wishlist        Wishlist[]
+  cartItems       CartItem[]
+  orderItems      OrderItem[]
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  @@index([categoryId])
+  @@index([sellerId])
+  @@index([status])
+}
+
+enum ProductStatus {
+  DRAFT
+  PENDING_QC
+  ACTIVE
+  ARCHIVED
+  REJECTED
+}
+
+model Variant {
+  id           String     @id @default(cuid())
+  productId    String
+  product      Product    @relation(fields: [productId], references: [id], onDelete: Cascade)
+  sku          String     @unique
+  size         String?
+  color        String?
+  material     String?
+  inventory    Int        @default(0)
+  lowStockThreshold Int   @default(3)
+  mrp          Int?
+  sellingPrice Int?
+  weight       Float?
+  cartItems    CartItem[]
+  orderItems   OrderItem[]
+}
+
+// ============ SELLERS (Marketplace) ============
+model Seller {
+  id              String   @id @default(cuid())
+  businessName    String
+  contactName     String
+  email           String   @unique
+  phone           String
+  pan             String?
+  gstin           String?
+  bankAccount     String?
+  ifsc            String?
+  region          String?
+  craft           String?
+  cluster         String?
+  kycStatus       KycStatus @default(PENDING)
+  qualityScore    Float    @default(0)
+  commissionPct   Float    @default(20)
+  isNeejeeSelect  Boolean  @default(false)
+  payoutCycle     String   @default("WEEKLY")
+  products        Product[]
+  createdAt       DateTime @default(now())
+}
+
+enum KycStatus {
+  PENDING
+  UNDER_REVIEW
+  APPROVED
+  REJECTED
+  SUSPENDED
+}
+
+// ============ CART & ORDERS ============
+model Cart {
+  id        String     @id @default(cuid())
+  userId    String?
+  sessionId String?
+  items     CartItem[]
+  giftWrap  Boolean    @default(false)
+  personalNote String?
+  couponCode String?
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+}
+
+model CartItem {
+  id        String   @id @default(cuid())
+  cartId    String
+  cart      Cart     @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  productId String
+  product   Product  @relation(fields: [productId], references: [id])
+  variantId String?
+  variant   Variant? @relation(fields: [variantId], references: [id])
+  quantity  Int      @default(1)
+  price     Int      // snapshot price in paise
+}
+
+model Order {
+  id           String      @id @default(cuid())
+  orderNumber  String      @unique
+  userId       String?
+  user         User?       @relation(fields: [userId], references: [id])
+  addressId    String?
+  address      Address?    @relation(fields: [addressId], references: [id])
+  guestEmail   String?
+  guestName    String?
+  items        OrderItem[]
+  // Pricing
+  subtotal     Int
+  shipping     Int         @default(0)
+  tax          Int         @default(0)
+  discount     Int         @default(0)
+  total        Int
+  // Payment
+  paymentMethod String?    // UPI, CARD, COD, NET_BANKING
+  paymentStatus PaymentStatus @default(PENDING)
+  razorpayOrderId String?
+  razorpayPaymentId String?
+  // Fulfillment
+  status       OrderStatus @default(PLACED)
+  shippedAt    DateTime?
+  deliveredAt  DateTime?
+  trackingUrl  String?
+  awbNumber    String?
+  courier      String?
+  // Gift options
+  giftWrap     Boolean     @default(false)
+  personalNote String?
+  // GST
+  gstInvoice   String?
+  gstinCustomer String?
+  // Meta
+  source       String      @default("WEB")
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+  @@index([userId])
+  @@index([status])
+}
+
+model OrderItem {
+  id        String   @id @default(cuid())
+  orderId   String
+  order     Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId String
+  product   Product  @relation(fields: [productId], references: [id])
+  variantId String?
+  variant   Variant? @relation(fields: [variantId], references: [id])
+  quantity  Int
+  price     Int      // unit price in paise
+  total     Int      // line total
+}
+
+enum OrderStatus {
+  PLACED
+  CONFIRMED
+  PACKED
+  SHIPPED
+  OUT_FOR_DELIVERY
+  DELIVERED
+  CANCELLED
+  RETURNED
+  REFUNDED
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  FAILED
+  REFUNDED
+  PARTIALLY_REFUNDED
+}
+
+// ============ ENGAGEMENT ============
+model Wishlist {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  productId String
+  product   Product  @relation(fields: [productId], references: [id])
+  createdAt DateTime @default(now())
+  @@unique([userId, productId])
+}
+
+model Review {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  productId String
+  product   Product  @relation(fields: [productId], references: [id])
+  rating    Int
+  title     String?
+  body      String
+  images    String[] @default([])
+  status    ReviewStatus @default(PENDING)
+  createdAt DateTime @default(now())
+}
+
+enum ReviewStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+// ============ AI ============
+model AiPreview {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type        AiType
+  sourceImage String
+  outputImage String?
+  productIds  String[] @default([])
+  consentLogged Boolean @default(true)
+  deleteAt    DateTime
+  createdAt   DateTime @default(now())
+}
+
+enum AiType {
+  MIRROR
+  SPACE
+  GIFT_CONCIERGE
+}
+
+// ============ CMS ============
+model CmsPage {
+  id         String    @id @default(cuid())
+  slug       String    @unique
+  title      String
+  template   String
+  sections   Json
+  status     PageStatus @default(DRAFT)
+  scheduledAt DateTime?
+  publishedAt DateTime?
+  seoTitle   String?
+  seoDesc    String?
+  ogImage    String?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+}
+
+enum PageStatus {
+  DRAFT
+  PREVIEW
+  PUBLISHED
+  ARCHIVED
+}
+
+model Banner {
+  id        String   @id @default(cuid())
+  position  String   // hero, announcement, footer
+  title     String?
+  subtitle  String?
+  image     String?
+  video     String?
+  ctaText   String?
+  ctaUrl    String?
+  startsAt  DateTime?
+  endsAt    DateTime?
+  active    Boolean  @default(true)
+  order     Int      @default(0)
+}
+
+// ============ DISCOUNT ============
+model Coupon {
+  id          String   @id @default(cuid())
+  code        String   @unique
+  type        String   // PERCENT, FLAT, FREE_SHIPPING
+  value       Int
+  minCart     Int      @default(0)
+  maxDiscount Int?
+  maxUses     Int?
+  usedCount   Int      @default(0)
+  validFrom   DateTime @default(now())
+  validTo     DateTime?
+  active      Boolean  @default(true)
+}
