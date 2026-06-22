@@ -1,0 +1,2 @@
+Fetching deployment "neejee-platform-codebase-v2-fixed-7au5kw8qg.vercel.app" in akms-projects-1230b0a9
+status	● Error

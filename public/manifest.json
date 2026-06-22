@@ -1,0 +1,50 @@
+{
+  "name": "NEEJEE — Found. Personal.",
+  "short_name": "NEEJEE",
+  "description": "India's finest craft, personally chosen. Hand-woven sarees, oxidised silver, mitti attars.",
+  "start_url": "/?source=pwa",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#F4EFE6",
+  "theme_color": "#7C2D2D",
+  "lang": "en-IN",
+  "categories": ["shopping", "lifestyle", "fashion"],
+  "icons": [
+    {
+      "src": "/brand/logo-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/brand/logo-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/brand/logo-512-maskable.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Trunk (Cart)",
+      "url": "/cart",
+      "description": "View your trunk"
+    },
+    {
+      "name": "Your account",
+      "url": "/account",
+      "description": "Orders, wishlist, and Founder's Circle"
+    },
+    {
+      "name": "The Journal",
+      "url": "/journal",
+      "description": "Quiet dispatches from our atelier"
+    }
+  ]
+}

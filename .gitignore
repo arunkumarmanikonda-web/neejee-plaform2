@@ -1,0 +1,17 @@
+# NeeJee clean baseline
+node_modules/
+.next/
+.next_stuck_*/
+out/
+.vercel/
+*.log
+*.tsbuildinfo
+.env
+.env.*
+!.env.example
+
+# local backups / generated junk
+*.bak_*
+auth-secret-backup.txt
+tree-full.json
+tree-visible.json
