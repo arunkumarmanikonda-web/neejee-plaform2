@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 import { useEffect, useState } from 'react';
 import { formatINR } from '@/lib/money';
 import { Plus, Loader2, Receipt, AlertCircle, CheckCircle2 } from 'lucide-react';
@@ -69,7 +69,7 @@ export default function BillsPage() {
       </div>
 
       {loading ? (
-        <div className="text-mitti py-12 text-center"><Loader2 className="w-5 h-5 animate-spin inline mr-2" />Loading…</div>
+        <div className="text-mitti py-12 text-center"><Loader2 className="w-5 h-5 animate-spin inline mr-2" />Loadingâ€¦</div>
       ) : bills.length === 0 ? (
         <div className="bg-ivory border border-mitti/20 p-12 text-center text-mitti font-italic italic">No bills.</div>
       ) : (
@@ -116,7 +116,7 @@ export default function BillsPage() {
                         <a href={`/admin/finance/expenses?highlight=${b.expenseId}`}
                           className="ml-2 text-[10px] tracking-widest px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700 hover:bg-emerald-200 inline-flex items-center gap-1"
                           title="Linked P&L expense (auto-created)">
-                          → EXPENSE
+                          â†’ EXPENSE
                         </a>
                       )}
                     </td>
@@ -125,9 +125,9 @@ export default function BillsPage() {
                         <a href={`/admin/finance/vendor-ledger/${b.vendorId}`} className="hover:text-madder underline" title="View vendor ledger">
                           {b.vendorNameSnapshot || 'View ledger'}
                         </a>
-                      ) : (b.vendorNameSnapshot || '—')}
+                      ) : (b.vendorNameSnapshot || 'â€”')}
                     </td>
-                    <td className="p-3 text-mitti text-xs">{b.category?.label || '—'}</td>
+                    <td className="p-3 text-mitti text-xs">{b.category?.label || 'â€”'}</td>
                     <td className="p-3 text-right tabular-nums text-kohl">{formatINR(b.totalPaise)}</td>
                     <td className="p-3 text-right tabular-nums text-emerald-700">{formatINR(b.paidPaise)}</td>
                     <td className={`p-3 text-right tabular-nums ${outstanding > 0 ? 'text-madder' : 'text-mitti/40'}`}>
@@ -165,7 +165,7 @@ export default function BillsPage() {
 
 function NewBillForm({ categories: initialCategories, onSaved }: { categories: any[]; onSaved: () => void }) {
   const [categories, setCategories] = useState<any[]>(initialCategories);
-  // v23.39.4 — sync prop changes (parent loads categories asynchronously)
+  // v23.39.4 â€” sync prop changes (parent loads categories asynchronously)
   useEffect(() => { setCategories(initialCategories); }, [initialCategories]);
   const today = new Date().toISOString().slice(0, 10);
   const due30 = new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 10);
@@ -189,7 +189,7 @@ function NewBillForm({ categories: initialCategories, onSaved }: { categories: a
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...form,
-          // v23.39.4 — keep receiptUrl as the first attachment for back-compat
+          // v23.39.4 â€” keep receiptUrl as the first attachment for back-compat
           receiptUrl: form.attachments[0] || form.receiptUrl || null,
           attachments: form.attachments,
           amountPaise: Math.round(parseFloat(form.amountRupees) * 100),
@@ -227,8 +227,8 @@ function NewBillForm({ categories: initialCategories, onSaved }: { categories: a
             onChange={({ vendorId, vendorName }) => setForm({ ...form, vendorId, vendorNameSnapshot: vendorName })}
           />
         </div>
-        <Field label="AMOUNT (₹) *" type="number" value={form.amountRupees} onChange={v => setForm({ ...form, amountRupees: v })} />
-        <Field label="GST (₹)" type="number" value={form.gstRupees} onChange={v => setForm({ ...form, gstRupees: v })} />
+        <Field label="AMOUNT (â‚¹) *" type="number" value={form.amountRupees} onChange={v => setForm({ ...form, amountRupees: v })} />
+        <Field label="GST (â‚¹)" type="number" value={form.gstRupees} onChange={v => setForm({ ...form, gstRupees: v })} />
         <Field label="ISSUED ON *" type="date" value={form.issuedOn} onChange={v => setForm({ ...form, issuedOn: v })} />
         <Field label="DUE ON *" type="date" value={form.dueOn} onChange={v => setForm({ ...form, dueOn: v })} />
       </div>
@@ -239,7 +239,7 @@ function NewBillForm({ categories: initialCategories, onSaved }: { categories: a
           onChange={(urls) => setForm({ ...form, attachments: urls, receiptUrl: urls[0] || '' })}
           folder="finance-bills"
           label="ATTACH FILES"
-          helpText="Images (PNG/JPG/WebP), PDF, Excel, CSV — attach multiple"
+          helpText="Images (PNG/JPG/WebP), PDF, Excel, CSV â€” attach multiple"
           maxFiles={10}
         />
       </div>
@@ -251,7 +251,7 @@ function NewBillForm({ categories: initialCategories, onSaved }: { categories: a
       {err && <div className="mt-3 bg-madder/10 border border-madder p-3 text-madder text-sm">{err}</div>}
       <button onClick={submit} disabled={saving}
         className="mt-4 bg-kohl text-ivory px-5 py-2 font-ui text-xs tracking-widest disabled:opacity-50">
-        {saving ? 'SAVING…' : 'CREATE BILL'}
+        {saving ? 'SAVINGâ€¦' : 'CREATE BILL'}
       </button>
     </div>
   );
@@ -259,8 +259,7 @@ function NewBillForm({ categories: initialCategories, onSaved }: { categories: a
 
 function PayModal({ billId, bills, onClose, onPaid }: { billId: string; bills: any[]; onClose: () => void; onPaid: (amt: number) => void }) {
   const bill = bills.find(b => b.id === billId);
-  if (!bill) return null;
-  const outstanding = bill.totalPaise - bill.paidPaise;
+  const outstanding = bill ? bill.totalPaise - bill.paidPaise : 0;
   const [form, setForm] = useState({
     amountRupees: (outstanding / 100).toFixed(2),
     paidOn: new Date().toISOString().slice(0, 10),
@@ -273,6 +272,8 @@ function PayModal({ billId, bills, onClose, onPaid }: { billId: string; bills: a
   });
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState('');
+
+  if (!bill) return null;
 
   const submit = async () => {
     setErr(''); setSaving(true);
@@ -310,7 +311,7 @@ function PayModal({ billId, bills, onClose, onPaid }: { billId: string; bills: a
         <p className="text-mitti text-xs mt-1">Outstanding: <strong className="text-kohl">{formatINR(outstanding)}</strong></p>
 
         <div className="space-y-3 mt-5">
-          <Field label="AMOUNT (₹) *" type="number" value={form.amountRupees} onChange={v => setForm({ ...form, amountRupees: v })} />
+          <Field label="AMOUNT (â‚¹) *" type="number" value={form.amountRupees} onChange={v => setForm({ ...form, amountRupees: v })} />
           <Field label="PAID ON *" type="date" value={form.paidOn} onChange={v => setForm({ ...form, paidOn: v })} />
           <div>
             <p className="label text-banarasi mb-1">METHOD</p>
@@ -330,7 +331,7 @@ function PayModal({ billId, bills, onClose, onPaid }: { billId: string; bills: a
             onChange={(urls) => setForm({ ...form, attachments: urls, receiptUrl: urls[0] || '' })}
             folder="finance-payments"
             label="PAYMENT RECEIPTS (optional)"
-            helpText="Images, PDF — attach multiple"
+            helpText="Images, PDF â€” attach multiple"
             maxFiles={6}
           />
           <label className="flex items-center gap-2 text-sm">
@@ -344,7 +345,7 @@ function PayModal({ billId, bills, onClose, onPaid }: { billId: string; bills: a
         <div className="flex gap-2 mt-5">
           <button onClick={submit} disabled={saving}
             className="flex-1 bg-kohl text-ivory px-4 py-2 font-ui text-xs tracking-widest disabled:opacity-50">
-            {saving ? 'RECORDING…' : 'RECORD PAYMENT'}
+            {saving ? 'RECORDINGâ€¦' : 'RECORD PAYMENT'}
           </button>
           <button onClick={onClose} className="px-4 py-2 border border-mitti/30 text-mitti font-ui text-xs tracking-widest">
             CANCEL
@@ -364,3 +365,4 @@ function Field({ label, value, onChange, type = 'text', placeholder }: { label: 
     </div>
   );
 }
+
