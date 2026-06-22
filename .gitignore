@@ -15,3 +15,7 @@ out/
 auth-secret-backup.txt
 tree-full.json
 tree-visible.json
+
+*.zip
+_backup_*/
+*.bak
