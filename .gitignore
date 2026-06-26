@@ -25,3 +25,7 @@ _phase0/
 .env.local
 
 .env.*.local
+
+_phase1/reports/
+
+_phase1/patch-backups/

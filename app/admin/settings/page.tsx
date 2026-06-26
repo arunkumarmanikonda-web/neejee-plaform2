@@ -64,7 +64,7 @@ export default async function AdminSettings() {
             <Row label="NODE_ENV" value={env.nodeEnv || 'â€”'} />
             <Row label="DATABASE_URL" value={env.database ? 'âœ“ Connected' : 'âœ— Not set'} color={env.database ? 'text-neem' : 'text-madder'} />
             <Row label="DIRECT_URL" value={env.directUrl ? 'âœ“ Set' : 'âš  Not set (Prisma migrations may fail)'} color={env.directUrl ? 'text-neem' : 'text-haldi'} />
-            <Row label="AUTH_SECRET" value={env.authSecret ? 'âœ“ Set' : 'âš  Using default (insecure)'} color={env.authSecret ? 'text-neem' : 'text-haldi'} />
+            <Row label="AUTH_SECRET" value={env.authSecret ? 'configured' : 'missing'} />
             <Row label="SUPABASE_STORAGE" value={env.storage ? 'âœ“ Configured' : 'âœ— Not configured'} color={env.storage ? 'text-neem' : 'text-madder'} />
             <Row label="RAZORPAY_KEY_ID" value={env.razorpayKey ? 'âœ“ Set' : 'âœ— Not set'} color={env.razorpayKey ? 'text-neem' : 'text-madder'} />
             <Row label="RAZORPAY_KEY_SECRET" value={env.razorpaySecret ? 'âœ“ Set' : 'âœ— Not set'} color={env.razorpaySecret ? 'text-neem' : 'text-madder'} />
@@ -134,4 +134,6 @@ function Row({ label, value, color = 'text-kohl', mono = false }: any) {
     </div>
   );
 }
+
+
 
