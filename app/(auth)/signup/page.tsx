@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 import { useState, useEffect, Suspense } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -90,7 +90,7 @@ function SignupInner() {
             <div>
               <p className="font-display text-kohl">A friend sent you here.</p>
               <p className="font-italic italic text-mitti text-sm mt-1">
-                Referral code <strong className="text-madder">{form.referralCode}</strong> applied. You’ll receive 10% off your first order.
+                Referral code <strong className="text-madder">{form.referralCode}</strong> applied. Youâ€™ll receive 10% off your first order.
               </p>
             </div>
           </div>
@@ -123,7 +123,7 @@ function SignupInner() {
               defaultCountry="IN"
             />
             <p className="text-[10px] tracking-wider text-mitti/70 mt-1">
-              We use this only for order updates and (if you choose) WhatsApp / SMS.
+              We use this for account and order communication. Extra messaging channels are currently paused in Phase 0.
             </p>
           </div>
 
@@ -153,25 +153,25 @@ function SignupInner() {
           <div className="border border-mitti/20 bg-beige/40 p-4 space-y-2.5">
             <p className="label text-mitti">HOW SHOULD WE REACH YOU</p>
             <p className="text-[11px] text-mitti/80 leading-relaxed">
-              You always get order updates by email. Choose any extra channels you like.
+              You always get order updates by email. Extra messaging channels will be enabled only after Phase 0.
             </p>
             <label className="flex items-start gap-2.5 cursor-pointer">
               <input
                 type="checkbox"
-                checked={form.whatsappOptIn}
+                checked={false} disabled
                 onChange={e => setForm({ ...form, whatsappOptIn: e.target.checked })}
                 className="mt-0.5 accent-madder"
               />
-              <span className="text-sm text-kohl">WhatsApp updates <span className="text-mitti/70">— shipping &amp; delivery</span></span>
+              <span className="text-sm text-kohl">WhatsApp updates <span className="text-mitti/70">â€” shipping &amp; delivery</span></span>
             </label>
             <label className="flex items-start gap-2.5 cursor-pointer">
               <input
                 type="checkbox"
-                checked={form.smsOptIn}
+                checked={false} disabled
                 onChange={e => setForm({ ...form, smsOptIn: e.target.checked })}
                 className="mt-0.5 accent-madder"
               />
-              <span className="text-sm text-kohl">SMS alerts <span className="text-mitti/70">— OTPs &amp; delivery</span></span>
+              <span className="text-sm text-kohl">SMS alerts <span className="text-mitti/70">â€” OTPs &amp; delivery</span></span>
             </label>
           </div>
 
@@ -184,7 +184,7 @@ function SignupInner() {
               className="mt-0.5 accent-madder"
             />
             <span className="text-xs text-kohl/85 leading-relaxed">
-              Send me quiet letters from NEEJEE — new drops, founder notes, and craft stories.
+              Send me quiet letters from NEEJEE â€” new drops, founder notes, and craft stories.
               You can unsubscribe in one tap, always.
             </span>
           </label>
@@ -196,12 +196,12 @@ function SignupInner() {
             disabled={loading}
             className="btn-primary w-full disabled:opacity-50"
           >
-            {loading ? 'CREATING…' : 'CREATE TRUNK'}
+            {loading ? 'CREATINGâ€¦' : 'CREATE TRUNK'}
           </button>
         </form>
 
         <p className="label text-monsoon mt-4 text-center">
-          BY SIGNING UP YOU AGREE TO OUR <Link href="/legal/terms" className="underline">TERMS</Link> · <Link href="/legal/privacy" className="underline">PRIVACY</Link> · DPDP-COMPLIANT
+          BY SIGNING UP YOU AGREE TO OUR <Link href="/legal/terms" className="underline">TERMS</Link> Â· <Link href="/legal/privacy" className="underline">PRIVACY</Link> Â· DPDP-COMPLIANT
         </p>
         <p className="font-italic italic text-mitti text-center mt-10">
           Already a member? <Link href="/login" className="text-madder underline">Sign in</Link>
@@ -211,3 +211,4 @@ function SignupInner() {
     </>
   );
 }
+

@@ -19,3 +19,9 @@ tree-visible.json
 *.zip
 _backup_*/
 *.bak
+
+_phase0/
+
+.env.local
+
+.env.*.local

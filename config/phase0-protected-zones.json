@@ -1,0 +1,20 @@
+﻿{
+  "phase": "0",
+  "protectedZones": [
+    "app/api/checkout",
+    "app/api/razorpay",
+    "app/api/admin/finance",
+    "app/api/cron/finance",
+    "prisma",
+    "lib/pricing",
+    "lib/inventory",
+    "lib/warehouse",
+    "lib/taxonomy"
+  ],
+  "allowedFocus": [
+    "auth surface hardening",
+    "phase0 docs and registry",
+    "unsafe test route disablement",
+    "env and backup prep"
+  ]
+}

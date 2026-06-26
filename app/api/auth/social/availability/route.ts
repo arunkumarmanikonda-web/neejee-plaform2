@@ -1,4 +1,4 @@
-// Returns which social providers are configured server-side, plus the public
+﻿// Returns which social providers are configured server-side, plus the public
 // IDs the client needs to render the OAuth buttons. This avoids the NEXT_PUBLIC_*
 // build-time inlining problem (env vars added AFTER a build are invisible to
 // the client bundle).
@@ -12,7 +12,7 @@ export async function GET() {
   const avail = socialAuthAvailable();
   return NextResponse.json({
     ...avail,
-    // Public IDs — safe to expose; the browser needs them to render the SDK widgets.
+    // Public IDs â€” safe to expose; the browser needs them to render the SDK widgets.
     // Prefer NEXT_PUBLIC_* if present (build-time inlined), else fall back to the
     // server-side var (works even if NEXT_PUBLIC_ wasn't set at build time).
     googleClientId: avail.google
@@ -26,7 +26,9 @@ export async function GET() {
       : '',
     // Phone-OTP login is gated by a server-side flag so we can flip it on later
     // (once DLT registration is approved) without a redeploy. Defaults to OFF
-    // because Fast2SMS Quick SMS is ₹5/SMS and DLT requires approval.
-    otpEnabled: process.env.OTP_LOGIN_ENABLED === 'true',
+    // because Fast2SMS Quick SMS is â‚¹5/SMS and DLT requires approval.
+    otpEnabled: false,
   });
 }
+
+

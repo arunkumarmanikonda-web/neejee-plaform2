@@ -1,0 +1,2 @@
+#!/bin/sh
+powershell -NoProfile -ExecutionPolicy Bypass -File "./scripts/phase0/check-protected-zones.ps1"

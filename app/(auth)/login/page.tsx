@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 import { Suspense, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import Script from 'next/script';
@@ -62,7 +62,7 @@ function LoginInner() {
     return () => clearTimeout(t);
   }, [resendCountdown]);
 
-  // ─────────────── Step 1: identity (phone or email auto-detect) ───────────────
+  // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ Step 1: identity (phone or email auto-detect) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const onIdentitySubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(''); setInfo(''); setLoading(true);
@@ -73,7 +73,7 @@ function LoginInner() {
         setResolvedEmail(cleaned.toLowerCase());
         setStep('password');
       } else if (looksLikePhone(cleaned) || /^\d/.test(cleaned)) {
-        // Phone path — only available when OTP is server-enabled. While DLT/website
+        // Phone path â€” only available when OTP is server-enabled. While DLT/website
         // verification is pending, route the user gently to email or Google.
         if (!otpEnabled) {
           setError('Mobile sign-in is coming soon. Please use your email, or continue with Google.');
@@ -98,7 +98,7 @@ function LoginInner() {
     }
   };
 
-  // ─────────────── Send OTP ───────────────
+  // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ Send OTP â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const sendOtp = async (phone: string) => {
     setError(''); setInfo(''); setMockCode('');
     setLoading(true);
@@ -112,7 +112,7 @@ function LoginInner() {
       const d = await res.json();
       if (!res.ok) {
         // Always show the polite, server-curated message. Never expose provider internals.
-        setError(d.error || 'We couldn’t send the code. Please try again.');
+        setError(d.error || 'We couldnâ€™t send the code. Please try again.');
         return;
       }
       setStep('otp');
@@ -120,7 +120,7 @@ function LoginInner() {
       setResendCountdown(45);
       if (d.mock && d.mockCode) {
         setMockCode(d.mockCode);
-        setInfo('SMS provider not configured. Code shown below for testing.');
+        setInfo('Phone OTP is temporarily paused in Phase 0. Please use email login.');
       } else {
         setInfo(`Code sent to ${formatPhoneDisplay(phone)}.`);
       }
@@ -131,7 +131,7 @@ function LoginInner() {
     }
   };
 
-  // ─────────────── Step 2a: password ───────────────
+  // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ Step 2a: password â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const onPasswordSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(''); setLoading(true);
@@ -189,7 +189,7 @@ function LoginInner() {
     }
   };
 
-  // ─────────────── Step 2b: OTP verify ───────────────
+  // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ Step 2b: OTP verify â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const onOtpSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(''); setLoading(true);
@@ -215,7 +215,7 @@ function LoginInner() {
     }
   };
 
-  // ─────────────── Social handlers ───────────────
+  // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ Social handlers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const handleGoogleCredential = async (credential: string) => {
     setError(''); setLoading(true);
     try {
@@ -235,7 +235,7 @@ function LoginInner() {
     finally { setLoading(false); }
   };
 
-  // Google Identity Services button wiring — polls until the GSI library loads.
+  // Google Identity Services button wiring â€” polls until the GSI library loads.
   const googleBtnRef = useRef<HTMLDivElement>(null);
   const [googleClientId, setGoogleClientId] = useState<string>('');
 
@@ -319,7 +319,7 @@ function LoginInner() {
     }, { scope: 'public_profile,email' });
   };
 
-  // ─────────────── Render ───────────────
+  // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ Render â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   return (
     <>
       {socialAvailable.google && (
@@ -343,7 +343,7 @@ function LoginInner() {
       )}
 
       <div className="space-y-4 max-w-sm mx-auto w-full">
-        {/* ── Step: identity ─────────────────────────── */}
+        {/* â”€â”€ Step: identity â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
         {step === 'identity' && (
           <IdentityField
             identifier={identifier}
@@ -357,7 +357,7 @@ function LoginInner() {
           />
         )}
 
-        {/* ── Step: password (after email) ──────────── */}
+        {/* â”€â”€ Step: password (after email) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
         {step === 'password' && (
           <form onSubmit={onPasswordSubmit} className="space-y-4">
             <button type="button" onClick={() => { setStep('identity'); setError(''); }} className="inline-flex items-center gap-1 text-xs text-mitti hover:text-madder">
@@ -380,12 +380,12 @@ function LoginInner() {
             </div>
             {error && <p className="font-ui text-xs text-madder">{error}</p>}
             <button type="submit" disabled={loading} className="btn-primary w-full disabled:opacity-50">
-              {loading ? 'Signing in…' : 'SIGN IN'}
+              {loading ? 'Signing inâ€¦' : 'SIGN IN'}
             </button>
           </form>
         )}
 
-        {/* ── Step: OTP (after phone) ─────────────── */}
+        {/* â”€â”€ Step: OTP (after phone) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
         {step === 'otp' && (
           <form onSubmit={onOtpSubmit} className="space-y-4">
             <button type="button" onClick={() => { setStep('identity'); setError(''); setInfo(''); setMockCode(''); }} className="inline-flex items-center gap-1 text-xs text-mitti hover:text-madder">
@@ -395,7 +395,7 @@ function LoginInner() {
             {info && <p className="text-xs italic text-mitti">{info}</p>}
             {mockCode && (
               <div className="p-3 bg-haldi/20 border border-haldi text-xs">
-                <p className="font-ui uppercase tracking-widest text-mitti mb-1">Dev mode — your OTP</p>
+                <p className="font-ui uppercase tracking-widest text-mitti mb-1">Dev mode â€” your OTP</p>
                 <p className="font-mono text-lg text-madder tracking-widest">{mockCode}</p>
               </div>
             )}
@@ -413,7 +413,7 @@ function LoginInner() {
             />
             {error && <p className="font-ui text-xs text-madder">{error}</p>}
             <button type="submit" disabled={loading || otp.length < 4} className="btn-primary w-full disabled:opacity-50">
-              {loading ? 'Verifying…' : 'VERIFY & SIGN IN'}
+              {loading ? 'Verifyingâ€¦' : 'VERIFY & SIGN IN'}
             </button>
             <button
               type="button"
@@ -426,7 +426,7 @@ function LoginInner() {
           </form>
         )}
 
-        {/* ── Step: Admin 2FA (after password for admin users) ── */}
+        {/* â”€â”€ Step: Admin 2FA (after password for admin users) â”€â”€ */}
         {step === 'admin_2fa' && (
           <form onSubmit={on2FASubmit} className="space-y-4">
             <button type="button" onClick={() => { setStep('password'); setError(''); setInfo(''); setTwoFACode(''); setMockCode(''); }} className="inline-flex items-center gap-1 text-xs text-mitti hover:text-madder">
@@ -438,7 +438,7 @@ function LoginInner() {
             {info && <p className="text-xs italic text-mitti">{info}</p>}
             {mockCode && (
               <div className="p-3 bg-haldi/20 border border-haldi text-xs">
-                <p className="font-ui uppercase tracking-widest text-mitti mb-1">Dev mode — your 2FA code</p>
+                <p className="font-ui uppercase tracking-widest text-mitti mb-1">Dev mode â€” your 2FA code</p>
                 <p className="font-mono text-lg text-madder tracking-widest">{mockCode}</p>
               </div>
             )}
@@ -456,12 +456,12 @@ function LoginInner() {
             />
             {error && <p className="font-ui text-xs text-madder">{error}</p>}
             <button type="submit" disabled={loading || twoFACode.length < 4} className="btn-primary w-full disabled:opacity-50">
-              {loading ? 'Verifying…' : 'VERIFY & SIGN IN'}
+              {loading ? 'Verifyingâ€¦' : 'VERIFY & SIGN IN'}
             </button>
           </form>
         )}
 
-        {/* ── Social buttons — only visible on the identity step ── */}
+        {/* â”€â”€ Social buttons â€” only visible on the identity step â”€â”€ */}
         {step === 'identity' && (socialAvailable.google || socialAvailable.facebook) && (
           <>
             <div className="flex items-center gap-2 my-4">
@@ -496,7 +496,7 @@ export default function LoginPage() {
         <h1 className="font-display text-4xl text-kohl text-center mt-2">Sign in</h1>
         <p className="font-italic italic text-mitti text-center mt-2">A quieter way in.</p>
         <div className="madder-divider mx-auto mt-4 mb-10"></div>
-        <Suspense fallback={<div className="font-ui text-xs text-mitti text-center">Loading…</div>}>
+        <Suspense fallback={<div className="font-ui text-xs text-mitti text-center">Loadingâ€¦</div>}>
           <LoginInner />
         </Suspense>
         <p className="font-italic italic text-mitti text-center mt-10">
@@ -508,17 +508,17 @@ export default function LoginPage() {
   );
 }
 
-// ─────────────── IdentityField — smart phone-or-email input with country code dropdown ───────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ IdentityField â€” smart phone-or-email input with country code dropdown â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 const COUNTRY_CODES: Array<{ code: string; label: string; flag: string }> = [
-  { code: '+91', label: 'India',        flag: '🇮🇳' },
-  { code: '+1',  label: 'USA / Canada', flag: '🇺🇸' },
-  { code: '+44', label: 'UK',           flag: '🇬🇧' },
-  { code: '+971', label: 'UAE',         flag: '🇦🇪' },
-  { code: '+65', label: 'Singapore',    flag: '🇸🇬' },
-  { code: '+61', label: 'Australia',    flag: '🇦🇺' },
-  { code: '+49', label: 'Germany',      flag: '🇩🇪' },
-  { code: '+33', label: 'France',       flag: '🇫🇷' },
+  { code: '+91', label: 'India',        flag: 'ðŸ‡®ðŸ‡³' },
+  { code: '+1',  label: 'USA / Canada', flag: 'ðŸ‡ºðŸ‡¸' },
+  { code: '+44', label: 'UK',           flag: 'ðŸ‡¬ðŸ‡§' },
+  { code: '+971', label: 'UAE',         flag: 'ðŸ‡¦ðŸ‡ª' },
+  { code: '+65', label: 'Singapore',    flag: 'ðŸ‡¸ðŸ‡¬' },
+  { code: '+61', label: 'Australia',    flag: 'ðŸ‡¦ðŸ‡º' },
+  { code: '+49', label: 'Germany',      flag: 'ðŸ‡©ðŸ‡ª' },
+  { code: '+33', label: 'France',       flag: 'ðŸ‡«ðŸ‡·' },
 ];
 
 function IdentityField({
@@ -551,7 +551,7 @@ function IdentityField({
           {otpEnabled ? 'Mobile or email' : 'Email'}
         </span>
         <div className="mt-1 flex">
-          {/* Country code dropdown — only shown when OTP is enabled AND user typed phone-like input */}
+          {/* Country code dropdown â€” only shown when OTP is enabled AND user typed phone-like input */}
           {otpEnabled && isPhone && (
             <select
               value={countryCode}
@@ -601,9 +601,10 @@ function IdentityField({
         className="btn-primary w-full disabled:opacity-50"
       >
         {loading
-          ? <span className="inline-flex items-center gap-2"><Loader2 className="w-4 h-4 animate-spin" /> Continuing…</span>
+          ? <span className="inline-flex items-center gap-2"><Loader2 className="w-4 h-4 animate-spin" /> Continuingâ€¦</span>
           : 'CONTINUE'}
       </button>
     </form>
   );
 }
+
