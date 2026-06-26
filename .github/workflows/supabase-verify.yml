@@ -1,0 +1,31 @@
+﻿name: Supabase Verify (read-only)
+
+on:
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'supabase/**'
+      - '.github/workflows/supabase-verify.yml'
+  workflow_dispatch:
+
+jobs:
+  verify:
+    name: Verify Supabase migrations (no db push)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Start local Supabase
+        run: supabase db start
+
+      - name: Validate migrations apply cleanly to a fresh local DB
+        run: supabase db reset
+
+      - name: Summary
+        run: echo "Phase 1.5 verify run complete. No production DB was touched."
