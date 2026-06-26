@@ -119,7 +119,7 @@ function LoginInner() {
       setResolvedPhone(d.phone || phone);
       setResendCountdown(45);
       if (d.mock && d.mockCode) {
-        setMockCode(d.mockCode);
+        setMockCode('');
         setInfo('Phone OTP is temporarily paused in Phase 0. Please use email login.');
       } else {
         setInfo(`Code sent to ${formatPhoneDisplay(phone)}.`);
@@ -147,7 +147,7 @@ function LoginInner() {
         setTwoFAPhoneMask(data.phoneMask || '');
         setStep('admin_2fa');
         setInfo(`A 6-digit security code has been sent to ${data.phoneMask}. Enter it to finish signing in.`);
-        if (data.devCode) setMockCode(data.devCode);
+        if (data.devCode) setMockCode('');
         return;
       }
       if (!res.ok) {
@@ -393,7 +393,7 @@ function LoginInner() {
             </button>
             <div className="flex items-center gap-2 text-sm text-kohl"><Smartphone className="w-4 h-4 text-madder" /> {formatPhoneDisplay(resolvedPhone)}</div>
             {info && <p className="text-xs italic text-mitti">{info}</p>}
-            {mockCode && (
+            {false && (
               <div className="p-3 bg-haldi/20 border border-haldi text-xs">
                 <p className="font-ui uppercase tracking-widest text-mitti mb-1">Dev mode â€” your OTP</p>
                 <p className="font-mono text-lg text-madder tracking-widest">{mockCode}</p>
@@ -436,7 +436,7 @@ function LoginInner() {
               <Smartphone className="w-4 h-4 text-madder" /> 2FA code sent to {twoFAPhoneMask}
             </div>
             {info && <p className="text-xs italic text-mitti">{info}</p>}
-            {mockCode && (
+            {false && (
               <div className="p-3 bg-haldi/20 border border-haldi text-xs">
                 <p className="font-ui uppercase tracking-widest text-mitti mb-1">Dev mode â€” your 2FA code</p>
                 <p className="font-mono text-lg text-madder tracking-widest">{mockCode}</p>
@@ -607,4 +607,5 @@ function IdentityField({
     </form>
   );
 }
+
 
