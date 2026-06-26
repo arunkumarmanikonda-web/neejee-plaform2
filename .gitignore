@@ -55,3 +55,7 @@ _phase0/env/*
 !_phase0/env/.env.phase0.normalized.example
 _phase1/reports/
 _phase1/patch-backups/
+# Supabase CLI local state
+supabase/.temp/
+supabase/.branches/
+.supabase/
