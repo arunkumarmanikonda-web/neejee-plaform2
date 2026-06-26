@@ -66,11 +66,11 @@ export default async function AdminSettings() {
             <Row label="DIRECT_URL" value={env.directUrl ? 'âœ“ Set' : 'âš  Not set (Prisma migrations may fail)'} color={env.directUrl ? 'text-neem' : 'text-haldi'} />
             <Row label="AUTH_SECRET" value={env.authSecret ? 'configured' : 'missing'} />
             <Row label="SUPABASE_STORAGE" value={env.storage ? 'âœ“ Configured' : 'âœ— Not configured'} color={env.storage ? 'text-neem' : 'text-madder'} />
-            <Row label="RAZORPAY_KEY_ID" value={env.razorpayKey ? 'âœ“ Set' : 'âœ— Not set'} color={env.razorpayKey ? 'text-neem' : 'text-madder'} />
-            <Row label="RAZORPAY_KEY_SECRET" value={env.razorpaySecret ? 'âœ“ Set' : 'âœ— Not set'} color={env.razorpaySecret ? 'text-neem' : 'text-madder'} />
+            <Row label="RAZORPAY_KEY_ID" value={env.razorpayKey ? 'configured' : 'missing'} />
+            <Row label="RAZORPAY_KEY_SECRET" value={env.razorpaySecret ? 'configured' : 'missing'} />
             <Row label="SHIPROCKET" value={(env.shiprocketEmail && env.shiprocketPassword) ? 'âœ“ Set' : 'âœ— Not set (manual fulfillment)'} color={(env.shiprocketEmail && env.shiprocketPassword) ? 'text-neem' : 'text-haldi'} />
-            <Row label="WATI (WhatsApp)" value={env.watiKey ? 'âœ“ Set' : 'âœ— Not set'} color={env.watiKey ? 'text-neem' : 'text-haldi'} />
-            <Row label="RESEND (Email)" value={env.resendKey ? 'âœ“ Set' : 'âœ— Not set'} color={env.resendKey ? 'text-neem' : 'text-haldi'} />
+            <Row label="WATI (WhatsApp)" value={env.watiKey ? 'configured' : 'missing'} />
+            <Row label="RESEND (Email)" value={env.resendKey ? 'configured' : 'missing'} />
             <Row label="FAL_KEY (AI Mirror / Space)" value={env.falKey ? 'âœ“ Set' : 'âœ— Not set'} color={env.falKey ? 'text-neem' : 'text-haldi'} />
             <Row label="OPENAI (Gift / Content)" value={env.openaiKey ? 'âœ“ Set' : 'âœ— Not set'} color={env.openaiKey ? 'text-neem' : 'text-haldi'} />
             <Row label="REPLICATE (legacy)" value={env.replicateToken ? 'âœ“ Set' : 'âœ— Not set'} color={env.replicateToken ? 'text-neem' : 'text-mitti/40'} />
@@ -134,6 +134,7 @@ function Row({ label, value, color = 'text-kohl', mono = false }: any) {
     </div>
   );
 }
+
 
 
 
