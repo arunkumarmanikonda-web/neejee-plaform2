@@ -76,12 +76,18 @@ export async function POST(request: Request) {
         }
 
         return NextResponse.json({ error: 'Restricted login path is disabled in Phase 1.' }, { status: 403 });
+      }
+    } catch (error) {
+      console.error('Login route DB auth error', error);
+    }
   }
+
   if (email === 'admin@neejee.com' && password === 'admin123') {
     return NextResponse.json({ error: 'Restricted admin login path is disabled in Phase 1.' }, { status: 403 });
   }
 
   return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 });
 }
+
 
 
