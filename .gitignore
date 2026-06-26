@@ -1,4 +1,4 @@
-# NeeJee clean baseline
+﻿# NeeJee clean baseline
 node_modules/
 .next/
 .next_stuck_*/
@@ -20,12 +20,38 @@ tree-visible.json
 _backup_*/
 *.bak
 
-_phase0/
 
 .env.local
 
 .env.*.local
 
-_phase1/reports/
 
+
+
+
+
+_phase0/*
+
+
+_phase0/env/*
+
+
+_phase0/*
+
+_phase0_should_not_exist_ignore_guard
+
+_phase0_should_not_exist_ignore_guard_2
+
+_phase0_fix_dummy
+
+_phase0/*
+_phase0/env/*
+
+# Phase 0 / Phase 1 generated artifacts
+_phase0/*
+!_phase0/
+!_phase0/env/
+_phase0/env/*
+!_phase0/env/.env.phase0.normalized.example
+_phase1/reports/
 _phase1/patch-backups/
