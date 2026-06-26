@@ -1,0 +1,73 @@
+name: Supabase Schema Capture (read-only, cloud)
+
+# Manually triggered only. Does NOT run on push. Does NOT write to production DB.
+# It connects to your linked Supabase project, runs supabase db pull,
+# and opens a PR with the captured schema migration.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  capture:
+    name: Read-only schema capture
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Validate required secrets exist
+        run: |
+          if [ -z "${{ secrets.SUPABASE_ACCESS_TOKEN }}" ]; then
+            echo "Missing secret: SUPABASE_ACCESS_TOKEN"
+            exit 1
+          fi
+          if [ -z "${{ secrets.SUPABASE_DB_PASSWORD }}" ]; then
+            echo "Missing secret: SUPABASE_DB_PASSWORD"
+            exit 1
+          fi
+
+      - name: Link to Supabase project (read-only metadata)
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: |
+          # project_id is read from supabase/config.toml
+          PROJECT_REF=$(grep '^project_id' supabase/config.toml | cut -d'"' -f2)
+          echo "Linking to project ref: $PROJECT_REF"
+          supabase link --project-ref "$PROJECT_REF"
+
+      - name: Pull schema (READ-ONLY)
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+        run: |
+          supabase db pull --password "$SUPABASE_DB_PASSWORD"
+          echo "---- Captured files ----"
+          ls -la supabase/migrations || true
+
+      - name: Open Pull Request with captured schema
+        uses: peter-evans/create-pull-request@v6
+        with:
+          branch: ci/supabase-schema-capture
+          base: dev/supabase-from-git-stage2
+          commit-message: "phase1.5: captured production schema (read-only via CI)"
+          title: "phase1.5: captured production schema (read-only via CI)"
+          body: |
+            Automated, read-only capture of the current production Supabase schema.
+
+            - Source: supabase db pull against linked project
+            - No writes were made to the production database
+            - Target branch: dev/supabase-from-git-stage2 (NOT main)
+            - Review before any merge
+
+          add-paths: |
+            supabase/migrations
+          delete-branch: true
