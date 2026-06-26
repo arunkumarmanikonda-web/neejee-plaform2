@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+﻿import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { prisma } from '@/lib/prisma';
 import { setSessionCookie, verifyPassword } from '@/lib/auth';
@@ -71,39 +71,17 @@ export async function POST(request: Request) {
             requires2FA: true,
             phoneMask: maskPhone(user.phone),
             expiresInSec: otpResult.expiresInSec,
-            ...(otpResult.devCode ? { devCode: otpResult.devCode } : {}),
+            
           });
         }
 
-        await setSessionCookie({
-          id: user.id, email: user.email,
-          name: user.name || undefined, role: user.role as any,
-        });
-        return NextResponse.json({
-          success: true,
-          source: 'db',
-          role: user.role,
-          redirect: redirectFor(user.role),
-        });
-      }
-      if (user) {
-        return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 });
-      }
-      // user not found — fall through to dev bypass
-    } catch (e: any) {
-      console.warn('[login] DB failed:', e.message);
-    }
-  }
-
-  // Dev bypass for known demo accounts (works even without DB)
-  if (email === 'demo@neejee.com' && password === 'neejee123') {
-    await setSessionCookie({ id: 'demo1', email, name: 'Aanya M.', role: 'CUSTOMER' });
-    return NextResponse.json({ success: true, source: 'demo-bypass', role: 'CUSTOMER', redirect: '/account' });
+        return NextResponse.json({ error: 'Restricted login path is disabled in Phase 1.' }, { status: 403 });
   }
   if (email === 'admin@neejee.com' && password === 'admin123') {
-    await setSessionCookie({ id: 'admin1', email, name: 'Nidhi Chauhan', role: 'SUPER_ADMIN' });
-    return NextResponse.json({ success: true, source: 'demo-bypass', role: 'SUPER_ADMIN', redirect: '/admin' });
+    return NextResponse.json({ error: 'Restricted admin login path is disabled in Phase 1.' }, { status: 403 });
   }
 
   return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 });
 }
+
+

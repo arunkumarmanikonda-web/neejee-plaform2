@@ -31,7 +31,7 @@ function LoginInner() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [info, setInfo] = useState('');
-  const [phase1SuppressedPreview, setPhase1SuppressedPreview] = useState('');
+  const [mockCode, setMockCode] = useState('');  // dev-mode echo from /otp/send
   const [resendCountdown, setResendCountdown] = useState(0);
   const [socialAvailable, setSocialAvailable] = useState<{ google: boolean; apple: boolean; facebook: boolean }>({
     google: false, apple: false, facebook: false,  // apple kept in shape for future, never rendered
@@ -100,7 +100,7 @@ function LoginInner() {
 
   // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ Send OTP â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const sendOtp = async (phone: string) => {
-    setError(''); setInfo(''); setPhase1SuppressedPreview('');
+    setError(''); setInfo(''); setMockCode('');
     setLoading(true);
     try {
       // v23.36: switched to /otp/request with purpose (DLT registry-backed flow)
@@ -118,8 +118,8 @@ function LoginInner() {
       setStep('otp');
       setResolvedPhone(d.phone || phone);
       setResendCountdown(45);
-      if (false && d.mock && d.phase1SuppressedPreview) {
-        setPhase1SuppressedPreview('');
+      if (d.mock && d.mockCode) {
+        setMockCode('');
         setInfo('Phone OTP is temporarily paused in Phase 0. Please use email login.');
       } else {
         setInfo(`Code sent to ${formatPhoneDisplay(phone)}.`);
@@ -147,7 +147,7 @@ function LoginInner() {
         setTwoFAPhoneMask(data.phoneMask || '');
         setStep('admin_2fa');
         setInfo(`A 6-digit security code has been sent to ${data.phoneMask}. Enter it to finish signing in.`);
-        
+        if (data.devCode) setMockCode('');
         return;
       }
       if (!res.ok) {
@@ -388,15 +388,15 @@ function LoginInner() {
         {/* â”€â”€ Step: OTP (after phone) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
         {step === 'otp' && (
           <form onSubmit={onOtpSubmit} className="space-y-4">
-            <button type="button" onClick={() => { setStep('identity'); setError(''); setInfo(''); setPhase1SuppressedPreview(''); }} className="inline-flex items-center gap-1 text-xs text-mitti hover:text-madder">
+            <button type="button" onClick={() => { setStep('identity'); setError(''); setInfo(''); setMockCode(''); }} className="inline-flex items-center gap-1 text-xs text-mitti hover:text-madder">
               <ArrowLeft className="w-3 h-3" /> Use a different number
             </button>
             <div className="flex items-center gap-2 text-sm text-kohl"><Smartphone className="w-4 h-4 text-madder" /> {formatPhoneDisplay(resolvedPhone)}</div>
             {info && <p className="text-xs italic text-mitti">{info}</p>}
             {false && (
               <div className="p-3 bg-haldi/20 border border-haldi text-xs">
-                <p className="font-ui uppercase tracking-widest text-mitti mb-1">OTP preview disabled</p>
-                
+                <p className="font-ui uppercase tracking-widest text-mitti mb-1">Dev mode â€” your OTP</p>
+                <p className="font-mono text-lg text-madder tracking-widest">{mockCode}</p>
               </div>
             )}
             <input
@@ -429,7 +429,7 @@ function LoginInner() {
         {/* â”€â”€ Step: Admin 2FA (after password for admin users) â”€â”€ */}
         {step === 'admin_2fa' && (
           <form onSubmit={on2FASubmit} className="space-y-4">
-            <button type="button" onClick={() => { setStep('password'); setError(''); setInfo(''); setTwoFACode(''); setPhase1SuppressedPreview(''); }} className="inline-flex items-center gap-1 text-xs text-mitti hover:text-madder">
+            <button type="button" onClick={() => { setStep('password'); setError(''); setInfo(''); setTwoFACode(''); setMockCode(''); }} className="inline-flex items-center gap-1 text-xs text-mitti hover:text-madder">
               <ArrowLeft className="w-3 h-3" /> Back
             </button>
             <div className="flex items-center gap-2 text-sm text-kohl">
@@ -438,8 +438,8 @@ function LoginInner() {
             {info && <p className="text-xs italic text-mitti">{info}</p>}
             {false && (
               <div className="p-3 bg-haldi/20 border border-haldi text-xs">
-                <p className="font-ui uppercase tracking-widest text-mitti mb-1">2FA preview disabled</p>
-                
+                <p className="font-ui uppercase tracking-widest text-mitti mb-1">Dev mode â€” your 2FA code</p>
+                <p className="font-mono text-lg text-madder tracking-widest">{mockCode}</p>
               </div>
             )}
             <input
@@ -607,8 +607,5 @@ function IdentityField({
     </form>
   );
 }
-
-
-
 
 

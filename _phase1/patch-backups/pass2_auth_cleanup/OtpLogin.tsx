@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 import { useState, useEffect } from 'react';
 import { Phone, Shield, Loader2 } from 'lucide-react';
 
@@ -25,7 +25,7 @@ export default function OtpLogin({ purpose, title, subtitle, onVerified, initial
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
   const [resendIn, setResendIn] = useState(0);
-  const [phase1PreviewCode, setPhase1PreviewCode] = useState<string | null>(null);
+  const [devCode, setDevCode] = useState<string | null>(null);
 
   useEffect(() => {
     if (resendIn <= 0) return;
@@ -34,7 +34,7 @@ export default function OtpLogin({ purpose, title, subtitle, onVerified, initial
   }, [resendIn]);
 
   async function requestCode() {
-    setError(null); setInfo(null); setLoading(true); setPhase1PreviewCode(null);
+    setError(null); setInfo(null); setLoading(true); setDevCode(null);
     try {
       const res = await fetch('/api/auth/otp/request', {
         method: 'POST',
@@ -48,7 +48,7 @@ export default function OtpLogin({ purpose, title, subtitle, onVerified, initial
         setStep('code');
         setResendIn(60);
         setInfo(`OTP sent to ${phone}. Valid for 5 minutes.`);
-        setPhase1PreviewCode(null);
+        if (data.devCode) setDevCode(data.devCode);
       }
     } catch (e: any) {
       setError(e?.message || 'Network error');
@@ -135,7 +135,7 @@ export default function OtpLogin({ purpose, title, subtitle, onVerified, initial
               type="text"
               inputMode="numeric"
               maxLength={6}
-              placeholder="â€¢â€¢â€¢â€¢â€¢â€¢"
+              placeholder="••••••"
               value={code}
               onChange={e => setCode(e.target.value.replace(/\D/g, ''))}
               className="w-full text-center py-3 font-mono text-2xl tracking-[0.5em] border border-kohl/20 focus:border-madder outline-none"
@@ -153,9 +153,9 @@ export default function OtpLogin({ purpose, title, subtitle, onVerified, initial
             </div>
           </div>
           {info && <div className="font-ui text-xs text-kohl/70 bg-beige p-3">{info}</div>}
-          {false && (
+          {devCode && (
             <div className="font-ui text-xs text-amber-900 bg-amber-50 p-3">
-              
+              <strong>DEV ONLY:</strong> SMS not configured — code is <code className="font-mono">{devCode}</code>
             </div>
           )}
           {error && <div className="font-ui text-sm text-red-700 bg-red-50 p-3">{error}</div>}
@@ -172,5 +172,3 @@ export default function OtpLogin({ purpose, title, subtitle, onVerified, initial
     </div>
   );
 }
-
-

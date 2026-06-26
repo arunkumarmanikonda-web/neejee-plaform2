@@ -1,4 +1,4 @@
-﻿// v23.35 â€” OTP service (6-digit, 5 min expiry, 3 attempts, 60s resend cooldown)
+// v23.35 — OTP service (6-digit, 5 min expiry, 3 attempts, 60s resend cooldown)
 import { prisma } from '@/lib/prisma';
 import bcrypt from 'bcryptjs';
 import { sendDltSms } from '@/lib/sms';
@@ -37,13 +37,13 @@ export async function requestOtp(opts: {
   purpose: OtpPurpose;
   ipAddress?: string;
   userAgent?: string;
-}): Promise<{ ok: boolean; error?: string; expiresInSec?: number }> {
+}): Promise<{ ok: boolean; error?: string; expiresInSec?: number; devCode?: string }> {
   const phone = normalizePhone(opts.phone);
   if (!/^\+91[6-9]\d{9}$/.test(phone)) {
     return { ok: false, error: 'Invalid Indian mobile number' };
   }
 
-  // Cooldown check â€” block if last OTP was issued within 60s and not yet expired/consumed
+  // Cooldown check — block if last OTP was issued within 60s and not yet expired/consumed
   const recent = await prisma.otpCode.findFirst({
     where: { phone, purpose: opts.purpose, consumedAt: null },
     orderBy: { createdAt: 'desc' },
@@ -79,7 +79,7 @@ export async function requestOtp(opts: {
   if (!tpl || !tpl.ready) {
     // Dev fallback: return code in response if SMS not ready (NEVER in production)
     if (process.env.NODE_ENV !== 'production') {
-      return { ok: true, expiresInSec: OTP_TTL_MS / 1000 };
+      return { ok: true, expiresInSec: OTP_TTL_MS / 1000, devCode: code };
     }
     return { ok: false, error: 'SMS service not configured. Add DLT template ID in admin settings.' };
   }
@@ -99,7 +99,7 @@ export async function requestOtp(opts: {
   return {
     ok: true,
     expiresInSec: OTP_TTL_MS / 1000,
-    
+    ...(process.env.NODE_ENV !== 'production' ? { devCode: code } : {}),
   };
 }
 
@@ -136,7 +136,7 @@ export async function verifyOtp(opts: {
   return { ok: true };
 }
 
-// â”€â”€â”€ v23.34 backward-compat exports â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── v23.34 backward-compat exports ──────────────────────────────────────────
 // Older /api/auth/otp/send route uses these named exports. Kept thin.
 export const OTP_CONFIG = {
   // v23.35 keys
@@ -177,6 +177,3 @@ export async function sendOtpSms(phone: string, code: string) {
     rawMessage: tpl.body.replace('{#var#}', code),
   });
 }
-
-
-

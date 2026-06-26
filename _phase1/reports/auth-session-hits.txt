@@ -5,38 +5,12 @@ auth-secret-ref	C:\Users\arunk\OneDrive\Desktop\neejee-v6_tmpfix_20260622_143049
 auth-secret-ref	C:\Users\arunk\OneDrive\Desktop\neejee-v6_tmpfix_20260622_143049\lib\finance\invoice-token.ts	5	// Safe to put in email links: derived from AUTH_SECRET, doesn't expire,
 auth-secret-ref	C:\Users\arunk\OneDrive\Desktop\neejee-v6_tmpfix_20260622_143049\lib\finance\invoice-token.ts	11	const secret = process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET || 'neejee-fallback';
 cookie-delete	C:\Users\arunk\OneDrive\Desktop\neejee-v6_tmpfix_20260622_143049\lib\auth.ts	69	cookies().delete('neejee-session');
-mock-dev-auth	C:\Users\arunk\OneDrive\Desktop\neejee-v6_tmpfix_20260622_143049\app\(auth)\login\page.tsx	34	const [mockCode, setMockCode] = useState('');  // dev-mode echo from /otp/send
-mock-dev-auth	C:\Users\arunk\OneDrive\Desktop\neejee-v6_tmpfix_20260622_143049\app\(auth)\login\page.tsx	103	setError(''); setInfo(''); setMockCode('');
-mock-dev-auth	C:\Users\arunk\OneDrive\Desktop\neejee-v6_tmpfix_20260622_143049\app\(auth)\login\page.tsx	121	if (d.mock && d.mockCode) {
-mock-dev-auth	C:\Users\arunk\OneDrive\Desktop\neejee-v6_tmpfix_20260622_143049\app\(auth)\login\page.tsx	122	setMockCode('');
-mock-dev-auth	C:\Users\arunk\OneDrive\Desktop\neejee-v6_tmpfix_20260622_143049\app\(auth)\login\page.tsx	150	if (data.devCode) setMockCode('');
-mock-dev-auth	C:\Users\arunk\OneDrive\Desktop\neejee-v6_tmpfix_20260622_143049\app\(auth)\login\page.tsx	391	<button type="button" onClick={() => { setStep('identity'); setError(''); setInfo(''); setMockCode(''); }} className="inline-flex items-center gap-1 text-xs text-mitti hover:text-madder">
-mock-dev-auth	C:\Users\arunk\OneDrive\Desktop\neejee-v6_tmpfix_20260622_143049\app\(auth)\login\page.tsx	399	<p className="font-mono text-lg text-madder tracking-widest">{mockCode}</p>
-mock-dev-auth	C:\Users\arunk\OneDrive\Desktop\neejee-v6_tmpfix_20260622_143049\app\(auth)\login\page.tsx	432	<button type="button" onClick={() => { setStep('password'); setError(''); setInfo(''); setTwoFACode(''); setMockCode(''); }} className="inline-flex items-center gap-1 text-xs text-mitti hover:text-madder">
-mock-dev-auth	C:\Users\arunk\OneDrive\Desktop\neejee-v6_tmpfix_20260622_143049\app\(auth)\login\page.tsx	442	<p className="font-mono text-lg text-madder tracking-widest">{mockCode}</p>
-mock-dev-auth	C:\Users\arunk\OneDrive\Desktop\neejee-v6_tmpfix_20260622_143049\app\api\auth\login\route.ts	74	...(otpResult.devCode ? { devCode: otpResult.devCode } : {}),
-mock-dev-auth	C:\Users\arunk\OneDrive\Desktop\neejee-v6_tmpfix_20260622_143049\app\api\auth\login\route.ts	98	// Dev bypass for known demo accounts (works even without DB)
-mock-dev-auth	C:\Users\arunk\OneDrive\Desktop\neejee-v6_tmpfix_20260622_143049\app\api\auth\login\route.ts	99	if (email === 'demo@neejee.com' && password === 'neejee123') {
-mock-dev-auth	C:\Users\arunk\OneDrive\Desktop\neejee-v6_tmpfix_20260622_143049\app\api\auth\login\route.ts	100	await setSessionCookie({ id: 'demo1', email, name: 'Aanya M.', role: 'CUSTOMER' });
-mock-dev-auth	C:\Users\arunk\OneDrive\Desktop\neejee-v6_tmpfix_20260622_143049\app\api\auth\login\route.ts	101	return NextResponse.json({ success: true, source: 'demo-bypass', role: 'CUSTOMER', redirect: '/account' });
-mock-dev-auth	C:\Users\arunk\OneDrive\Desktop\neejee-v6_tmpfix_20260622_143049\app\api\auth\login\route.ts	105	return NextResponse.json({ success: true, source: 'demo-bypass', role: 'SUPER_ADMIN', redirect: '/admin' });
-mock-dev-auth	C:\Users\arunk\OneDrive\Desktop\neejee-v6_tmpfix_20260622_143049\app\api\auth\otp\send\route.ts	77	const mockCode = (send as any).mockCode;
-mock-dev-auth	C:\Users\arunk\OneDrive\Desktop\neejee-v6_tmpfix_20260622_143049\app\api\auth\otp\send\route.ts	83	...(mock ? { mock: true, mockCode } : {}),
-mock-dev-auth	C:\Users\arunk\OneDrive\Desktop\neejee-v6_tmpfix_20260622_143049\components\auth\OtpLogin.tsx	28	const [devCode, setDevCode] = useState<string | null>(null);
-mock-dev-auth	C:\Users\arunk\OneDrive\Desktop\neejee-v6_tmpfix_20260622_143049\components\auth\OtpLogin.tsx	37	setError(null); setInfo(null); setLoading(true); setDevCode(null);
-mock-dev-auth	C:\Users\arunk\OneDrive\Desktop\neejee-v6_tmpfix_20260622_143049\components\auth\OtpLogin.tsx	51	if (data.devCode) setDevCode(data.devCode);
-mock-dev-auth	C:\Users\arunk\OneDrive\Desktop\neejee-v6_tmpfix_20260622_143049\components\auth\OtpLogin.tsx	156	{devCode && (
-mock-dev-auth	C:\Users\arunk\OneDrive\Desktop\neejee-v6_tmpfix_20260622_143049\components\auth\OtpLogin.tsx	158	<strong>DEV ONLY:</strong> SMS not configured â€” code is <code className="font-mono">{devCode}</code>
 mock-dev-auth	C:\Users\arunk\OneDrive\Desktop\neejee-v6_tmpfix_20260622_143049\lib\inventory-io.ts	101	// Example rows: 1 product + 3 variants demonstrating the size run
-mock-dev-auth	C:\Users\arunk\OneDrive\Desktop\neejee-v6_tmpfix_20260622_143049\lib\otp.ts	40	}): Promise<{ ok: boolean; error?: string; expiresInSec?: number; devCode?: string }> {
-mock-dev-auth	C:\Users\arunk\OneDrive\Desktop\neejee-v6_tmpfix_20260622_143049\lib\otp.ts	82	return { ok: true, expiresInSec: OTP_TTL_MS / 1000, devCode: code };
-mock-dev-auth	C:\Users\arunk\OneDrive\Desktop\neejee-v6_tmpfix_20260622_143049\lib\otp.ts	102	...(process.env.NODE_ENV !== 'production' ? { devCode: code } : {}),
 otp-ref	C:\Users\arunk\OneDrive\Desktop\neejee-v6_tmpfix_20260622_143049\app\(auth)\login\page.tsx	13	type Step = 'identity' | 'password' | 'otp' | 'admin_2fa';
 otp-ref	C:\Users\arunk\OneDrive\Desktop\neejee-v6_tmpfix_20260622_143049\app\(auth)\login\page.tsx	26	const [otp, setOtp] = useState('');
 otp-ref	C:\Users\arunk\OneDrive\Desktop\neejee-v6_tmpfix_20260622_143049\app\(auth)\login\page.tsx	28	// v23.37: Admin 2FA state
 otp-ref	C:\Users\arunk\OneDrive\Desktop\neejee-v6_tmpfix_20260622_143049\app\(auth)\login\page.tsx	29	const [twoFAPhoneMask, setTwoFAPhoneMask] = useState('');
 otp-ref	C:\Users\arunk\OneDrive\Desktop\neejee-v6_tmpfix_20260622_143049\app\(auth)\login\page.tsx	30	const [twoFACode, setTwoFACode] = useState('');
-otp-ref	C:\Users\arunk\OneDrive\Desktop\neejee-v6_tmpfix_20260622_143049\app\(auth)\login\page.tsx	34	const [mockCode, setMockCode] = useState('');  // dev-mode echo from /otp/send
 otp-ref	C:\Users\arunk\OneDrive\Desktop\neejee-v6_tmpfix_20260622_143049\app\(auth)\login\page.tsx	40	// Phone-OTP login is server-gated. Defaults to false until /availability says otherwise,
 otp-ref	C:\Users\arunk\OneDrive\Desktop\neejee-v6_tmpfix_20260622_143049\app\(auth)\login\page.tsx	42	const [otpEnabled, setOtpEnabled] = useState<boolean>(false);
 otp-ref	C:\Users\arunk\OneDrive\Desktop\neejee-v6_tmpfix_20260622_143049\app\(auth)\login\page.tsx	52	setOtpEnabled(!!d.otpEnabled);
@@ -68,7 +42,7 @@ otp-ref	C:\Users\arunk\OneDrive\Desktop\neejee-v6_tmpfix_20260622_143049\app\(au
 otp-ref	C:\Users\arunk\OneDrive\Desktop\neejee-v6_tmpfix_20260622_143049\app\(auth)\login\page.tsx	388	{/* â”€â”€ Step: OTP (after phone) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
 otp-ref	C:\Users\arunk\OneDrive\Desktop\neejee-v6_tmpfix_20260622_143049\app\(auth)\login\page.tsx	389	{step === 'otp' && (
 otp-ref	C:\Users\arunk\OneDrive\Desktop\neejee-v6_tmpfix_20260622_143049\app\(auth)\login\page.tsx	390	<form onSubmit={onOtpSubmit} className="space-y-4">
-otp-ref	C:\Users\arunk\OneDrive\Desktop\neejee-v6_tmpfix_20260622_143049\app\(auth)\login\page.tsx	398	<p className="font-ui uppercase tracking-widest text-mitti mb-1">Dev mode â€” your OTP</p>
+otp-ref	C:\Users\arunk\OneDrive\Desktop\neejee-v6_tmpfix_20260622_143049\app\(auth)\login\page.tsx	398	<p className="font-ui uppercase tracking-widest text-mitti mb-1">OTP preview disabled</p>
 otp-ref	C:\Users\arunk\OneDrive\Desktop\neejee-v6_tmpfix_20260622_143049\app\(auth)\login\page.tsx	410	value={otp}
 otp-ref	C:\Users\arunk\OneDrive\Desktop\neejee-v6_tmpfix_20260622_143049\app\(auth)\login\page.tsx	411	onChange={e => setOtp(e.target.value.replace(/[^\d]/g, ''))}
 otp-ref	C:\Users\arunk\OneDrive\Desktop\neejee-v6_tmpfix_20260622_143049\app\(auth)\login\page.tsx	415	<button type="submit" disabled={loading || otp.length < 4} className="btn-primary w-full disabled:opacity-50">
@@ -76,9 +50,9 @@ otp-ref	C:\Users\arunk\OneDrive\Desktop\neejee-v6_tmpfix_20260622_143049\app\(au
 otp-ref	C:\Users\arunk\OneDrive\Desktop\neejee-v6_tmpfix_20260622_143049\app\(auth)\login\page.tsx	429	{/* â”€â”€ Step: Admin 2FA (after password for admin users) â”€â”€ */}
 otp-ref	C:\Users\arunk\OneDrive\Desktop\neejee-v6_tmpfix_20260622_143049\app\(auth)\login\page.tsx	430	{step === 'admin_2fa' && (
 otp-ref	C:\Users\arunk\OneDrive\Desktop\neejee-v6_tmpfix_20260622_143049\app\(auth)\login\page.tsx	431	<form onSubmit={on2FASubmit} className="space-y-4">
-otp-ref	C:\Users\arunk\OneDrive\Desktop\neejee-v6_tmpfix_20260622_143049\app\(auth)\login\page.tsx	432	<button type="button" onClick={() => { setStep('password'); setError(''); setInfo(''); setTwoFACode(''); setMockCode(''); }} className="inline-flex items-center gap-1 text-xs text-mitti hover:text-madder">
+otp-ref	C:\Users\arunk\OneDrive\Desktop\neejee-v6_tmpfix_20260622_143049\app\(auth)\login\page.tsx	432	<button type="button" onClick={() => { setStep('password'); setError(''); setInfo(''); setTwoFACode(''); setPhase1SuppressedPreview(''); }} className="inline-flex items-center gap-1 text-xs text-mitti hover:text-madder">
 otp-ref	C:\Users\arunk\OneDrive\Desktop\neejee-v6_tmpfix_20260622_143049\app\(auth)\login\page.tsx	436	<Smartphone className="w-4 h-4 text-madder" /> 2FA code sent to {twoFAPhoneMask}
-otp-ref	C:\Users\arunk\OneDrive\Desktop\neejee-v6_tmpfix_20260622_143049\app\(auth)\login\page.tsx	441	<p className="font-ui uppercase tracking-widest text-mitti mb-1">Dev mode â€” your 2FA code</p>
+otp-ref	C:\Users\arunk\OneDrive\Desktop\neejee-v6_tmpfix_20260622_143049\app\(auth)\login\page.tsx	441	<p className="font-ui uppercase tracking-widest text-mitti mb-1">2FA preview disabled</p>
 otp-ref	C:\Users\arunk\OneDrive\Desktop\neejee-v6_tmpfix_20260622_143049\app\(auth)\login\page.tsx	453	value={twoFACode}
 otp-ref	C:\Users\arunk\OneDrive\Desktop\neejee-v6_tmpfix_20260622_143049\app\(auth)\login\page.tsx	454	onChange={e => setTwoFACode(e.target.value.replace(/[^\d]/g, ''))}
 otp-ref	C:\Users\arunk\OneDrive\Desktop\neejee-v6_tmpfix_20260622_143049\app\(auth)\login\page.tsx	458	<button type="submit" disabled={loading || twoFACode.length < 4} className="btn-primary w-full disabled:opacity-50">
@@ -126,7 +100,6 @@ otp-ref	C:\Users\arunk\OneDrive\Desktop\neejee-v6_tmpfix_20260622_143049\app\api
 otp-ref	C:\Users\arunk\OneDrive\Desktop\neejee-v6_tmpfix_20260622_143049\app\api\auth\login\route.ts	67	error: `Could not send 2FA code: ${otpResult.error}`,
 otp-ref	C:\Users\arunk\OneDrive\Desktop\neejee-v6_tmpfix_20260622_143049\app\api\auth\login\route.ts	71	requires2FA: true,
 otp-ref	C:\Users\arunk\OneDrive\Desktop\neejee-v6_tmpfix_20260622_143049\app\api\auth\login\route.ts	73	expiresInSec: otpResult.expiresInSec,
-otp-ref	C:\Users\arunk\OneDrive\Desktop\neejee-v6_tmpfix_20260622_143049\app\api\auth\login\route.ts	74	...(otpResult.devCode ? { devCode: otpResult.devCode } : {}),
 otp-ref	C:\Users\arunk\OneDrive\Desktop\neejee-v6_tmpfix_20260622_143049\app\api\auth\otp\request\route.ts	1	// app/api/auth/otp/request/route.ts
 otp-ref	C:\Users\arunk\OneDrive\Desktop\neejee-v6_tmpfix_20260622_143049\app\api\auth\otp\request\route.ts	2	// v26.3b â€” Request an OTP for login or signup via SMS.
 otp-ref	C:\Users\arunk\OneDrive\Desktop\neejee-v6_tmpfix_20260622_143049\app\api\auth\otp\request\route.ts	9	import { createOtp, normalizePhone, OTP_RESEND_COOLDOWN_SEC, OTP_TTL_MIN } from '@/lib/auth/otp';
@@ -291,7 +264,7 @@ otp-ref	C:\Users\arunk\OneDrive\Desktop\neejee-v6_tmpfix_20260622_143049\lib\otp
 otp-ref	C:\Users\arunk\OneDrive\Desktop\neejee-v6_tmpfix_20260622_143049\lib\otp.ts	65	await prisma.otpCode.create({
 otp-ref	C:\Users\arunk\OneDrive\Desktop\neejee-v6_tmpfix_20260622_143049\lib\otp.ts	71	expiresAt: new Date(Date.now() + OTP_TTL_MS),
 otp-ref	C:\Users\arunk\OneDrive\Desktop\neejee-v6_tmpfix_20260622_143049\lib\otp.ts	78	const tpl = await getTemplate('otp_login');
-otp-ref	C:\Users\arunk\OneDrive\Desktop\neejee-v6_tmpfix_20260622_143049\lib\otp.ts	82	return { ok: true, expiresInSec: OTP_TTL_MS / 1000, devCode: code };
+otp-ref	C:\Users\arunk\OneDrive\Desktop\neejee-v6_tmpfix_20260622_143049\lib\otp.ts	82	return { ok: true, expiresInSec: OTP_TTL_MS / 1000 };
 otp-ref	C:\Users\arunk\OneDrive\Desktop\neejee-v6_tmpfix_20260622_143049\lib\otp.ts	95	return { ok: false, error: result.error || 'Failed to send OTP' };
 otp-ref	C:\Users\arunk\OneDrive\Desktop\neejee-v6_tmpfix_20260622_143049\lib\otp.ts	98	await markUsed('otp_login');
 otp-ref	C:\Users\arunk\OneDrive\Desktop\neejee-v6_tmpfix_20260622_143049\lib\otp.ts	101	expiresInSec: OTP_TTL_MS / 1000,
@@ -1247,11 +1220,7 @@ session-token-ref	C:\Users\arunk\OneDrive\Desktop\neejee-v6_tmpfix_20260622_1430
 session-token-ref	C:\Users\arunk\OneDrive\Desktop\neejee-v6_tmpfix_20260622_143049\app\api\auth\login\2fa\route.ts	50	await setSessionCookie({
 session-token-ref	C:\Users\arunk\OneDrive\Desktop\neejee-v6_tmpfix_20260622_143049\app\api\auth\login\route.ts	4	import { setSessionCookie, verifyPassword } from '@/lib/auth';
 session-token-ref	C:\Users\arunk\OneDrive\Desktop\neejee-v6_tmpfix_20260622_143049\app\api\auth\login\route.ts	26	// must complete an OTP step before the session cookie is set. Returns
-session-token-ref	C:\Users\arunk\OneDrive\Desktop\neejee-v6_tmpfix_20260622_143049\app\api\auth\login\route.ts	78	await setSessionCookie({
-session-token-ref	C:\Users\arunk\OneDrive\Desktop\neejee-v6_tmpfix_20260622_143049\app\api\auth\login\route.ts	100	await setSessionCookie({ id: 'demo1', email, name: 'Aanya M.', role: 'CUSTOMER' });
-session-token-ref	C:\Users\arunk\OneDrive\Desktop\neejee-v6_tmpfix_20260622_143049\app\api\auth\login\route.ts	104	await setSessionCookie({ id: 'admin1', email, name: 'Nidhi Chauhan', role: 'SUPER_ADMIN' });
-session-token-ref	C:\Users\arunk\OneDrive\Desktop\neejee-v6_tmpfix_20260622_143049\app\api\auth\logout\route.ts	2	import { clearSession } from '@/lib/auth';
-session-token-ref	C:\Users\arunk\OneDrive\Desktop\neejee-v6_tmpfix_20260622_143049\app\api\auth\logout\route.ts	11	await clearSession();
+session-token-ref	C:\Users\arunk\OneDrive\Desktop\neejee-v6_tmpfix_20260622_143049\app\api\auth\logout\route.ts	6	res.cookies.set('neejee-session', '', {
 session-token-ref	C:\Users\arunk\OneDrive\Desktop\neejee-v6_tmpfix_20260622_143049\app\api\auth\otp\send\route.ts	39	const recentCount = await prisma.otpToken.count({
 session-token-ref	C:\Users\arunk\OneDrive\Desktop\neejee-v6_tmpfix_20260622_143049\app\api\auth\otp\send\route.ts	50	await prisma.otpToken.updateMany({
 session-token-ref	C:\Users\arunk\OneDrive\Desktop\neejee-v6_tmpfix_20260622_143049\app\api\auth\otp\send\route.ts	61	await prisma.otpToken.create({

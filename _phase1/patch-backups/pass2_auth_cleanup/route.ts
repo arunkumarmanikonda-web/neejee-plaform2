@@ -1,4 +1,4 @@
-﻿// LEGACY route â€” kept for backward compatibility with existing /login page.
+// LEGACY route — kept for backward compatibility with existing /login page.
 // New code should use /api/auth/otp/request (v23.35) which supports purposes
 // (customer/seller/vendor/admin-2FA/checkout-guest) and the DLT template registry.
 //
@@ -74,15 +74,13 @@ export async function POST(request: Request) {
 
   const configured = await smsConfigured();
   const mock = (send as any).mock === true;
-  
+  const mockCode = (send as any).mockCode;
 
   return NextResponse.json({
     ok: true,
     phone,
     expiresInSeconds: Math.floor(OTP_CONFIG.OTP_TTL_MS / 1000),
-    
+    ...(mock ? { mock: true, mockCode } : {}),
     delivered: configured && !mock,
   });
 }
-
-
