@@ -10,6 +10,9 @@ $MustExist = @(
   'docs\PHASE1_SCOPE.md',
   'scripts\phase0\check-protected-zones.ps1',
   'scripts\phase1\phase1-gate.ps1',
+  'scripts\phase1\check-env-consistency.ps1',
+  'scripts\phase1\check-admin-exposure.ps1',
+  'config\phase1-env-manifest.json',
   '.githooks\pre-commit',
   'config\phase0-protected-zones.json'
 )
@@ -53,3 +56,4 @@ if ($Failures.Count -gt 0) {
 
 Write-Host 'Deploy preflight passed.' -ForegroundColor Green
 exit 0
+
