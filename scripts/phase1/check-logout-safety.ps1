@@ -26,4 +26,4 @@ $Hits = foreach ($f in $RouteFiles) {
 
 $Hits | Export-Csv -NoTypeInformation -Encoding UTF8 -Path (Join-Path $OutDir 'logout-safety.csv')
 
-Write-Host "Logout safety check complete: C:\Users\arunk\Desktop\neejee-powershell-audit" -ForegroundColor Green
+Write-Host "Logout safety check complete: $OutDir" -ForegroundColor Green

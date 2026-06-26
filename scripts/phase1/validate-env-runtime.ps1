@@ -38,7 +38,7 @@ $Flags = foreach ($v in $AllVars) {
     Variable = $v
     IsPublic = $v -like 'NEXT_PUBLIC_*'
     IsSecretish = ($v -match 'SECRET|KEY|TOKEN|PASSWORD')
-    IsMessaging = ($v -match 'WATI|FAST2SMS|SMS|WHATSAPP|OTP')
+    IsMessaging = ($v -match 'WATI|FAST2SMS|SMS|WHATSAPP|OTP|AISENSY|WA_')
     IsPayments = ($v -match 'RAZORPAY|PAY')
     IsStorage = ($v -match 'SUPABASE|S3|BLOB|STORAGE')
   }
@@ -47,7 +47,6 @@ $Flags = foreach ($v in $AllVars) {
 $Flags | Export-Csv -NoTypeInformation -Encoding UTF8 -Path (Join-Path $OutDir 'env-runtime-flags.csv')
 
 $Problems = @()
-
 foreach ($row in $Flags) {
   if ($row.IsPublic -and $row.IsSecretish) {
     $Problems += [PSCustomObject]@{
@@ -59,7 +58,6 @@ foreach ($row in $Flags) {
 }
 
 $Problems | Export-Csv -NoTypeInformation -Encoding UTF8 -Path (Join-Path $OutDir 'env-runtime-risks.csv')
-
 $AllVars | Set-Content -LiteralPath (Join-Path $OutDir 'env-runtime-vars.txt') -Encoding UTF8
 
-Write-Host "Env/runtime validation complete: C:\Users\arunk\Desktop\neejee-powershell-audit" -ForegroundColor Green
+Write-Host "Env/runtime validation complete: $OutDir" -ForegroundColor Green

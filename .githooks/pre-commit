@@ -1,6 +1,4 @@
 #!/bin/sh
-powershell -NoProfile -ExecutionPolicy Bypass -File "./scripts/phase0/check-protected-zones.ps1"
-if [ True -ne 0 ]; then exit 1; fi
-
-powershell -NoProfile -ExecutionPolicy Bypass -File "./scripts/phase1/phase1-gate.ps1"
-if [ True -ne 0 ]; then exit 1; fi
+if ! powershell -NoProfile -ExecutionPolicy Bypass -File "./scripts/phase0/check-protected-zones.ps1"; then exit 1; fi
+if ! powershell -NoProfile -ExecutionPolicy Bypass -File "./scripts/phase1/phase1-gate.ps1"; then exit 1; fi
+exit 0
