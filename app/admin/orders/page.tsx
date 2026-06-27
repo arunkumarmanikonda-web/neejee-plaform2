@@ -1,14 +1,21 @@
-'use client';
+﻿'use client';
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { formatPrice, formatDate } from '@/lib/utils';
 
 const STATUS_COLOR: Record<string, string> = {
-  PLACED: 'bg-mitti', CONFIRMED: 'bg-banarasi', PACKED: 'bg-madder', SHIPPED: 'bg-ajrakh',
-  OUT_FOR_DELIVERY: 'bg-haldi', DELIVERED: 'bg-neem', CANCELLED: 'bg-monsoon',
+  PLACED: 'bg-mitti',
+  CONFIRMED: 'bg-banarasi',
+  PACKED: 'bg-madder',
+  SHIPPED: 'bg-ajrakh',
+  OUT_FOR_DELIVERY: 'bg-haldi',
+  DELIVERED: 'bg-neem',
+  CANCELLED: 'bg-monsoon',
+  CANCELLED_BUG: 'bg-madder',
 };
 
 const FILTERS = ['ALL', 'PLACED', 'CONFIRMED', 'PACKED', 'SHIPPED', 'OUT_FOR_DELIVERY', 'DELIVERED', 'CANCELLED'];
+const BUG_FILTER = 'CANCELLED_BUG';
 
 export default function AdminOrdersPage() {
   const [orders, setOrders] = useState<any[]>([]);
@@ -20,19 +27,49 @@ export default function AdminOrdersPage() {
   const load = async (status: string) => {
     setLoading(true); setError('');
     try {
-      const url = status === 'ALL' ? '/api/admin/orders' : `/api/admin/orders?status=${status}`;
+      // Default list hides CANCELLED_BUG (server-side). When the user picks
+      // the CANCELLED_BUG chip, we explicitly include it via showBug=1 and
+      // filter to that exact status.
+      let url = '/api/admin/orders';
+      if (status === BUG_FILTER) {
+        url = '/api/admin/orders?status=ALL&showBug=1';
+      } else if (status !== 'ALL') {
+        url = `/api/admin/orders?status=${status}`;
+      }
+
       const res = await fetch(url);
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to load orders');
-      setOrders(data.orders || []);
+
+      let list = data.orders || [];
+      // When viewing the bug chip, narrow the returned ALL list down to
+      // just CANCELLED_BUG rows on the client (the API returns everything
+      // when showBug=1).
+      if (status === BUG_FILTER) {
+        list = list.filter((o: any) => o.status === BUG_FILTER);
+      }
+
+      setOrders(list);
       setCounts(data.statusCounts || {});
-    } catch (e: any) { setError(e.message); }
-    finally { setLoading(false); }
+    } catch (e: any) {
+      setError(e.message);
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => { load(filter); }, [filter]);
 
-  const total = Object.values(counts).reduce((s, n) => s + n, 0);
+  // total = sum of all known status counts. We intentionally include
+  // CANCELLED_BUG here only when the API returned it (i.e. the user has
+  // already opted into seeing them), so the headline number stays honest.
+  const visibleCounts = { ...counts };
+  if (filter !== BUG_FILTER) {
+    delete visibleCounts[BUG_FILTER];
+  }
+  const total = Object.values(visibleCounts).reduce((s, n) => s + n, 0);
+
+  const bugCount = counts[BUG_FILTER] || 0;
 
   return (
     <>
@@ -47,12 +84,36 @@ export default function AdminOrdersPage() {
 
       <div className="flex flex-wrap gap-2 mt-8 font-ui text-xs tracking-widest">
         {FILTERS.map(f => (
-          <button key={f} onClick={() => setFilter(f)}
-            className={`px-4 py-2 transition-colors ${filter === f ? 'bg-kohl text-ivory' : 'bg-beige text-kohl hover:bg-mitti/20'}`}>
+          <button
+            key={f}
+            onClick={() => setFilter(f)}
+            className={`px-4 py-2 transition-colors ${filter === f ? 'bg-kohl text-ivory' : 'bg-beige text-kohl hover:bg-mitti/20'}`}
+          >
             {f.replace(/_/g, ' ')} {f === 'ALL' ? `(${total})` : counts[f] ? `(${counts[f]})` : ''}
           </button>
         ))}
+
+        {bugCount > 0 && (
+          <button
+            key={BUG_FILTER}
+            onClick={() => setFilter(BUG_FILTER)}
+            title="Bug-generated cancelled orders. Hidden from the default list. Review and clean up."
+            className={`px-4 py-2 transition-colors border ${
+              filter === BUG_FILTER
+                ? 'bg-madder text-ivory border-madder'
+                : 'bg-beige text-madder border-madder/40 hover:bg-madder/10'
+            }`}
+          >
+            CANCELLED BUG ({bugCount})
+          </button>
+        )}
       </div>
+
+      {filter === BUG_FILTER && (
+        <p className="mt-3 font-ui text-xs text-mitti italic">
+          These rows are hidden from the default Orders list. They were created by an earlier checkout bug and are kept for audit only.
+        </p>
+      )}
 
       <table className="w-full mt-8 font-ui text-sm bg-beige">
         <thead>
@@ -86,7 +147,7 @@ export default function AdminOrdersPage() {
               <td className="p-4 font-medium">{formatPrice(o.total)}</td>
               <td className="p-4">
                 <span className={`text-xs ${o.paymentStatus === 'PAID' ? 'text-neem' : 'text-haldi'}`}>
-                  ● {o.paymentStatus}
+                  • {o.paymentStatus}
                 </span>
               </td>
               <td className="p-4">
