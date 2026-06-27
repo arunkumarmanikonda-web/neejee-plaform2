@@ -79,12 +79,48 @@ export async function POST(request: Request) {
       if (!snapshot) {
         return NextResponse.json({ error: 'Snapshot not found' }, { status: 404 });
       }
+
       if (snapshot.recoveredOrderId) {
-        // Idempotent: already converted. Return the existing order.
         const existing = await prisma.order.findUnique({
           where: { id: snapshot.recoveredOrderId },
         });
         return NextResponse.json({ success: true, order: existing, idempotent: true });
+      }
+
+      if (snapshot.razorpayOrderId && snapshot.razorpayOrderId !== razorpay_order_id) {
+        return NextResponse.json(
+          {
+            ok: false,
+            code: 'snapshot_razorpay_order_mismatch',
+            message: 'Snapshot is linked to a different Razorpay order',
+          },
+          { status: 409 }
+        );
+      }
+
+      const existingByGatewayRef = await prisma.order.findFirst({
+        where: {
+          OR: [
+            { razorpayPaymentId: razorpay_payment_id },
+            { razorpayOrderId: razorpay_order_id },
+          ],
+        },
+      });
+
+      if (existingByGatewayRef) {
+        await prisma.abandonedCart.update({
+          where: { id: snapshot.id },
+          data: {
+            recoveredOrderId: existingByGatewayRef.id,
+            recoveredAt: new Date(),
+          },
+        }).catch(() => {});
+
+        return NextResponse.json({
+          success: true,
+          order: existingByGatewayRef,
+          idempotent: true,
+        });
       }
 
       const data: any = snapshot.itemsJson ? JSON.parse(snapshot.itemsJson) : {};
@@ -112,9 +148,13 @@ export async function POST(request: Request) {
         const addr = await prisma.address.create({
           data: {
             userId: session.id,
-            name: address.name, phone: contact.phone,
-            line1: address.line1, line2: address.line2 || null,
-            city: address.city, state: address.state, pincode: address.pincode,
+            name: address.name,
+            phone: contact.phone,
+            line1: address.line1,
+            line2: address.line2 || null,
+            city: address.city,
+            state: address.state,
+            pincode: address.pincode,
             country: 'IN',
           },
         });
@@ -217,20 +257,26 @@ export async function POST(request: Request) {
             points: pricing.pointsRedeemed,
             orderId: order.id,
           });
-        } catch (e: any) { console.warn('[verify] points debit failed:', e.message); }
+        } catch (e: any) {
+          console.warn('[verify] points debit failed:', e.message);
+        }
       }
 
       // Loyalty earn (idempotent)
       try {
         const { processOrderForLoyalty } = await import('@/lib/loyalty');
         await processOrderForLoyalty(order.id);
-      } catch (e: any) { console.warn('[verify] loyalty processing failed:', e.message); }
+      } catch (e: any) {
+        console.warn('[verify] loyalty processing failed:', e.message);
+      }
 
       // Auto-post to revenue ledger
       try {
         const { postOrderToInvoice } = await import('@/lib/finance/post-order');
         await postOrderToInvoice(order.id);
-      } catch (e: any) { console.warn('[verify] invoice posting failed:', e.message); }
+      } catch (e: any) {
+        console.warn('[verify] invoice posting failed:', e.message);
+      }
 
       // ─── ORDER_CONFIRMED email (ONLY here for prepaid) ───────────────
       try {
@@ -243,7 +289,15 @@ export async function POST(request: Request) {
           event: 'ORDER_CONFIRMED',
           ...(session?.id
             ? { userId: session.id }
-            : { recipients: [{ email: recipientEmail, name: snapshot.customerName || undefined, phone: snapshot.phone || undefined }] }),
+            : {
+                recipients: [
+                  {
+                    email: recipientEmail,
+                    name: snapshot.customerName || undefined,
+                    phone: snapshot.phone || undefined,
+                  },
+                ],
+              }),
           data: {
             orderNumber: order.orderNumber,
             customerName: snapshot.customerName || 'friend',
@@ -252,7 +306,9 @@ export async function POST(request: Request) {
           },
           context: { type: 'ORDER', id: order.id } as any,
         });
-      } catch (e: any) { console.warn('[verify] confirmation email failed:', e.message); }
+      } catch (e: any) {
+        console.warn('[verify] confirmation email failed:', e.message);
+      }
 
       return NextResponse.json({ success: true, order });
     }
@@ -260,6 +316,37 @@ export async function POST(request: Request) {
     // =====================================================================
     // LEGACY PATH: orderNumber → update existing order (COD path or legacy)
     // =====================================================================
+    const existingLegacyOrder = await prisma.order.findUnique({
+      where: { orderNumber: orderNumber! },
+    });
+
+    if (!existingLegacyOrder) {
+      return NextResponse.json({ error: 'Order not found' }, { status: 404 });
+    }
+
+    if (
+      existingLegacyOrder.paymentStatus === 'PAID' &&
+      existingLegacyOrder.razorpayPaymentId === razorpay_payment_id &&
+      existingLegacyOrder.razorpayOrderId === razorpay_order_id
+    ) {
+      return NextResponse.json({
+        success: true,
+        order: existingLegacyOrder,
+        idempotent: true,
+      });
+    }
+
+    if (existingLegacyOrder.paymentStatus === 'PAID') {
+      return NextResponse.json(
+        {
+          ok: false,
+          code: 'legacy_payment_already_recorded',
+          message: 'Order is already marked paid with different Razorpay references',
+        },
+        { status: 409 }
+      );
+    }
+
     const order = await prisma.order.update({
       where: { orderNumber: orderNumber! },
       data: {
@@ -273,12 +360,16 @@ export async function POST(request: Request) {
     try {
       const { postOrderToInvoice } = await import('@/lib/finance/post-order');
       await postOrderToInvoice(order.id);
-    } catch (e: any) { console.warn('[verify legacy] invoice posting failed:', e.message); }
+    } catch (e: any) {
+      console.warn('[verify legacy] invoice posting failed:', e.message);
+    }
 
     try {
       const { processOrderForLoyalty } = await import('@/lib/loyalty');
       await processOrderForLoyalty(order.id);
-    } catch (e: any) { console.warn('[verify legacy] loyalty processing failed:', e.message); }
+    } catch (e: any) {
+      console.warn('[verify legacy] loyalty processing failed:', e.message);
+    }
 
     try {
       const { notify } = await import('@/lib/notifications');
@@ -303,7 +394,9 @@ export async function POST(request: Request) {
           },
         });
       }
-    } catch (e: any) { console.warn('[verify legacy] confirmation email failed:', e.message); }
+    } catch (e: any) {
+      console.warn('[verify legacy] confirmation email failed:', e.message);
+    }
 
     return NextResponse.json({ success: true, order });
   } catch (e: any) {
