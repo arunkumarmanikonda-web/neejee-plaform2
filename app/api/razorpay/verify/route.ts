@@ -88,7 +88,19 @@ export async function POST(request: Request) {
       }
 
       const data: any = snapshot.itemsJson ? JSON.parse(snapshot.itemsJson) : {};
-      const verifiedItems = data.verifiedItems || [];
+      const verifiedItems = Array.isArray(data.verifiedItems) ? data.verifiedItems : [];
+
+      if (verifiedItems.length === 0) {
+        return NextResponse.json(
+          {
+            ok: false,
+            code: 'snapshot_empty_items',
+            message: 'Snapshot has no verified items',
+          },
+          { status: 422 }
+        );
+      }
+
       const contact = data.contact || {};
       const address = data.address || {};
       const pricing = data.pricing || {};
