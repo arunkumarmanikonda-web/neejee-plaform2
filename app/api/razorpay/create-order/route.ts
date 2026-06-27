@@ -41,7 +41,20 @@ export async function POST(request: Request) {
       }
 
       const data: any = snapshot.itemsJson ? JSON.parse(snapshot.itemsJson) : {};
-      const totalPaise = data?.pricing?.total || snapshot.subtotal;
+const verifiedItems = Array.isArray(data?.verifiedItems) ? data.verifiedItems : [];
+
+if (verifiedItems.length === 0) {
+  return NextResponse.json(
+    {
+      ok: false,
+      code: 'snapshot_empty_items',
+      message: 'Snapshot has no verified items',
+    },
+    { status: 422 }
+  );
+}
+
+const totalPaise = data?.pricing?.total || snapshot.subtotal;
       if (!totalPaise || totalPaise <= 0) {
         return NextResponse.json({ error: 'Invalid cart total' }, { status: 400 });
       }
