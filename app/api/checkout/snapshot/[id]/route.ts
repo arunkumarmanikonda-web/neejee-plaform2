@@ -1,6 +1,7 @@
 // app/api/checkout/snapshot/[id]/route.ts
-// v26.3a — Returns lightweight snapshot info for the payment page display.
-// Does NOT expose the full itemsJson to the client (privacy/PII).
+// v26.3b — Returns lightweight snapshot info for the payment page display.
+// Rejects empty/invalid prepaid snapshots so the payment page cannot present
+// a broken snapshot as payable.
 
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
@@ -8,9 +9,24 @@ import { prisma } from '@/lib/prisma';
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
+function parseSnapshot(itemsJson: string) {
+  try {
+    const data = JSON.parse(itemsJson || '{}');
+    const verifiedItems = Array.isArray(data?.verifiedItems) ? data.verifiedItems : [];
+    return {
+      data,
+      verifiedItems,
+    };
+  } catch {
+    return {
+      data: null,
+      verifiedItems: [],
+    };
+  }
+}
+
 export async function GET(_req: Request, { params }: { params: { id: string } }) {
   try {
-    // Cast to any to access v26.3a fields without full Prisma client refresh
     const cart: any = await (prisma.abandonedCart.findUnique as any)({
       where: { id: params.id },
       select: {
@@ -24,14 +40,36 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
         itemsJson: true,
       },
     });
-    if (!cart) return NextResponse.json({ error: 'Not found' }, { status: 404 });
-    if (cart.recoveredOrderId) return NextResponse.json({ error: 'Already converted' }, { status: 410 });
 
-    let total = cart.subtotal;
-    try {
-      const data = JSON.parse(cart.itemsJson);
-      if (data?.pricing?.total) total = data.pricing.total;
-    } catch { /* swallow */ }
+    if (!cart) {
+      return NextResponse.json({ error: 'Not found' }, { status: 404 });
+    }
+
+    if (cart.recoveredOrderId) {
+      return NextResponse.json({ error: 'Already converted' }, { status: 410 });
+    }
+
+    const { data, verifiedItems } = parseSnapshot(cart.itemsJson);
+
+    if (verifiedItems.length === 0) {
+      return NextResponse.json(
+        {
+          ok: false,
+          code: 'snapshot_empty_items',
+          message: 'Snapshot has no verified items',
+        },
+        { status: 410 }
+      );
+    }
+
+    const total =
+      typeof data?.pricing?.total === 'number' && data.pricing.total > 0
+        ? data.pricing.total
+        : cart.subtotal;
+
+    const itemCount =
+      verifiedItems.reduce((sum: number, item: any) => sum + (item?.quantity || 0), 0) ||
+      cart.itemCount;
 
     return NextResponse.json({
       snapshot: {
@@ -40,7 +78,7 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
         customerName: cart.customerName,
         phone: cart.phone,
         total,
-        itemCount: cart.itemCount,
+        itemCount,
       },
     });
   } catch (e: any) {
