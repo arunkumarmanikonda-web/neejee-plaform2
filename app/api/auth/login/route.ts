@@ -40,15 +40,26 @@ function maskPhone(phone: string | null | undefined): string {
 }
 
 export async function POST(request: Request) {
-  const body = await request.json();
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ error: 'Invalid input' }, { status: 400 });
+  }
+
   const parsed = LoginSchema.safeParse(body);
-  if (!parsed.success) return NextResponse.json({ error: 'Invalid input' }, { status: 400 });
-  const { email, password } = parsed.data;
+  if (!parsed.success) {
+    return NextResponse.json({ error: 'Invalid input' }, { status: 400 });
+  }
+
+  const email = parsed.data.email.trim().toLowerCase();
+  const password = parsed.data.password;
 
   // Try DB authentication first
   if (process.env.DATABASE_URL) {
     try {
       const user = await prisma.user.findUnique({ where: { email } });
+
       if (user && user.passwordHash && await verifyPassword(password, user.passwordHash)) {
         // v23.37: Admin 2FA gate
         if (adminNeeds2FA(user.role)) {
@@ -57,25 +68,42 @@ export async function POST(request: Request) {
               error: 'Admin 2FA is required but no phone number is registered on your account. Contact a SUPER_ADMIN to add one.',
             }, { status: 403 });
           }
-          // Fire OTP and tell client to collect the code
+
           const otpResult = await requestOtp({
             phone: user.phone,
             purpose: 'admin_2fa',
           });
+
           if (!otpResult.ok) {
             return NextResponse.json({
               error: `Could not send 2FA code: ${otpResult.error}`,
             }, { status: 502 });
           }
+
           return NextResponse.json({
             requires2FA: true,
             phoneMask: maskPhone(user.phone),
             expiresInSec: otpResult.expiresInSec,
-            
           });
         }
 
-        return NextResponse.json({ error: 'Restricted login path is disabled in Phase 1.' }, { status: 403 });
+        await setSessionCookie({
+          id: user.id,
+          email: user.email,
+          name: user.name || undefined,
+          role: user.role as any,
+        });
+
+        return NextResponse.json({
+          ok: true,
+          redirect: redirectFor(user.role),
+          user: {
+            id: user.id,
+            email: user.email,
+            name: user.name,
+            role: user.role,
+          },
+        });
       }
     } catch (error) {
       console.error('Login route DB auth error', error);
@@ -88,6 +116,3 @@ export async function POST(request: Request) {
 
   return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 });
 }
-
-
-

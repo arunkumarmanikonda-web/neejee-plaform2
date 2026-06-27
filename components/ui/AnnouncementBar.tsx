@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 // Announcement bar — fetches active "announcement" banners from CMS and rotates them.
 // Falls back to default messages if no banners are configured.
 import { useEffect, useState } from 'react';
@@ -56,8 +56,13 @@ export function AnnouncementBar() {
     } catch {}
 
     fetch('/api/banners?position=announcement')
-      .then(r => r.json())
-      .then(d => { setBanners(d.banners || []); setLoaded(true); })
+      .then(r => (r.ok ? r.json() : { banners: [] }))
+      .then(d => {
+        const list: Banner[] = Array.isArray(d?.banners) ? d.banners : [];
+        setBanners(list);
+        setActive(0);
+        setLoaded(true);
+      })
       .catch(() => setLoaded(true));
   }, []);
 
@@ -94,7 +99,17 @@ export function AnnouncementBar() {
     );
   }
 
-  const b = banners[active];
+  const safeIndex = ((active % banners.length) + banners.length) % banners.length;
+  const b = banners[safeIndex];
+
+  if (!b) {
+    return (
+      <div className="bg-mitti text-ivory text-xs tracking-widest text-center py-2 font-ui">
+        <span>{FALLBACK_MESSAGES[0]}</span>
+      </div>
+    );
+  }
+
   const style = COLOR_MAP[b.bgColor || 'mitti'] || 'bg-mitti text-ivory';
 
   return (
