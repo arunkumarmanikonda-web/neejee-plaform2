@@ -1,8 +1,12 @@
 // app/api/cron/cart-recovery/route.ts
-// v26.3b — Multi-channel recovery cron.
+// v26.3c — Multi-channel recovery cron.
 // Reads RecoverySettings.channelMatrix to decide which channels fire per stage.
 // Email still goes through existing email templates; SMS/WA route through the
 // notification dispatcher.
+//
+// Hardened rules:
+// - Recovery messaging uses verifiedItems only
+// - Empty/invalid snapshots are marked inert and skipped
 
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
@@ -45,6 +49,16 @@ function firstName(name?: string | null): string {
   return name?.split(' ')[0] || 'friend';
 }
 
+function parseRecoverySnapshot(itemsJson: string) {
+  try {
+    const data = JSON.parse(itemsJson || '{}');
+    const verifiedItems = Array.isArray(data?.verifiedItems) ? data.verifiedItems : [];
+    return { data, verifiedItems };
+  } catch {
+    return { data: null, verifiedItems: [] };
+  }
+}
+
 async function run() {
   const startedAt = Date.now();
   const settings = await prisma.recoverySettings.findUnique({ where: { id: 'default' } } as any).catch(() => null);
@@ -84,12 +98,22 @@ async function run() {
       const stageKey = `stage${stage}`;
       const stageMatrix = (matrix as any)[stageKey] || {};
 
-      // Parse cart items
-      let snapshotItems: any[] = [];
-      try {
-        const data = cart.itemsJson ? JSON.parse(cart.itemsJson) : {};
-        snapshotItems = data?.verifiedItems || data?.items || [];
-      } catch { /* noop */ }
+      const { verifiedItems: snapshotItems } = parseRecoverySnapshot(cart.itemsJson);
+
+      if (snapshotItems.length === 0) {
+        await prisma.abandonedCart.update({
+          where: { id: cart.id },
+          data: {
+            nextActionAt: null,
+            lastRemindedAt: now,
+            lastSeenStep: 'invalid_snapshot',
+            telecallerStatus: 'invalid_snapshot',
+          } as any,
+        }).catch(() => {});
+
+        results.push({ id: cart.id, status: 'invalid_snapshot' });
+        continue;
+      }
 
       const renderItems = snapshotItems.slice(0, 4).map((i: any) => ({
         name: i.name || 'Item',
@@ -114,13 +138,16 @@ async function run() {
           results.push({ id: cart.id, stage: 4, status: 'handoff-disabled' });
           continue;
         }
+
         const teamEmail = process.env.TELECALLER_TEAM_EMAIL || process.env.EMAIL_FROM || 'hello@neejee.com';
         const teamPhone = process.env.TELECALLER_TEAM_PHONE || '';
-        const craftRegions = Array.from(new Set(
-          snapshotItems
-            .map((i: any) => [i.craft, i.region].filter(Boolean).join(' · '))
-            .filter((s: string) => s.length > 0)
-        )) as string[];
+        const craftRegions = Array.from(
+          new Set(
+            snapshotItems
+              .map((i: any) => [i.craft, i.region].filter(Boolean).join(' · '))
+              .filter((s: string) => s.length > 0)
+          )
+        ) as string[];
 
         const tpl = telecallerHandoffEmail({
           cartId: cart.id,
@@ -136,6 +163,7 @@ async function run() {
         if (stageMatrix.email !== false) {
           await sendEmail({ to: teamEmail, subject: tpl.subject, html: tpl.html });
         }
+
         if (stageMatrix.sms && teamPhone) {
           await dispatchSms({
             event: 'TELECALLER_HANDOFF',
@@ -160,6 +188,7 @@ async function run() {
             telecallerStatus: null,
           } as any,
         });
+
         results.push({ id: cart.id, stage: 4, status: 'handed-off' });
         continue;
       }
@@ -171,25 +200,46 @@ async function run() {
 
       if (stage === 2) {
         const { code, percent } = await ensureStageCoupon(
-          { id: cart.id, userId: cart.userId, email: cart.email,
+          {
+            id: cart.id,
+            userId: cart.userId,
+            email: cart.email,
             discountCode: (cart as any).discountCode || null,
-            discountPercent: (cart as any).discountPercent || null },
+            discountPercent: (cart as any).discountPercent || null,
+          },
           2,
-          { percent2: percents.stage2, percent3: percents.stage3,
-            validHours2: cadence.stage3 - cadence.stage2, validHours3: 48 },
+          {
+            percent2: percents.stage2,
+            percent3: percents.stage3,
+            validHours2: cadence.stage3 - cadence.stage2,
+            validHours3: 48,
+          },
         );
-        discountCode = code; discountPercent = percent; validHours = cadence.stage3 - cadence.stage2;
+        discountCode = code;
+        discountPercent = percent;
+        validHours = cadence.stage3 - cadence.stage2;
       } else if (stage === 3) {
         const { code, percent } = await ensureStageCoupon(
-          { id: cart.id, userId: cart.userId, email: cart.email, discountCode: null, discountPercent: null },
+          {
+            id: cart.id,
+            userId: cart.userId,
+            email: cart.email,
+            discountCode: null,
+            discountPercent: null,
+          },
           3,
-          { percent2: percents.stage2, percent3: percents.stage3,
-            validHours2: 48, validHours3: cadence.stage4 - cadence.stage3 },
+          {
+            percent2: percents.stage2,
+            percent3: percents.stage3,
+            validHours2: 48,
+            validHours3: cadence.stage4 - cadence.stage3,
+          },
         );
-        discountCode = code; discountPercent = percent; validHours = cadence.stage4 - cadence.stage3;
+        discountCode = code;
+        discountPercent = percent;
+        validHours = cadence.stage4 - cadence.stage3;
       }
 
-      // AI personalization
       let aiCopy: any = undefined;
       if (aiEnabled) {
         try {
@@ -201,37 +251,56 @@ async function run() {
             discountCode,
             totalRupees,
           });
-        } catch (e: any) { console.warn('[cron] ai copy failed:', e.message); }
+        } catch (e: any) {
+          console.warn('[cron] ai copy failed:', e.message);
+        }
       }
 
-      // ───── EMAIL ─────
       if (stageMatrix.email !== false) {
         let tpl: { subject: string; html: string };
+
         if (stage === 1) {
           tpl = recoveryT1hEmail({
-            customerName: (cart as any).customerName, items: renderItems,
-            subtotalPaise: cart.subtotal, recoverUrl, optOutUrl, aiCopy,
+            customerName: (cart as any).customerName,
+            items: renderItems,
+            subtotalPaise: cart.subtotal,
+            recoverUrl,
+            optOutUrl,
+            aiCopy,
           });
         } else if (stage === 2) {
           tpl = recoveryT24hEmail({
-            customerName: (cart as any).customerName, items: renderItems,
-            subtotalPaise: cart.subtotal, recoverUrl, optOutUrl, aiCopy,
-            discountCode: discountCode!, discountPercent: discountPercent!, validHours: validHours!,
+            customerName: (cart as any).customerName,
+            items: renderItems,
+            subtotalPaise: cart.subtotal,
+            recoverUrl,
+            optOutUrl,
+            aiCopy,
+            discountCode: discountCode!,
+            discountPercent: discountPercent!,
+            validHours: validHours!,
           });
         } else {
           tpl = recoveryT72hEmail({
-            customerName: (cart as any).customerName, items: renderItems,
-            subtotalPaise: cart.subtotal, recoverUrl, optOutUrl, aiCopy,
-            discountCode: discountCode!, discountPercent: discountPercent!, validHours: validHours!,
+            customerName: (cart as any).customerName,
+            items: renderItems,
+            subtotalPaise: cart.subtotal,
+            recoverUrl,
+            optOutUrl,
+            aiCopy,
+            discountCode: discountCode!,
+            discountPercent: discountPercent!,
+            validHours: validHours!,
           });
         }
+
         await sendEmail({ to: cart.email, subject: tpl.subject, html: tpl.html });
       }
 
-      // ───── WHATSAPP ─────
       if (stageMatrix.whatsapp && phone && stage >= 2) {
         const event = stage === 2 ? 'CART_T24H' : 'CART_T72H';
         const craftRegion = renderItems[0]?.craft || renderItems[0]?.name || 'your trunk';
+
         await dispatchWhatsApp({
           event: event as any,
           recipient: phone,
@@ -246,10 +315,10 @@ async function run() {
         });
       }
 
-      // ───── SMS ───── (per locked D2, SMS not used for stages 1-3)
       if (stageMatrix.sms && phone && stage >= 2) {
         const event = stage === 1 ? 'CART_T1H' : stage === 2 ? 'CART_T24H' : 'CART_T72H';
         const shortLink = `${base}/r/${cart.id.slice(0, 8)}`;
+
         await dispatchSms({
           event: event as any,
           recipient: phone,
@@ -263,10 +332,11 @@ async function run() {
         });
       }
 
-      // Advance stage
-      const nextHours = stage === 1 ? cadence.stage2 - cadence.stage1
-                      : stage === 2 ? cadence.stage3 - cadence.stage2
-                      : cadence.stage4 - cadence.stage3;
+      const nextHours =
+        stage === 1 ? cadence.stage2 - cadence.stage1
+        : stage === 2 ? cadence.stage3 - cadence.stage2
+        : cadence.stage4 - cadence.stage3;
+
       const nextActionAt = new Date(now.getTime() + nextHours * HOURS);
 
       await prisma.abandonedCart.update({
@@ -279,6 +349,7 @@ async function run() {
           aiCopyJson: aiCopy ? aiCopy : undefined,
         } as any,
       });
+
       results.push({ id: cart.id, stage, status: 'sent', ai: aiCopy?.generatedBy });
     } catch (e: any) {
       console.warn('[cron] cart', cart.id, 'failed:', e?.message);

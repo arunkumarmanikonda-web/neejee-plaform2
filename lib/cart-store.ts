@@ -23,6 +23,19 @@ export type CartItem = {
   quantity: number;
 };
 
+export type ReplaceCartItem = {
+  productId: string;
+  variantId?: string | null;
+  variantLabel?: string | null;
+  quantity: number;
+  price: number;
+  name?: string;
+  slug?: string;
+  images?: string[];
+  mrp?: number;
+  inventory?: number;
+};
+
 const GIFT_WRAP_PAISE = 15000; // ₹150
 
 type CartState = {
@@ -32,6 +45,7 @@ type CartState = {
   couponCode: string | null;
   couponDiscount: number; // in paise, applied to subtotal
   addItem: (product: CartProduct, quantity?: number) => void;
+  replaceCart: (items: ReplaceCartItem[]) => void;
   removeItem: (productId: string, variantId?: string | null) => void;
   updateQuantity: (productId: string, qty: number, variantId?: string | null) => void;
   clear: () => void;
@@ -77,10 +91,32 @@ export const useCart = create<CartState>()(
                 productId: product.id,
                 variantId: product.variantId || null,
                 variantLabel: product.variantLabel || null,
-                product, quantity,
+                product,
+                quantity,
               },
             ],
           };
+        }),
+
+      replaceCart: (items) =>
+        set({
+          items: (Array.isArray(items) ? items : []).map(item => ({
+            productId: item.productId,
+            variantId: item.variantId || null,
+            variantLabel: item.variantLabel || null,
+            quantity: Math.max(1, Number(item.quantity || 1)),
+            product: {
+              id: item.productId,
+              slug: item.slug || item.productId,
+              name: item.name || 'Item',
+              sellingPrice: Number(item.price || 0),
+              mrp: item.mrp,
+              images: item.images || [],
+              inventory: item.inventory,
+              variantId: item.variantId || null,
+              variantLabel: item.variantLabel || null,
+            },
+          })),
         }),
 
       removeItem: (productId, variantId) =>

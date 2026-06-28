@@ -1,6 +1,6 @@
 'use client';
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
 import { Header } from '@/components/layout/Header';
@@ -17,9 +17,28 @@ type Step = typeof STEPS[number];
 
 export default function CheckoutPage() {
   const router = useRouter();
-  const { items, itemsSubtotal, giftWrapPaise, couponDiscount, couponCode, total, clear, giftWrap, personalNote } = useCart();
+  const sp = useSearchParams();
+  const recoverId = sp?.get('recover');
+
+  const {
+    items,
+    itemsSubtotal,
+    giftWrapPaise,
+    couponDiscount,
+    couponCode,
+    clear,
+    giftWrap,
+    personalNote,
+    replaceCart,
+    setGiftWrap,
+    setPersonalNote,
+    applyCoupon,
+    removeCoupon,
+  } = useCart();
+
   const [step, setStep] = useState<Step>('ADDRESS');
   const [submitting, setSubmitting] = useState(false);
+  const [recovering, setRecovering] = useState(false);
   const [error, setError] = useState('');
   const [me, setMe] = useState<any>(null);
 
@@ -36,7 +55,7 @@ export default function CheckoutPage() {
 
   const [authChecking, setAuthChecking] = useState(true);
 
-// v26.3a — Fire abandonment beacon when user leaves checkout/payment
+  // v26.3a — Fire abandonment beacon when user leaves checkout/payment
   useEffect(() => {
     const handler = () => {
       try {
@@ -54,26 +73,158 @@ export default function CheckoutPage() {
     };
   }, [step]);
 
-    useEffect(() => {
-    fetch('/api/me', { credentials: 'include' }).then(r => r.ok ? r.json() : null).then(d => {
-      if (d?.email) {
-        setMe(d);
-        setContact({ email: d.email, phone: d.phone || '' });
-        if (d.name) setAddress(a => ({ ...a, name: d.name }));
-        setAuthChecking(false);
-      } else {
-        // Not logged in — redirect to login with return URL
-        router.replace('/login?next=%2Fcheckout');
-      }
-    }).catch(() => {
-      router.replace('/login?next=%2Fcheckout');
-    });
-  }, [router]);
+  useEffect(() => {
+    let active = true;
+
+    fetch('/api/me', { credentials: 'include' })
+      .then(r => r.ok ? r.json() : null)
+      .then(d => {
+        if (!active) return;
+
+        if (d?.email) {
+          setMe(d);
+          setContact({ email: d.email, phone: d.phone || '' });
+          if (d.name) setAddress(a => ({ ...a, name: d.name }));
+          setAuthChecking(false);
+          return;
+        }
+
+        setMe(null);
+
+        if (recoverId) {
+          setAuthChecking(false);
+          return;
+        }
+
+        const nextUrl = '/checkout';
+        router.replace(`/login?next=${encodeURIComponent(nextUrl)}`);
+      })
+      .catch(() => {
+        if (!active) return;
+
+        setMe(null);
+
+        if (recoverId) {
+          setAuthChecking(false);
+          return;
+        }
+
+        const nextUrl = '/checkout';
+        router.replace(`/login?next=${encodeURIComponent(nextUrl)}`);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [router, recoverId]);
+
+  useEffect(() => {
+    if (authChecking || !recoverId) return;
+
+    let active = true;
+    setRecovering(true);
+    setError('');
+
+    fetch(`/api/checkout/recover/${recoverId}`)
+      .then(async (r) => {
+        const d = await r.json().catch(() => ({}));
+        if (!active) return;
+
+        if (d?.recovered) {
+          if (d?.orderNumber) {
+            router.replace(`/order-confirmation?order=${encodeURIComponent(d.orderNumber)}`);
+          } else {
+            router.replace('/account');
+          }
+          return;
+        }
+
+        if (!r.ok || !d?.cart) {
+          setError(d?.message || d?.error || 'This saved trunk is no longer available.');
+          setRecovering(false);
+          return;
+        }
+
+        const cart = d.cart;
+
+        replaceCart(
+          (cart.items || []).map((i: any) => ({
+            productId: i.productId,
+            variantId: i.variantId || null,
+            variantLabel: i.variantLabel || null,
+            quantity: i.quantity || 1,
+            price: i.price || 0,
+            name: i.name || 'Item',
+          }))
+        );
+
+        setContact({
+          email: cart.contact?.email || cart.email || '',
+          phone: cart.contact?.phone || cart.phone || '',
+        });
+
+        setAddress({
+          name: cart.address?.name || cart.customerName || '',
+          line1: cart.address?.line1 || '',
+          line2: cart.address?.line2 || '',
+          city: cart.address?.city || '',
+          state: cart.address?.state || '',
+          pincode: cart.address?.pincode || '',
+          country: cart.address?.country || 'India',
+        });
+
+        setGiftWrap(!!cart.giftWrap);
+        setPersonalNote(cart.personalNote || '');
+
+        if (cart.gstinCustomer) {
+          setWantGstInvoice(true);
+          setGstinCustomer(cart.gstinCustomer);
+        } else {
+          setWantGstInvoice(false);
+          setGstinCustomer('');
+        }
+
+        if (cart.discountCode && typeof cart.discountPaise === 'number' && cart.discountPaise > 0) {
+          applyCoupon(cart.discountCode, cart.discountPaise);
+        } else {
+          removeCoupon();
+        }
+
+        setPayment(cart.paymentMethodPicked === 'COD' ? 'COD' : 'RAZORPAY');
+
+        const hasAddress =
+          !!cart.address?.line1 &&
+          !!cart.address?.city &&
+          !!cart.address?.state &&
+          !!cart.address?.pincode;
+
+        setStep(hasAddress ? 'SHIPPING' : 'ADDRESS');
+
+        try { sessionStorage.setItem('neejee_checkout_snapshot', recoverId); } catch {}
+
+        setRecovering(false);
+      })
+      .catch(() => {
+        if (!active) return;
+        setError('Unable to load saved trunk.');
+        setRecovering(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [
+    authChecking,
+    recoverId,
+    router,
+    replaceCart,
+    setGiftWrap,
+    setPersonalNote,
+    applyCoupon,
+    removeCoupon,
+  ]);
 
   // Fetch loyalty preview when subtotal changes and user is signed in.
-  // IMPORTANT: this hook MUST be declared before any early returns to satisfy
-  // React's Rules of Hooks. The values it reads (sub/wrap/shippingCost) are
-  // safe to compute inline because they don't depend on hook order.
   useEffect(() => {
     const subNow = itemsSubtotal();
     const wrapNow = giftWrapPaise();
@@ -91,12 +242,28 @@ export default function CheckoutPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [itemsSubtotal, giftWrapPaise, shipping, couponDiscount, me?.id]);
 
-  if (authChecking) {
+  if (authChecking || recovering) {
     return (
       <>
         <Header />
         <div className="max-w-2xl mx-auto py-32 px-6 text-center">
-          <p className="font-italic italic text-mitti">Personal moment…</p>
+          <p className="font-italic italic text-mitti">
+            {recovering ? 'Reopening your saved trunk…' : 'Personal moment…'}
+          </p>
+        </div>
+        <Footer />
+      </>
+    );
+  }
+
+  if (recoverId && items.length === 0) {
+    return (
+      <>
+        <Header />
+        <div className="max-w-2xl mx-auto py-20 px-6 text-center">
+          <h1 className="font-display text-3xl text-kohl">This saved trunk is no longer available.</h1>
+          {error && <p className="mt-4 font-ui text-sm text-mitti">{error}</p>}
+          <Link href="/" className="btn-primary mt-6 inline-block">SHOP THE EDIT</Link>
         </div>
         <Footer />
       </>
@@ -156,19 +323,20 @@ export default function CheckoutPage() {
       });
       const d = await res.json();
       if (!res.ok) throw new Error(d.error || 'Order failed');
-      // v26.3a — Split COD vs PREPAID routing
+
       if (payment === 'COD') {
         clear();
         router.push(`/order-confirmation?order=${d.orderNumber}`);
       } else {
-        // PREPAID: server returned a snapshotId (no Order yet). Do NOT clear
-        // the cart until /verify confirms payment.
         if (d.snapshotId) {
           try { sessionStorage.setItem('neejee_checkout_snapshot', d.snapshotId); } catch {}
         }
         router.push(`/payment?snapshot=${d.snapshotId}`);
       }
-    } catch (e: any) { setError(e.message); setSubmitting(false); }
+    } catch (e: any) {
+      setError(e.message);
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -178,6 +346,15 @@ export default function CheckoutPage() {
         <p className="label text-madder">CHECKOUT</p>
         <h1 className="font-display text-4xl text-kohl mt-2">Almost yours.</h1>
         <div className="madder-divider mt-4"></div>
+
+        {recoverId && (
+          <div className="mt-6 bg-beige p-4 border border-mitti/20">
+            <p className="font-display text-lg text-kohl">Your saved trunk is back.</p>
+            <p className="font-ui text-sm text-mitti mt-1">
+              We restored your saved items and details. Review and continue whenever you’re ready.
+            </p>
+          </div>
+        )}
 
         {/* Step indicator */}
         <div className="mt-8 flex items-center gap-3 font-ui text-xs tracking-widest">
@@ -225,27 +402,36 @@ export default function CheckoutPage() {
                 )}
 
                 <div className="mt-8 flex justify-end">
-                  <button onClick={() => {
-                    if (validateAddress()) {
-                      // Snapshot for abandoned-cart recovery (fire-and-forget)
-                      fetch('/api/cart/snapshot', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                          email: contact.email,
-                          subtotal: itemsSubtotal,
-                          items: items.map(i => ({
-                            name: i.product.name,
-                            productId: i.productId,
-                            variantId: i.variantId,
-                            quantity: i.quantity,
-                            price: i.product.sellingPrice,
-                          })),
-                        }),
-                      }).catch(() => {});
-                      setStep('SHIPPING');
-                    }
-                  }} className="btn-primary">
+                  <button
+                    onClick={() => {
+                      if (validateAddress()) {
+                        fetch('/api/cart/snapshot', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({
+                            email: contact.email,
+                            subtotal: itemsSubtotal(),
+                            items: items.map(i => ({
+                              name: i.product.name,
+                              productId: i.productId,
+                              variantId: i.variantId,
+                              variantLabel: i.variantLabel,
+                              quantity: i.quantity,
+                              price: i.product.sellingPrice,
+                              slug: i.product.slug,
+                              images: i.product.images || [],
+                            })),
+                            contact,
+                            address,
+                            paymentMethodPicked: payment,
+                            step: 'address',
+                          }),
+                        }).catch(() => {});
+                        setStep('SHIPPING');
+                      }
+                    }}
+                    className="btn-primary"
+                  >
                     CONTINUE TO SHIPPING →
                   </button>
                 </div>
@@ -370,9 +556,14 @@ function Input({ label, value, onChange, type = 'text', placeholder, inputMode, 
   return (
     <div className="mb-3">
       <label className="label text-mitti block mb-1">{label}</label>
-      <input type={type} value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder}
+      <input
+        type={type}
+        value={value}
+        onChange={e => onChange(e.target.value)}
+        placeholder={placeholder}
         inputMode={inputMode}
-        className={`w-full p-3 bg-ivory border border-mitti/20 font-ui text-sm focus:outline-none focus:border-madder ${mono ? 'font-mono' : ''}`} />
+        className={`w-full p-3 bg-ivory border border-mitti/20 font-ui text-sm focus:outline-none focus:border-madder ${mono ? 'font-mono' : ''}`}
+      />
     </div>
   );
 }
