@@ -1,53 +1,175 @@
-// lib/notifications/channels/fast2sms.ts
-// v26.3b — Fast2SMS DLT adapter.
-//
-// Uses the "DLT" route of Fast2SMS bulkV2 endpoint with sender_id=NEEJEY.
-// Each NotificationEvent maps to a specific DLT-approved Content Template ID,
-// pulled from env vars (FAST2SMS_TPL_*).
-//
-// Variables are positional and substituted into {#var#} slots in the order
-// the DLT template was registered. The orchestrator passes them as an
-// ordered array under `variables.__positional` (we accept both shapes for
-// flexibility).
+import type {
+  ChannelAdapter,
+  ChannelSendResult,
+  DispatchRecord,
+  NotificationEvent,
+} from '../types';
 
-import type { ChannelAdapter, ChannelSendResult, DispatchRecord, NotificationEvent } from '../types';
+function firstEnv(...keys: string[]): string | undefined {
+  for (const key of keys) {
+    const value = (process.env[key] || '').trim();
+    if (value) return value;
+  }
+  return undefined;
+}
 
-const TEMPLATE_ENV_MAP: Partial<Record<NotificationEvent, string>> = {
-  CART_T1H:                'FAST2SMS_TPL_T1H_NUDGE',
-  CART_T24H:               'FAST2SMS_TPL_T24H_KARIGAR',
-  CART_T72H:               'FAST2SMS_TPL_T72H_FAREWELL',
-  TELECALLER_HANDOFF:      'FAST2SMS_TPL_TELECALLER',
-  OTP_LOGIN:               'FAST2SMS_TPL_OTP',
-  OTP_SIGNUP:              'FAST2SMS_TPL_OTP',
-  ORDER_PLACED:            'FAST2SMS_TPL_ORDER_PLACED',
-  ORDER_SHIPPED:           'FAST2SMS_TPL_ORDER_SHIPPED',
-  ORDER_OUT_FOR_DELIVERY:  'FAST2SMS_TPL_OFD',
-  ORDER_DELIVERED:         'FAST2SMS_TPL_DELIVERED',
-  ORDER_CANCELLED:         'FAST2SMS_TPL_CANCELLED',
+function templateIdForEvent(event: NotificationEvent): string | undefined {
+  switch (event) {
+    case 'OTP_LOGIN':
+    case 'OTP_SIGNUP':
+      return firstEnv('FAST2SMS_TPL_OTP', 'FAST2SMS_OTP_TEMPLATE_ID');
+
+    case 'ORDER_PLACED':
+      return firstEnv('FAST2SMS_TPL_ORDER_PLACED', 'FAST2SMS_TPL_ORDER_COD_PLACED');
+
+    case 'ORDER_CONFIRMED':
+      return firstEnv('FAST2SMS_TPL_ORDER_CONFIRMED', 'FAST2SMS_TPL_PAYMENT_RECEIVED');
+
+    case 'ORDER_PACKED':
+      return firstEnv('FAST2SMS_TPL_ORDER_PACKED');
+
+    case 'ORDER_SHIPPED':
+      return firstEnv('FAST2SMS_TPL_ORDER_SHIPPED');
+
+    case 'ORDER_OUT_FOR_DELIVERY':
+      return firstEnv('FAST2SMS_TPL_OUT_FOR_DELIVERY', 'FAST2SMS_TPL_OFD');
+
+    case 'ORDER_DELIVERED':
+      return firstEnv('FAST2SMS_TPL_ORDER_DELIVERED', 'FAST2SMS_TPL_DELIVERED');
+
+    case 'ORDER_CANCELLED':
+      return firstEnv('FAST2SMS_TPL_ORDER_CANCELLED', 'FAST2SMS_TPL_CANCELLED');
+
+    case 'ORDER_REFUNDED':
+      return firstEnv('FAST2SMS_TPL_REFUND_PROCESSED', 'FAST2SMS_TPL_ORDER_REFUNDED');
+
+    case 'CART_T1H':
+    case 'CART_T24H':
+    case 'CART_T72H':
+    case 'CART_T7D':
+    case 'CART_ABANDONED_T1H':
+    case 'CART_ABANDONED_T24H':
+    case 'CART_ABANDONED_T72H':
+    case 'CART_ABANDONED_T7D':
+      return firstEnv(
+        'FAST2SMS_TPL_ABANDONED_CART',
+        'FAST2SMS_TPL_T1H_NUDGE',
+        'FAST2SMS_TPL_T24H_KARIGAR',
+        'FAST2SMS_TPL_T72H_FAREWELL'
+      );
+
+    case 'TELECALLER_HANDOFF':
+      return firstEnv('FAST2SMS_TPL_TELECALLER_HANDOFF', 'FAST2SMS_TPL_TELECALLER');
+
+    case 'SELLER_ORDER_READY_TO_DISPATCH':
+      return firstEnv('FAST2SMS_TPL_SELLER_ORDER_READY', 'FAST2SMS_TPL_SELLER_ORDER_DISPATCH');
+
+    case 'SELLER_PAYOUT_PAID':
+      return firstEnv('FAST2SMS_TPL_SELLER_PAYOUT', 'FAST2SMS_TPL_SELLER_PAYOUT_PROCESSED');
+
+    case 'SELLER_INVENTORY_APPROVED':
+      return firstEnv('FAST2SMS_TPL_PRODUCT_QC_APPROVED');
+
+    case 'SELLER_INVENTORY_REJECTED':
+      return firstEnv('FAST2SMS_TPL_PRODUCT_QC_REJECTED');
+
+    default:
+      return undefined;
+  }
+}
+
+function varOrderForEvent(event: NotificationEvent): string[] {
+  switch (event) {
+    case 'OTP_LOGIN':
+    case 'OTP_SIGNUP':
+      return ['firstName', 'otpCode'];
+
+    case 'ORDER_PLACED':
+      return ['firstName', 'orderNumber'];
+
+    case 'ORDER_CONFIRMED':
+      return ['firstName', 'orderNumber'];
+
+    case 'ORDER_PACKED':
+      return ['firstName', 'orderNumber'];
+
+    case 'ORDER_SHIPPED':
+      return ['firstName', 'orderNumber'];
+
+    case 'ORDER_OUT_FOR_DELIVERY':
+      return ['firstName'];
+
+    case 'ORDER_DELIVERED':
+      return ['firstName'];
+
+    case 'ORDER_CANCELLED':
+      return ['firstName', 'orderNumber'];
+
+    case 'ORDER_REFUNDED':
+      return ['firstName', 'orderNumber'];
+
+    case 'CART_T1H':
+    case 'CART_T24H':
+    case 'CART_T72H':
+    case 'CART_T7D':
+    case 'CART_ABANDONED_T1H':
+    case 'CART_ABANDONED_T24H':
+    case 'CART_ABANDONED_T72H':
+    case 'CART_ABANDONED_T7D':
+      return ['firstName', 'recoveryLink'];
+
+    case 'TELECALLER_HANDOFF':
+      return ['caseRef', 'adminLink'];
+
+    case 'SELLER_ORDER_READY_TO_DISPATCH':
+      return ['firstName', 'orderNumber'];
+
+    case 'SELLER_PAYOUT_PAID':
+      return ['firstName', 'payoutRef'];
+
+    case 'SELLER_INVENTORY_APPROVED':
+    case 'SELLER_INVENTORY_REJECTED':
+      return ['firstName', 'submissionRef'];
+
+    default:
+      return [];
+  }
+}
+
+const VAR_ALIASES: Record<string, string[]> = {
+  firstName: ['customerName', 'name', 'sellerName', 'vendorName', 'first_name'],
+  orderNumber: ['orderRef', 'reference', 'order_id'],
+  recoveryLink: ['recoverLink', 'cartLink', 'link', 'checkoutLink'],
+  adminLink: ['reviewLink', 'link'],
+  caseRef: ['cartId', 'reference'],
+  payoutRef: ['reference', 'orderNumber'],
+  submissionRef: ['reference', 'productSubmissionId', 'submissionId'],
 };
 
-// Positional variable order per event — MUST match the DLT template registration order
-const VAR_ORDER: Partial<Record<NotificationEvent, string[]>> = {
-  CART_T1H:                ['firstName', 'recoveryLink'],
-  CART_T24H:               ['firstName', 'discountPct', 'code', 'recoveryLink'],
-  CART_T72H:               ['firstName', 'discountPct', 'code', 'recoveryLink'],
-  TELECALLER_HANDOFF:      ['customerName', 'customerPhone', 'trunkRupees', 'adminLink'],
-  OTP_LOGIN:               ['otpCode'],
-  OTP_SIGNUP:              ['otpCode'],
-  ORDER_PLACED:            ['firstName', 'orderNumber', 'totalRupees', 'trackLink'],
-  ORDER_SHIPPED:           ['firstName', 'orderNumber', 'awbNumber', 'courier', 'trackLink'],
-  ORDER_OUT_FOR_DELIVERY:  ['firstName', 'orderNumber'],
-  ORDER_DELIVERED:         ['firstName', 'orderNumber'],
-  ORDER_CANCELLED:         ['firstName', 'orderNumber', 'refundRupees'],
-};
+function resolveVar(
+  variables: Record<string, any> | null | undefined,
+  key: string
+): string | undefined {
+  if (!variables) return undefined;
+
+  const candidates = [key, ...(VAR_ALIASES[key] || [])];
+  for (const candidate of candidates) {
+    const value = variables[candidate];
+    if (value !== undefined && value !== null && String(value).trim() !== '') {
+      return String(value);
+    }
+  }
+
+  if (key === 'firstName') return 'Customer';
+  return undefined;
+}
 
 function normalizePhone(p: string): string {
-  // Strip everything non-numeric, ensure 10-digit Indian mobile (Fast2SMS expects "919876543210" or "9876543210")
-  const digits = p.replace(/\D/g, '');
+  const digits = String(p || '').replace(/\D/g, '');
   if (digits.length === 12 && digits.startsWith('91')) return digits.slice(2);
   if (digits.length === 13 && digits.startsWith('091')) return digits.slice(3);
-  if (digits.length === 10) return digits;
-  return digits; // pass through, Fast2SMS will validate
+  if (digits.length >= 10) return digits.slice(-10);
+  return digits;
 }
 
 export const fast2smsAdapter: ChannelAdapter = {
@@ -64,58 +186,68 @@ export const fast2smsAdapter: ChannelAdapter = {
     const baseUrl = process.env.FAST2SMS_BASE_URL || 'https://www.fast2sms.com/dev/bulkV2';
 
     if (!apiKey) {
-      return { ok: false, errorMessage: 'FAST2SMS_API_KEY not set', permanentFailure: false };
-    }
-
-    const tplEnv = TEMPLATE_ENV_MAP[d.event];
-    const messageId = tplEnv ? process.env[tplEnv] : undefined;
-    if (!messageId) {
       return {
         ok: false,
-        errorMessage: `Template env var ${tplEnv} not set for event ${d.event}`,
-        permanentFailure: true,  // missing template id is permanent until config
+        errorMessage: 'FAST2SMS_API_KEY not set',
+        permanentFailure: false,
       };
     }
 
-    // Build positional variable values string: "val1|val2|val3"
-    const order = VAR_ORDER[d.event] || [];
+    const messageId = templateIdForEvent(d.event);
+    if (!messageId) {
+      return {
+        ok: false,
+        errorMessage: `No Fast2SMS DLT template configured for event ${d.event}`,
+        permanentFailure: true,
+      };
+    }
+
+    const order = varOrderForEvent(d.event);
     const values: string[] = [];
+
     for (const key of order) {
-      const v = d.variables![key];
-      if (v === undefined || v === null) {
+      const value = resolveVar(d.variables as Record<string, any>, key);
+      if (value === undefined) {
         return {
           ok: false,
           errorMessage: `Missing required variable: ${key} for event ${d.event}`,
           permanentFailure: true,
         };
       }
-      values.push(String(v));
+      values.push(value);
     }
-    const variablesValues = values.join('|');
 
     const phone = normalizePhone(d.recipient);
-    if (!phone || phone.length < 10) {
-      return { ok: false, errorMessage: `Invalid phone: ${d.recipient}`, permanentFailure: true };
+    if (!phone || phone.length !== 10) {
+      return {
+        ok: false,
+        errorMessage: `Invalid phone: ${d.recipient}`,
+        permanentFailure: true,
+      };
     }
 
-    // Fast2SMS DLT route v2 — POST form-encoded
     const params = new URLSearchParams({
       authorization: apiKey,
       route: 'dlt',
       sender_id: senderId,
       message: messageId,
-      variables_values: variablesValues,
+      variables_values: values.join('|'),
       flash: '0',
       numbers: phone,
     });
+
+    if (process.env.FAST2SMS_DLT_ENTITY_ID) {
+      params.append('entity_id', process.env.FAST2SMS_DLT_ENTITY_ID);
+    }
 
     try {
       const res = await fetch(baseUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body: params.toString(),
-        signal: AbortSignal.timeout(15_000),
+        signal: AbortSignal.timeout(15000),
       });
+
       const data = await res.json().catch(() => ({}));
 
       if (!res.ok || data?.return === false) {
