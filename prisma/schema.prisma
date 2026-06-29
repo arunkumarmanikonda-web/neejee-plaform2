@@ -257,6 +257,21 @@ model Product {
   craftNote       String?
   careInstructions String?
   sustainabilityNote String?
+
+  // Phase 1 — read-model / catalogue curation
+  catalogueFeatured          Boolean @default(false)
+  catalogueBestseller        Boolean @default(false)
+  catalogueEditorial         Boolean @default(false)
+  cataloguePinHero           Boolean @default(false)
+  catalogueExclude           Boolean @default(false)
+  cataloguePreferredImage    String?
+  catalogueAudienceTag       String?
+  catalogueCtaMode           String?  // SHOP_NOW | ENQUIRE | WHATSAPP | REQUEST_CALLBACK | VIEW_COLLECTION
+  catalogueStoryBlock        String?
+  catalogueImageApproved     Boolean @default(false)
+  catalogueImageQualityScore Int?
+  catalogueStockVisibility   String   @default("IN_STOCK_ONLY") // IN_STOCK_ONLY | SHOW_ALL | HIDE_STOCK
+
   // Status
   status          ProductStatus @default(DRAFT)
   badges          String[] @default([])
@@ -286,6 +301,12 @@ model Product {
   @@index([categoryId])
   @@index([sellerId])
   @@index([status])
+  @@index([catalogueExclude])
+  @@index([cataloguePinHero])
+  @@index([catalogueFeatured])
+  @@index([catalogueBestseller])
+  @@index([catalogueEditorial])
+  @@index([catalogueAudienceTag])
 }
 
 enum ProductOwnership {
