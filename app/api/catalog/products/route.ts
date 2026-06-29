@@ -395,7 +395,6 @@ export async function GET(request: Request) {
               images: true,
               mrp: true,
               sellingPrice: true,
-              salePrice: true,
             },
             orderBy: [{ createdAt: 'asc' }],
           },
@@ -522,7 +521,7 @@ export async function GET(request: Request) {
           images: toStringArray(variant.images),
           mrp: variant.mrp ?? null,
           sellingPrice: variant.sellingPrice ?? null,
-          salePrice: variant.salePrice ?? null,
+          salePrice: null,
           inStock: (variant.inventory ?? 0) > 0,
         })),
 
