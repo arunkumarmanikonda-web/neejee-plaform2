@@ -294,7 +294,7 @@ export async function GET(request: Request) {
             AND: andClauses,
           };
 
-    const [total, products] = await Promise.all([
+    const [total, productsRaw] = await Promise.all([
       prisma.product.count({ where }),
       prisma.product.findMany({
         where,
@@ -306,71 +306,7 @@ export async function GET(request: Request) {
           { catalogueBestseller: 'desc' },
           { updatedAt: 'desc' },
         ],
-        select: {
-          id: true,
-          slug: true,
-          sku: true,
-          sellerId: true,
-
-          name: true,
-          shortName: true,
-          poeticLine: true,
-          description: true,
-          story: true,
-          craftNote: true,
-          careInstructions: true,
-          sustainabilityNote: true,
-
-          craft: true,
-          region: true,
-          state: true,
-          cluster: true,
-          artisanName: true,
-          material: true,
-          technique: true,
-          occasion: true,
-
-          mrp: true,
-          sellingPrice: true,
-          salePrice: true,
-          saleStartsAt: true,
-          saleEndsAt: true,
-          gstRate: true,
-          hsnCode: true,
-
-          images: true,
-          video: true,
-          badges: true,
-          status: true,
-
-          aiTryOnEligible: true,
-          arTryOnEligible: true,
-          codEligible: true,
-          returnEligible: true,
-          returnPolicy: true,
-
-          fulfilmentMode: true,
-          depositPercent: true,
-          releaseDate: true,
-          editionTotal: true,
-          editionSold: true,
-
-          catalogueFeatured: true,
-          catalogueBestseller: true,
-          catalogueEditorial: true,
-          cataloguePinHero: true,
-          catalogueExclude: true,
-          cataloguePreferredImage: true,
-          catalogueAudienceTag: true,
-          catalogueCtaMode: true,
-          catalogueStoryBlock: true,
-          catalogueImageApproved: true,
-          catalogueImageQualityScore: true,
-          catalogueStockVisibility: true,
-
-          createdAt: true,
-          updatedAt: true,
-
+        include: {
           category: {
             select: {
               id: true,
@@ -381,25 +317,12 @@ export async function GET(request: Request) {
               parentId: true,
             },
           },
-
-          variants: {
-            select: {
-              id: true,
-              sku: true,
-              size: true,
-              color: true,
-              material: true,
-              inventory: true,
-              lowStockThreshold: true,
-              images: true,
-              mrp: true,
-              sellingPrice: true,
-            },
-          },
+          variants: true,
         },
       }),
     ]);
 
+    const products = productsRaw as any[];
     const now = new Date();
 
     const items = products.map((product: any) => {
@@ -421,8 +344,8 @@ export async function GET(request: Request) {
 
         title: product.name,
         name: product.name,
-        shortName: product.shortName,
-        poeticLine: product.poeticLine,
+        shortName: product.shortName ?? null,
+        poeticLine: product.poeticLine ?? null,
 
         category: product.category
           ? {
@@ -451,8 +374,8 @@ export async function GET(request: Request) {
           salePrice: saleLive ? product.salePrice ?? null : null,
           effectivePrice,
           onSale: saleLive,
-          saleStartsAt: product.saleStartsAt,
-          saleEndsAt: product.saleEndsAt,
+          saleStartsAt: product.saleStartsAt ?? null,
+          saleEndsAt: product.saleEndsAt ?? null,
           gstRate: product.gstRate ?? null,
           hsnCode: product.hsnCode ?? null,
         },
