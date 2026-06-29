@@ -86,7 +86,9 @@ function normalizeStockVisibility(
   if (!raw) return 'IN_STOCK_ONLY';
   if (raw === 'SHOW_ALL' || raw === 'SHOW_EXACT') return 'SHOW_ALL';
   if (raw === 'HIDE_STOCK') return 'HIDE_STOCK';
-  if (raw === 'LOW_STOCK_BADGE' || raw === 'IN_STOCK_ONLY') return 'IN_STOCK_ONLY';
+  if (raw === 'LOW_STOCK_BADGE' || raw === 'IN_STOCK_ONLY') {
+    return 'IN_STOCK_ONLY';
+  }
 
   return 'IN_STOCK_ONLY';
 }
@@ -155,8 +157,8 @@ function choosePrimaryImage(product: ProductRow): string | null {
 
   const productImages = dedupeStrings(toStringArray(product.images));
   const variantImages = dedupeStrings(
-    (Array.isArray(product.variants) ? product.variants : []).flatMap((variant) =>
-      toStringArray(variant?.images)
+    (Array.isArray(product.variants) ? product.variants : []).flatMap(
+      (variant) => toStringArray(variant?.images)
     )
   );
 
@@ -169,7 +171,9 @@ function choosePrimaryImage(product: ProductRow): string | null {
 
 function buildProductState(product: ProductRow, now = new Date()) {
   const totalInventory = countInventory(product);
-  const stockVisibility = normalizeStockVisibility(product.catalogueStockVisibility);
+  const stockVisibility = normalizeStockVisibility(
+    product.catalogueStockVisibility
+  );
   const inStock = totalInventory > 0;
   const excluded = !!product.catalogueExclude;
   const active = product.status === 'ACTIVE';
@@ -246,7 +250,7 @@ function sumCounts(node: Node) {
   node.descendantReadyProductCount = readyTotal;
   node.descendantInStockProductCount = inStockTotal;
 
-  // Backward-compatible aliases for existing consumers that still read sellable counts.
+  // Backward-compatible aliases for existing consumers
   node.directSellableCount = node.directVisibleProductCount;
   node.descendantSellableCount = node.descendantVisibleProductCount;
 }
@@ -317,9 +321,6 @@ export async function GET(req: NextRequest) {
       prisma.product.findMany({
         where: {
           status: 'ACTIVE',
-          categoryId: {
-            not: null,
-          },
         },
         select: {
           id: true,
@@ -385,6 +386,7 @@ export async function GET(req: NextRequest) {
     }
 
     const normalizedFullTree = normalizeTree(tree as any) as Node[];
+
     const output = visibleOnly
       ? (normalizeTree(filterPublic(normalizedFullTree as any) as any) as Node[])
       : previewVisible
