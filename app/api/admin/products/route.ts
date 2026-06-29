@@ -5,12 +5,14 @@ import { getSession, requireRole } from '@/lib/auth';
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
-const ALLOWED_STOCK_VISIBILITY = [
+const CANONICAL_STOCK_VISIBILITY = [
   'IN_STOCK_ONLY',
-  'LOW_STOCK_BADGE',
-  'SHOW_EXACT',
+  'SHOW_ALL',
   'HIDE_STOCK',
 ] as const;
+
+type CanonicalStockVisibility =
+  (typeof CANONICAL_STOCK_VISIBILITY)[number];
 
 function normalizeText(value: unknown): string | null {
   if (value === undefined || value === null) return null;
@@ -55,6 +57,13 @@ function asBoolean(value: unknown): boolean {
   return value === true || value === 'true' || value === 1 || value === '1';
 }
 
+function firstDefined<T>(...values: T[]): T | undefined {
+  for (const value of values) {
+    if (value !== undefined) return value;
+  }
+  return undefined;
+}
+
 function sanitizeSlug(input: string): string {
   return input
     .toLowerCase()
@@ -62,6 +71,17 @@ function sanitizeSlug(input: string): string {
     .replace(/[^\w\s-]/g, '')
     .replace(/[\s_-]+/g, '-')
     .replace(/^-+|-+$/g, '');
+}
+
+function normalizeStockVisibility(value: unknown): CanonicalStockVisibility {
+  const raw = normalizeText(value)?.toUpperCase();
+
+  if (!raw) return 'IN_STOCK_ONLY';
+  if (raw === 'SHOW_ALL' || raw === 'SHOW_EXACT') return 'SHOW_ALL';
+  if (raw === 'HIDE_STOCK') return 'HIDE_STOCK';
+  if (raw === 'LOW_STOCK_BADGE' || raw === 'IN_STOCK_ONLY') return 'IN_STOCK_ONLY';
+
+  return 'IN_STOCK_ONLY';
 }
 
 function choosePrimaryImage(product: any): string | null {
@@ -134,14 +154,8 @@ function setIfPresent(target: Record<string, any>, key: string, value: unknown) 
 }
 
 function buildCreateData(body: any, slug: string, sku: string): any {
-  const stockVisibilityRaw =
-    normalizeText(body.catalogueStockVisibility) || 'IN_STOCK_ONLY';
-
-  const catalogueStockVisibility = ALLOWED_STOCK_VISIBILITY.includes(
-    stockVisibilityRaw as (typeof ALLOWED_STOCK_VISIBILITY)[number]
-  )
-    ? stockVisibilityRaw
-    : 'IN_STOCK_ONLY';
+  const editionSizeInput = firstDefined(body.editionSize, body.editionTotal);
+  const aiRoomEligibleInput = firstDefined(body.aiRoomEligible, body.aiStylistEligible);
 
   const data: Record<string, any> = {
     name: String(body.name).trim(),
@@ -158,7 +172,7 @@ function buildCreateData(body: any, slug: string, sku: string): any {
     status: normalizeText(body.status) || 'DRAFT',
 
     aiTryOnEligible: asBoolean(body.aiTryOnEligible),
-    aiStylistEligible: asBoolean(body.aiStylistEligible),
+    aiRoomEligible: asBoolean(aiRoomEligibleInput),
     arTryOnEligible: asBoolean(body.arTryOnEligible),
     codEligible: asBoolean(body.codEligible),
     returnEligible: asBoolean(body.returnEligible),
@@ -169,7 +183,7 @@ function buildCreateData(body: any, slug: string, sku: string): any {
     cataloguePinHero: asBoolean(body.cataloguePinHero),
     catalogueExclude: asBoolean(body.catalogueExclude),
     catalogueImageApproved: asBoolean(body.catalogueImageApproved),
-    catalogueStockVisibility,
+    catalogueStockVisibility: normalizeStockVisibility(body.catalogueStockVisibility),
   };
 
   setIfPresent(data, 'shortName', normalizeText(body.shortName));
@@ -205,7 +219,7 @@ function buildCreateData(body: any, slug: string, sku: string): any {
   setIfPresent(data, 'fulfilmentMode', normalizeText(body.fulfilmentMode));
   setIfPresent(data, 'depositPercent', parseOptionalInt(body.depositPercent));
   setIfPresent(data, 'releaseDate', parseOptionalDate(body.releaseDate));
-  setIfPresent(data, 'editionTotal', parseOptionalInt(body.editionTotal));
+  setIfPresent(data, 'editionSize', parseOptionalInt(editionSizeInput));
   setIfPresent(data, 'editionSold', parseOptionalInt(body.editionSold));
 
   setIfPresent(
@@ -317,6 +331,11 @@ export async function GET(request: Request) {
           (v: any) => v.inventory > 0 && v.inventory <= (v.lowStockThreshold || 3)
         ),
 
+        aiTryOnEligible: !!p.aiTryOnEligible,
+        aiRoomEligible: !!p.aiRoomEligible,
+        aiStylistEligible: !!p.aiRoomEligible,
+        arTryOnEligible: !!p.arTryOnEligible,
+
         catalogueFeatured: !!p.catalogueFeatured,
         catalogueBestseller: !!p.catalogueBestseller,
         catalogueEditorial: !!p.catalogueEditorial,
@@ -328,9 +347,21 @@ export async function GET(request: Request) {
         catalogueStoryBlock: p.catalogueStoryBlock || null,
         catalogueImageApproved: !!p.catalogueImageApproved,
         catalogueImageQualityScore: p.catalogueImageQualityScore ?? null,
-        catalogueStockVisibility: p.catalogueStockVisibility || 'IN_STOCK_ONLY',
+        catalogueStockVisibility: normalizeStockVisibility(
+          p.catalogueStockVisibility
+        ),
+
+        fulfilmentMode: p.fulfilmentMode || null,
+        depositPercent: p.depositPercent ?? null,
+        releaseDate: p.releaseDate ?? null,
+        editionSize: p.editionSize ?? null,
+        editionTotal: p.editionSize ?? null,
+        editionSold: p.editionSold ?? null,
       })),
       statusCounts,
+      readModel: {
+        stockVisibility: CANONICAL_STOCK_VISIBILITY,
+      },
     });
   } catch (error: any) {
     return NextResponse.json(
