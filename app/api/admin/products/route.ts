@@ -1,4 +1,3 @@
-// Admin products list endpoint
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getSession, requireRole } from '@/lib/auth';
@@ -6,35 +5,222 @@ import { getSession, requireRole } from '@/lib/auth';
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
-function choosePrimaryImage(p: any): string | null {
-  const base = Array.isArray(p.images) ? p.images.filter(Boolean) : [];
-  const preferred = p.cataloguePreferredImage || null;
+const ALLOWED_STOCK_VISIBILITY = [
+  'IN_STOCK_ONLY',
+  'LOW_STOCK_BADGE',
+  'SHOW_EXACT',
+  'HIDE_STOCK',
+] as const;
 
-  if (preferred && base.includes(preferred)) return preferred;
-  if (base.length > 0) return base[0];
+function normalizeText(value: unknown): string | null {
+  if (value === undefined || value === null) return null;
+  const text = String(value).trim();
+  return text.length ? text : null;
+}
 
-  for (const v of p.variants || []) {
-    const vi = Array.isArray(v.images) ? v.images.filter(Boolean) : [];
-    if (preferred && vi.includes(preferred)) return preferred;
-    if (vi.length > 0) return vi[0];
+function normalizeStringArray(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((item) => String(item ?? '').trim())
+    .filter(Boolean);
+}
+
+function parseRequiredInt(value: unknown, field: string): number {
+  const n = Number.parseInt(String(value), 10);
+  if (!Number.isFinite(n)) {
+    throw new Error(`Invalid integer for ${field}`);
+  }
+  return n;
+}
+
+function parseOptionalInt(value: unknown): number | null {
+  if (value === undefined || value === null || value === '') return null;
+  const n = Number.parseInt(String(value), 10);
+  return Number.isFinite(n) ? n : null;
+}
+
+function parseOptionalFloat(value: unknown): number | null {
+  if (value === undefined || value === null || value === '') return null;
+  const n = Number.parseFloat(String(value));
+  return Number.isFinite(n) ? n : null;
+}
+
+function parseOptionalDate(value: unknown): Date | null {
+  if (!value) return null;
+  const d = new Date(String(value));
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
+function asBoolean(value: unknown): boolean {
+  return value === true || value === 'true' || value === 1 || value === '1';
+}
+
+function sanitizeSlug(input: string): string {
+  return input
+    .toLowerCase()
+    .trim()
+    .replace(/[^\w\s-]/g, '')
+    .replace(/[\s_-]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+}
+
+function choosePrimaryImage(product: any): string | null {
+  const preferred = product?.cataloguePreferredImage || null;
+
+  const productImages = Array.isArray(product?.images)
+    ? product.images.filter(Boolean)
+    : [];
+
+  if (preferred && productImages.includes(preferred)) return preferred;
+  if (productImages.length > 0) return productImages[0];
+
+  for (const variant of product?.variants || []) {
+    const variantImages = Array.isArray(variant?.images)
+      ? variant.images.filter(Boolean)
+      : [];
+
+    if (preferred && variantImages.includes(preferred)) return preferred;
+    if (variantImages.length > 0) return variantImages[0];
   }
 
   return preferred || null;
 }
 
+async function buildUniqueSlug(name: string, incomingSlug?: unknown): Promise<string> {
+  let slug = sanitizeSlug(String(incomingSlug || '').trim());
+
+  if (!slug) {
+    slug = sanitizeSlug(name);
+  }
+
+  if (!slug) {
+    slug = `product-${Date.now()}`;
+  }
+
+  const baseSlug = slug;
+  let suffix = 2;
+
+  while (await prisma.product.findUnique({ where: { slug } })) {
+    slug = `${baseSlug}-${suffix++}`;
+    if (suffix > 50) {
+      slug = `${baseSlug}-${Date.now()}`;
+      break;
+    }
+  }
+
+  return slug;
+}
+
+async function buildSku(body: any): Promise<string> {
+  const supplied = String(body?.sku || '').trim();
+  if (supplied) return supplied;
+
+  const { nextSku } = await import('@/lib/sku-generator');
+  const category = await prisma.category.findUnique({
+    where: { id: String(body.categoryId) },
+    select: { name: true },
+  });
+
+  return nextSku({
+    craft: body?.craft || undefined,
+    categoryName: category?.name || undefined,
+  });
+}
+
+function buildCreateData(body: any, slug: string, sku: string) {
+  const stockVisibilityRaw =
+    normalizeText(body.catalogueStockVisibility) || 'IN_STOCK_ONLY';
+
+  const catalogueStockVisibility = ALLOWED_STOCK_VISIBILITY.includes(
+    stockVisibilityRaw as (typeof ALLOWED_STOCK_VISIBILITY)[number]
+  )
+    ? stockVisibilityRaw
+    : 'IN_STOCK_ONLY';
+
+  return {
+    name: String(body.name).trim(),
+    slug,
+    sku,
+
+    shortName: normalizeText(body.shortName),
+    poeticLine: normalizeText(body.poeticLine),
+    description: normalizeText(body.description),
+    story: normalizeText(body.story),
+    craftNote: normalizeText(body.craftNote),
+    careInstructions: normalizeText(body.careInstructions),
+    sustainabilityNote: normalizeText(body.sustainabilityNote),
+
+    craft: normalizeText(body.craft),
+    region: normalizeText(body.region),
+    state: normalizeText(body.state),
+    cluster: normalizeText(body.cluster),
+    artisanName: normalizeText(body.artisanName),
+    material: normalizeText(body.material),
+    technique: normalizeText(body.technique),
+    occasion: normalizeText(body.occasion),
+
+    categoryId: String(body.categoryId),
+
+    mrp: parseRequiredInt(body.mrp, 'mrp'),
+    sellingPrice: parseRequiredInt(body.sellingPrice, 'sellingPrice'),
+    salePrice: parseOptionalInt(body.salePrice),
+    saleStartsAt: parseOptionalDate(body.saleStartsAt),
+    saleEndsAt: parseOptionalDate(body.saleEndsAt),
+
+    gstRate: parseOptionalFloat(body.gstRate),
+    hsnCode: normalizeText(body.hsnCode),
+
+    images: normalizeStringArray(body.images),
+    video: normalizeText(body.video),
+    badges: normalizeStringArray(body.badges),
+
+    status: normalizeText(body.status) || 'DRAFT',
+
+    seoTitle: normalizeText(body.seoTitle),
+    seoDesc: normalizeText(body.seoDesc),
+
+    aiTryOnEligible: asBoolean(body.aiTryOnEligible),
+    aiStylistEligible: asBoolean(body.aiStylistEligible),
+    arTryOnEligible: asBoolean(body.arTryOnEligible),
+    codEligible: asBoolean(body.codEligible),
+    returnEligible: asBoolean(body.returnEligible),
+
+    returnPolicy: normalizeText(body.returnPolicy),
+    fulfilmentMode: normalizeText(body.fulfilmentMode),
+    depositPercent: parseOptionalInt(body.depositPercent),
+    releaseDate: parseOptionalDate(body.releaseDate),
+    editionTotal: parseOptionalInt(body.editionTotal),
+    editionSold: parseOptionalInt(body.editionSold),
+
+    catalogueFeatured: asBoolean(body.catalogueFeatured),
+    catalogueBestseller: asBoolean(body.catalogueBestseller),
+    catalogueEditorial: asBoolean(body.catalogueEditorial),
+    cataloguePinHero: asBoolean(body.cataloguePinHero),
+    catalogueExclude: asBoolean(body.catalogueExclude),
+    cataloguePreferredImage: normalizeText(body.cataloguePreferredImage),
+    catalogueAudienceTag: normalizeText(body.catalogueAudienceTag),
+    catalogueCtaMode: normalizeText(body.catalogueCtaMode),
+    catalogueStoryBlock: normalizeText(body.catalogueStoryBlock),
+    catalogueImageApproved: asBoolean(body.catalogueImageApproved),
+    catalogueImageQualityScore: parseOptionalInt(body.catalogueImageQualityScore),
+    catalogueStockVisibility,
+  };
+}
+
 export async function GET(request: Request) {
   const user = await getSession();
+
   if (!requireRole(user, ['ADMIN', 'SUPER_ADMIN', 'CONTENT_EDITOR'])) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const url = new URL(request.url);
-  const status = url.searchParams.get('status');
-  const audience = url.searchParams.get('audience');
-  const excluded = url.searchParams.get('excluded');
-  const hero = url.searchParams.get('hero');
-
   try {
+    const url = new URL(request.url);
+    const status = url.searchParams.get('status');
+    const audience = url.searchParams.get('audience');
+    const excluded = url.searchParams.get('excluded');
+    const hero = url.searchParams.get('hero');
+
     const where: any = {};
 
     if (status && status !== 'ALL') where.status = status;
@@ -48,8 +234,23 @@ export async function GET(request: Request) {
       take: 200,
       orderBy: [{ cataloguePinHero: 'desc' }, { createdAt: 'desc' }],
       include: {
-        category: { select: { id: true, name: true, slug: true, level: true, path: true } },
-        variants: { select: { id: true, inventory: true, lowStockThreshold: true, images: true } },
+        category: {
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+            level: true,
+            path: true,
+          },
+        },
+        variants: {
+          select: {
+            id: true,
+            inventory: true,
+            lowStockThreshold: true,
+            images: true,
+          },
+        },
       },
     });
 
@@ -58,8 +259,8 @@ export async function GET(request: Request) {
       _count: { _all: true },
     });
 
-    const statusCounts = counts.reduce((acc: any, c: any) => {
-      acc[c.status] = c._count._all;
+    const statusCounts = counts.reduce((acc, row) => {
+      acc[row.status] = row._count._all;
       return acc;
     }, {} as Record<string, number>);
 
@@ -69,21 +270,34 @@ export async function GET(request: Request) {
         slug: p.slug,
         sku: p.sku,
         name: p.name,
+        shortName: p.shortName,
         craft: p.craft,
         region: p.region,
-        category: p.category?.name,
-        categorySlug: p.category?.slug,
+        material: p.material,
+        occasion: p.occasion,
+
+        category: p.category?.name || null,
+        categoryId: p.category?.id || null,
+        categorySlug: p.category?.slug || null,
         categoryPath: p.category?.path || null,
+        categoryLevel: p.category?.level ?? null,
+
         mrp: p.mrp,
         sellingPrice: p.sellingPrice,
         salePrice: p.salePrice,
         saleStartsAt: p.saleStartsAt,
         saleEndsAt: p.saleEndsAt,
         status: p.status,
+
         image: choosePrimaryImage(p),
-        totalInventory: p.variants.reduce((s: number, v: any) => s + (v.inventory || 0), 0),
-        variantCount: p.variants.length,
-        lowStock: p.variants.some((v: any) => v.inventory <= (v.lowStockThreshold || 3) && v.inventory > 0),
+        totalInventory: (p.variants || []).reduce(
+          (sum: number, v: any) => sum + (v.inventory || 0),
+          0
+        ),
+        variantCount: (p.variants || []).length,
+        lowStock: (p.variants || []).some(
+          (v: any) => v.inventory > 0 && v.inventory <= (v.lowStockThreshold || 3)
+        ),
 
         catalogueFeatured: !!p.catalogueFeatured,
         catalogueBestseller: !!p.catalogueBestseller,
@@ -93,15 +307,20 @@ export async function GET(request: Request) {
         cataloguePreferredImage: p.cataloguePreferredImage || null,
         catalogueAudienceTag: p.catalogueAudienceTag || null,
         catalogueCtaMode: p.catalogueCtaMode || null,
+        catalogueStoryBlock: p.catalogueStoryBlock || null,
         catalogueImageApproved: !!p.catalogueImageApproved,
         catalogueImageQualityScore: p.catalogueImageQualityScore ?? null,
         catalogueStockVisibility: p.catalogueStockVisibility || 'IN_STOCK_ONLY',
       })),
       statusCounts,
     });
-  } catch (e: any) {
+  } catch (error: any) {
     return NextResponse.json(
-      { error: e.message, products: [], statusCounts: {} },
+      {
+        error: error?.message || 'Failed to load products',
+        products: [],
+        statusCounts: {},
+      },
       { status: 500 }
     );
   }
@@ -109,6 +328,7 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   const user = await getSession();
+
   if (!requireRole(user, ['ADMIN', 'SUPER_ADMIN', 'CONTENT_EDITOR'])) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
@@ -116,377 +336,81 @@ export async function POST(request: Request) {
   try {
     const body = await request.json();
 
-    const required = ['name', 'mrp', 'sellingPrice', 'categoryId'];
-    for (const f of required) {
-      if (!body[f]) {
-        return NextResponse.json({ error: `Missing field: ${f}` }, { status: 400 });
-      }
+    if (!normalizeText(body.name)) {
+      return NextResponse.json({ error: 'Missing field: name' }, { status: 400 });
     }
 
-    let slug: string = (body.slug || '').toString().trim();
-    if (!slug || slug.length < 2) {
-      slug = body.name
-        .toLowerCase()
-        .trim()
-        .replace(/[^\w\s-]/g, '')
-        .replace(/[\s_-]+/g, '-')
-        .replace(/^-+|-+$/g, '');
+    if (body.mrp === undefined || body.mrp === null || body.mrp === '') {
+      return NextResponse.json({ error: 'Missing field: mrp' }, { status: 400 });
     }
 
-    const baseSlug = slug;
-    let suffix = 2;
-    while (await prisma.product.findUnique({ where: { slug } })) {
-      slug = `${baseSlug}-${suffix++}`;
-      if (suffix > 50) {
-        slug = `${baseSlug}-${Date.now()}`;
-        break;
-      }
+    if (
+      body.sellingPrice === undefined ||
+      body.sellingPrice === null ||
+      body.sellingPrice === ''
+    ) {
+      return NextResponse.json(
+        { error: 'Missing field: sellingPrice' },
+        { status: 400 }
+      );
     }
 
-    let sku: string = (body.sku || '').toString().trim();
-    if (!sku) {
-      const { nextSku } = await import('@/lib/sku-generator');
-      const cat = await prisma.category.findUnique({
-        where: { id: body.categoryId },
-        select: { name: true },
-      });
-      sku = await nextSku({ craft: body.craft, categoryName: cat?.name });
+    if (!normalizeText(body.categoryId)) {
+      return NextResponse.json(
+        { error: 'Missing field: categoryId' },
+        { status: 400 }
+      );
     }
 
-    const userSuppliedSku = !!(body.sku && String(body.sku).trim());
+    let slug = await buildUniqueSlug(String(body.name), body.slug);
+    let sku = await buildSku(body);
+    const userSuppliedSku = !!normalizeText(body.sku);
 
-    let product: any = null;
-    let lastErr: any = null;
+    let createdProduct: any = null;
+    let lastError: any = null;
 
     for (let attempt = 0; attempt < 3; attempt++) {
       try {
-        product = await prisma.product.create({
-          data: {
-            name: body.name,
-            slug,
-            sku,
-            shortName: body.shortName || null,
-            poeticLine: body.poeticLine || null,
-            description: body.description || null,
-            story: body.story || null,
-            craftNote: body.craftNote || null,
-            careInstructions: body.careInstructions || null,
-            sustainabilityNote: body.sustainabilityNote || null,
-            craft: body.craft || null,
-            region: body.region || null,
-            cluster: body.cluster || null,
-            artisanName: body.artisanName || null,
-            material: body.material || null,
-            technique: body.technique || null,
-            occasion: body.occasion || null,
-            categoryId: body.categoryId,
-            mrp: parseInt(body.mrp, 10),
-            sellingPrice: parseInt(body.sellingPrice, 10),
-            salePrice: body.salePrice ? parseInt(body.salePrice, 10) : null,
-            images: body.images || [],
-            status: body.status || 'DRAFT',
-            seoTitle: body.seoTitle || null,
-            seoDesc: body.seoDesc || null,
-
-            catalogueFeatured: !!body.catalogueFeatured,
-            catalogueBestseller: !!body.catalogueBestseller,
-            catalogueEditorial: !!body.catalogueEditorial,
-            cataloguePinHero: !!body.cataloguePinHero,
-            catalogueExclude: !!body.catalogueExclude,
-            cataloguePreferredImage: body.cataloguePreferredImage || null,
-            catalogueAudienceTag: body.catalogueAudienceTag || null,
-            catalogueCtaMode: body.catalogueCtaMode || null,
-            catalogueStoryBlock: body.catalogueStoryBlock || null,
-            catalogueImageApproved: !!body.catalogueImageApproved,
-            catalogueImageQualityScore:
-              body.catalogueImageQualityScore === null ||
-              body.catalogueImageQualityScore === undefined ||
-              body.catalogueImageQualityScore === ''
-                ? null
-                : parseInt(body.catalogueImageQualityScore, 10),
-            catalogueStockVisibility: body.catalogueStockVisibility || 'IN_STOCK_ONLY',
-          },
-        });
-
+        const data = buildCreateData(body, slug, sku);
+        createdProduct = await prisma.product.create({ data });
         break;
-      } catch (e: any) {
-        lastErr = e;
-        const target = e?.meta?.target as any;
-        const isSkuCollision = e?.code === 'P2002' && target?.includes?.('sku');
-        const isSlugCollision = e?.code === 'P2002' && target?.includes?.('slug');
+      } catch (error: any) {
+        lastError = error;
+
+        const target = error?.meta?.target;
+        const targetText = Array.isArray(target) ? target.join(',') : String(target || '');
+
+        const isSkuCollision = error?.code === 'P2002' && targetText.includes('sku');
+        const isSlugCollision = error?.code === 'P2002' && targetText.includes('slug');
 
         if (isSkuCollision && !userSuppliedSku) {
-          const { nextSku } = await import('@/lib/sku-generator');
-          const cat = await prisma.category.findUnique({
-            where: { id: body.categoryId },
-            select: { name: true },
-          });
-          sku = await nextSku({ craft: body.craft, categoryName: cat?.name });
+          sku = await buildSku(body);
           continue;
         }
 
         if (isSlugCollision) {
-          slug = `${slug}-${Date.now()}`;
+          slug = `${sanitizeSlug(String(body.name))}-${Date.now()}`;
           continue;
         }
 
-        throw e;
+        throw error;
       }
     }
 
-    if (!product) {
-      throw lastErr || new Error('Failed to create product');
+    if (!createdProduct) {
+      throw lastError || new Error('Failed to create product');
     }
-
-    return NextResponse.json({ success: true, product });
-  } catch (e: any) {
-    const msg = e.code === 'P2002' ? 'SKU or slug already exists' : e.message;
-    return NextResponse.json({ error: msg }, { status: 500 });
-  }
-}
-// Admin products list endpoint
-import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
-import { getSession, requireRole } from '@/lib/auth';
-
-export const dynamic = 'force-dynamic';
-export const runtime = 'nodejs';
-
-function choosePrimaryImage(p: any): string | null {
-  const base = Array.isArray(p.images) ? p.images.filter(Boolean) : [];
-  const preferred = p.cataloguePreferredImage || null;
-
-  if (preferred && base.includes(preferred)) return preferred;
-  if (base.length > 0) return base[0];
-
-  for (const v of p.variants || []) {
-    const vi = Array.isArray(v.images) ? v.images.filter(Boolean) : [];
-    if (preferred && vi.includes(preferred)) return preferred;
-    if (vi.length > 0) return vi[0];
-  }
-
-  return preferred || null;
-}
-
-export async function GET(request: Request) {
-  const user = await getSession();
-  if (!requireRole(user, ['ADMIN', 'SUPER_ADMIN', 'CONTENT_EDITOR'])) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
-
-  const url = new URL(request.url);
-  const status = url.searchParams.get('status');
-  const audience = url.searchParams.get('audience');
-  const excluded = url.searchParams.get('excluded');
-  const hero = url.searchParams.get('hero');
-
-  try {
-    const where: any = {};
-
-    if (status && status !== 'ALL') where.status = status;
-    if (audience) where.catalogueAudienceTag = audience;
-    if (excluded === 'true') where.catalogueExclude = true;
-    if (excluded === 'false') where.catalogueExclude = false;
-    if (hero === 'true') where.cataloguePinHero = true;
-
-    const products = await prisma.product.findMany({
-      where,
-      take: 200,
-      orderBy: [{ cataloguePinHero: 'desc' }, { createdAt: 'desc' }],
-      include: {
-        category: { select: { id: true, name: true, slug: true, level: true, path: true } },
-        variants: { select: { id: true, inventory: true, lowStockThreshold: true, images: true } },
-      },
-    });
-
-    const counts = await prisma.product.groupBy({
-      by: ['status'],
-      _count: { _all: true },
-    });
-
-    const statusCounts = counts.reduce((acc: any, c: any) => {
-      acc[c.status] = c._count._all;
-      return acc;
-    }, {} as Record<string, number>);
 
     return NextResponse.json({
-      products: products.map((p: any) => ({
-        id: p.id,
-        slug: p.slug,
-        sku: p.sku,
-        name: p.name,
-        craft: p.craft,
-        region: p.region,
-        category: p.category?.name,
-        categorySlug: p.category?.slug,
-        categoryPath: p.category?.path || null,
-        mrp: p.mrp,
-        sellingPrice: p.sellingPrice,
-        salePrice: p.salePrice,
-        saleStartsAt: p.saleStartsAt,
-        saleEndsAt: p.saleEndsAt,
-        status: p.status,
-        image: choosePrimaryImage(p),
-        totalInventory: p.variants.reduce((s: number, v: any) => s + (v.inventory || 0), 0),
-        variantCount: p.variants.length,
-        lowStock: p.variants.some((v: any) => v.inventory <= (v.lowStockThreshold || 3) && v.inventory > 0),
-
-        catalogueFeatured: !!p.catalogueFeatured,
-        catalogueBestseller: !!p.catalogueBestseller,
-        catalogueEditorial: !!p.catalogueEditorial,
-        cataloguePinHero: !!p.cataloguePinHero,
-        catalogueExclude: !!p.catalogueExclude,
-        cataloguePreferredImage: p.cataloguePreferredImage || null,
-        catalogueAudienceTag: p.catalogueAudienceTag || null,
-        catalogueCtaMode: p.catalogueCtaMode || null,
-        catalogueImageApproved: !!p.catalogueImageApproved,
-        catalogueImageQualityScore: p.catalogueImageQualityScore ?? null,
-        catalogueStockVisibility: p.catalogueStockVisibility || 'IN_STOCK_ONLY',
-      })),
-      statusCounts,
+      success: true,
+      product: createdProduct,
     });
-  } catch (e: any) {
-    return NextResponse.json(
-      { error: e.message, products: [], statusCounts: {} },
-      { status: 500 }
-    );
-  }
-}
+  } catch (error: any) {
+    const message =
+      error?.code === 'P2002'
+        ? 'SKU or slug already exists'
+        : error?.message || 'Failed to create product';
 
-export async function POST(request: Request) {
-  const user = await getSession();
-  if (!requireRole(user, ['ADMIN', 'SUPER_ADMIN', 'CONTENT_EDITOR'])) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
-
-  try {
-    const body = await request.json();
-
-    const required = ['name', 'mrp', 'sellingPrice', 'categoryId'];
-    for (const f of required) {
-      if (!body[f]) {
-        return NextResponse.json({ error: `Missing field: ${f}` }, { status: 400 });
-      }
-    }
-
-    let slug: string = (body.slug || '').toString().trim();
-    if (!slug || slug.length < 2) {
-      slug = body.name
-        .toLowerCase()
-        .trim()
-        .replace(/[^\w\s-]/g, '')
-        .replace(/[\s_-]+/g, '-')
-        .replace(/^-+|-+$/g, '');
-    }
-
-    const baseSlug = slug;
-    let suffix = 2;
-    while (await prisma.product.findUnique({ where: { slug } })) {
-      slug = `${baseSlug}-${suffix++}`;
-      if (suffix > 50) {
-        slug = `${baseSlug}-${Date.now()}`;
-        break;
-      }
-    }
-
-    let sku: string = (body.sku || '').toString().trim();
-    if (!sku) {
-      const { nextSku } = await import('@/lib/sku-generator');
-      const cat = await prisma.category.findUnique({
-        where: { id: body.categoryId },
-        select: { name: true },
-      });
-      sku = await nextSku({ craft: body.craft, categoryName: cat?.name });
-    }
-
-    const userSuppliedSku = !!(body.sku && String(body.sku).trim());
-
-    let product: any = null;
-    let lastErr: any = null;
-
-    for (let attempt = 0; attempt < 3; attempt++) {
-      try {
-        product = await prisma.product.create({
-          data: {
-            name: body.name,
-            slug,
-            sku,
-            shortName: body.shortName || null,
-            poeticLine: body.poeticLine || null,
-            description: body.description || null,
-            story: body.story || null,
-            craftNote: body.craftNote || null,
-            careInstructions: body.careInstructions || null,
-            sustainabilityNote: body.sustainabilityNote || null,
-            craft: body.craft || null,
-            region: body.region || null,
-            cluster: body.cluster || null,
-            artisanName: body.artisanName || null,
-            material: body.material || null,
-            technique: body.technique || null,
-            occasion: body.occasion || null,
-            categoryId: body.categoryId,
-            mrp: parseInt(body.mrp, 10),
-            sellingPrice: parseInt(body.sellingPrice, 10),
-            salePrice: body.salePrice ? parseInt(body.salePrice, 10) : null,
-            images: body.images || [],
-            status: body.status || 'DRAFT',
-            seoTitle: body.seoTitle || null,
-            seoDesc: body.seoDesc || null,
-
-            catalogueFeatured: !!body.catalogueFeatured,
-            catalogueBestseller: !!body.catalogueBestseller,
-            catalogueEditorial: !!body.catalogueEditorial,
-            cataloguePinHero: !!body.cataloguePinHero,
-            catalogueExclude: !!body.catalogueExclude,
-            cataloguePreferredImage: body.cataloguePreferredImage || null,
-            catalogueAudienceTag: body.catalogueAudienceTag || null,
-            catalogueCtaMode: body.catalogueCtaMode || null,
-            catalogueStoryBlock: body.catalogueStoryBlock || null,
-            catalogueImageApproved: !!body.catalogueImageApproved,
-            catalogueImageQualityScore:
-              body.catalogueImageQualityScore === null ||
-              body.catalogueImageQualityScore === undefined ||
-              body.catalogueImageQualityScore === ''
-                ? null
-                : parseInt(body.catalogueImageQualityScore, 10),
-            catalogueStockVisibility: body.catalogueStockVisibility || 'IN_STOCK_ONLY',
-          },
-        });
-
-        break;
-      } catch (e: any) {
-        lastErr = e;
-        const target = e?.meta?.target as any;
-        const isSkuCollision = e?.code === 'P2002' && target?.includes?.('sku');
-        const isSlugCollision = e?.code === 'P2002' && target?.includes?.('slug');
-
-        if (isSkuCollision && !userSuppliedSku) {
-          const { nextSku } = await import('@/lib/sku-generator');
-          const cat = await prisma.category.findUnique({
-            where: { id: body.categoryId },
-            select: { name: true },
-          });
-          sku = await nextSku({ craft: body.craft, categoryName: cat?.name });
-          continue;
-        }
-
-        if (isSlugCollision) {
-          slug = `${slug}-${Date.now()}`;
-          continue;
-        }
-
-        throw e;
-      }
-    }
-
-    if (!product) {
-      throw lastErr || new Error('Failed to create product');
-    }
-
-    return NextResponse.json({ success: true, product });
-  } catch (e: any) {
-    const msg = e.code === 'P2002' ? 'SKU or slug already exists' : e.message;
-    return NextResponse.json({ error: msg }, { status: 500 });
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
