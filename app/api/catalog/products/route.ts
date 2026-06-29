@@ -396,7 +396,6 @@ export async function GET(request: Request) {
               mrp: true,
               sellingPrice: true,
             },
-            orderBy: [{ createdAt: 'asc' }],
           },
         },
       }),
