@@ -33,22 +33,22 @@ function parseRequiredInt(value: unknown, field: string): number {
   return n;
 }
 
-function parseOptionalInt(value: unknown): number | null {
-  if (value === undefined || value === null || value === '') return null;
+function parseOptionalInt(value: unknown): number | undefined {
+  if (value === undefined || value === null || value === '') return undefined;
   const n = Number.parseInt(String(value), 10);
-  return Number.isFinite(n) ? n : null;
+  return Number.isFinite(n) ? n : undefined;
 }
 
-function parseOptionalFloat(value: unknown): number | null {
-  if (value === undefined || value === null || value === '') return null;
+function parseOptionalFloat(value: unknown): number | undefined {
+  if (value === undefined || value === null || value === '') return undefined;
   const n = Number.parseFloat(String(value));
-  return Number.isFinite(n) ? n : null;
+  return Number.isFinite(n) ? n : undefined;
 }
 
-function parseOptionalDate(value: unknown): Date | null {
-  if (!value) return null;
+function parseOptionalDate(value: unknown): Date | undefined {
+  if (value === undefined || value === null || value === '') return undefined;
   const d = new Date(String(value));
-  return Number.isNaN(d.getTime()) ? null : d;
+  return Number.isNaN(d.getTime()) ? undefined : d;
 }
 
 function asBoolean(value: unknown): boolean {
@@ -127,7 +127,13 @@ async function buildSku(body: any): Promise<string> {
   });
 }
 
-function buildCreateData(body: any, slug: string, sku: string) {
+function setIfPresent(target: Record<string, any>, key: string, value: unknown) {
+  if (value !== undefined && value !== null && value !== '') {
+    target[key] = value;
+  }
+}
+
+function buildCreateData(body: any, slug: string, sku: string): any {
   const stockVisibilityRaw =
     normalizeText(body.catalogueStockVisibility) || 'IN_STOCK_ONLY';
 
@@ -137,47 +143,19 @@ function buildCreateData(body: any, slug: string, sku: string) {
     ? stockVisibilityRaw
     : 'IN_STOCK_ONLY';
 
-  return {
+  const data: Record<string, any> = {
     name: String(body.name).trim(),
     slug,
     sku,
-
-    shortName: normalizeText(body.shortName),
-    poeticLine: normalizeText(body.poeticLine),
-    description: normalizeText(body.description),
-    story: normalizeText(body.story),
-    craftNote: normalizeText(body.craftNote),
-    careInstructions: normalizeText(body.careInstructions),
-    sustainabilityNote: normalizeText(body.sustainabilityNote),
-
-    craft: normalizeText(body.craft),
-    region: normalizeText(body.region),
-    state: normalizeText(body.state),
-    cluster: normalizeText(body.cluster),
-    artisanName: normalizeText(body.artisanName),
-    material: normalizeText(body.material),
-    technique: normalizeText(body.technique),
-    occasion: normalizeText(body.occasion),
-
     categoryId: String(body.categoryId),
 
     mrp: parseRequiredInt(body.mrp, 'mrp'),
     sellingPrice: parseRequiredInt(body.sellingPrice, 'sellingPrice'),
-    salePrice: parseOptionalInt(body.salePrice),
-    saleStartsAt: parseOptionalDate(body.saleStartsAt),
-    saleEndsAt: parseOptionalDate(body.saleEndsAt),
-
-    gstRate: parseOptionalFloat(body.gstRate),
-    hsnCode: normalizeText(body.hsnCode),
 
     images: normalizeStringArray(body.images),
-    video: normalizeText(body.video),
     badges: normalizeStringArray(body.badges),
 
     status: normalizeText(body.status) || 'DRAFT',
-
-    seoTitle: normalizeText(body.seoTitle),
-    seoDesc: normalizeText(body.seoDesc),
 
     aiTryOnEligible: asBoolean(body.aiTryOnEligible),
     aiStylistEligible: asBoolean(body.aiStylistEligible),
@@ -185,26 +163,66 @@ function buildCreateData(body: any, slug: string, sku: string) {
     codEligible: asBoolean(body.codEligible),
     returnEligible: asBoolean(body.returnEligible),
 
-    returnPolicy: normalizeText(body.returnPolicy),
-    fulfilmentMode: normalizeText(body.fulfilmentMode),
-    depositPercent: parseOptionalInt(body.depositPercent),
-    releaseDate: parseOptionalDate(body.releaseDate),
-    editionTotal: parseOptionalInt(body.editionTotal),
-    editionSold: parseOptionalInt(body.editionSold),
-
     catalogueFeatured: asBoolean(body.catalogueFeatured),
     catalogueBestseller: asBoolean(body.catalogueBestseller),
     catalogueEditorial: asBoolean(body.catalogueEditorial),
     cataloguePinHero: asBoolean(body.cataloguePinHero),
     catalogueExclude: asBoolean(body.catalogueExclude),
-    cataloguePreferredImage: normalizeText(body.cataloguePreferredImage),
-    catalogueAudienceTag: normalizeText(body.catalogueAudienceTag),
-    catalogueCtaMode: normalizeText(body.catalogueCtaMode),
-    catalogueStoryBlock: normalizeText(body.catalogueStoryBlock),
     catalogueImageApproved: asBoolean(body.catalogueImageApproved),
-    catalogueImageQualityScore: parseOptionalInt(body.catalogueImageQualityScore),
     catalogueStockVisibility,
   };
+
+  setIfPresent(data, 'shortName', normalizeText(body.shortName));
+  setIfPresent(data, 'poeticLine', normalizeText(body.poeticLine));
+  setIfPresent(data, 'description', normalizeText(body.description));
+  setIfPresent(data, 'story', normalizeText(body.story));
+  setIfPresent(data, 'craftNote', normalizeText(body.craftNote));
+  setIfPresent(data, 'careInstructions', normalizeText(body.careInstructions));
+  setIfPresent(data, 'sustainabilityNote', normalizeText(body.sustainabilityNote));
+
+  setIfPresent(data, 'craft', normalizeText(body.craft));
+  setIfPresent(data, 'region', normalizeText(body.region));
+  setIfPresent(data, 'state', normalizeText(body.state));
+  setIfPresent(data, 'cluster', normalizeText(body.cluster));
+  setIfPresent(data, 'artisanName', normalizeText(body.artisanName));
+  setIfPresent(data, 'material', normalizeText(body.material));
+  setIfPresent(data, 'technique', normalizeText(body.technique));
+  setIfPresent(data, 'occasion', normalizeText(body.occasion));
+
+  setIfPresent(data, 'salePrice', parseOptionalInt(body.salePrice));
+  setIfPresent(data, 'saleStartsAt', parseOptionalDate(body.saleStartsAt));
+  setIfPresent(data, 'saleEndsAt', parseOptionalDate(body.saleEndsAt));
+
+  setIfPresent(data, 'gstRate', parseOptionalFloat(body.gstRate));
+  setIfPresent(data, 'hsnCode', normalizeText(body.hsnCode));
+
+  setIfPresent(data, 'video', normalizeText(body.video));
+
+  setIfPresent(data, 'seoTitle', normalizeText(body.seoTitle));
+  setIfPresent(data, 'seoDesc', normalizeText(body.seoDesc));
+
+  setIfPresent(data, 'returnPolicy', normalizeText(body.returnPolicy));
+  setIfPresent(data, 'fulfilmentMode', normalizeText(body.fulfilmentMode));
+  setIfPresent(data, 'depositPercent', parseOptionalInt(body.depositPercent));
+  setIfPresent(data, 'releaseDate', parseOptionalDate(body.releaseDate));
+  setIfPresent(data, 'editionTotal', parseOptionalInt(body.editionTotal));
+  setIfPresent(data, 'editionSold', parseOptionalInt(body.editionSold));
+
+  setIfPresent(
+    data,
+    'cataloguePreferredImage',
+    normalizeText(body.cataloguePreferredImage)
+  );
+  setIfPresent(data, 'catalogueAudienceTag', normalizeText(body.catalogueAudienceTag));
+  setIfPresent(data, 'catalogueCtaMode', normalizeText(body.catalogueCtaMode));
+  setIfPresent(data, 'catalogueStoryBlock', normalizeText(body.catalogueStoryBlock));
+  setIfPresent(
+    data,
+    'catalogueImageQualityScore',
+    parseOptionalInt(body.catalogueImageQualityScore)
+  );
+
+  return data;
 }
 
 export async function GET(request: Request) {
@@ -371,7 +389,7 @@ export async function POST(request: Request) {
 
     for (let attempt = 0; attempt < 3; attempt++) {
       try {
-        const data = buildCreateData(body, slug, sku);
+        const data: any = buildCreateData(body, slug, sku);
         createdProduct = await prisma.product.create({ data });
         break;
       } catch (error: any) {
