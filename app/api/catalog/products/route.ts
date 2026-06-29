@@ -344,7 +344,6 @@ export async function GET(request: Request) {
           status: true,
 
           aiTryOnEligible: true,
-          aiStylistEligible: true,
           arTryOnEligible: true,
           codEligible: true,
           returnEligible: true,
@@ -505,7 +504,7 @@ export async function GET(request: Request) {
 
         ai: {
           aiTryOnEligible: !!product.aiTryOnEligible,
-          aiStylistEligible: !!product.aiStylistEligible,
+          aiStylistEligible: false,
           arTryOnEligible: !!product.arTryOnEligible,
         },
 
