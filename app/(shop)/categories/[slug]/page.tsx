@@ -79,6 +79,19 @@ type CategoriesResponse = {
   error?: string;
 };
 
+type FacetsState = {
+  crafts: FacetTuple[];
+  regions: FacetTuple[];
+  materials: FacetTuple[];
+  occasions: FacetTuple[];
+  badges: FacetTuple[];
+  priceRange: {
+    minPaise: number;
+    maxPaise: number;
+  };
+  total: number;
+};
+
 function titleFromSlug(value: string) {
   return value
     .split('-')
@@ -110,8 +123,12 @@ function normalizeFacetOptions(options: unknown): FacetTuple[] {
 
 function mapProductToCardData(product: any): ProductCardData {
   const images = Array.isArray(product?.images)
-    ? product.images.filter((img: unknown): img is string => typeof img === 'string' && img.trim().length > 0)
-    : typeof product?.primaryImage === 'string' && product.primaryImage.trim().length > 0
+    ? product.images.filter(
+        (img: unknown): img is string =>
+          typeof img === 'string' && img.trim().length > 0
+      )
+    : typeof product?.primaryImage === 'string' &&
+        product.primaryImage.trim().length > 0
       ? [product.primaryImage]
       : [];
 
@@ -119,19 +136,26 @@ function mapProductToCardData(product: any): ProductCardData {
     id: String(product?.id ?? ''),
     slug: String(product?.slug ?? ''),
     name: String(product?.name ?? 'Untitled Product'),
-    poeticLine: typeof product?.poeticLine === 'string' ? product.poeticLine : null,
+    poeticLine:
+      typeof product?.poeticLine === 'string' ? product.poeticLine : null,
     craft: typeof product?.craft === 'string' ? product.craft : null,
     region: typeof product?.region === 'string' ? product.region : null,
     mrp: typeof product?.mrp === 'number' ? product.mrp : 0,
-    sellingPrice: typeof product?.sellingPrice === 'number' ? product.sellingPrice : 0,
-    salePrice: typeof product?.salePrice === 'number' ? product.salePrice : null,
+    sellingPrice:
+      typeof product?.sellingPrice === 'number' ? product.sellingPrice : 0,
+    salePrice:
+      typeof product?.salePrice === 'number' ? product.salePrice : null,
     saleStartsAt: product?.saleStartsAt ?? null,
     saleEndsAt: product?.saleEndsAt ?? null,
     images,
     badges: Array.isArray(product?.badges)
-      ? product.badges.filter((badge: unknown): badge is string => typeof badge === 'string' && badge.trim().length > 0)
+      ? product.badges.filter(
+          (badge: unknown): badge is string =>
+            typeof badge === 'string' && badge.trim().length > 0
+        )
       : [],
-    inventory: typeof product?.inventory === 'number' ? product.inventory : undefined,
+    inventory:
+      typeof product?.inventory === 'number' ? product.inventory : undefined,
     aiTryOnEligible: !!product?.aiTryOnEligible,
   };
 }
@@ -142,9 +166,7 @@ function chooseCategory(
   facetsData: FacetsResponse,
   categoriesData: CategoriesResponse
 ): CategorySummary {
-  const matched =
-    facetsData?.matchedCategory ||
-    productsData?.matchedCategory;
+  const matched = facetsData?.matchedCategory || productsData?.matchedCategory;
 
   if (matched?.name || matched?.slug) {
     return matched;
@@ -182,7 +204,7 @@ function PLPInner() {
   const slug = String(params?.slug || '');
 
   const [products, setProducts] = useState<ProductCardData[]>([]);
-  const [facets, setFacets] = useState<Required<Pick<FacetsResponse, 'crafts' | 'regions' | 'materials' | 'occasions' | 'badges' | 'priceRange'>> & { total: number }>({
+  const [facets, setFacets] = useState<FacetsState>({
     crafts: [],
     regions: [],
     materials: [],
@@ -238,8 +260,15 @@ function PLPInner() {
       try {
         const [productsRes, facetsRes, categoriesRes] = await Promise.all([
           fetch(`/api/products?${qs.toString()}`, { cache: 'no-store' }),
-          fetch(`/api/facets?category=${encodeURIComponent(slug)}`, { cache: 'no-store' }),
-          fetch(`/api/categories?visible=preview&counts=false&q=${encodeURIComponent(slug)}`, { cache: 'no-store' }),
+          fetch(`/api/facets?category=${encodeURIComponent(slug)}`, {
+            cache: 'no-store',
+          }),
+          fetch(
+            `/api/categories?visible=preview&counts=false&q=${encodeURIComponent(
+              slug
+            )}`,
+            { cache: 'no-store' }
+          ),
         ]);
 
         const productsData: ProductsResponse = productsRes.ok
@@ -266,7 +295,9 @@ function PLPInner() {
         if (cancelled) return;
 
         const nextProducts = Array.isArray(productsData?.products)
-          ? productsData.products.map(mapProductToCardData).filter((product) => product.id && product.slug)
+          ? productsData.products
+              .map(mapProductToCardData)
+              .filter((product) => product.id && product.slug)
           : [];
 
         setProducts(nextProducts);
@@ -278,10 +309,19 @@ function PLPInner() {
           occasions: normalizeFacetOptions(facetsData?.occasions),
           badges: normalizeFacetOptions(facetsData?.badges),
           priceRange: {
-            minPaise: typeof facetsData?.priceRange?.minPaise === 'number' ? facetsData.priceRange.minPaise : 0,
-            maxPaise: typeof facetsData?.priceRange?.maxPaise === 'number' ? facetsData.priceRange.maxPaise : 0,
+            minPaise:
+              typeof facetsData?.priceRange?.minPaise === 'number'
+                ? facetsData.priceRange.minPaise
+                : 0,
+            maxPaise:
+              typeof facetsData?.priceRange?.maxPaise === 'number'
+                ? facetsData.priceRange.maxPaise
+                : 0,
           },
-          total: typeof facetsData?.total === 'number' ? facetsData.total : nextProducts.length,
+          total:
+            typeof facetsData?.total === 'number'
+              ? facetsData.total
+              : nextProducts.length,
         });
 
         setCategory(chooseCategory(slug, productsData, facetsData, categoriesData));
@@ -348,7 +388,8 @@ function PLPInner() {
           onClick={() => setMobileFiltersOpen(true)}
           className="lg:hidden btn-outline text-xs flex items-center gap-2"
         >
-          <Filter className="w-4 h-4" /> FILTERS {activeFilters > 0 && `(${activeFilters})`}
+          <Filter className="w-4 h-4" /> FILTERS{' '}
+          {activeFilters > 0 && `(${activeFilters})`}
         </button>
 
         <p className="hidden lg:block font-ui text-xs tracking-widest text-mitti">
@@ -420,12 +461,17 @@ function PLPInner() {
           {loading ? (
             <div className="grid grid-cols-2 lg:grid-cols-3 gap-6">
               {Array.from({ length: 6 }).map((_, index) => (
-                <div key={index} className="aspect-[3/4] bg-beige animate-pulse" />
+                <div
+                  key={index}
+                  className="aspect-[3/4] bg-beige animate-pulse"
+                />
               ))}
             </div>
           ) : products.length === 0 ? (
             <div className="py-20 text-center">
-              <p className="font-display text-2xl text-kohl">Nothing matches yet.</p>
+              <p className="font-display text-2xl text-kohl">
+                Nothing matches yet.
+              </p>
               <p className="font-italic italic text-mitti mt-2">
                 Try removing some filters.
               </p>
@@ -455,15 +501,7 @@ function FilterPanel({
   filters,
   setParam,
 }: {
-  facets: {
-    crafts: FacetTuple[];
-    regions: FacetTuple[];
-    materials: FacetTuple[];
-    occasions: FacetTuple[];
-    badges: FacetTuple[];
-    priceRange: { minPaise: number; maxPaise: number };
-    total: number;
-  };
+  facets: FacetsState;
   filters: {
     craft: string;
     region: string;
@@ -482,11 +520,36 @@ function FilterPanel({
 
   return (
     <div className="space-y-6 font-ui text-sm">
-      <FilterGroup title="Craft" current={filters.craft} options={facets.crafts} onChange={(v) => setParam('craft', v)} />
-      <FilterGroup title="Region" current={filters.region} options={facets.regions} onChange={(v) => setParam('region', v)} />
-      <FilterGroup title="Material" current={filters.material} options={facets.materials} onChange={(v) => setParam('material', v)} />
-      <FilterGroup title="Occasion" current={filters.occasion} options={facets.occasions} onChange={(v) => setParam('occasion', v)} />
-      <FilterGroup title="Badges & Seals" current={filters.badge} options={facets.badges} onChange={(v) => setParam('badge', v)} />
+      <FilterGroup
+        title="Craft"
+        current={filters.craft}
+        options={facets.crafts}
+        onChange={(v) => setParam('craft', v)}
+      />
+      <FilterGroup
+        title="Region"
+        current={filters.region}
+        options={facets.regions}
+        onChange={(v) => setParam('region', v)}
+      />
+      <FilterGroup
+        title="Material"
+        current={filters.material}
+        options={facets.materials}
+        onChange={(v) => setParam('material', v)}
+      />
+      <FilterGroup
+        title="Occasion"
+        current={filters.occasion}
+        options={facets.occasions}
+        onChange={(v) => setParam('occasion', v)}
+      />
+      <FilterGroup
+        title="Badges & Seals"
+        current={filters.badge}
+        options={facets.badges}
+        onChange={(v) => setParam('badge', v)}
+      />
 
       <div>
         <p className="label text-kohl mb-3">PRICE (₹)</p>
@@ -512,7 +575,8 @@ function FilterPanel({
 
         {(minR || maxR) && (
           <p className="font-ui text-[10px] text-mitti mt-2">
-            Range: {formatINR(facets.priceRange.minPaise)} – {formatINR(facets.priceRange.maxPaise)}
+            Range: {formatINR(facets.priceRange.minPaise)} –{' '}
+            {formatINR(facets.priceRange.maxPaise)}
           </p>
         )}
       </div>
