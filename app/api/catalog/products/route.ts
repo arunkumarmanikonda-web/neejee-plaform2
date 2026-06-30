@@ -1,8 +1,10 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
+
+const READ_MODEL_VERSION = 'phase1.catalog.v2';
 
 const DEFAULT_PAGE = 1;
 const DEFAULT_LIMIT = 24;
@@ -16,6 +18,102 @@ const CANONICAL_STOCK_VISIBILITY = [
 
 type CanonicalStockVisibility =
   (typeof CANONICAL_STOCK_VISIBILITY)[number];
+
+type CategoryNode = {
+  id: string;
+  name: string;
+  slug: string;
+  path: string | null;
+  level: number | null;
+  parentId: string | null;
+  parent?: CategoryNode | null;
+} | null;
+
+type VariantRow = {
+  id: string;
+  sku: string;
+  size: string | null;
+  color: string | null;
+  colorHex: string | null;
+  material: string | null;
+  inventory: number | null;
+  lowStockThreshold: number | null;
+  images: unknown;
+  mrp: number | null;
+  sellingPrice: number | null;
+};
+
+type ProductRow = {
+  id: string;
+  slug: string;
+  sku: string;
+  sellerId: string | null;
+
+  name: string;
+  shortName: string | null;
+  poeticLine: string | null;
+  description: string | null;
+
+  craft: string | null;
+  region: string | null;
+  state: string | null;
+  cluster: string | null;
+  artisanName: string | null;
+  material: string | null;
+  technique: string | null;
+  occasion: string | null;
+
+  mrp: number | null;
+  sellingPrice: number | null;
+  salePrice: number | null;
+  saleStartsAt: Date | null;
+  saleEndsAt: Date | null;
+  gstRate: number | null;
+  hsnCode: string | null;
+
+  images: unknown;
+  video: string | null;
+
+  story: string | null;
+  craftNote: string | null;
+  careInstructions: string | null;
+  sustainabilityNote: string | null;
+
+  badges: unknown;
+
+  status: string;
+  catalogueFeatured: boolean | null;
+  catalogueBestseller: boolean | null;
+  catalogueEditorial: boolean | null;
+  cataloguePinHero: boolean | null;
+  catalogueExclude: boolean | null;
+  cataloguePreferredImage: string | null;
+  catalogueAudienceTag: string | null;
+  catalogueCtaMode: string | null;
+  catalogueStoryBlock: string | null;
+  catalogueImageApproved: boolean | null;
+  catalogueImageQualityScore: number | null;
+  catalogueStockVisibility: string | null;
+
+  codEligible: boolean | null;
+  returnEligible: boolean | null;
+  returnPolicy: string | null;
+  fulfilmentMode: string | null;
+  depositPercent: number | null;
+  releaseDate: Date | null;
+  editionSize: number | null;
+  editionSold: number | null;
+
+  aiTryOnEligible: boolean | null;
+  aiRoomEligible: boolean | null;
+  arTryOnEligible: boolean | null;
+
+  createdAt: Date;
+  updatedAt: Date;
+
+  category: CategoryNode;
+  variants: VariantRow[];
+};
 
 function asString(value: unknown): string | null {
   if (value === undefined || value === null) return null;
@@ -56,28 +154,30 @@ function normalizeStockVisibility(
   if (!raw) return 'IN_STOCK_ONLY';
   if (raw === 'SHOW_ALL' || raw === 'SHOW_EXACT') return 'SHOW_ALL';
   if (raw === 'HIDE_STOCK') return 'HIDE_STOCK';
-  if (raw === 'LOW_STOCK_BADGE' || raw === 'IN_STOCK_ONLY') return 'IN_STOCK_ONLY';
+  if (raw === 'LOW_STOCK_BADGE' || raw === 'IN_STOCK_ONLY') {
+    return 'IN_STOCK_ONLY';
+  }
 
   return 'IN_STOCK_ONLY';
 }
 
-function isSaleLive(product: any, now = new Date()): boolean {
+function isSaleLive(product: ProductRow, now = new Date()): boolean {
   const salePrice =
-    typeof product?.salePrice === 'number'
+    typeof product.salePrice === 'number'
       ? product.salePrice
-      : Number.parseInt(String(product?.salePrice ?? ''), 10);
+      : Number.parseInt(String(product.salePrice ?? ''), 10);
 
   const sellingPrice =
-    typeof product?.sellingPrice === 'number'
+    typeof product.sellingPrice === 'number'
       ? product.sellingPrice
-      : Number.parseInt(String(product?.sellingPrice ?? ''), 10);
+      : Number.parseInt(String(product.sellingPrice ?? ''), 10);
 
   if (!Number.isFinite(salePrice) || salePrice <= 0) return false;
   if (!Number.isFinite(sellingPrice) || sellingPrice <= 0) return false;
   if (salePrice >= sellingPrice) return false;
 
-  const startsAt = product?.saleStartsAt ? new Date(product.saleStartsAt) : null;
-  const endsAt = product?.saleEndsAt ? new Date(product.saleEndsAt) : null;
+  const startsAt = product.saleStartsAt ? new Date(product.saleStartsAt) : null;
+  const endsAt = product.saleEndsAt ? new Date(product.saleEndsAt) : null;
 
   if (startsAt && Number.isNaN(startsAt.getTime())) return false;
   if (endsAt && Number.isNaN(endsAt.getTime())) return false;
@@ -88,22 +188,22 @@ function isSaleLive(product: any, now = new Date()): boolean {
   return true;
 }
 
-function buildPricing(product: any, now = new Date()) {
+function buildPricing(product: ProductRow, now = new Date()) {
   const mrp =
-    typeof product?.mrp === 'number'
+    typeof product.mrp === 'number'
       ? product.mrp
-      : Number.parseInt(String(product?.mrp ?? 0), 10) || 0;
+      : Number.parseInt(String(product.mrp ?? 0), 10) || 0;
 
   const sellingPrice =
-    typeof product?.sellingPrice === 'number'
+    typeof product.sellingPrice === 'number'
       ? product.sellingPrice
-      : Number.parseInt(String(product?.sellingPrice ?? 0), 10) || 0;
+      : Number.parseInt(String(product.sellingPrice ?? 0), 10) || 0;
 
   const liveSale = isSaleLive(product, now);
   const parsedSalePrice =
-    typeof product?.salePrice === 'number'
+    typeof product.salePrice === 'number'
       ? product.salePrice
-      : Number.parseInt(String(product?.salePrice ?? 0), 10) || 0;
+      : Number.parseInt(String(product.salePrice ?? 0), 10) || 0;
 
   const salePrice = liveSale && parsedSalePrice > 0 ? parsedSalePrice : null;
   const effectivePrice = salePrice && salePrice > 0 ? salePrice : sellingPrice;
@@ -128,25 +228,25 @@ function buildPricing(product: any, now = new Date()) {
     discountAmount,
     discountPercent,
     saleWindow: {
-      startsAt: product?.saleStartsAt ?? null,
-      endsAt: product?.saleEndsAt ?? null,
+      startsAt: product.saleStartsAt ?? null,
+      endsAt: product.saleEndsAt ?? null,
     },
-    gstRate: product?.gstRate ?? null,
-    hsnCode: product?.hsnCode ?? null,
+    gstRate: product.gstRate ?? null,
+    hsnCode: product.hsnCode ?? null,
     currency: 'INR',
   };
 }
 
-function allImagesForProduct(product: any): {
+function allImagesForProduct(product: ProductRow): {
   productImages: string[];
   variantImages: string[];
   gallery: string[];
 } {
-  const productImages = dedupeStrings(toStringArray(product?.images));
+  const productImages = dedupeStrings(toStringArray(product.images));
 
   const variantImages = dedupeStrings(
-    (Array.isArray(product?.variants) ? product.variants : []).flatMap(
-      (variant: any) => toStringArray(variant?.images)
+    (Array.isArray(product.variants) ? product.variants : []).flatMap(
+      (variant) => toStringArray(variant?.images)
     )
   );
 
@@ -159,8 +259,8 @@ function allImagesForProduct(product: any): {
   };
 }
 
-function choosePrimaryImage(product: any) {
-  const preferredImage = asString(product?.cataloguePreferredImage);
+function choosePrimaryImage(product: ProductRow) {
+  const preferredImage = asString(product.cataloguePreferredImage);
   const { productImages, variantImages, gallery } = allImagesForProduct(product);
 
   if (preferredImage) {
@@ -216,9 +316,9 @@ function choosePrimaryImage(product: any) {
   };
 }
 
-function buildMedia(product: any) {
-  const imageApproved = !!product?.catalogueImageApproved;
-  const imageQualityScore = product?.catalogueImageQualityScore ?? null;
+function buildMedia(product: ProductRow) {
+  const imageApproved = !!product.catalogueImageApproved;
+  const imageQualityScore = product.catalogueImageQualityScore ?? null;
   const chosen = choosePrimaryImage(product);
 
   const approvedGallery = imageApproved ? chosen.gallery : [];
@@ -233,7 +333,7 @@ function buildMedia(product: any) {
     approvedGallery,
     productImages: chosen.productImages,
     variantImages: chosen.variantImages,
-    video: asString(product?.video),
+    video: asString(product.video),
     imageApproved,
     imageQualityScore,
     selectionMode: chosen.selectionMode,
@@ -244,10 +344,10 @@ function buildMedia(product: any) {
   };
 }
 
-function deriveStock(product: any) {
-  const variants = Array.isArray(product?.variants) ? product.variants : [];
+function deriveStock(product: ProductRow) {
+  const variants = Array.isArray(product.variants) ? product.variants : [];
 
-  const totalInventory = variants.reduce((sum: number, variant: any) => {
+  const totalInventory = variants.reduce((sum, variant) => {
     const qty =
       typeof variant?.inventory === 'number'
         ? variant.inventory
@@ -256,7 +356,7 @@ function deriveStock(product: any) {
     return sum + qty;
   }, 0);
 
-  const lowStock = variants.some((variant: any) => {
+  const lowStock = variants.some((variant) => {
     const qty =
       typeof variant?.inventory === 'number'
         ? variant.inventory
@@ -270,9 +370,12 @@ function deriveStock(product: any) {
     return qty > 0 && qty <= threshold;
   });
 
-  const stockVisibility = normalizeStockVisibility(product?.catalogueStockVisibility);
+  const stockVisibility = normalizeStockVisibility(
+    product.catalogueStockVisibility
+  );
   const inStock = totalInventory > 0;
-  const availableQuantity = stockVisibility === 'SHOW_ALL' ? totalInventory : null;
+  const availableQuantity =
+    stockVisibility === 'SHOW_ALL' ? totalInventory : null;
 
   let label = 'Out of stock';
 
@@ -296,7 +399,7 @@ function deriveStock(product: any) {
   };
 }
 
-function buildHierarchy(category: any) {
+function buildHierarchy(category: CategoryNode) {
   if (!category) {
     return {
       lineage: [],
@@ -320,7 +423,7 @@ function buildHierarchy(category: any) {
     parentId: string | null;
   }> = [];
 
-  let current: any = category;
+  let current: CategoryNode = category;
 
   while (current) {
     lineage.push({
@@ -352,18 +455,18 @@ function buildHierarchy(category: any) {
 }
 
 function buildCatalogueReadiness(
-  product: any,
+  product: ProductRow,
   media: ReturnType<typeof buildMedia>,
   pricing: ReturnType<typeof buildPricing>,
   stock: ReturnType<typeof deriveStock>
 ) {
   const blockers: string[] = [];
 
-  if (product?.status !== 'ACTIVE') {
+  if (product.status !== 'ACTIVE') {
     blockers.push('inactive_status');
   }
 
-  if (!!product?.catalogueExclude) {
+  if (!!product.catalogueExclude) {
     blockers.push('excluded_from_catalogue');
   }
 
@@ -393,7 +496,7 @@ function buildCatalogueReadiness(
 
   return {
     readyForCatalogue: blockers.length === 0,
-    visibleInFeed: product?.status === 'ACTIVE' && !product?.catalogueExclude,
+    visibleInFeed: product.status === 'ACTIVE' && !product.catalogueExclude,
     usesApprovedMedia: !!media.imageApproved && !!media.approvedPrimaryImage,
     blockers,
   };
@@ -466,7 +569,19 @@ async function resolveCategoryFilter(rawCategory: string) {
   };
 }
 
-function buildOrderBy() {
+function buildOrderBy(sort: string) {
+  if (sort === 'price_asc') {
+    return [{ sellingPrice: 'asc' as const }, { updatedAt: 'desc' as const }];
+  }
+
+  if (sort === 'price_desc') {
+    return [{ sellingPrice: 'desc' as const }, { updatedAt: 'desc' as const }];
+  }
+
+  if (sort === 'name') {
+    return [{ name: 'asc' as const }, { updatedAt: 'desc' as const }];
+  }
+
   return [
     { cataloguePinHero: 'desc' as const },
     { catalogueFeatured: 'desc' as const },
@@ -509,11 +624,53 @@ function buildInclude() {
     },
     variants: {
       orderBy: { sku: 'asc' as const },
+      select: {
+        id: true,
+        sku: true,
+        size: true,
+        color: true,
+        colorHex: true,
+        material: true,
+        inventory: true,
+        lowStockThreshold: true,
+        images: true,
+        mrp: true,
+        sellingPrice: true,
+      },
     },
   };
 }
 
-function mapCatalogueProduct(product: any, now: Date) {
+function buildPublicVisibilityWhere() {
+  return {
+    OR: [
+      {
+        catalogueStockVisibility: {
+          in: ['SHOW_ALL', 'SHOW_EXACT', 'HIDE_STOCK'],
+        },
+      },
+      {
+        AND: [
+          {
+            OR: [
+              { catalogueStockVisibility: 'IN_STOCK_ONLY' },
+              { catalogueStockVisibility: 'LOW_STOCK_BADGE' },
+            ],
+          },
+          {
+            variants: {
+              some: {
+                inventory: { gt: 0 },
+              },
+            },
+          },
+        ],
+      },
+    ],
+  };
+}
+
+function mapCatalogueProduct(product: ProductRow, now: Date) {
   const hierarchy = buildHierarchy(product.category);
   const media = buildMedia(product);
   const pricing = buildPricing(product, now);
@@ -611,16 +768,14 @@ function mapCatalogueProduct(product: any, now: Date) {
 
     catalogueReadiness: readiness,
 
-    variants: (product.variants || []).map((variant: any) => {
+    variants: (product.variants || []).map((variant) => {
       const variantInventory =
         typeof variant?.inventory === 'number'
           ? variant.inventory
           : Number.parseInt(String(variant?.inventory ?? 0), 10) || 0;
 
       const variantMrp =
-        typeof variant?.mrp === 'number'
-          ? variant.mrp
-          : null;
+        typeof variant?.mrp === 'number' ? variant.mrp : null;
 
       const variantSellingPrice =
         typeof variant?.sellingPrice === 'number'
@@ -648,7 +803,7 @@ function mapCatalogueProduct(product: any, now: Date) {
   };
 }
 
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
   try {
     const url = new URL(request.url);
 
@@ -663,12 +818,21 @@ export async function GET(request: Request) {
       '';
 
     const audience = asString(url.searchParams.get('audience'));
-    const includeExcluded = truthyParam(url.searchParams.get('includeExcluded'));
+    const includeExcluded = truthyParam(
+      url.searchParams.get('includeExcluded')
+    );
     const featuredOnly = truthyParam(url.searchParams.get('featured'));
     const heroOnly = truthyParam(url.searchParams.get('hero'));
     const readyOnly =
       truthyParam(url.searchParams.get('ready')) ||
       truthyParam(url.searchParams.get('catalogueReady'));
+
+    const publicOnly = truthyParam(url.searchParams.get('publicOnly'));
+    const approvedMediaOnly = truthyParam(
+      url.searchParams.get('approvedMediaOnly')
+    );
+
+    const sort = asString(url.searchParams.get('sort')) || 'featured';
 
     const page = asPositiveInt(url.searchParams.get('page'), DEFAULT_PAGE);
     const limit = Math.min(
@@ -687,6 +851,10 @@ export async function GET(request: Request) {
 
     if (!includeExcluded) {
       andClauses.push({ catalogueExclude: false });
+    }
+
+    if (publicOnly) {
+      andClauses.push(buildPublicVisibilityWhere());
     }
 
     if (audience) {
@@ -724,77 +892,36 @@ export async function GET(request: Request) {
     }
 
     const where =
-      andClauses.length === 1
-        ? andClauses[0]
-        : { AND: andClauses };
+      andClauses.length === 1 ? andClauses[0] : { AND: andClauses };
 
     const now = new Date();
-    const orderBy = buildOrderBy();
+    const orderBy = buildOrderBy(sort);
     const include = buildInclude();
 
-    if (readyOnly) {
-      const productsRaw = await prisma.product.findMany({
-        where,
-        orderBy,
-        include,
-      });
+    const productsRaw = (await prisma.product.findMany({
+      where,
+      orderBy,
+      include,
+    })) as ProductRow[];
 
-      const readyItems = (productsRaw as any[])
-        .map((product) => mapCatalogueProduct(product, now))
-        .filter((item) => item.catalogueReadiness.readyForCatalogue);
+    let items = productsRaw.map((product) => mapCatalogueProduct(product, now));
 
-      const pagedItems = readyItems.slice(skip, skip + limit);
-      const total = readyItems.length;
-      const totalPages = total > 0 ? Math.ceil(total / limit) : 0;
-
-      return NextResponse.json({
-        ok: true,
-        readModel: {
-          version: 'phase1.catalog.v1',
-          generatedAt: now.toISOString(),
-          approvedMediaRequired: true,
-          supportedStockVisibility: CANONICAL_STOCK_VISIBILITY,
-        },
-        filters: {
-          category: categoryParam || null,
-          search: search || null,
-          audience,
-          includeExcluded,
-          featuredOnly,
-          heroOnly,
-          readyOnly,
-        },
-        matchedCategory: categoryResolution.matchedCategory,
-        matchMode: categoryResolution.matchMode,
-        pagination: {
-          page,
-          limit,
-          total,
-          totalPages,
-        },
-        items: pagedItems,
-      });
+    if (approvedMediaOnly) {
+      items = items.filter((item) => item.media.hasApprovedMedia);
     }
 
-    const [total, productsRaw] = await Promise.all([
-      prisma.product.count({ where }),
-      prisma.product.findMany({
-        where,
-        skip,
-        take: limit,
-        orderBy,
-        include,
-      }),
-    ]);
+    if (readyOnly) {
+      items = items.filter((item) => item.catalogueReadiness.readyForCatalogue);
+    }
 
-    const items = (productsRaw as any[]).map((product) =>
-      mapCatalogueProduct(product, now)
-    );
+    const total = items.length;
+    const totalPages = total > 0 ? Math.ceil(total / limit) : 0;
+    const pagedItems = items.slice(skip, skip + limit);
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       ok: true,
       readModel: {
-        version: 'phase1.catalog.v1',
+        version: READ_MODEL_VERSION,
         generatedAt: now.toISOString(),
         approvedMediaRequired: true,
         supportedStockVisibility: CANONICAL_STOCK_VISIBILITY,
@@ -807,6 +934,9 @@ export async function GET(request: Request) {
         featuredOnly,
         heroOnly,
         readyOnly,
+        publicOnly,
+        approvedMediaOnly,
+        sort,
       },
       matchedCategory: categoryResolution.matchedCategory,
       matchMode: categoryResolution.matchMode,
@@ -814,19 +944,32 @@ export async function GET(request: Request) {
         page,
         limit,
         total,
-        totalPages: total > 0 ? Math.ceil(total / limit) : 0,
+        totalPages,
+        hasNextPage: page < totalPages,
+        hasPrevPage: page > 1,
       },
-      items,
+      count: pagedItems.length,
+      totalCount: total,
+      items: pagedItems,
+      products: pagedItems,
     });
+
+    response.headers.set('x-read-model-version', READ_MODEL_VERSION);
+    response.headers.set(
+      'x-supported-stock-visibility',
+      CANONICAL_STOCK_VISIBILITY.join(',')
+    );
+
+    return response;
   } catch (error: any) {
     return NextResponse.json(
       {
         ok: false,
-        error: error?.message || 'Failed to load catalogue products',
-        readModel: {
-          version: 'phase1.catalog.v1',
-        },
         items: [],
+        products: [],
+        count: 0,
+        totalCount: 0,
+        error: error?.message || 'Failed to load catalog products',
       },
       { status: 500 }
     );
