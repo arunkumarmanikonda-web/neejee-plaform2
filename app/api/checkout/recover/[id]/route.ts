@@ -1,7 +1,7 @@
 // app/api/checkout/recover/[id]/route.ts
-// v26.3b — Resolves a recovery-link click into a checkout-ready state.
-// Only verifiedItems from the prepaid snapshot are accepted.
-// Empty/invalid snapshots are treated as gone and cannot be recovered.
+// v26.3c — Resolves a recovery-link click into a checkout-ready state.
+// Only verifiedItems from the structured snapshot are accepted.
+// Also returns richer checkout hydration data.
 
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
@@ -36,7 +36,16 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
     }
 
     if (cart.recoveredOrderId) {
-      return NextResponse.json({ recovered: true, orderRef: cart.recoveredOrderId });
+      const order = await prisma.order.findUnique({
+        where: { id: cart.recoveredOrderId },
+        select: { orderNumber: true },
+      }).catch(() => null);
+
+      return NextResponse.json({
+        recovered: true,
+        orderRef: order?.orderNumber || cart.recoveredOrderId,
+        orderNumber: order?.orderNumber || null,
+      });
     }
 
     if (cart.optedOut) {
@@ -60,13 +69,23 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
       cart: {
         id: cart.id,
         email: cart.email,
-        customerName: cart.customerName,
-        phone: (cart as any).phone,
+        customerName: (cart as any).customerName || null,
+        phone: (cart as any).phone || null,
         items: verifiedItems,
-        contact: data?.contact || null,
+        contact: data?.contact || {
+          email: cart.email,
+          phone: (cart as any).phone || '',
+        },
         address: data?.address || null,
+        pricing: data?.pricing || null,
+        giftWrap: !!data?.giftWrap,
+        personalNote: data?.personalNote || '',
+        gstinCustomer: data?.gstinCustomer || null,
         discountCode: (cart as any).discountCode || null,
         discountPercent: (cart as any).discountPercent || null,
+        discountPaise:
+          typeof data?.pricing?.discount === 'number' ? data.pricing.discount : 0,
+        paymentMethodPicked: (cart as any).paymentMethodPicked || null,
       },
     });
   } catch (e: any) {

@@ -19,7 +19,8 @@ import CategoryPicker, { CategoryPickerValue } from '@/components/admin/Category
 import { BADGE_CATALOG } from '@/lib/badges';
 import { suggestSizesForCategory, suggestColorsForCategory } from '@/lib/variant-suggestions';
 
-const TABS = ['BASIC', 'IMAGES', 'PRICING', 'INVENTORY', 'STORY', 'SEO'] as const;
+const TABS = ['BASIC', 'IMAGES', 'PRICING', 'CATALOGUE', 'INVENTORY', 'STORY', 'SEO'] as const;
+const STOCK_VISIBILITY_OPTIONS = ['IN_STOCK_ONLY', 'SHOW_ALL', 'HIDE_STOCK'] as const;
 type Tab = typeof TABS[number];
 
 export default function AdminProductEdit() {
@@ -36,7 +37,6 @@ export default function AdminProductEdit() {
   const [success, setSuccess] = useState('');
   const [tab, setTab] = useState<Tab>('BASIC');
 
-  // Load categories once
   useEffect(() => {
     fetch('/api/categories').then(r => r.json()).then(d => setCategories(d.categories || []));
   }, []);
@@ -44,14 +44,11 @@ export default function AdminProductEdit() {
   const load = async () => {
     setLoading(true); setError('');
     try {
-      // v23.40.20.2 — Surface real error + diagnose with full URL
       const res = await fetch(`/api/admin/products/${productId}`);
       const text = await res.text();
       let data: any = {};
       try { data = JSON.parse(text); } catch { data = { error: text }; }
       if (!res.ok) {
-        // Try slug-based lookup once before giving up — covers older URLs
-        // where the productId param might actually be a slug from search/SEO.
         const fallback = await fetch(`/api/admin/products/by-slug/${encodeURIComponent(productId)}`);
         if (fallback.ok) {
           const fData = await fallback.json();
@@ -106,12 +103,21 @@ export default function AdminProductEdit() {
         editionSize: p.editionSize ?? null,
         editionSold: p.editionSold ?? 0,
         codEligible: p.codEligible !== false,
-        // Strictly read the DB flag — null/undefined should not default to true.
-        // Existing legacy products without this field will appear non-returnable
-        // until the admin opts in, which matches our "explicit consent" policy.
         returnEligible: p.returnEligible === true,
         returnPolicy: p.returnPolicy || '',
         categoryId: p.categoryId || '',
+        catalogueFeatured: !!p.catalogueFeatured,
+        catalogueBestseller: !!p.catalogueBestseller,
+        catalogueEditorial: !!p.catalogueEditorial,
+        cataloguePinHero: !!p.cataloguePinHero,
+        catalogueExclude: !!p.catalogueExclude,
+        cataloguePreferredImage: p.cataloguePreferredImage || '',
+        catalogueAudienceTag: p.catalogueAudienceTag || '',
+        catalogueCtaMode: p.catalogueCtaMode || '',
+        catalogueStoryBlock: p.catalogueStoryBlock || '',
+        catalogueImageApproved: !!p.catalogueImageApproved,
+        catalogueImageQualityScore: p.catalogueImageQualityScore ?? null,
+        catalogueStockVisibility: p.catalogueStockVisibility || 'IN_STOCK_ONLY',
       });
       setVariants(p.variants || []);
     } catch (e: any) { setError(e.message); }
@@ -147,31 +153,25 @@ export default function AdminProductEdit() {
     } catch (e: any) { alert('Failed: ' + e.message); }
   };
 
-  // Variant CRUD
   const [variantQuickAddOpen, setVariantQuickAddOpen] = useState(false);
 
   const addVariant = () => setVariantQuickAddOpen(true);
 
-  // Bulk-create variants as a (sizes × colours) matrix.
-  // - If `sizes` is empty we use ['']    (colour-only product)
-  // - If `colours` is empty we use [{name:'', hex:''}] (size-only product)
-  // - Cartesian product, dedupes against existing SKUs.
   const createVariantsBulk = async (
     sizes: string[],
     colours: Array<{ name: string; hex: string }>
   ) => {
     const productSku = product?.sku || form.sku || 'NEE';
-    const sizeAxis    = sizes.length    > 0 ? sizes    : [''];
-    const colourAxis  = colours.length  > 0 ? colours  : [{ name: '', hex: '' }];
+    const sizeAxis = sizes.length > 0 ? sizes : [''];
+    const colourAxis = colours.length > 0 ? colours : [{ name: '', hex: '' }];
     const existingSkus = new Set(variants.map((v: any) => (v.sku || '').toUpperCase()));
     let okCount = 0, skipCount = 0, failCount = 0;
     for (const size of sizeAxis) {
       for (const c of colourAxis) {
-        const sizeTag   = size.toString().toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6);
+        const sizeTag = size.toString().toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6);
         const colourTag = c.name.toString().toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6);
         const tag = [sizeTag, colourTag].filter(Boolean).join('-') || 'VAR';
         let sku = `${productSku}-${tag}`;
-        // suffix until unique
         let suffix = 2;
         while (existingSkus.has(sku.toUpperCase())) {
           sku = `${productSku}-${tag}-${suffix++}`;
@@ -232,12 +232,10 @@ export default function AdminProductEdit() {
     } catch (e: any) { alert('Failed: ' + e.message); }
   };
 
-  // Quick-duplicate: copy an existing variant's size + sku-prefix and start a
-  // blank colour. Lets the admin add another colour for the same size in 1 click.
   const duplicateVariant = async (source: any) => {
     const productSku = product?.sku || form.sku || 'NEE';
-    const sizeTag    = (source.size || '').toString().toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6);
-    const base       = [productSku, sizeTag].filter(Boolean).join('-') || 'VAR';
+    const sizeTag = (source.size || '').toString().toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6);
+    const base = [productSku, sizeTag].filter(Boolean).join('-') || 'VAR';
     const existingSkus = new Set(variants.map((v: any) => (v.sku || '').toUpperCase()));
     let sku = `${base}-NEW`;
     let suffix = 2;
@@ -267,8 +265,6 @@ export default function AdminProductEdit() {
     } catch (e: any) { alert('Duplicate failed: ' + e.message); }
   };
 
-  // Save every dirty variant row at once — exposed via the "SAVE ALL" button.
-  // Implemented by dispatching a custom event each VariantRow listens for.
   const saveAllVariants = () => {
     window.dispatchEvent(new CustomEvent('variant-save-all'));
   };
@@ -357,7 +353,6 @@ export default function AdminProductEdit() {
       {error && <p className="mt-4 font-ui text-sm text-madder bg-madder/10 p-3">{error}</p>}
       {success && <p className="mt-4 font-ui text-sm text-neem bg-neem/10 p-3">{success}</p>}
 
-      {/* Tabs */}
       <div className="flex gap-1 mt-6 border-b border-mitti/20">
         {TABS.map(t => (
           <button key={t} onClick={() => setTab(t)}
@@ -371,7 +366,6 @@ export default function AdminProductEdit() {
 
       <div className="mt-6 grid grid-cols-3 gap-6">
         <div className="col-span-2 space-y-6">
-          {/* BASIC tab */}
           {tab === 'BASIC' && (
             <div className="bg-beige p-6">
               <p className="label text-madder mb-4">BASIC INFORMATION</p>
@@ -446,7 +440,6 @@ export default function AdminProductEdit() {
             </div>
           )}
 
-          {/* IMAGES tab */}
           {tab === 'IMAGES' && (
             <div className="bg-beige p-6 space-y-6">
               <ImageUploader
@@ -459,7 +452,6 @@ export default function AdminProductEdit() {
                 Aim for 4 angles minimum at 2000px+ per Phase 2 spec. First image is shown on cards and as the PDP hero.
               </p>
 
-              {/* AI Photo Studio — generates studio-grade SHARED product imagery */}
               <AiPhotoStudio
                 productId={product.id}
                 productName={form.name}
@@ -473,9 +465,6 @@ export default function AdminProductEdit() {
                 }}
               />
 
-              {/* Per-variant image manager — hybrid model:
-                  Product.images = shared/lifestyle gallery (above).
-                  Variant.images = per-colour gallery (below). PDP swaps to variant images when a swatch is selected. */}
               {Array.isArray(variants) && variants.length > 0 && (
                 <VariantImageManager
                   productId={product.id}
@@ -491,8 +480,6 @@ export default function AdminProductEdit() {
                     images: Array.isArray(v.images) ? v.images : [],
                   }))}
                   onVariantImagesChanged={(variantId: string, imgs: string[]) => {
-                    // Mirror into the parent's variants list so the inventory tab
-                    // and any future tabs see the latest images without a reload.
                     setVariants((prev: any[]) =>
                       prev.map(v => (v.id === variantId ? { ...v, images: imgs } : v))
                     );
@@ -502,7 +489,6 @@ export default function AdminProductEdit() {
             </div>
           )}
 
-          {/* PRICING tab */}
           {tab === 'PRICING' && (
             <div className="space-y-6">
               <div className="bg-beige p-6">
@@ -551,7 +537,125 @@ export default function AdminProductEdit() {
             </div>
           )}
 
-          {/* INVENTORY tab — variants */}
+          {tab === 'CATALOGUE' && (
+            <div className="bg-beige p-6 space-y-6">
+              <div>
+                <p className="label text-madder mb-1">CATALOGUE CURATION</p>
+                <p className="font-italic italic text-mitti text-sm">
+                  Control merchandising, editorial placement, preferred imagery, and stock display behavior for catalogue surfaces.
+                </p>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <label className="flex items-center gap-2 font-ui text-sm">
+                  <input
+                    type="checkbox"
+                    checked={!!form.catalogueFeatured}
+                    onChange={e => setForm((f: any) => ({ ...f, catalogueFeatured: e.target.checked }))}
+                  />
+                  Featured
+                </label>
+                <label className="flex items-center gap-2 font-ui text-sm">
+                  <input
+                    type="checkbox"
+                    checked={!!form.catalogueBestseller}
+                    onChange={e => setForm((f: any) => ({ ...f, catalogueBestseller: e.target.checked }))}
+                  />
+                  Bestseller
+                </label>
+                <label className="flex items-center gap-2 font-ui text-sm">
+                  <input
+                    type="checkbox"
+                    checked={!!form.catalogueEditorial}
+                    onChange={e => setForm((f: any) => ({ ...f, catalogueEditorial: e.target.checked }))}
+                  />
+                  Editorial Pick
+                </label>
+                <label className="flex items-center gap-2 font-ui text-sm">
+                  <input
+                    type="checkbox"
+                    checked={!!form.cataloguePinHero}
+                    onChange={e => setForm((f: any) => ({ ...f, cataloguePinHero: e.target.checked }))}
+                  />
+                  Pin to Hero
+                </label>
+                <label className="flex items-center gap-2 font-ui text-sm">
+                  <input
+                    type="checkbox"
+                    checked={!!form.catalogueExclude}
+                    onChange={e => setForm((f: any) => ({ ...f, catalogueExclude: e.target.checked }))}
+                  />
+                  Exclude from Catalogue
+                </label>
+                <label className="flex items-center gap-2 font-ui text-sm">
+                  <input
+                    type="checkbox"
+                    checked={!!form.catalogueImageApproved}
+                    onChange={e => setForm((f: any) => ({ ...f, catalogueImageApproved: e.target.checked }))}
+                  />
+                  Image Approved
+                </label>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <Field
+                  label="Preferred Image URL"
+                  value={form.cataloguePreferredImage}
+                  onChange={(v: string) => setForm((f: any) => ({ ...f, cataloguePreferredImage: v }))}
+                  help="Optional override for catalogue cards and hero slots"
+                />
+                <Field
+                  label="Audience Tag"
+                  value={form.catalogueAudienceTag}
+                  onChange={(v: string) => setForm((f: any) => ({ ...f, catalogueAudienceTag: v }))}
+                  help="Examples: BRIDE, FESTIVE, GIFTING, EVERYDAY"
+                />
+                <Field
+                  label="CTA Mode"
+                  value={form.catalogueCtaMode}
+                  onChange={(v: string) => setForm((f: any) => ({ ...f, catalogueCtaMode: v }))}
+                  help="Optional merchandising CTA mode"
+                />
+                <div>
+                  <label className="label text-mitti block mb-1">IMAGE QUALITY SCORE</label>
+                  <input
+                    type="number"
+                    value={form.catalogueImageQualityScore ?? ''}
+                    onChange={e => setForm((f: any) => ({
+                      ...f,
+                      catalogueImageQualityScore: e.target.value === '' ? null : parseInt(e.target.value, 10) || 0,
+                    }))}
+                    className="w-full p-2 bg-ivory border border-mitti/20 font-ui text-sm"
+                  />
+                  <p className="font-ui text-[11px] text-mitti mt-1">Integer score used for image curation and ranking.</p>
+                </div>
+              </div>
+
+              <div>
+                <label className="label text-mitti block mb-1">STOCK VISIBILITY</label>
+                <select
+                  value={form.catalogueStockVisibility || 'IN_STOCK_ONLY'}
+                  onChange={e => setForm((f: any) => ({ ...f, catalogueStockVisibility: e.target.value }))}
+                  className="w-full p-2 bg-ivory border border-mitti/20 font-ui text-sm"
+                >
+                  {STOCK_VISIBILITY_OPTIONS.map(option => (
+                    <option key={option} value={option}>{option}</option>
+                  ))}
+                </select>
+                <p className="font-ui text-[11px] text-mitti mt-1">Matches the admin API enum exactly.</p>
+              </div>
+
+              <Field
+                label="Story Block"
+                value={form.catalogueStoryBlock}
+                onChange={(v: string) => setForm((f: any) => ({ ...f, catalogueStoryBlock: v }))}
+                multiline
+                rows={4}
+                help="Short curated text block for catalogue storytelling surfaces"
+              />
+            </div>
+          )}
+
           {tab === 'INVENTORY' && (
             <div className="bg-beige p-6">
               <div className="flex justify-between items-center mb-4">
@@ -595,7 +699,6 @@ export default function AdminProductEdit() {
             </div>
           )}
 
-          {/* STORY tab */}
           {tab === 'STORY' && (
             <div className="bg-beige p-6">
               <p className="label text-madder mb-4">STORY & CRAFT</p>
@@ -621,7 +724,6 @@ export default function AdminProductEdit() {
             </div>
           )}
 
-          {/* SEO tab */}
           {tab === 'SEO' && (
             <div className="bg-beige p-6">
               <p className="label text-madder mb-4">SEO</p>
@@ -643,7 +745,6 @@ export default function AdminProductEdit() {
           )}
         </div>
 
-        {/* Side rail */}
         <div className="space-y-6">
           <div className="bg-beige p-6">
             <p className="label text-madder mb-4">STATUS</p>
@@ -790,7 +891,6 @@ export default function AdminProductEdit() {
               <input type="checkbox" checked={form.returnEligible === true} onChange={e => setForm((f: any) => ({
                 ...f,
                 returnEligible: e.target.checked,
-                // Auto-clear the override policy when the product becomes non-returnable
                 ...(e.target.checked ? {} : { returnPolicy: '' }),
               }))} />
               Returnable / refundable
@@ -850,21 +950,21 @@ function VariantQuickAddModal({
   onClose: () => void;
   onCreate: (sizes: string[], colours: Array<{ name: string; hex: string }>) => Promise<void>;
 }) {
-  const sizeSuggestions   = suggestSizesForCategory(categorySlug || categoryName);
+  const sizeSuggestions = suggestSizesForCategory(categorySlug || categoryName);
   const colourSuggestions = suggestColorsForCategory(categorySlug || categoryName);
 
-  const [sizes, setSizes]       = useState<string[]>([]);
-  const [colours, setColours]   = useState<Array<{ name: string; hex: string }>>([]);
-  const [customSize, setCustomSize]     = useState('');
+  const [sizes, setSizes] = useState<string[]>([]);
+  const [colours, setColours] = useState<Array<{ name: string; hex: string }>>([]);
+  const [customSize, setCustomSize] = useState('');
   const [customColour, setCustomColour] = useState('');
-  const [customHex, setCustomHex]       = useState('#cccccc');
-  const [submitting, setSubmitting]     = useState(false);
+  const [customHex, setCustomHex] = useState('#cccccc');
+  const [submitting, setSubmitting] = useState(false);
 
-  const toggleSize   = (s: string) => setSizes(p => p.includes(s) ? p.filter(x => x !== s) : [...p, s]);
+  const toggleSize = (s: string) => setSizes(p => p.includes(s) ? p.filter(x => x !== s) : [...p, s]);
   const toggleColour = (c: { name: string; hex: string }) =>
     setColours(p => p.some(x => x.name === c.name) ? p.filter(x => x.name !== c.name) : [...p, c]);
 
-  const applySizePreset   = (next: string[]) => setSizes(p => Array.from(new Set([...p, ...next])));
+  const applySizePreset = (next: string[]) => setSizes(p => Array.from(new Set([...p, ...next])));
   const applyColourPreset = (next: Array<{ name: string; hex: string }>) =>
     setColours(p => {
       const seen = new Set(p.map(x => x.name));
@@ -884,7 +984,6 @@ function VariantQuickAddModal({
     setCustomColour('');
   };
 
-  // Cartesian count
   const total = (sizes.length || 1) * (colours.length || 1);
   const canSubmit = sizes.length + colours.length > 0;
 
@@ -908,7 +1007,6 @@ function VariantQuickAddModal({
         </div>
 
         <div className="grid md:grid-cols-2 gap-5">
-          {/* ───── SIZES ───── */}
           <div>
             <p className="label text-madder mb-2">SIZES (optional)</p>
             <div className="space-y-2 mb-3 max-h-48 overflow-y-auto">
@@ -938,7 +1036,6 @@ function VariantQuickAddModal({
             </div>
           </div>
 
-          {/* ───── COLOURS ───── */}
           <div>
             <p className="label text-madder mb-2">COLOURS (optional)</p>
             <div className="space-y-2 mb-3 max-h-48 overflow-y-auto">
@@ -1040,7 +1137,6 @@ function VariantRow({ variant, onSave, onDelete, onDuplicate }: { variant: any; 
     await onSave(v);
     setDirty(false); setSaving(false);
   };
-  // Listen for the global SAVE ALL event — only fire if this row is dirty.
   useEffect(() => {
     const handler = () => { if (dirty && !saving) save(); };
     window.addEventListener('variant-save-all', handler);
@@ -1054,7 +1150,6 @@ function VariantRow({ variant, onSave, onDelete, onDuplicate }: { variant: any; 
       <td className="pr-2">
         <div className="flex items-center gap-1">
           <input value={v.color || ''} onChange={e => change({ color: e.target.value })} placeholder="—" className="w-20 p-1 bg-ivory border border-mitti/20" />
-          {/* Optional hex swatch for the PDP. Click the chip to open the native picker. */}
           <label className="relative inline-block w-6 h-6 border border-mitti/20 cursor-pointer" style={{ backgroundColor: v.colorHex || 'transparent' }} title={v.colorHex || 'Set hex'}>
             <input type="color" value={v.colorHex || '#ffffff'} onChange={e => change({ colorHex: e.target.value })}
               className="absolute inset-0 opacity-0 w-full h-full cursor-pointer" />
@@ -1082,7 +1177,6 @@ function VariantRow({ variant, onSave, onDelete, onDuplicate }: { variant: any; 
   );
 }
 
-// ───────────────────── Badge picker ─────────────────────
 interface PickerBadge { key: string; label: string; description: string; group: string; imageUrl?: string | null; active?: boolean }
 
 function BadgePicker({ selected, onChange }: { selected: string[]; onChange: (next: string[]) => void }) {
