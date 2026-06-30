@@ -1,109 +1,123 @@
 import { NextResponse } from 'next/server';
-import { createOtp, normalizePhone, OTP_RESEND_COOLDOWN_SEC, OTP_TTL_MIN } from '@/lib/auth/otp';
-import { dispatchSms } from '@/lib/notifications/dispatcher';
+import { z } from 'zod';
 import { prisma } from '@/lib/prisma';
+import { requestOtp, normalizePhone, OtpError } from '@/lib/otp';
+import type { OtpPurpose } from '@/lib/otp';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
-type NormalizedPurpose = 'login' | 'signup';
+const BodySchema = z.object({
+  phone: z.string().min(1, 'Phone is required'),
+  purpose: z.string().optional(),
+});
 
-function normalizePurpose(value: unknown): NormalizedPurpose {
-  const raw = String(value || 'login').trim().toLowerCase();
+function normalizePurpose(value?: string | null): OtpPurpose {
+  const raw = String(value || '')
+    .trim()
+    .toLowerCase();
 
-  if (raw === 'signup' || raw === 'signup_customer') return 'signup';
-  return 'login';
+  switch (raw) {
+    case 'signup':
+      return 'signup';
+    case 'signup_customer':
+      return 'signup_customer';
+    case 'admin_2fa':
+      return 'admin_2fa';
+    case 'checkout_guest':
+      return 'checkout_guest';
+    case 'change_phone':
+      return 'change_phone';
+    case 'login':
+    default:
+      return 'login';
+  }
+}
+
+function firstForwardedIp(value: string | null) {
+  return value?.split(',')[0]?.trim() || undefined;
 }
 
 export async function POST(req: Request) {
   try {
-    const body = await req.json();
-    const phone = String(body?.phone || '');
-    const purpose = normalizePurpose(body?.purpose);
-    const firstName = String(body?.firstName || body?.name || 'Customer').trim() || 'Customer';
+    const body = await req.json().catch(() => null);
+    const parsed = BodySchema.safeParse(body);
 
-    if (!phone || !/^[+\d\s\-()]{8,15}$/.test(phone)) {
-      return NextResponse.json({ ok: false, error: 'Invalid phone number' }, { status: 400 });
-    }
-
-    const normalized = normalizePhone(phone);
-
-    const existing = await prisma.user.findFirst({
-      where: { phone: normalized },
-      select: { id: true },
-    });
-
-    if (purpose === 'login' && !existing) {
+    if (!parsed.success) {
       return NextResponse.json(
-        {
-          ok: false,
-          error: 'No account found with this number. Please sign up first.',
-          code: 'NO_USER',
-        },
-        { status: 404 }
+        { error: 'Phone is required' },
+        { status: 400 },
       );
     }
 
-    if (purpose === 'signup' && existing) {
+    const purpose = normalizePurpose(parsed.data.purpose);
+    const normalizedPhone = normalizePhone(parsed.data.phone);
+
+    if (!normalizedPhone) {
       return NextResponse.json(
-        {
-          ok: false,
-          error: 'An account already exists with this number. Please log in instead.',
-          code: 'USER_EXISTS',
-        },
-        { status: 409 }
+        { error: 'Please enter a valid mobile number' },
+        { status: 400 },
       );
     }
 
-    let otp;
-    try {
-      otp = await createOtp({ phone: normalized, purpose });
-    } catch (e: any) {
-      if (e.code === 'COOLDOWN') {
-        return NextResponse.json(
-          {
-            ok: false,
-            error: `Please wait ${e.cooldownSec}s before requesting another OTP`,
-            code: 'COOLDOWN',
-            cooldownSec: e.cooldownSec,
-          },
-          { status: 429 }
-        );
-      }
-      throw e;
-    }
-
-    const event = purpose === 'signup' ? 'OTP_SIGNUP' : 'OTP_LOGIN';
-
-    const sendResult = await dispatchSms({
-      event,
-      recipient: normalized,
-      variables: {
-        firstName,
-        otpCode: otp.code,
+    const existingUser = await prisma.user.findFirst({
+      where: { phone: normalizedPhone },
+      select: {
+        id: true,
+        phone: true,
       },
     });
 
-    if (!sendResult.ok) {
-      console.warn('[otp.request] SMS dispatch failed:', sendResult.error);
-      return NextResponse.json(
-        {
-          ok: false,
-          error: 'Could not send OTP at the moment. Please try again in a few seconds.',
-        },
-        { status: 502 }
-      );
+    if (purpose === 'login' || purpose === 'admin_2fa') {
+      if (!existingUser) {
+        return NextResponse.json(
+          { error: 'No account found for this mobile number' },
+          { status: 404 },
+        );
+      }
     }
+
+    if (purpose === 'signup' || purpose === 'signup_customer') {
+      if (existingUser) {
+        return NextResponse.json(
+          { error: 'An account already exists for this mobile number' },
+          { status: 409 },
+        );
+      }
+    }
+
+    const otpResult = await requestOtp({
+      phone: normalizedPhone,
+      purpose,
+      ipAddress: firstForwardedIp(req.headers.get('x-forwarded-for')),
+      userAgent: req.headers.get('user-agent') || undefined,
+    });
 
     return NextResponse.json({
       ok: true,
-      phone: normalized,
-      expiresAt: otp.expiresAt.toISOString(),
-      cooldownSec: OTP_RESEND_COOLDOWN_SEC,
-      ttlMin: OTP_TTL_MIN,
+      phone: otpResult.phone,
+      purpose: otpResult.purpose,
+      expiresAt: otpResult.expiresAt,
+      expiresInSec: otpResult.expiresInSec,
+      cooldownSec: otpResult.cooldownSec,
     });
-  } catch (e: any) {
-    console.error('[otp.request]', e);
-    return NextResponse.json({ ok: false, error: e.message || 'Server error' }, { status: 500 });
+  } catch (error) {
+    if (error instanceof OtpError) {
+      return NextResponse.json(
+        {
+          error: error.message,
+          code: error.code,
+          details: error.details ?? null,
+        },
+        { status: error.status || 400 },
+      );
+    }
+
+    console.error('[auth/otp/request] error', error);
+
+    return NextResponse.json(
+      { error: 'Unable to send OTP right now' },
+      { status: 500 },
+    );
   }
 }

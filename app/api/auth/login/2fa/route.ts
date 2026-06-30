@@ -1,19 +1,20 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
+import bcrypt from 'bcryptjs';
 import { prisma } from '@/lib/prisma';
-import { setSessionCookie, verifyPassword } from '@/lib/auth';
+import { setSessionCookie } from '@/lib/auth';
 import { verifyOtp } from '@/lib/otp';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
-const Schema = z.object({
+const BodySchema = z.object({
   email: z.string().email(),
   password: z.string().min(1),
-  code: z.string().min(4).max(8),
+  code: z.string().trim().regex(/^\d{4,8}$/),
 });
 
-const ADMIN_ROLES = [
+const ADMIN_ROLES = new Set([
   'ADMIN',
   'SUPER_ADMIN',
   'CONTENT_EDITOR',
@@ -22,79 +23,142 @@ const ADMIN_ROLES = [
   'FINANCE_OPERATOR',
   'MARKETING_OPERATOR',
   'MARKETING_MANAGER',
-] as const;
+]);
 
-function isAdminSideRole(role: string): boolean {
-  return ADMIN_ROLES.includes(role as (typeof ADMIN_ROLES)[number]);
+function isAdminSideRole(role: unknown): role is string {
+  return typeof role === 'string' && ADMIN_ROLES.has(role);
 }
 
-function redirectFor(role: string): string {
+function redirectFor(role: string) {
   if (isAdminSideRole(role)) return '/admin';
   if (role === 'SELLER') return '/seller';
   return '/account';
 }
 
+function otpReasonToMessage(
+  reason:
+    | 'invalid_phone'
+    | 'invalid_format'
+    | 'no_active_otp'
+    | 'expired'
+    | 'wrong_code'
+    | 'max_attempts',
+) {
+  switch (reason) {
+    case 'invalid_phone':
+      return 'Admin phone number is invalid';
+    case 'invalid_format':
+      return 'Invalid 2FA code format';
+    case 'no_active_otp':
+      return 'No active 2FA code found. Please sign in again.';
+    case 'expired':
+      return '2FA code expired. Please sign in again.';
+    case 'wrong_code':
+      return 'Invalid 2FA code';
+    case 'max_attempts':
+      return 'Too many invalid attempts. Please sign in again.';
+    default:
+      return 'Invalid 2FA code';
+  }
+}
+
 export async function POST(request: Request) {
-  let body: unknown;
-
   try {
-    body = await request.json();
-  } catch {
-    return NextResponse.json({ error: 'Invalid input' }, { status: 400 });
-  }
+    const body = await request.json().catch(() => null);
+    const parsed = BodySchema.safeParse(body);
 
-  const parsed = Schema.safeParse(body);
-  if (!parsed.success) {
-    return NextResponse.json({ error: 'Invalid input' }, { status: 400 });
-  }
-
-  const email = parsed.data.email.trim().toLowerCase();
-  const password = parsed.data.password;
-  const code = parsed.data.code.trim();
-
-  try {
-    const user = await prisma.user.findUnique({ where: { email } });
-
-    if (!user || !user.passwordHash || !user.phone) {
-      return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 });
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: 'Email, password and 2FA code are required' },
+        { status: 400 },
+      );
     }
 
-    const passOk = await verifyPassword(password, user.passwordHash);
-    if (!passOk) {
-      return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 });
+    const email = parsed.data.email.trim().toLowerCase();
+    const password = parsed.data.password;
+    const code = parsed.data.code.trim();
+
+    const user = await prisma.user.findFirst({
+      where: { email },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        role: true,
+        passwordHash: true,
+        phone: true,
+      },
+    });
+
+    if (!user || !user.passwordHash) {
+      return NextResponse.json(
+        { error: 'Invalid email or password' },
+        { status: 401 },
+      );
     }
 
-    const role = String(user.role);
+    const passwordOk = await bcrypt.compare(password, user.passwordHash);
 
-    if (!isAdminSideRole(role)) {
-      return NextResponse.json({ error: 'Not eligible for 2FA' }, { status: 403 });
+    if (!passwordOk) {
+      return NextResponse.json(
+        { error: 'Invalid email or password' },
+        { status: 401 },
+      );
     }
 
-    const v = await verifyOtp({
+    if (!isAdminSideRole(user.role)) {
+      return NextResponse.json(
+        { error: 'Admin access is not allowed for this account' },
+        { status: 403 },
+      );
+    }
+
+    if (!user.phone) {
+      return NextResponse.json(
+        { error: 'Admin account does not have a phone number configured' },
+        { status: 400 },
+      );
+    }
+
+    const verification = await verifyOtp({
       phone: user.phone,
       purpose: 'admin_2fa',
       code,
     });
 
-    if (!v.ok) {
-      return NextResponse.json({ error: v.error || 'Invalid 2FA code' }, { status: 401 });
+    if (!verification.ok) {
+      return NextResponse.json(
+        { error: otpReasonToMessage(verification.reason) },
+        { status: 401 },
+      );
     }
 
     await setSessionCookie({
       id: user.id,
-      email: user.email,
-      name: user.name || undefined,
-      role: user.role as any,
+      email: user.email || `${user.id}@neejee.local`,
+      name: user.name || 'Admin',
+      role: user.role,
     });
 
     return NextResponse.json({
       ok: true,
       success: true,
       role: user.role,
-      redirect: redirectFor(role),
+      redirect: redirectFor(user.role),
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        phone: user.phone,
+        role: user.role,
+      },
     });
   } catch (error) {
-    console.error('Login 2FA route error', error);
-    return NextResponse.json({ error: 'Unable to complete sign in right now' }, { status: 500 });
+    console.error('[auth/login/2fa] error', error);
+
+    return NextResponse.json(
+      { error: 'Unable to verify 2FA right now' },
+      { status: 500 },
+    );
   }
 }

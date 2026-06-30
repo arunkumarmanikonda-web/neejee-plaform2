@@ -1,18 +1,19 @@
 ﻿import { NextResponse } from 'next/server';
 import { z } from 'zod';
+import bcrypt from 'bcryptjs';
 import { prisma } from '@/lib/prisma';
-import { requestOtp } from '@/lib/otp';
-import { setSessionCookie, verifyPassword } from '@/lib/auth';
+import { setSessionCookie } from '@/lib/auth';
+import { requestOtp, OtpError } from '@/lib/otp';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
-const LoginSchema = z.object({
+const BodySchema = z.object({
   email: z.string().email(),
   password: z.string().min(1),
 });
 
-const ADMIN_ROLES = [
+const ADMIN_ROLES = new Set([
   'ADMIN',
   'SUPER_ADMIN',
   'CONTENT_EDITOR',
@@ -21,131 +22,186 @@ const ADMIN_ROLES = [
   'FINANCE_OPERATOR',
   'MARKETING_OPERATOR',
   'MARKETING_MANAGER',
-] as const;
+]);
 
-function isAdminSideRole(role: string): boolean {
-  return ADMIN_ROLES.includes(role as (typeof ADMIN_ROLES)[number]);
+function isAdminSideRole(role: unknown): role is string {
+  return typeof role === 'string' && ADMIN_ROLES.has(role);
 }
 
-function redirectFor(role: string): string {
+function redirectFor(role: string) {
   if (isAdminSideRole(role)) return '/admin';
   if (role === 'SELLER') return '/seller';
   return '/account';
 }
 
-function admin2FAEnabled(): boolean {
-  const raw = (process.env.ADMIN_2FA_ENABLED || '').trim().toLowerCase();
-  return raw === '1' || raw === 'true' || raw === 'yes' || raw === 'on';
+function parseBooleanFlag(value: string | undefined): boolean | null {
+  if (!value) return null;
+  const normalized = value.trim().toLowerCase();
+  if (['true', '1', 'yes', 'on'].includes(normalized)) return true;
+  if (['false', '0', 'no', 'off'].includes(normalized)) return false;
+  return null;
 }
 
-function maskPhone(phone: string): string {
-  const digits = String(phone || '').replace(/\D/g, '');
+function admin2FAEnabled() {
+  const explicit = parseBooleanFlag(process.env.ADMIN_2FA_ENABLED);
+  if (explicit !== null) return explicit;
+  return true;
+}
+
+function firstForwardedIp(request: Request) {
+  return request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || null;
+}
+
+function maskPhone(phone: string | null | undefined) {
+  const raw = String(phone || '').trim();
+  if (!raw) return '';
+
+  const plus = raw.startsWith('+') ? '+' : '';
+  const digits = raw.replace(/\D/g, '');
+
+  if (digits.length <= 4) return `${plus}${digits}`;
+  if (digits.length <= 6) {
+    return `${plus}${'*'.repeat(Math.max(digits.length - 2, 0))}${digits.slice(-2)}`;
+  }
+
   const last4 = digits.slice(-4);
+  const visiblePrefix = digits.length > 10 ? digits.slice(0, digits.length - 10) : '';
+  const maskedLocal = '*'.repeat(Math.max(digits.length - visiblePrefix.length - 4, 0));
 
-  if (!last4) return phone;
-  if (digits.startsWith('91') && digits.length >= 12) {
-    return `+91 ******${last4}`;
-  }
-  if (digits.length >= 10) {
-    return `******${last4}`;
-  }
-  return `***${last4}`;
-}
-
-function firstForwardedIp(headerValue: string | null): string | undefined {
-  if (!headerValue) return undefined;
-  return headerValue.split(',')[0]?.trim() || undefined;
+  return `${plus}${visiblePrefix}${maskedLocal}${last4}`;
 }
 
 export async function POST(request: Request) {
-  let body: unknown;
   try {
-    body = await request.json();
-  } catch {
-    return NextResponse.json({ error: 'Invalid input' }, { status: 400 });
-  }
+    const body = await request.json().catch(() => null);
+    const parsed = BodySchema.safeParse(body);
 
-  const parsed = LoginSchema.safeParse(body);
-  if (!parsed.success) {
-    return NextResponse.json({ error: 'Invalid input' }, { status: 400 });
-  }
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: 'Email and password are required' },
+        { status: 400 },
+      );
+    }
 
-  const email = parsed.data.email.trim().toLowerCase();
-  const password = parsed.data.password;
+    const email = parsed.data.email.trim().toLowerCase();
+    const password = parsed.data.password;
 
-  if (!process.env.DATABASE_URL) {
-    return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 });
-  }
-
-  try {
-    const user = await prisma.user.findUnique({ where: { email } });
+    const user = await prisma.user.findFirst({
+      where: { email },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        role: true,
+        passwordHash: true,
+        phone: true,
+      },
+    });
 
     if (!user || !user.passwordHash) {
-      return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 });
+      return NextResponse.json(
+        { error: 'Invalid email or password' },
+        { status: 401 },
+      );
     }
 
-    const passwordOk = await verifyPassword(password, user.passwordHash);
+    const passwordOk = await bcrypt.compare(password, user.passwordHash);
+
     if (!passwordOk) {
-      return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 });
+      return NextResponse.json(
+        { error: 'Invalid email or password' },
+        { status: 401 },
+      );
     }
 
-    const role = String(user.role);
+    const role = user.role;
 
     if (isAdminSideRole(role) && admin2FAEnabled()) {
       if (!user.phone) {
         return NextResponse.json(
-          { error: 'Admin 2FA is enabled, but no phone number is configured for this account.' },
-          { status: 403 }
+          { error: 'Admin account does not have a phone number configured' },
+          { status: 400 },
         );
       }
 
-      const otpResult = await requestOtp({
-        phone: user.phone,
-        purpose: 'admin_2fa',
-        ipAddress: firstForwardedIp(request.headers.get('x-forwarded-for')),
-        userAgent: request.headers.get('user-agent') || undefined,
-      });
+      const maskedPhone = maskPhone(user.phone);
 
-      if (!otpResult.ok) {
-        const message = otpResult.error || 'Unable to send the security code right now.';
+      try {
+        await requestOtp({
+          phone: user.phone,
+          purpose: 'admin_2fa',
+          ipAddress: firstForwardedIp(request),
+          userAgent: request.headers.get('user-agent'),
+        });
 
-        if (/please wait/i.test(message)) {
-          return NextResponse.json({
-            ok: true,
-            requires2FA: true,
-            phoneMask: maskPhone(user.phone),
-          });
+        return NextResponse.json({
+          ok: true,
+          requires2FA: true,
+          role,
+          email: user.email,
+          maskedPhone,
+          phoneMasked: maskedPhone,
+          redirect: redirectFor(role),
+        });
+      } catch (error) {
+        if (error instanceof OtpError) {
+          if (
+            error.status === 429 ||
+            error.code === 'COOLDOWN' ||
+            error.code === 'RATE_LIMIT_HOURLY'
+          ) {
+            return NextResponse.json({
+              ok: true,
+              requires2FA: true,
+              role,
+              email: user.email,
+              maskedPhone,
+              phoneMasked: maskedPhone,
+              redirect: redirectFor(role),
+              info: error.message,
+            });
+          }
+
+          return NextResponse.json(
+            { error: error.message || 'Unable to send the security code right now.' },
+            { status: error.status || 500 },
+          );
         }
 
-        return NextResponse.json({ error: message }, { status: 400 });
-      }
+        console.error('[auth/login] admin 2FA request failed', error);
 
-      return NextResponse.json({
-        ok: true,
-        requires2FA: true,
-        phoneMask: maskPhone(user.phone),
-      });
+        return NextResponse.json(
+          { error: 'Unable to send the security code right now.' },
+          { status: 500 },
+        );
+      }
     }
 
     await setSessionCookie({
       id: user.id,
-      email: user.email,
-      name: user.name || undefined,
-      role: user.role as any,
+      email: user.email || `${user.id}@neejee.local`,
+      name: user.name || 'User',
+      role,
     });
 
     return NextResponse.json({
       ok: true,
+      success: true,
       redirect: redirectFor(role),
       user: {
         id: user.id,
         email: user.email,
         name: user.name,
-        role: user.role,
+        phone: user.phone,
+        role,
       },
     });
   } catch (error) {
-    console.error('Login route DB auth error', error);
-    return NextResponse.json({ error: 'Unable to sign in right now' }, { status: 500 });
+    console.error('[auth/login] error', error);
+
+    return NextResponse.json(
+      { error: 'Unable to sign in right now' },
+      { status: 500 },
+    );
   }
 }

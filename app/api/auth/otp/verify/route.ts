@@ -1,125 +1,224 @@
 import { NextResponse } from 'next/server';
-import { verifyOtp, normalizePhone } from '@/lib/auth/otp';
+import { z } from 'zod';
 import { prisma } from '@/lib/prisma';
 import { setSessionCookie } from '@/lib/auth';
+import { normalizePhone, verifyOtp } from '@/lib/otp';
+import type { OtpPurpose } from '@/lib/otp';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
-type NormalizedPurpose = 'login' | 'signup';
+const BodySchema = z.object({
+  phone: z.string().min(1, 'Phone is required'),
+  code: z.string().trim().regex(/^\d{4,8}$/, 'Invalid OTP format'),
+  purpose: z.string().optional(),
+  name: z.string().optional(),
+  email: z.string().optional(),
+});
 
-function normalizePurpose(value: unknown): NormalizedPurpose {
-  const raw = String(value || 'login').trim().toLowerCase();
+const ADMIN_ROLES = new Set([
+  'ADMIN',
+  'SUPER_ADMIN',
+  'CONTENT_EDITOR',
+  'QC_TEAM',
+  'FINANCE',
+  'FINANCE_OPERATOR',
+  'MARKETING_OPERATOR',
+  'MARKETING_MANAGER',
+]);
 
-  if (raw === 'signup' || raw === 'signup_customer') return 'signup';
-  return 'login';
+function normalizePurpose(value?: string | null): OtpPurpose {
+  const raw = String(value || '').trim().toLowerCase();
+
+  switch (raw) {
+    case 'signup':
+      return 'signup';
+    case 'signup_customer':
+      return 'signup_customer';
+    case 'admin_2fa':
+      return 'admin_2fa';
+    case 'checkout_guest':
+      return 'checkout_guest';
+    case 'change_phone':
+      return 'change_phone';
+    case 'login':
+    default:
+      return 'login';
+  }
 }
 
-function buildSessionEmail(user: any, normalizedPhone: string): string {
-  if (user?.email && typeof user.email === 'string' && user.email.includes('@')) {
-    return user.email;
+function fallbackEmailForPhone(phone: string) {
+  const digits = phone.replace(/\D/g, '');
+  return `user_${digits}@neejee.local`;
+}
+
+function normalizeOptionalEmail(value?: string) {
+  const email = String(value || '').trim().toLowerCase();
+  return email || null;
+}
+
+function normalizeOptionalName(value?: string) {
+  const name = String(value || '').trim();
+  return name || null;
+}
+
+function isAdminSideRole(role: unknown): role is string {
+  return typeof role === 'string' && ADMIN_ROLES.has(role);
+}
+
+function redirectFor(role: string, purpose: OtpPurpose) {
+  if (purpose === 'signup' || purpose === 'signup_customer') {
+    return '/account/welcome';
   }
-  const digits = normalizedPhone.replace(/\D/g, '');
-  return `phone-${digits}@otp.neejee.local`;
+  if (isAdminSideRole(role)) return '/admin';
+  if (role === 'SELLER') return '/seller';
+  return '/account';
+}
+
+function otpReasonToMessage(
+  reason:
+    | 'invalid_phone'
+    | 'invalid_format'
+    | 'no_active_otp'
+    | 'expired'
+    | 'wrong_code'
+    | 'max_attempts',
+) {
+  switch (reason) {
+    case 'invalid_phone':
+      return 'Please enter a valid mobile number';
+    case 'invalid_format':
+      return 'Invalid OTP format';
+    case 'no_active_otp':
+      return 'No active OTP found. Please request a new code.';
+    case 'expired':
+      return 'OTP expired. Please request a new code.';
+    case 'wrong_code':
+      return 'Incorrect OTP';
+    case 'max_attempts':
+      return 'Too many invalid attempts. Please request a new code.';
+    default:
+      return 'OTP verification failed';
+  }
 }
 
 export async function POST(req: Request) {
   try {
-    const body = await req.json();
-    const phone = String(body?.phone || '');
-    const code = String(body?.code || '');
-    const purpose = normalizePurpose(body?.purpose);
-    const name = body?.name ? String(body.name).trim() : null;
-    const email = body?.email ? String(body.email).trim().toLowerCase() : null;
+    const body = await req.json().catch(() => null);
+    const parsed = BodySchema.safeParse(body);
 
-    if (!phone || !code) {
-      return NextResponse.json({ ok: false, error: 'Phone and code required' }, { status: 400 });
-    }
-
-    const normalized = normalizePhone(phone);
-    const result = await verifyOtp({ phone: normalized, code, purpose });
-
-    if (!result.ok) {
-      const messages: Record<string, string> = {
-        invalid_format: 'OTP must be 6 digits.',
-        no_active_otp: 'No OTP found. Please request a new one.',
-        expired: 'This OTP has expired. Please request a new one.',
-        wrong_code: 'Incorrect OTP. Please try again.',
-        max_attempts: 'Too many attempts. Please request a new OTP.',
-      };
-
+    if (!parsed.success) {
       return NextResponse.json(
-        {
-          ok: false,
-          error: messages[result.reason] || 'OTP verification failed',
-          code: result.reason.toUpperCase(),
-        },
-        { status: 401 }
+        { error: 'Phone and OTP code are required' },
+        { status: 400 },
       );
     }
 
-    let user: any;
+    const purpose = normalizePurpose(parsed.data.purpose);
+    const normalizedPhone = normalizePhone(parsed.data.phone);
+    const code = parsed.data.code.trim();
+    const inputEmail = normalizeOptionalEmail(parsed.data.email);
+    const inputName = normalizeOptionalName(parsed.data.name);
 
-    if (purpose === 'signup') {
-      const dupe = await prisma.user.findFirst({
-        where: { phone: normalized },
-        select: { id: true },
+    if (!normalizedPhone) {
+      return NextResponse.json(
+        { error: 'Please enter a valid mobile number' },
+        { status: 400 },
+      );
+    }
+
+    const verification = await verifyOtp({
+      phone: normalizedPhone,
+      code,
+      purpose,
+    });
+
+    if (!verification.ok) {
+      return NextResponse.json(
+        { error: otpReasonToMessage(verification.reason) },
+        { status: 401 },
+      );
+    }
+
+    if (purpose === 'signup' || purpose === 'signup_customer') {
+      const existingUser = await prisma.user.findFirst({
+        where: { phone: normalizedPhone },
+        select: {
+          id: true,
+          email: true,
+          name: true,
+          role: true,
+          phone: true,
+        },
       });
 
-      if (dupe) {
+      if (existingUser) {
         return NextResponse.json(
-          {
-            ok: false,
-            error: 'An account already exists with this number. Please log in instead.',
-            code: 'USER_EXISTS',
-          },
-          { status: 409 }
+          { error: 'An account already exists for this mobile number' },
+          { status: 409 },
         );
       }
 
-      user = await prisma.user.create({
+      const user = await prisma.user.create({
         data: {
-          phone: normalized,
-          phoneVerified: true,
-          phoneVerifiedAt: new Date(),
-          primaryAuthMethod: 'phone',
-          name: name || null,
-          email: email || null,
+          email: inputEmail || fallbackEmailForPhone(normalizedPhone),
+          name: inputName || 'Customer',
+          phone: normalizedPhone,
           role: 'CUSTOMER',
-        } as any,
-      });
-    } else {
-      user = await prisma.user.findFirst({
-        where: { phone: normalized },
+        },
+        select: {
+          id: true,
+          email: true,
+          name: true,
+          role: true,
+          phone: true,
+        },
       });
 
-      if (!user) {
-        return NextResponse.json(
-          {
-            ok: false,
-            error: 'No account found with this number. Please sign up.',
-            code: 'NO_USER',
-          },
-          { status: 404 }
-        );
-      }
+      await setSessionCookie({
+        id: user.id,
+        email: user.email || fallbackEmailForPhone(normalizedPhone),
+        name: user.name || 'Customer',
+        role: user.role,
+      });
 
-      if (!(user as any).phoneVerified) {
-        user = await prisma.user.update({
-          where: { id: user.id },
-          data: { phoneVerified: true, phoneVerifiedAt: new Date() } as any,
-        });
-      }
+      return NextResponse.json({
+        ok: true,
+        user: {
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          phone: user.phone,
+          role: user.role,
+        },
+        redirect: redirectFor(user.role, purpose),
+      });
+    }
+
+    const user = await prisma.user.findFirst({
+      where: { phone: normalizedPhone },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        role: true,
+        phone: true,
+      },
+    });
+
+    if (!user) {
+      return NextResponse.json(
+        { error: 'No account found for this mobile number' },
+        { status: 404 },
+      );
     }
 
     await setSessionCookie({
       id: user.id,
-      email: buildSessionEmail(user, normalized),
-      name: user.name || undefined,
-      role: ((user as any).role || 'CUSTOMER') as any,
+      email: user.email || fallbackEmailForPhone(normalizedPhone),
+      name: user.name || 'User',
+      role: user.role,
     });
-
-    const redirect = purpose === 'signup' ? '/account/welcome' : '/account';
 
     return NextResponse.json({
       ok: true,
@@ -127,14 +226,17 @@ export async function POST(req: Request) {
         id: user.id,
         name: user.name,
         email: user.email,
-        phone: (user as any).phone,
-        role: (user as any).role,
+        phone: user.phone,
+        role: user.role,
       },
-      redirect,
-      redirectTo: redirect,
+      redirect: redirectFor(user.role, purpose),
     });
-  } catch (e: any) {
-    console.error('[otp.verify]', e);
-    return NextResponse.json({ ok: false, error: e.message || 'Server error' }, { status: 500 });
+  } catch (error) {
+    console.error('[auth/otp/verify] error', error);
+
+    return NextResponse.json(
+      { error: 'Unable to verify OTP right now' },
+      { status: 500 },
+    );
   }
 }
