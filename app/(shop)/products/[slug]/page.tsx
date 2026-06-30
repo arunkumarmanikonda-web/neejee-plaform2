@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { Suspense, useEffect, useMemo, useState } from 'react';
 import { useParams } from 'next/navigation';
+import { ProductCard, type ProductCardData } from '@/components/product/ProductCard';
 
 export const dynamic = 'force-dynamic';
 
@@ -74,6 +75,11 @@ type NormalizedResponse = {
   error: string | null;
 };
 
+type RecommendationsResponse = {
+  label: string | null;
+  products: ProductCardData[];
+};
+
 function asString(value: unknown): string | null {
   return typeof value === 'string' && value.trim() ? value.trim() : null;
 }
@@ -112,7 +118,7 @@ function isObject(value: unknown): value is Record<string, unknown> {
 }
 
 function normalizeImageCandidate(value: unknown): ProductImage | null {
-  if (typeof value === 'string' && value.trim()) {
+  if (typeof value === "string" && value.trim()) {
     return { url: value.trim(), alt: 'Product image' };
   }
 
@@ -397,8 +403,8 @@ function normalizeProduct(raw: unknown): ProductState | null {
     mrp: asNumber(raw.mrp),
     sellingPrice: asNumber(raw.sellingPrice),
     salePrice: asNumber(raw.salePrice),
-    saleStartAt: asString(raw.saleStartAt),
-    saleEndAt: asString(raw.saleEndAt),
+    saleStartAt: asString(raw.saleStartAt) ?? asString(raw.saleStartsAt),
+    saleEndAt: asString(raw.saleEndAt) ?? asString(raw.saleEndsAt),
     aiTryOnEligible: asBoolean(raw.aiTryOnEligible),
     arEnabled: asBoolean(raw.arEnabled) || asBoolean(raw.arTryOnEligible),
     variants,
@@ -431,6 +437,59 @@ function normalizeResponse(raw: unknown): NormalizedResponse {
   const error = asString(raw.error);
 
   return { product, relatedProducts, error };
+}
+
+function normalizeRecommendationProduct(raw: unknown): ProductCardData | null {
+  if (!isObject(raw)) return null;
+
+  const id = asString(raw.id);
+  const slug = asString(raw.slug);
+  const name = asString(raw.name);
+
+  if (!id || !slug || !name) return null;
+
+  const images = Array.isArray(raw.images)
+    ? raw.images
+        .map((item) => {
+          if (typeof item === 'string') return item.trim();
+          if (isObject(item)) return asString(item.url) ?? asString(item.src) ?? '';
+          return '';
+        })
+        .filter(Boolean)
+    : [];
+
+  return {
+    id,
+    slug,
+    name,
+    poeticLine: asString(raw.poeticLine),
+    craft: asString(raw.craft),
+    region: asString(raw.region),
+    mrp: asNumber(raw.mrp) ?? 0,
+    sellingPrice: asNumber(raw.sellingPrice) ?? asNumber(raw.mrp) ?? 0,
+    salePrice: asNumber(raw.salePrice),
+    saleStartsAt: asString(raw.saleStartsAt) ?? asString(raw.saleStartAt),
+    saleEndsAt: asString(raw.saleEndsAt) ?? asString(raw.saleEndAt),
+    images,
+    badges: toStringArray(raw.badges),
+    inventory: asNumber(raw.inventory) ?? undefined,
+    aiTryOnEligible: asBoolean(raw.aiTryOnEligible),
+  };
+}
+
+function normalizeRecommendationsResponse(raw: unknown): RecommendationsResponse {
+  if (!isObject(raw)) {
+    return { label: null, products: [] };
+  }
+
+  const label = asString(raw.label);
+  const products = Array.isArray(raw.products)
+    ? raw.products
+        .map((item) => normalizeRecommendationProduct(item))
+        .filter((item): item is ProductCardData => Boolean(item))
+    : [];
+
+  return { label, products };
 }
 
 function LoadingState() {
@@ -502,12 +561,15 @@ function PDPInner() {
   const slug = Array.isArray(params?.slug) ? params.slug[0] : params?.slug;
 
   const [product, setProduct] = useState<ProductState | null>(null);
-  const [relatedProducts, setRelatedProducts] = useState<unknown[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeImage, setActiveImage] = useState<string | null>(null);
   const [selectedVariantId, setSelectedVariantId] = useState<string | null>(null);
   const [quantity, setQuantity] = useState(1);
+
+  const [recommendationLabel, setRecommendationLabel] = useState<string | null>(null);
+  const [recommendationProducts, setRecommendationProducts] = useState<ProductCardData[]>([]);
+  const [recommendationsLoading, setRecommendationsLoading] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -532,13 +594,11 @@ function PDPInner() {
 
         if (!cancelled) {
           setProduct(normalized.product);
-          setRelatedProducts(normalized.relatedProducts);
           setSelectedVariantId(null);
         }
       } catch (err) {
         if (!cancelled) {
           setProduct(null);
-          setRelatedProducts([]);
           setError(err instanceof Error ? err.message : 'Failed to load product');
         }
       } finally {
@@ -552,6 +612,50 @@ function PDPInner() {
       cancelled = true;
     };
   }, [slug]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadRecommendations() {
+      if (!product?.id) {
+        setRecommendationLabel(null);
+        setRecommendationProducts([]);
+        return;
+      }
+
+      setRecommendationsLoading(true);
+
+      try {
+        const response = await fetch(
+          `/api/recommendations?productId=${encodeURIComponent(product.id)}&limit=4`,
+          { cache: 'no-store' },
+        );
+
+        const json = await response.json().catch(() => null);
+        const normalized = normalizeRecommendationsResponse(json);
+
+        if (!cancelled) {
+          setRecommendationLabel(normalized.label);
+          setRecommendationProducts(
+            normalized.products.filter((item) => item.id !== product.id),
+          );
+        }
+      } catch {
+        if (!cancelled) {
+          setRecommendationLabel(null);
+          setRecommendationProducts([]);
+        }
+      } finally {
+        if (!cancelled) setRecommendationsLoading(false);
+      }
+    }
+
+    void loadRecommendations();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [product?.id]);
 
   const selectedVariant = useMemo(() => {
     if (!product?.variants.length) return null;
@@ -858,14 +962,23 @@ function PDPInner() {
           <DetailSection title="Delivery & fulfilment" content={product.deliveryInfo} />
         </section>
 
-        {Array.isArray(relatedProducts) && relatedProducts.length > 0 ? (
+        {!recommendationsLoading && recommendationProducts.length > 0 ? (
           <section className="mt-12">
-            <div className="rounded-3xl border border-stone-200 bg-white p-6">
-              <h2 className="text-xl font-semibold text-stone-900">Complete the look</h2>
-              <p className="mt-2 text-sm text-stone-600">
-                Related products are available from the API and can be wired into the existing
-                product-card grid next.
-              </p>
+            <div className="flex items-end justify-between gap-4">
+              <div>
+                <p className="text-sm font-medium uppercase tracking-[0.24em] text-stone-500">
+                  Recommendations
+                </p>
+                <h2 className="mt-2 text-2xl font-semibold tracking-tight text-stone-900">
+                  {recommendationLabel ?? 'Complete the look'}
+                </h2>
+              </div>
+            </div>
+
+            <div className="mt-6 grid grid-cols-2 gap-5 lg:grid-cols-4">
+              {recommendationProducts.map((item) => (
+                <ProductCard key={item.id} product={item} />
+              ))}
             </div>
           </section>
         ) : null}
