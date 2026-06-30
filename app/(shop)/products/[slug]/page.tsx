@@ -96,12 +96,14 @@ function toStringArray(value: unknown): string[] {
 function dedupeStrings(values: string[]): string[] {
   const seen = new Set<string>();
   const out: string[] = [];
+
   for (const value of values) {
     const key = value.trim().toLowerCase();
     if (!key || seen.has(key)) continue;
     seen.add(key);
     out.push(value.trim());
   }
+
   return out;
 }
 
@@ -160,7 +162,11 @@ function formatINR(paise: number | null): string {
   }).format(paise / 100);
 }
 
-function isSaleLive(salePrice: number | null, saleStartAt: string | null, saleEndAt: string | null): boolean {
+function isSaleLive(
+  salePrice: number | null,
+  saleStartAt: string | null,
+  saleEndAt: string | null,
+): boolean {
   if (salePrice == null) return false;
 
   const now = Date.now();
@@ -202,8 +208,15 @@ function totalInventoryFromVariants(variants: VariantState[]): number {
   return variants.reduce((sum, variant) => sum + Math.max(0, variant.inventory), 0);
 }
 
-function normalizeBreadcrumbs(raw: unknown, fallbackCategoryName: string | null, fallbackCategorySlug: string | null): Breadcrumb[] {
-  const breadcrumbs: Breadcrumb[] = [{ name: 'Home', href: '/' }, { name: 'Products', href: '/products' }];
+function normalizeBreadcrumbs(
+  raw: unknown,
+  fallbackCategoryName: string | null,
+  fallbackCategorySlug: string | null,
+): Breadcrumb[] {
+  const breadcrumbs: Breadcrumb[] = [
+    { name: 'Home', href: '/' },
+    { name: 'Products', href: '/products' },
+  ];
 
   if (Array.isArray(raw)) {
     for (const item of raw) {
@@ -233,11 +246,14 @@ function normalizeVariant(raw: unknown): VariantState | null {
   const id = asString(raw.id);
   if (!id) return null;
 
+  const fallbackTitle = [asString(raw.color), asString(raw.size)]
+    .filter((value): value is string => Boolean(value))
+    .join(' / ');
+
   const title =
     asString(raw.title) ??
     asString(raw.name) ??
-    [asString(raw.color), asString(raw.size)].filter(Boolean).join(' / ') ||
-    'Variant';
+    (fallbackTitle || 'Variant');
 
   return {
     id,
@@ -282,7 +298,8 @@ function normalizeProduct(raw: unknown): ProductState | null {
   const variantImages = variants.flatMap((variant) => variant.images);
 
   const combinedImages = [...productImages, ...variantImages].filter(
-    (image, index, arr) => arr.findIndex((candidate) => candidate.url === image.url) === index,
+    (image, index, arr) =>
+      arr.findIndex((candidate) => candidate.url === image.url) === index,
   );
 
   const inventoryFromProduct =
@@ -441,8 +458,12 @@ function EmptyState({ message }: { message: string }) {
   return (
     <div className="min-h-screen bg-stone-50">
       <div className="mx-auto max-w-3xl px-6 py-16 text-center lg:px-10">
-        <p className="text-sm font-medium uppercase tracking-[0.28em] text-stone-500">Product</p>
-        <h1 className="mt-4 text-3xl font-semibold tracking-tight text-stone-900">Unable to load product</h1>
+        <p className="text-sm font-medium uppercase tracking-[0.28em] text-stone-500">
+          Product
+        </p>
+        <h1 className="mt-4 text-3xl font-semibold tracking-tight text-stone-900">
+          Unable to load product
+        </h1>
         <p className="mt-4 text-base text-stone-600">{message}</p>
         <div className="mt-8 flex items-center justify-center gap-3">
           <Link
@@ -469,7 +490,9 @@ function DetailSection({
   return (
     <section className="rounded-3xl border border-stone-200 bg-white p-6">
       <h2 className="text-lg font-semibold text-stone-900">{title}</h2>
-      <p className="mt-3 whitespace-pre-line text-sm leading-7 text-stone-700">{content}</p>
+      <p className="mt-3 whitespace-pre-line text-sm leading-7 text-stone-700">
+        {content}
+      </p>
     </section>
   );
 }
@@ -542,7 +565,8 @@ function PDPInner() {
     const variantImages = selectedVariant?.images ?? [];
     const combined = [...variantImages, ...(product?.images ?? [])];
     return combined.filter(
-      (image, index, arr) => arr.findIndex((candidate) => candidate.url === image.url) === index,
+      (image, index, arr) =>
+        arr.findIndex((candidate) => candidate.url === image.url) === index,
     );
   }, [product, selectedVariant]);
 
@@ -665,7 +689,7 @@ function PDPInner() {
             </div>
 
             <div className="mt-5">
-              {(product.craft || product.region) ? (
+              {product.craft || product.region ? (
                 <p className="text-sm uppercase tracking-[0.24em] text-stone-500">
                   {[product.craft, product.region].filter(Boolean).join(' · ')}
                 </p>
@@ -798,7 +822,7 @@ function PDPInner() {
                 </button>
               </div>
 
-              {(product.material || product.categoryName || product.stockVisibility) ? (
+              {product.material || product.categoryName || product.stockVisibility ? (
                 <dl className="mt-6 grid gap-3 text-sm text-stone-600">
                   {product.material ? (
                     <div className="flex justify-between gap-4">
@@ -825,7 +849,10 @@ function PDPInner() {
         </section>
 
         <section className="mt-10 grid gap-6 lg:grid-cols-2">
-          <DetailSection title={product.storyTitle ?? 'Craft story'} content={product.storyBody ?? product.craftStory} />
+          <DetailSection
+            title={product.storyTitle ?? 'Craft story'}
+            content={product.storyBody ?? product.craftStory}
+          />
           <DetailSection title="Artisan notes" content={product.artisanStory} />
           <DetailSection title="Care instructions" content={product.careInstructions} />
           <DetailSection title="Delivery & fulfilment" content={product.deliveryInfo} />
@@ -836,7 +863,8 @@ function PDPInner() {
             <div className="rounded-3xl border border-stone-200 bg-white p-6">
               <h2 className="text-xl font-semibold text-stone-900">Complete the look</h2>
               <p className="mt-2 text-sm text-stone-600">
-                Related products are available from the API and can be wired into the existing product-card grid next.
+                Related products are available from the API and can be wired into the existing
+                product-card grid next.
               </p>
             </div>
           </section>
