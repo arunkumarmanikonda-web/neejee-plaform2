@@ -4,6 +4,8 @@ import { prisma } from '@/lib/prisma';
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
+const READ_MODEL_VERSION = 'phase1.categories.v2';
+
 const CANONICAL_STOCK_VISIBILITY = [
   'IN_STOCK_ONLY',
   'SHOW_ALL',
@@ -12,6 +14,29 @@ const CANONICAL_STOCK_VISIBILITY = [
 
 type CanonicalStockVisibility =
   (typeof CANONICAL_STOCK_VISIBILITY)[number];
+
+type ParentCategoryRow = {
+  id: string;
+  name: string;
+  slug: string;
+  path: string | null;
+  level: number;
+  parentId: string | null;
+  parent: ParentCategoryRow | null;
+};
+
+type CategoryRow = {
+  id: string;
+  name: string;
+  slug: string;
+  path: string | null;
+  level: number;
+  parentId: string | null;
+  active: boolean;
+  hidden: boolean;
+  gender: string | null;
+  parent: ParentCategoryRow | null;
+};
 
 type ProductRow = {
   categoryId: string | null;
@@ -23,15 +48,48 @@ type ProductRow = {
   }>;
 };
 
+type LineageNode = {
+  id: string;
+  name: string;
+  slug: string;
+  path: string | null;
+  level: number | null;
+  parentId: string | null;
+};
+
 function asString(value: unknown): string | null {
   if (value === undefined || value === null) return null;
   const text = String(value).trim();
   return text.length ? text : null;
 }
 
+function asInt(value: unknown): number | null {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return Math.trunc(value);
+  }
+
+  const text = asString(value);
+  if (!text) return null;
+
+  const parsed = Number.parseInt(text, 10);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
 function truthyParam(value: string | null): boolean {
   if (!value) return false;
   return ['1', 'true', 'yes', 'on'].includes(value.toLowerCase());
+}
+
+function normalizePath(value: string | null): string | null {
+  if (!value) return null;
+
+  const normalized = value
+    .split('/')
+    .map((part) => part.trim().toLowerCase())
+    .filter(Boolean)
+    .join('/');
+
+  return normalized || null;
 }
 
 function normalizeStockVisibility(
@@ -65,7 +123,9 @@ function totalInventory(product: ProductRow): number {
 
 function buildProductVisibility(product: ProductRow) {
   const inStock = totalInventory(product) > 0;
-  const stockVisibility = normalizeStockVisibility(product.catalogueStockVisibility);
+  const stockVisibility = normalizeStockVisibility(
+    product.catalogueStockVisibility
+  );
   const visibleByStock =
     stockVisibility === 'IN_STOCK_ONLY' ? inStock : true;
 
@@ -81,17 +141,10 @@ function buildProductVisibility(product: ProductRow) {
   };
 }
 
-function buildLineage(category: any) {
-  const lineage: Array<{
-    id: string;
-    name: string;
-    slug: string;
-    path: string | null;
-    level: number | null;
-    parentId: string | null;
-  }> = [];
+function buildLineage(category: CategoryRow) {
+  const lineage: LineageNode[] = [];
 
-  let current: any = category;
+  let current: CategoryRow | ParentCategoryRow | null = category;
 
   while (current) {
     lineage.push({
@@ -126,11 +179,22 @@ export async function GET(req: NextRequest) {
     const mode = searchParams.get('visible');
     const visibleOnly = mode === 'true';
     const previewVisible = mode === 'preview';
+
     const includeCounts = searchParams.get('counts') !== 'false';
-    const q = asString(searchParams.get('q')) || asString(searchParams.get('search'));
+
+    const q =
+      asString(searchParams.get('q')) ||
+      asString(searchParams.get('search'));
+
+    const slugFilter = asString(searchParams.get('slug'))?.toLowerCase() ?? null;
+    const pathFilter = normalizePath(asString(searchParams.get('path')));
+    const parentIdFilter = asString(searchParams.get('parentId'));
+    const levelFilter = asInt(searchParams.get('level'));
+    const rootOnly = truthyParam(searchParams.get('rootOnly'));
+    const leafOnly = truthyParam(searchParams.get('leafOnly'));
 
     const categories = await prisma.category.findMany({
-      orderBy: [{ level: 'asc' }, { name: 'asc' }],
+      orderBy: [{ level: 'asc' }, { order: 'asc' }, { name: 'asc' }],
       select: {
         id: true,
         name: true,
@@ -157,6 +221,16 @@ export async function GET(req: NextRequest) {
                 path: true,
                 level: true,
                 parentId: true,
+                parent: {
+                  select: {
+                    id: true,
+                    name: true,
+                    slug: true,
+                    path: true,
+                    level: true,
+                    parentId: true,
+                  },
+                },
               },
             },
           },
@@ -164,9 +238,20 @@ export async function GET(req: NextRequest) {
       },
     });
 
-    const categoryMap = new Map<string, any>();
-    for (const category of categories) {
+    const typedCategories = categories as CategoryRow[];
+
+    const categoryMap = new Map<string, CategoryRow>();
+    const childCountMap = new Map<string, number>();
+
+    for (const category of typedCategories) {
       categoryMap.set(category.id, category);
+
+      if (category.parentId) {
+        childCountMap.set(
+          category.parentId,
+          (childCountMap.get(category.parentId) ?? 0) + 1
+        );
+      }
     }
 
     const directVisibleCounts = new Map<string, number>();
@@ -214,7 +299,8 @@ export async function GET(req: NextRequest) {
           );
         }
 
-        let current: any = category;
+        let current: CategoryRow | ParentCategoryRow | null = category;
+
         while (current) {
           if (visibility.visibleInCatalogue) {
             descendantVisibleCounts.set(
@@ -230,13 +316,14 @@ export async function GET(req: NextRequest) {
             );
           }
 
-          current = current.parentId ? categoryMap.get(current.parentId) : null;
+          current = current.parent ?? null;
         }
       }
     }
 
-    const mapped = categories.map((category) => {
+    const mapped = typedCategories.map((category) => {
       const hierarchy = buildLineage(category);
+      const childCount = childCountMap.get(category.id) ?? 0;
 
       return {
         id: category.id,
@@ -248,6 +335,10 @@ export async function GET(req: NextRequest) {
         active: !!category.active,
         hidden: !!category.hidden,
         gender: category.gender ?? null,
+
+        isRoot: !category.parentId,
+        isLeaf: childCount === 0,
+        directChildCount: childCount,
 
         breadcrumb: hierarchy.breadcrumb,
         breadcrumbSlugs: hierarchy.breadcrumbSlugs,
@@ -267,6 +358,36 @@ export async function GET(req: NextRequest) {
     });
 
     const filtered = mapped.filter((category) => {
+      if (slugFilter && category.slug.toLowerCase() !== slugFilter) {
+        return false;
+      }
+
+      if (
+        pathFilter &&
+        normalizePath(category.path ?? null) !== pathFilter
+      ) {
+        return false;
+      }
+
+      if (parentIdFilter && category.parentId !== parentIdFilter) {
+        return false;
+      }
+
+      if (
+        typeof levelFilter === 'number' &&
+        category.level !== levelFilter
+      ) {
+        return false;
+      }
+
+      if (rootOnly && !category.isRoot) {
+        return false;
+      }
+
+      if (leafOnly && !category.isLeaf) {
+        return false;
+      }
+
       if (q) {
         const haystack = [
           category.name,
@@ -301,15 +422,25 @@ export async function GET(req: NextRequest) {
     const response = NextResponse.json({
       ok: true,
       readModel: {
-        version: 'phase1.categories.v1',
+        version: READ_MODEL_VERSION,
         generatedAt: new Date().toISOString(),
         supportedStockVisibility: CANONICAL_STOCK_VISIBILITY,
         includeCounts,
+        filters: {
+          visible: mode ?? null,
+          q: q ?? null,
+          slug: slugFilter,
+          path: pathFilter,
+          parentId: parentIdFilter ?? null,
+          level: levelFilter,
+          rootOnly,
+          leafOnly,
+        },
       },
       categories: filtered,
     });
 
-    response.headers.set('x-read-model-version', 'phase1.categories.v1');
+    response.headers.set('x-read-model-version', READ_MODEL_VERSION);
     response.headers.set(
       'x-supported-stock-visibility',
       CANONICAL_STOCK_VISIBILITY.join(',')
