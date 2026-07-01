@@ -27,13 +27,13 @@ export const OTP_CONFIG = {
   MAX_ATTEMPTS: OTP_MAX_ATTEMPTS,
   MAX_OTPS_PER_HOUR: OTP_MAX_OTPS_PER_HOUR,
 
-  OTP_LENGTH: OTP_LENGTH,
-  OTP_TTL_MIN: OTP_TTL_MIN,
-  OTP_TTL_MS: OTP_TTL_MS,
-  OTP_RESEND_COOLDOWN_SEC: OTP_RESEND_COOLDOWN_SEC,
-  OTP_RESEND_COOLDOWN_MS: OTP_RESEND_COOLDOWN_MS,
-  OTP_MAX_ATTEMPTS: OTP_MAX_ATTEMPTS,
-  OTP_MAX_OTPS_PER_HOUR: OTP_MAX_OTPS_PER_HOUR,
+  OTP_LENGTH,
+  OTP_TTL_MIN,
+  OTP_TTL_MS,
+  OTP_RESEND_COOLDOWN_SEC,
+  OTP_RESEND_COOLDOWN_MS,
+  OTP_MAX_ATTEMPTS,
+  OTP_MAX_OTPS_PER_HOUR,
 } as const;
 
 export type OtpPurpose =
@@ -44,27 +44,25 @@ export type OtpPurpose =
   | 'change_phone'
   | 'admin_2fa';
 
-type CreateOtpInput = {
+export type CreateOtpInput = {
   phone: string;
   purpose: OtpPurpose;
   ipAddress?: string | null;
   userAgent?: string | null;
 };
 
-type RequestOtpInput = CreateOtpInput;
-
-type VerifyOtpInput = {
-  phone: string;
-  code: string;
-  purpose: OtpPurpose;
+export type RequestOtpInput = CreateOtpInput & {
+  recipientName?: string | null;
 };
 
-type VerifyOtpResult =
-  | {
-      ok: true;
-      phone: string;
-      purpose: OtpPurpose;
-    }
+export type VerifyOtpInput = {
+  phone: string;
+  purpose: OtpPurpose;
+  code: string;
+};
+
+export type VerifyOtpResult =
+  | { ok: true; phone: string; purpose: OtpPurpose }
   | {
       ok: false;
       reason:
@@ -76,28 +74,16 @@ type VerifyOtpResult =
         | 'max_attempts';
     };
 
-type SendOtpSmsParams = {
-  phone: string;
-  code: string;
-  purpose?: OtpPurpose;
-};
-
-type SendOtpSmsResult = {
-  ok: true;
-  provider: string;
-  response?: unknown;
-};
-
 export class OtpError extends Error {
   code: string;
   status: number;
-  details?: Record<string, unknown>;
+  details?: unknown;
 
   constructor(
-    code: string,
     message: string,
+    code = 'OTP_ERROR',
     status = 400,
-    details?: Record<string, unknown>,
+    details?: unknown,
   ) {
     super(message);
     this.name = 'OtpError';
@@ -111,59 +97,92 @@ function digitsOnly(value: string) {
   return String(value || '').replace(/\D/g, '');
 }
 
-function parseBooleanFlag(value: string | undefined): boolean | null {
-  if (!value) return null;
-  const normalized = value.trim().toLowerCase();
-  if (['true', '1', 'yes', 'on'].includes(normalized)) return true;
-  if (['false', '0', 'no', 'off'].includes(normalized)) return false;
+function parseBooleanFlag(value?: string | null): boolean | null {
+  if (value == null) return null;
+  const normalized = String(value).trim().toLowerCase();
+  if (!normalized) return null;
+  if (['1', 'true', 'yes', 'y', 'on'].includes(normalized)) return true;
+  if (['0', 'false', 'no', 'n', 'off'].includes(normalized)) return false;
   return null;
 }
 
-export function normalizePhone(input: string): string | null {
-  const raw = String(input || '').trim();
+export function normalizePhone(phone: string | null | undefined): string | null {
+  const raw = String(phone || '').trim();
   if (!raw) return null;
 
   if (raw.startsWith('+')) {
-    const normalized = `+${digitsOnly(raw)}`;
-    const len = normalized.slice(1).length;
-    if (len >= 10 && len <= 15) return normalized;
+    const digits = `+${digitsOnly(raw)}`;
+    if (/^\+\d{8,15}$/.test(digits)) return digits;
     return null;
   }
 
   const digits = digitsOnly(raw);
 
-  if (digits.length === 10 && /^[6-9]\d{9}$/.test(digits)) {
+  if (!digits) return null;
+
+  // India local number
+  if (digits.length === 10) {
     return `+91${digits}`;
   }
 
-  if (digits.length === 12 && digits.startsWith('91')) {
-    const local = digits.slice(2);
-    if (/^[6-9]\d{9}$/.test(local)) {
-      return `+${digits}`;
-    }
+  // India with leading 0
+  if (digits.length === 11 && digits.startsWith('0')) {
+    return `+91${digits.slice(1)}`;
   }
 
-  if (digits.length >= 10 && digits.length <= 15) {
+  // India with country code
+  if (digits.length === 12 && digits.startsWith('91')) {
+    return `+${digits}`;
+  }
+
+  // Generic international fallback
+  if (digits.length >= 8 && digits.length <= 15) {
     return `+${digits}`;
   }
 
   return null;
 }
 
-export function generateOtpCode(): string {
-  return randomInt(0, 10 ** OTP_LENGTH)
-    .toString()
-    .padStart(OTP_LENGTH, '0');
+function toFast2SmsNumber(phone: string): string {
+  const normalized = normalizePhone(phone);
+  if (!normalized) {
+    throw new OtpError('Invalid mobile number', 'INVALID_PHONE', 400);
+  }
+
+  const digits = digitsOnly(normalized);
+
+  // Fast2SMS examples use 10-digit Indian mobile numbers.
+  if (digits.length === 12 && digits.startsWith('91')) {
+    return digits.slice(2);
+  }
+
+  if (digits.length === 10) {
+    return digits;
+  }
+
+  // Fallback: send digits only
+  return digits;
 }
 
-export async function hashOtp(code: string): Promise<string> {
+export function generateOtpCode(length = OTP_LENGTH) {
+  let code = '';
+  for (let i = 0; i < length; i += 1) {
+    code += String(randomInt(0, 10));
+  }
+  return code;
+}
+
+export async function hashOtp(code: string) {
   return bcrypt.hash(code, 10);
 }
 
-function isOtpAuthEnabled() {
+export function isOtpAuthEnabled() {
   const explicit = parseBooleanFlag(process.env.OTP_AUTH_ENABLED);
   if (explicit !== null) return explicit;
+  return true;
+}
 
+export function smsConfigured() {
   return Boolean(
     process.env.FAST2SMS_API_KEY ||
       process.env.FAST2SMS_AUTH_KEY ||
@@ -171,163 +190,260 @@ function isOtpAuthEnabled() {
   );
 }
 
-export function smsConfigured(): boolean {
-  if (!isOtpAuthEnabled()) return false;
-
-  return Boolean(
+function getFast2SmsApiKey() {
+  return (
     process.env.FAST2SMS_API_KEY ||
-      process.env.FAST2SMS_AUTH_KEY ||
-      process.env.FAST2SMS_API_TOKEN ||
-      process.env.NODE_ENV !== 'production',
-  );
+    process.env.FAST2SMS_AUTH_KEY ||
+    process.env.FAST2SMS_API_TOKEN ||
+    ''
+  ).trim();
 }
 
-async function sendOtpSmsInternal({
-  phone,
-  code,
-  purpose = 'login',
-}: SendOtpSmsParams): Promise<SendOtpSmsResult> {
+function getFast2SmsDltConfig(purpose: OtpPurpose) {
+  const senderId = (
+    process.env.FAST2SMS_DLT_SENDER_ID ||
+    'NEEJEY'
+  ).trim();
+
+  const loginMessageId = (
+    process.env.FAST2SMS_DLT_LOGIN_MESSAGE_ID ||
+    '218985'
+  ).trim();
+
+  const adminMessageId = (
+    process.env.FAST2SMS_DLT_ADMIN_MESSAGE_ID ||
+    loginMessageId
+  ).trim();
+
+  const messageId = purpose === 'admin_2fa' ? adminMessageId : loginMessageId;
+
+  return {
+    senderId,
+    messageId,
+    route: 'dlt' as const,
+  };
+}
+
+function displayNameForPurpose(
+  purpose: OtpPurpose,
+  recipientName?: string | null,
+) {
+  const trimmed = String(recipientName || '').trim();
+  if (trimmed) return trimmed;
+
+  if (purpose === 'admin_2fa') return 'Admin';
+  return 'Customer';
+}
+
+async function parseProviderResponse(response: Response) {
+  const raw = await response.text();
+
+  try {
+    return {
+      raw,
+      json: JSON.parse(raw) as Record<string, unknown>,
+    };
+  } catch {
+    return {
+      raw,
+      json: null as Record<string, unknown> | null,
+    };
+  }
+}
+
+async function sendOtpSmsInternal(args: {
+  phone: string;
+  code: string;
+  purpose: OtpPurpose;
+  recipientName?: string | null;
+}) {
+  const { phone, code, purpose, recipientName } = args;
+
   if (!isOtpAuthEnabled()) {
     throw new OtpError(
-      'OTP_DISABLED',
       'OTP authentication is disabled',
+      'OTP_DISABLED',
       503,
     );
   }
 
-  const message = `Your Neejee verification code is ${code}. It expires in ${OTP_TTL_MIN} minutes.`;
-
-  const apiKey =
-    process.env.FAST2SMS_API_KEY ||
-    process.env.FAST2SMS_AUTH_KEY ||
-    process.env.FAST2SMS_API_TOKEN ||
-    '';
-
-  const digits = digitsOnly(phone);
-  const indianMobile = digits.startsWith('91') ? digits.slice(2) : digits;
+  const apiKey = getFast2SmsApiKey();
 
   if (!apiKey) {
     if (process.env.NODE_ENV !== 'production') {
-      console.info('[OTP DEV MODE]', { phone, purpose, code });
-      return { ok: true, provider: 'console' };
+      console.log(
+        `[otp:dev] ${purpose} OTP for ${phone}: ${code}`,
+      );
+      return;
     }
 
     throw new OtpError(
-      'SMS_NOT_CONFIGURED',
       'SMS provider is not configured',
+      'SMS_NOT_CONFIGURED',
       500,
     );
   }
+
+  const normalizedPhone = normalizePhone(phone);
+  if (!normalizedPhone) {
+    throw new OtpError('Invalid mobile number', 'INVALID_PHONE', 400);
+  }
+
+  const fast2SmsNumber = toFast2SmsNumber(normalizedPhone);
+  const dlt = getFast2SmsDltConfig(purpose);
+  const name = displayNameForPurpose(purpose, recipientName);
+  const variablesValues = `${name}|${code}`;
 
   const response = await fetch('https://www.fast2sms.com/dev/bulkV2', {
     method: 'POST',
     headers: {
       authorization: apiKey,
-      'Content-Type': 'application/json',
+      accept: '*/*',
+      'content-type': 'application/json',
     },
     body: JSON.stringify({
-      route: 'q',
-      message,
-      language: 'english',
-      flash: 0,
-      numbers: indianMobile,
+      route: dlt.route,
+      sender_id: dlt.senderId,
+      message: dlt.messageId,
+      variables_values: variablesValues,
+      numbers: fast2SmsNumber,
     }),
     cache: 'no-store',
   });
 
-  const data = await response.json().catch(() => null);
+  const parsed = await parseProviderResponse(response);
+  const providerStatusCode =
+    parsed.json && typeof parsed.json.status_code !== 'undefined'
+      ? String(parsed.json.status_code)
+      : '';
+
+  const providerMessage =
+    parsed.json && typeof parsed.json.message === 'string'
+      ? parsed.json.message
+      : '';
 
   if (!response.ok) {
+    const message =
+      providerMessage ||
+      `Fast2SMS request failed with status ${response.status}`;
+
     throw new OtpError(
-      'SMS_SEND_FAILED',
-      'Failed to send OTP SMS',
-      502,
-      { response: data },
+      message,
+      `FAST2SMS_${providerStatusCode || response.status}`,
+      response.status,
+      parsed.json ?? parsed.raw,
     );
   }
 
-  return {
-    ok: true,
-    provider: 'fast2sms',
-    response: data,
-  };
+  if (
+    providerStatusCode &&
+    providerStatusCode !== '200' &&
+    providerStatusCode !== '201'
+  ) {
+    throw new OtpError(
+      providerMessage || 'Fast2SMS rejected the request',
+      `FAST2SMS_${providerStatusCode}`,
+      400,
+      parsed.json ?? parsed.raw,
+    );
+  }
 }
 
-export function sendOtpSms(
-  phone: string,
-  code: string,
-  purpose?: OtpPurpose,
-): Promise<SendOtpSmsResult>;
-export function sendOtpSms(
-  params: SendOtpSmsParams,
-): Promise<SendOtpSmsResult>;
+export async function sendOtpSms(phone: string, code: string): Promise<void>;
+export async function sendOtpSms(args: {
+  phone: string;
+  code: string;
+  purpose?: OtpPurpose;
+  recipientName?: string | null;
+}): Promise<void>;
 export async function sendOtpSms(
-  arg1: string | SendOtpSmsParams,
-  arg2?: string,
-  arg3?: OtpPurpose,
-): Promise<SendOtpSmsResult> {
-  if (typeof arg1 === 'string') {
-    return sendOtpSmsInternal({
-      phone: arg1,
-      code: arg2 || '',
-      purpose: arg3 ?? 'login',
+  phoneOrArgs:
+    | string
+    | {
+        phone: string;
+        code: string;
+        purpose?: OtpPurpose;
+        recipientName?: string | null;
+      },
+  maybeCode?: string,
+): Promise<void> {
+  if (typeof phoneOrArgs === 'string') {
+    await sendOtpSmsInternal({
+      phone: phoneOrArgs,
+      code: String(maybeCode || ''),
+      purpose: 'login',
     });
+    return;
   }
 
-  return sendOtpSmsInternal(arg1);
+  await sendOtpSmsInternal({
+    phone: phoneOrArgs.phone,
+    code: phoneOrArgs.code,
+    purpose: phoneOrArgs.purpose || 'login',
+    recipientName: phoneOrArgs.recipientName,
+  });
 }
 
 export async function createOtp(input: CreateOtpInput) {
-  const phone = normalizePhone(input.phone);
-  if (!phone) {
+  const normalizedPhone = normalizePhone(input.phone);
+
+  if (!normalizedPhone) {
     throw new OtpError(
-      'INVALID_PHONE',
       'Please enter a valid mobile number',
+      'INVALID_PHONE',
       400,
     );
   }
 
-  const purpose = input.purpose;
-  const now = new Date();
+  if (!isOtpAuthEnabled()) {
+    throw new OtpError(
+      'OTP authentication is disabled',
+      'OTP_DISABLED',
+      503,
+    );
+  }
 
+  const now = new Date();
   const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000);
-  const recentCount = await prisma.otpCode.count({
+
+  const hourlyCount = await prisma.otpCode.count({
     where: {
-      phone,
+      phone: normalizedPhone,
+      purpose: input.purpose,
       createdAt: { gte: oneHourAgo },
     },
   });
 
-  if (recentCount >= OTP_MAX_OTPS_PER_HOUR) {
+  if (hourlyCount >= OTP_MAX_OTPS_PER_HOUR) {
     throw new OtpError(
+      'Too many OTP requests. Please try again later.',
       'RATE_LIMIT_HOURLY',
-      'Too many OTP requests. Please try again in an hour.',
       429,
-      { maxOtpsPerHour: OTP_MAX_OTPS_PER_HOUR },
     );
   }
 
-  const latest = await prisma.otpCode.findFirst({
+  const latestActive = await prisma.otpCode.findFirst({
     where: {
-      phone,
-      purpose,
+      phone: normalizedPhone,
+      purpose: input.purpose,
       consumedAt: null,
+      expiresAt: { gt: now },
     },
-    orderBy: {
-      createdAt: 'desc',
-    },
+    orderBy: { createdAt: 'desc' },
   });
 
-  if (latest) {
-    const nextAllowedAt = latest.createdAt.getTime() + OTP_RESEND_COOLDOWN_MS;
-    const cooldownSec = Math.ceil((nextAllowedAt - now.getTime()) / 1000);
+  if (latestActive) {
+    const elapsedMs = now.getTime() - latestActive.createdAt.getTime();
+    const cooldownRemainingMs = OTP_RESEND_COOLDOWN_MS - elapsedMs;
 
-    if (cooldownSec > 0) {
+    if (cooldownRemainingMs > 0) {
       throw new OtpError(
+        `Please wait ${Math.ceil(
+          cooldownRemainingMs / 1000,
+        )} seconds before requesting another OTP.`,
         'COOLDOWN',
-        `Please wait ${cooldownSec} seconds before requesting another OTP`,
         429,
-        { cooldownSec },
+        { cooldownSec: Math.ceil(cooldownRemainingMs / 1000) },
       );
     }
   }
@@ -338,8 +454,8 @@ export async function createOtp(input: CreateOtpInput) {
 
   await prisma.otpCode.updateMany({
     where: {
-      phone,
-      purpose,
+      phone: normalizedPhone,
+      purpose: input.purpose,
       consumedAt: null,
     },
     data: {
@@ -347,27 +463,24 @@ export async function createOtp(input: CreateOtpInput) {
     },
   });
 
-  const otp = await prisma.otpCode.create({
+  await prisma.otpCode.create({
     data: {
-      phone,
-      purpose,
+      phone: normalizedPhone,
+      purpose: input.purpose,
       codeHash,
-      attempts: 0,
-      maxAttempts: OTP_MAX_ATTEMPTS,
       expiresAt,
+      attempts: 0,
       ipAddress: input.ipAddress ?? null,
       userAgent: input.userAgent ?? null,
     },
   });
 
   return {
-    ok: true as const,
-    id: otp.id,
-    phone,
-    purpose,
     code,
+    phone: normalizedPhone,
+    purpose: input.purpose,
     expiresAt,
-    expiresInSec: Math.floor(OTP_TTL_MS / 1000),
+    expiresInSec: Math.floor((expiresAt.getTime() - now.getTime()) / 1000),
     cooldownSec: OTP_RESEND_COOLDOWN_SEC,
   };
 }
@@ -379,6 +492,7 @@ export async function requestOtp(input: RequestOtpInput) {
     phone: created.phone,
     code: created.code,
     purpose: created.purpose,
+    recipientName: input.recipientName,
   });
 
   return {
@@ -394,56 +508,71 @@ export async function requestOtp(input: RequestOtpInput) {
 export async function verifyOtp(
   input: VerifyOtpInput,
 ): Promise<VerifyOtpResult> {
-  const phone = normalizePhone(input.phone);
-  if (!phone) {
+  const normalizedPhone = normalizePhone(input.phone);
+
+  if (!input.phone) {
     return { ok: false, reason: 'invalid_phone' };
   }
 
+  if (!normalizedPhone) {
+    return { ok: false, reason: 'invalid_format' };
+  }
+
   const code = String(input.code || '').trim();
+
   if (!/^\d{4,8}$/.test(code)) {
     return { ok: false, reason: 'invalid_format' };
   }
 
-  const purpose = input.purpose;
   const now = new Date();
 
   const otp = await prisma.otpCode.findFirst({
     where: {
-      phone,
-      purpose,
+      phone: normalizedPhone,
+      purpose: input.purpose,
       consumedAt: null,
     },
-    orderBy: {
-      createdAt: 'desc',
-    },
+    orderBy: { createdAt: 'desc' },
   });
 
   if (!otp) {
     return { ok: false, reason: 'no_active_otp' };
   }
 
-  if (otp.expiresAt.getTime() < now.getTime()) {
+  if (otp.expiresAt.getTime() <= now.getTime()) {
+    await prisma.otpCode.update({
+      where: { id: otp.id },
+      data: { consumedAt: now },
+    });
     return { ok: false, reason: 'expired' };
   }
 
-  if (otp.attempts >= otp.maxAttempts) {
+  if ((otp.attempts ?? 0) >= OTP_MAX_ATTEMPTS) {
+    await prisma.otpCode.update({
+      where: { id: otp.id },
+      data: { consumedAt: now },
+    });
     return { ok: false, reason: 'max_attempts' };
   }
 
-  const matched = await bcrypt.compare(code, otp.codeHash);
+  const matches = await bcrypt.compare(code, otp.codeHash);
 
-  if (!matched) {
+  if (!matches) {
+    const nextAttempts = (otp.attempts ?? 0) + 1;
+
     await prisma.otpCode.update({
       where: { id: otp.id },
-      data: { attempts: { increment: 1 } },
+      data: {
+        attempts: nextAttempts,
+        consumedAt: nextAttempts >= OTP_MAX_ATTEMPTS ? now : null,
+      },
     });
 
-    const nextAttempts = otp.attempts + 1;
-    if (nextAttempts >= otp.maxAttempts) {
-      return { ok: false, reason: 'max_attempts' };
-    }
-
-    return { ok: false, reason: 'wrong_code' };
+    return {
+      ok: false,
+      reason:
+        nextAttempts >= OTP_MAX_ATTEMPTS ? 'max_attempts' : 'wrong_code',
+    };
   }
 
   await prisma.otpCode.update({
@@ -455,7 +584,7 @@ export async function verifyOtp(
 
   return {
     ok: true,
-    phone,
-    purpose,
+    phone: normalizedPhone,
+    purpose: input.purpose,
   };
 }
