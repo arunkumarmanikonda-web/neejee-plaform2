@@ -35,6 +35,8 @@ function normalizePurpose(value?: string | null): OtpPurpose {
       return 'signup';
     case 'signup_customer':
       return 'signup_customer';
+    case 'login_customer':
+      return 'login';
     case 'admin_2fa':
       return 'admin_2fa';
     case 'checkout_guest':
@@ -49,7 +51,7 @@ function normalizePurpose(value?: string | null): OtpPurpose {
 
 function fallbackEmailForPhone(phone: string) {
   const digits = phone.replace(/\D/g, '');
-  return `user_${digits}@neejee.local`;
+  return `${digits}@phone.neejee.com`;
 }
 
 function normalizeOptionalEmail(value?: string) {
@@ -66,12 +68,47 @@ function isAdminSideRole(role: unknown): role is string {
   return typeof role === 'string' && ADMIN_ROLES.has(role);
 }
 
-function redirectFor(role: string, purpose: OtpPurpose) {
-  if (purpose === 'signup' || purpose === 'signup_customer') {
-    return '/account/welcome';
+function isPlaceholderEmail(email?: string | null, phone?: string | null) {
+  const normalized = String(email || '').trim().toLowerCase();
+  if (!normalized) return true;
+
+  if (/^user_\d+@neejee\.local$/.test(normalized)) return true;
+  if (/^\d+@phone\.neejee\.com$/.test(normalized)) return true;
+
+  const digits = String(phone || '').replace(/\D/g, '');
+  if (digits) {
+    if (normalized === `user_${digits}@neejee.local`) return true;
+    if (normalized === `${digits}@phone.neejee.com`) return true;
   }
+
+  return false;
+}
+
+function needsProfileCompletion(
+  user: { email?: string | null; name?: string | null; phone?: string | null },
+  purpose: OtpPurpose,
+) {
+  if (purpose === 'signup' || purpose === 'signup_customer') {
+    return true;
+  }
+
+  const name = String(user.name || '').trim().toLowerCase();
+
+  if (!name) return true;
+  if (name === 'customer' || name === 'user' || name === 'guest') return true;
+  if (isPlaceholderEmail(user.email, user.phone)) return true;
+
+  return false;
+}
+
+function redirectFor(
+  role: string,
+  purpose: OtpPurpose,
+  user: { email?: string | null; name?: string | null; phone?: string | null },
+) {
   if (isAdminSideRole(role)) return '/admin';
   if (role === 'SELLER') return '/seller';
+  if (needsProfileCompletion(user, purpose)) return '/complete-profile';
   return '/account';
 }
 
@@ -143,13 +180,7 @@ export async function POST(req: Request) {
     if (purpose === 'signup' || purpose === 'signup_customer') {
       const existingUser = await prisma.user.findFirst({
         where: { phone: normalizedPhone },
-        select: {
-          id: true,
-          email: true,
-          name: true,
-          role: true,
-          phone: true,
-        },
+        select: { id: true },
       });
 
       if (existingUser) {
@@ -165,6 +196,9 @@ export async function POST(req: Request) {
           name: inputName || 'Customer',
           phone: normalizedPhone,
           role: 'CUSTOMER',
+          phoneVerified: true,
+          phoneVerifiedAt: new Date(),
+          primaryAuthMethod: 'PHONE_OTP',
         },
         select: {
           id: true,
@@ -175,11 +209,13 @@ export async function POST(req: Request) {
         },
       });
 
+      const completionNeeded = needsProfileCompletion(user, purpose);
+
       await setSessionCookie({
         id: user.id,
         email: user.email || fallbackEmailForPhone(normalizedPhone),
         name: user.name || 'Customer',
-        role: user.role,
+        role: user.role as any,
       });
 
       return NextResponse.json({
@@ -191,12 +227,39 @@ export async function POST(req: Request) {
           phone: user.phone,
           role: user.role,
         },
-        redirect: redirectFor(user.role, purpose),
+        redirect: redirectFor(user.role, purpose, user),
+        forceRedirect: completionNeeded,
+        needsProfileCompletion: completionNeeded,
       });
     }
 
-    const user = await prisma.user.findFirst({
+    const currentUser = await prisma.user.findFirst({
       where: { phone: normalizedPhone },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        role: true,
+        phone: true,
+        phoneVerifiedAt: true,
+        primaryAuthMethod: true,
+      },
+    });
+
+    if (!currentUser) {
+      return NextResponse.json(
+        { error: 'No account found for this mobile number' },
+        { status: 404 },
+      );
+    }
+
+    const user = await prisma.user.update({
+      where: { id: currentUser.id },
+      data: {
+        phoneVerified: true,
+        phoneVerifiedAt: currentUser.phoneVerifiedAt || new Date(),
+        primaryAuthMethod: currentUser.primaryAuthMethod || 'PHONE_OTP',
+      },
       select: {
         id: true,
         email: true,
@@ -206,18 +269,13 @@ export async function POST(req: Request) {
       },
     });
 
-    if (!user) {
-      return NextResponse.json(
-        { error: 'No account found for this mobile number' },
-        { status: 404 },
-      );
-    }
+    const completionNeeded = needsProfileCompletion(user, purpose);
 
     await setSessionCookie({
       id: user.id,
       email: user.email || fallbackEmailForPhone(normalizedPhone),
       name: user.name || 'User',
-      role: user.role,
+      role: user.role as any,
     });
 
     return NextResponse.json({
@@ -229,7 +287,9 @@ export async function POST(req: Request) {
         phone: user.phone,
         role: user.role,
       },
-      redirect: redirectFor(user.role, purpose),
+      redirect: redirectFor(user.role, purpose, user),
+      forceRedirect: completionNeeded,
+      needsProfileCompletion: completionNeeded,
     });
   } catch (error) {
     console.error('[auth/otp/verify] error', error);

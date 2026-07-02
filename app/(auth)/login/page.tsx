@@ -23,6 +23,9 @@ function LoginInner() {
   const [countryCode, setCountryCode] = useState('+91');
   const [resolvedPhone, setResolvedPhone] = useState('');
   const [resolvedEmail, setResolvedEmail] = useState('');
+  const [pendingPhone, setPendingPhone] = useState('');
+  const [otpPurpose, setOtpPurpose] = useState<'login' | 'signup_customer'>('login');
+  const [canCreateAccount, setCanCreateAccount] = useState(false);
   const [password, setPassword] = useState('');
   const [otp, setOtp] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -63,11 +66,25 @@ function LoginInner() {
     return () => clearTimeout(t);
   }, [resendCountdown]);
 
+  const resolveDestination = (data: any, fallback: string) => {
+    const normalDest = nextParam || data?.redirect || fallback;
+
+    if (data?.forceRedirect || data?.needsProfileCompletion) {
+      const nextAfterProfile =
+        normalDest && normalDest !== '/complete-profile' ? normalDest : '/account';
+
+      return `/complete-profile?next=${encodeURIComponent(nextAfterProfile)}`;
+    }
+
+    return normalDest;
+  };
+
   const onIdentitySubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setInfo('');
     setLoading(true);
+    setCanCreateAccount(false);
 
     try {
       const cleaned = identifier.trim();
@@ -95,7 +112,8 @@ function LoginInner() {
         }
 
         setResolvedPhone(e164);
-        await sendOtp(e164);
+        setPendingPhone(e164);
+        await sendOtp(e164, 'login');
         return;
       }
 
@@ -105,29 +123,51 @@ function LoginInner() {
     }
   };
 
-  const sendOtp = async (phone: string) => {
+  const sendOtp = async (phone: string, purpose: 'login' | 'signup_customer' = 'login') => {
     setError('');
     setInfo('');
     setLoading(true);
+    setOtpPurpose(purpose);
+    setPendingPhone(phone);
 
     try {
       const res = await fetch('/api/auth/otp/request', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone, purpose: 'login_customer' }),
+        body: JSON.stringify({ phone, purpose }),
       });
 
       const d = await res.json().catch(() => ({}));
 
       if (!res.ok) {
+        if (res.status === 404 && purpose === 'login') {
+          setCanCreateAccount(true);
+          setError(`${d.error || 'No account found for this mobile number'}
+
+Create an account with this number to continue.`);
+          return;
+        }
+
+        if (res.status === 409 && purpose === 'signup_customer') {
+          setCanCreateAccount(false);
+          setError(d.error || 'An account already exists for this mobile number. Please sign in instead.');
+          return;
+        }
+
         setError(d.error || "We couldn't send the code. Please try again.");
         return;
       }
 
+      setCanCreateAccount(false);
       setStep('otp');
       setResolvedPhone(d.phone || phone);
-      setResendCountdown(45);
-      setInfo(`Code sent to ${formatPhoneDisplay(phone)}.`);
+      setOtp('');
+      setResendCountdown(Number(d.cooldownSec || 45));
+      setInfo(
+        purpose === 'signup_customer'
+          ? `Code sent to ${formatPhoneDisplay(d.phone || phone)}. Enter it to create your account.`
+          : `Code sent to ${formatPhoneDisplay(d.phone || phone)}.`
+      );
     } catch (err: any) {
       setError(err.message || 'Network error');
     } finally {
@@ -161,7 +201,7 @@ function LoginInner() {
         return;
       }
 
-      const dest = nextParam || data.redirect || '/account';
+      const dest = resolveDestination(data, '/account');
       router.push(dest);
       router.refresh();
     } catch (err: any) {
@@ -209,7 +249,7 @@ function LoginInner() {
       const res = await fetch('/api/auth/otp/verify', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone: resolvedPhone, code: otp, purpose: 'login_customer' }),
+        body: JSON.stringify({ phone: resolvedPhone, code: otp, purpose: otpPurpose }),
       });
 
       const data = await res.json().catch(() => ({}));
@@ -219,7 +259,7 @@ function LoginInner() {
         return;
       }
 
-      const dest = nextParam || data.redirect || '/account';
+      const dest = resolveDestination(data, '/account');
       router.push(dest);
       router.refresh();
     } catch (err: any) {
@@ -247,7 +287,8 @@ function LoginInner() {
         return;
       }
 
-      router.push(nextParam || d.redirect || '/account');
+      const dest = resolveDestination(d, '/account');
+      router.push(dest);
       router.refresh();
     } catch (err: any) {
       setError(err.message || 'Google sign-in failed');
@@ -352,7 +393,8 @@ function LoginInner() {
             return;
           }
 
-          router.push(nextParam || d.redirect || '/account');
+          const dest = resolveDestination(d, '/account');
+          router.push(dest);
           router.refresh();
         } catch (err: any) {
           setError(err.message || 'Facebook sign-in failed');
@@ -395,9 +437,12 @@ function LoginInner() {
             countryCode={countryCode}
             setCountryCode={setCountryCode}
             onSubmit={onIdentitySubmit}
+            onCreateAccount={() => sendOtp(pendingPhone, 'signup_customer')}
             loading={loading}
             error={error}
+            info={info}
             otpEnabled={otpEnabled}
+            canCreateAccount={canCreateAccount}
           />
         )}
 
@@ -409,6 +454,8 @@ function LoginInner() {
                 setStep('identity');
                 setError('');
                 setInfo('');
+                setCanCreateAccount(false);
+                setOtpPurpose('login');
               }}
               className="inline-flex items-center gap-1 text-xs text-mitti hover:text-madder"
             >
@@ -456,6 +503,8 @@ function LoginInner() {
                 setStep('identity');
                 setError('');
                 setInfo('');
+                setCanCreateAccount(false);
+                setOtpPurpose('login');
               }}
               className="inline-flex items-center gap-1 text-xs text-mitti hover:text-madder"
             >
@@ -484,13 +533,17 @@ function LoginInner() {
             {error && <p className="font-ui text-xs text-madder">{error}</p>}
 
             <button type="submit" disabled={loading || otp.length < 4} className="btn-primary w-full disabled:opacity-50">
-              {loading ? 'Verifying...' : 'VERIFY & SIGN IN'}
+              {loading
+                ? 'Verifying...'
+                : otpPurpose === 'signup_customer'
+                ? 'VERIFY & CREATE ACCOUNT'
+                : 'VERIFY & SIGN IN'}
             </button>
 
             <button
               type="button"
               disabled={resendCountdown > 0 || loading}
-              onClick={() => sendOtp(resolvedPhone)}
+              onClick={() => sendOtp(resolvedPhone, otpPurpose)}
               className="w-full text-xs text-mitti hover:text-madder disabled:opacity-50"
             >
               {resendCountdown > 0 ? `Resend code in ${resendCountdown}s` : 'Resend code'}
@@ -615,18 +668,24 @@ function IdentityField({
   countryCode,
   setCountryCode,
   onSubmit,
+  onCreateAccount,
   loading,
   error,
+  info,
   otpEnabled,
+  canCreateAccount,
 }: {
   identifier: string;
   setIdentifier: (v: string) => void;
   countryCode: string;
   setCountryCode: (v: string) => void;
   onSubmit: (e: React.FormEvent) => void;
+  onCreateAccount: () => void;
   loading: boolean;
   error: string;
+  info: string;
   otpEnabled: boolean;
+  canCreateAccount: boolean;
 }) {
   const isEmail = identifier.includes('@');
   const isPhone = !isEmail && identifier.length > 0 && /^\+?\d/.test(identifier.trim());
@@ -679,10 +738,27 @@ function IdentityField({
         )}
       </label>
 
+      {info && !error && (
+        <div className="font-ui text-xs text-neem bg-neem/5 border border-neem/20 p-2 whitespace-pre-line">
+          {info}
+        </div>
+      )}
+
       {error && (
         <div className="font-ui text-xs text-madder bg-madder/5 border border-madder/30 p-2 whitespace-pre-line">
           {error}
         </div>
+      )}
+
+      {canCreateAccount && (
+        <button
+          type="button"
+          onClick={onCreateAccount}
+          disabled={loading}
+          className="btn-outline w-full disabled:opacity-50"
+        >
+          {loading ? 'Please wait...' : 'CREATE ACCOUNT WITH THIS NUMBER'}
+        </button>
       )}
 
       <button type="submit" disabled={loading || !identifier.trim()} className="btn-primary w-full disabled:opacity-50">

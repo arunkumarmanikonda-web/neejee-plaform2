@@ -411,13 +411,17 @@ function AiTab() {
 
 function ProfileTab({ user, onUpdate }: { user: SessionUser; onUpdate: (u: SessionUser) => void }) {
   const [name, setName] = useState(user.name || '');
+  const [email, setEmail] = useState(user.email || '');
   const [phone, setPhone] = useState(user.phone || '');
   const [marketingConsent, setMarketingConsent] = useState(!!user.marketingConsent);
   const [smsOptIn, setSmsOptIn] = useState(!!user.smsOptIn);
   const [whatsappOptIn, setWhatsappOptIn] = useState(!!user.whatsappOptIn);
+  const [emailOptIn, setEmailOptIn] = useState(user.emailOptIn ?? true);
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState('');
   const [err, setErr] = useState('');
+
+  const isPlaceholderEmail = /^user_\d+@neejee\.local$/i.test(String(email || '')) || /^\d+@phone\.neejee\.com$/i.test(String(email || ''));
 
   const save = async (e?: React.MouseEvent) => {
     if (e) e.preventDefault();
@@ -428,9 +432,8 @@ function ProfileTab({ user, onUpdate }: { user: SessionUser; onUpdate: (u: Sessi
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
         cache: 'no-store',
-        body: JSON.stringify({ name, phone, marketingConsent, smsOptIn, whatsappOptIn }),
+        body: JSON.stringify({ name, email, phone, marketingConsent, smsOptIn, whatsappOptIn, emailOptIn }),
       });
-      // Robust parse — handle any non-JSON / timeout pages
       const raw = await res.text();
       let j: any = {};
       try { j = raw ? JSON.parse(raw) : {}; } catch {
@@ -440,7 +443,6 @@ function ProfileTab({ user, onUpdate }: { user: SessionUser; onUpdate: (u: Sessi
         if (res.status === 401) throw new Error('Your session has timed out. Please sign in again.');
         throw new Error(j.error || 'Save failed');
       }
-      // Merge response into existing user — never replace with partial
       if (j.user) onUpdate({ ...user, ...j.user });
       setMsg('✓ Saved');
       setTimeout(() => setMsg(''), 2500);
@@ -462,8 +464,12 @@ function ProfileTab({ user, onUpdate }: { user: SessionUser; onUpdate: (u: Sessi
 
         <label className="block">
           <span className="label">EMAIL</span>
-          <input value={user.email} disabled className="w-full mt-1 p-3 bg-beige border border-mitti/20 font-ui opacity-70" />
+          <input type="email" value={email} onChange={e => setEmail(e.target.value)} className="w-full mt-1 p-3 bg-beige border border-mitti/20 font-ui" />
         </label>
+
+        {isPlaceholderEmail && (
+          <p className="text-xs text-madder bg-madder/5 border border-madder/30 p-2">This is a temporary phone-based email. Replace it with your real email address.</p>
+        )}
 
         <div>
           <span className="label">PHONE</span>
@@ -481,6 +487,10 @@ function ProfileTab({ user, onUpdate }: { user: SessionUser; onUpdate: (u: Sessi
           <label className="flex items-center gap-2.5 cursor-pointer">
             <input type="checkbox" checked={smsOptIn} onChange={e => setSmsOptIn(e.target.checked)} className="accent-madder" />
             <span className="text-sm text-kohl">SMS — OTPs &amp; alerts</span>
+          </label>
+          <label className="flex items-center gap-2.5 cursor-pointer">
+            <input type="checkbox" checked={emailOptIn} onChange={e => setEmailOptIn(e.target.checked)} className="accent-madder" />
+            <span className="text-sm text-kohl">Email — order notes &amp; updates</span>
           </label>
           <label className="flex items-center gap-2.5 cursor-pointer">
             <input type="checkbox" checked={marketingConsent} onChange={e => setMarketingConsent(e.target.checked)} className="accent-madder" />
