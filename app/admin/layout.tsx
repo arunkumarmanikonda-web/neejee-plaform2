@@ -1,19 +1,85 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
+import type { LucideIcon } from 'lucide-react';
 import {
-  LayoutDashboard, Package, ShoppingBag, Users, FileText, Store, Sparkles, Settings,
-  LogOut, Ticket, Warehouse, UserCog, User, Star, BarChart3, Megaphone, Mail, Target,
-  Image as ImageIcon, Tag as TagIcon, Gem, Truck, FileSpreadsheet, Building2, Clock, Bell,
-  Wallet, ShieldCheck, MessageSquareWarning, TrendingUp, Camera, MessageSquare, Wrench, Lock,
-  BookOpen, Banknote,
+  LayoutDashboard,
+  Package,
+  ShoppingBag,
+  Users,
+  FileText,
+  Store,
+  Sparkles,
+  Settings,
+  LogOut,
+  Ticket,
+  Warehouse,
+  UserCog,
+  User,
+  Star,
+  BarChart3,
+  Megaphone,
+  Mail,
+  Target,
+  Image as ImageIcon,
+  Tag as TagIcon,
+  Gem,
+  Truck,
+  FileSpreadsheet,
+  Building2,
+  Clock,
+  Bell,
+  Wallet,
+  ShieldCheck,
+  MessageSquareWarning,
+  TrendingUp,
+  Camera,
+  MessageSquare,
+  Wrench,
+  Lock,
+  BookOpen,
+  Banknote,
 } from 'lucide-react';
 import { NeejeeLogo } from '@/components/brand/Logo';
-import { getSession, requireRole } from '@/lib/auth';
+import { getSession } from '@/lib/auth';
+import { hasFinancePerm } from '@/lib/finance/roles';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
-const NAV_GROUPS = [
+type AdminAllowedRole =
+  | 'ADMIN'
+  | 'SUPER_ADMIN'
+  | 'CONTENT_EDITOR'
+  | 'QC_TEAM'
+  | 'FINANCE'
+  | 'FINANCE_OPERATOR'
+  | 'MARKETING_OPERATOR'
+  | 'MARKETING_MANAGER';
+
+type NavItem = {
+  href: string;
+  label: string;
+  icon: LucideIcon;
+};
+
+type NavGroup = {
+  label: string;
+  financeOnly?: boolean;
+  items: NavItem[];
+};
+
+const ADMIN_ALLOWED_ROLES: AdminAllowedRole[] = [
+  'ADMIN',
+  'SUPER_ADMIN',
+  'CONTENT_EDITOR',
+  'QC_TEAM',
+  'FINANCE',
+  'FINANCE_OPERATOR',
+  'MARKETING_OPERATOR',
+  'MARKETING_MANAGER',
+];
+
+const NAV_GROUPS: NavGroup[] = [
   {
     label: 'OPERATIONS',
     items: [
@@ -77,24 +143,21 @@ const NAV_GROUPS = [
   },
   {
     label: 'FINANCE',
+    financeOnly: true,
     items: [
       { href: '/admin/finance', label: 'Dashboard', icon: Wallet },
       { href: '/admin/finance/pnl', label: 'P&L Report', icon: BarChart3 },
-      // v23.40.21 — Ledgers hub (index of every ledger surface)
       { href: '/admin/finance/ledgers', label: 'Ledgers Hub', icon: BookOpen },
-      // v23.40.3 — accounting & ledgers
       { href: '/admin/finance/ledger', label: 'General Ledger', icon: FileText },
       { href: '/admin/finance/trial-balance', label: 'Trial Balance', icon: BarChart3 },
       { href: '/admin/finance/cash-bank-ledger', label: 'Cash / Bank Ledger', icon: Banknote },
-      // v23.40.5 — revenue layer
       { href: '/admin/finance/sales-invoices', label: 'Sales Invoices', icon: FileText },
       { href: '/admin/finance/revenue-ledger', label: 'Revenue Ledger', icon: TrendingUp },
-      // v23.40.6 — commission billing
-      { href: '/admin/finance/commission',     label: 'Commission Billing', icon: Wallet },
+      { href: '/admin/finance/commission', label: 'Commission Billing', icon: Wallet },
       { href: '/admin/finance/bills', label: 'Bills (AP)', icon: FileSpreadsheet },
       { href: '/admin/finance/expenses', label: 'Expenses', icon: FileSpreadsheet },
-      { href: '/admin/finance/vendor-ledger',    label: 'Vendor Ledgers',   icon: FileText },
-      { href: '/admin/finance/customer-ledger',  label: 'Customer Ledgers', icon: Users },
+      { href: '/admin/finance/vendor-ledger', label: 'Vendor Ledgers', icon: FileText },
+      { href: '/admin/finance/customer-ledger', label: 'Customer Ledgers', icon: Users },
       { href: '/admin/finance/aging', label: 'AP / AR Aging', icon: Clock },
       { href: '/admin/finance/bank-reconciliation', label: 'Bank Reco', icon: Building2 },
       { href: '/admin/payroll', label: 'Payroll', icon: UserCog },
@@ -104,8 +167,7 @@ const NAV_GROUPS = [
       { href: '/admin/finance/ai-summary', label: 'AI Briefings', icon: Sparkles },
       { href: '/admin/finance/vendor-payouts', label: 'Vendor Payouts', icon: Wallet },
       { href: '/admin/finance/seller-payouts', label: 'Seller Payouts', icon: Wallet },
-      // v23.40.9 — one-off data migrations (vendor links + order → invoice backfill)
-      { href: '/admin/finance/backfill',       label: 'Backfill Tools', icon: Wrench },
+      { href: '/admin/finance/backfill', label: 'Backfill Tools', icon: Wrench },
       { href: '/admin/compliance', label: 'Compliance', icon: ShieldCheck },
     ],
   },
@@ -122,14 +184,31 @@ const NAV_GROUPS = [
   },
 ];
 
-export default async function AdminLayout({ children }: { children: React.ReactNode }) {
+export default async function AdminLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   const user = await getSession();
-  if (!requireRole(user, ['ADMIN', 'SUPER_ADMIN', 'CONTENT_EDITOR', 'QC_TEAM', 'FINANCE', 'FINANCE_OPERATOR', 'MARKETING_OPERATOR', 'MARKETING_MANAGER'])) {
+
+  if (!user) {
     redirect('/login?next=/admin');
   }
 
-  const displayName = user!.name?.trim() || user!.email.split('@')[0];
-  const roleLabel = user!.role.replace(/_/g, ' ');
+  const isAllowedAdmin = ADMIN_ALLOWED_ROLES.includes(user.role as AdminAllowedRole);
+
+  if (!isAllowedAdmin) {
+    if (user.role === 'SELLER' || user.role === 'SELLER_STAFF') {
+      redirect('/seller');
+    }
+    redirect('/account');
+  }
+
+  const canSeeFinance = hasFinancePerm(user, 'finance.read');
+  const navGroups = NAV_GROUPS.filter((group) => !group.financeOnly || canSeeFinance);
+
+  const displayName = user.name?.trim() || user.email.split('@')[0];
+  const roleLabel = user.role.replace(/_/g, ' ');
 
   return (
     <div className="min-h-screen grid grid-cols-[260px_1fr] bg-ivory">
@@ -140,13 +219,16 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         <p className="font-italic italic text-beige text-sm mt-2">Admin</p>
 
         <nav className="mt-8 space-y-6 flex-1 font-ui text-sm">
-          {NAV_GROUPS.map(g => (
+          {navGroups.map((g) => (
             <div key={g.label}>
               <p className="label text-banarasi mb-2">{g.label}</p>
               <div className="space-y-1">
-                {g.items.map(item => (
-                  <Link key={item.href} href={item.href}
-                    className="flex items-center gap-3 px-3 py-2 rounded text-beige/80 hover:bg-mitti/40 hover:text-ivory transition-colors">
+                {g.items.map((item) => (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    className="flex items-center gap-3 px-3 py-2 rounded text-beige/80 hover:bg-mitti/40 hover:text-ivory transition-colors"
+                  >
                     <item.icon className="w-4 h-4" />
                     <span>{item.label}</span>
                   </Link>
@@ -159,10 +241,22 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         <div className="pt-6 border-t border-mitti/30 mt-6">
           <p className="label text-banarasi">SIGNED IN AS</p>
           <p className="font-italic italic text-beige mt-1 truncate">{displayName}</p>
-          <p className="font-ui text-[10px] text-beige/60 tracking-widest mt-1">{roleLabel}</p>
-          <p className="font-ui text-[10px] text-beige/40 tracking-widest mt-1 truncate">{user!.email}</p>
+          <p className="font-ui text-[10px] text-beige/60 tracking-widest mt-1">
+            {roleLabel}
+          </p>
+          <p className="font-ui text-[10px] text-beige/40 tracking-widest mt-1 truncate">
+            {user.email}
+          </p>
+          {!canSeeFinance && (
+            <p className="font-ui text-[10px] text-haldi tracking-wider mt-2 leading-relaxed">
+              Finance tools are hidden for this role.
+            </p>
+          )}
           <form action="/api/auth/logout" method="POST" className="mt-3">
-            <button type="submit" className="flex items-center gap-2 font-ui text-xs text-beige/70 hover:text-madder transition-colors">
+            <button
+              type="submit"
+              className="flex items-center gap-2 font-ui text-xs text-beige/70 hover:text-madder transition-colors"
+            >
               <LogOut className="w-3 h-3" /> SIGN OUT
             </button>
           </form>
