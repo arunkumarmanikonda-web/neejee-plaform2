@@ -113,17 +113,13 @@ function buildPublicListingVisibilityWhere() {
     OR: [
       {
         catalogueStockVisibility: {
-          in: ['SHOW_ALL', 'SHOW_EXACT', 'HIDE_STOCK'],
+          in: ['SHOW_ALL', 'HIDE_STOCK'],
         },
       },
       {
         AND: [
           {
-            OR: [
-              { catalogueStockVisibility: 'IN_STOCK_ONLY' },
-              { catalogueStockVisibility: 'LOW_STOCK_BADGE' },
-              { catalogueStockVisibility: null },
-            ],
+            catalogueStockVisibility: 'IN_STOCK_ONLY',
           },
           {
             variants: {
