@@ -160,16 +160,13 @@ function buildPublicListingVisibilityWhere() {
     OR: [
       {
         catalogueStockVisibility: {
-          in: ['SHOW_ALL', 'SHOW_EXACT', 'HIDE_STOCK'],
+          in: ['SHOW_ALL', 'HIDE_STOCK'],
         },
       },
       {
         AND: [
           {
-            OR: [
-              { catalogueStockVisibility: 'IN_STOCK_ONLY' },
-              { catalogueStockVisibility: 'LOW_STOCK_BADGE' },
-            ],
+            catalogueStockVisibility: 'IN_STOCK_ONLY',
           },
           {
             variants: {
@@ -309,10 +306,23 @@ export async function GET(request: NextRequest) {
     if (search) {
       andClauses.push({
         OR: [
+          { name: { contains: search, mode: 'insensitive' } },
+          { shortName: { contains: search, mode: 'insensitive' } },
+          { sku: { contains: search, mode: 'insensitive' } },
           { craft: { contains: search, mode: 'insensitive' } },
           { region: { contains: search, mode: 'insensitive' } },
+          { artisanName: { contains: search, mode: 'insensitive' } },
           { material: { contains: search, mode: 'insensitive' } },
+          { technique: { contains: search, mode: 'insensitive' } },
+          { poeticLine: { contains: search, mode: 'insensitive' } },
           { occasion: { contains: search, mode: 'insensitive' } },
+          {
+            category: {
+              is: {
+                name: { contains: search, mode: 'insensitive' },
+              },
+            },
+          },
         ],
       });
     }
