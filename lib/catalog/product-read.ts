@@ -1,7 +1,11 @@
 ﻿export { buildPricing } from './pricing-read';
+export {
+  deriveStock,
+  normalizeStockVisibility,
+} from './stock-visibility';
+
 import {
   PRODUCT_READ_MODEL_VERSION,
-  type CatalogueStockVisibility,
   type ProductReadCatalogueReadiness,
   type ProductReadMedia,
   type ProductReadModel,
@@ -13,6 +17,10 @@ import {
   buildPricing,
   type PricingReadSourceRow,
 } from './pricing-read';
+import {
+  deriveStock,
+  type StockReadSourceRow,
+} from './stock-visibility';
 import { resolveMedia, type MediaReadSourceRow } from './media-read';
 import { buildHierarchy, type ProductHierarchySource } from './hierarchy-read';
 
@@ -140,74 +148,8 @@ export function dedupeStrings(values: string[]): string[] {
   return Array.from(new Set(values.filter(Boolean)));
 }
 
-export function normalizeStockVisibility(
-  value: unknown
-): CatalogueStockVisibility {
-  const raw = asString(value)?.toUpperCase();
-
-  if (!raw) return 'IN_STOCK_ONLY';
-  if (raw === 'SHOW_ALL' || raw === 'SHOW_EXACT') return 'SHOW_ALL';
-  if (raw === 'HIDE_STOCK') return 'HIDE_STOCK';
-  if (raw === 'LOW_STOCK_BADGE' || raw === 'IN_STOCK_ONLY') {
-    return 'IN_STOCK_ONLY';
-  }
-
-  return 'IN_STOCK_ONLY';
-}
-
 export function buildMedia(product: ProductReadSourceRow): ProductReadMedia {
   return resolveMedia(product as MediaReadSourceRow);
-}
-
-export function deriveStock(product: ProductReadSourceRow): ProductReadStock {
-  const variants = Array.isArray(product.variants) ? product.variants : [];
-
-  const totalInventory = variants.reduce((sum, variant) => {
-    const qty =
-      typeof variant?.inventory === 'number'
-        ? variant.inventory
-        : Number.parseInt(String(variant?.inventory ?? 0), 10) || 0;
-    return sum + qty;
-  }, 0);
-
-  const lowStock = variants.some((variant) => {
-    const qty =
-      typeof variant?.inventory === 'number'
-        ? variant.inventory
-        : Number.parseInt(String(variant?.inventory ?? 0), 10) || 0;
-    const threshold =
-      typeof variant?.lowStockThreshold === 'number'
-        ? variant.lowStockThreshold
-        : Number.parseInt(String(variant?.lowStockThreshold ?? 3), 10) || 3;
-    return qty > 0 && qty <= threshold;
-  });
-
-  const stockVisibility = normalizeStockVisibility(
-    product.catalogueStockVisibility
-  );
-  const inStock = totalInventory > 0;
-  const availableQuantity =
-    stockVisibility === 'SHOW_ALL' ? totalInventory : null;
-
-  let label = 'Out of stock';
-  if (stockVisibility === 'HIDE_STOCK') {
-    label = inStock ? 'Available' : 'Unavailable';
-  } else if (stockVisibility === 'SHOW_ALL') {
-    label = inStock ? `${totalInventory} available` : 'Out of stock';
-  } else {
-    label = inStock ? (lowStock ? 'Low stock' : 'In stock') : 'Out of stock';
-  }
-
-  return {
-    inStock,
-    totalInventory,
-    lowStock,
-    stockVisibility,
-    availableQuantity,
-    showExactQuantity: stockVisibility === 'SHOW_ALL',
-    label,
-    purchasable: inStock,
-  };
 }
 
 export function buildCatalogueReadiness(
@@ -279,7 +221,7 @@ export function buildProductReadModel(
 ): ProductReadModel {
   const pricing = buildPricing(product as PricingReadSourceRow, now);
   const media = buildMedia(product);
-  const stock = deriveStock(product);
+  const stock = deriveStock(product as StockReadSourceRow);
   const hierarchy = buildHierarchy(product as ProductHierarchySource);
   const catalogueReadiness = buildCatalogueReadiness(
     product,
@@ -359,4 +301,3 @@ export function buildProductReadModel(
     },
   };
 }
-
