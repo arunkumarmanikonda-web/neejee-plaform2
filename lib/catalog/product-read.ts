@@ -1,7 +1,6 @@
 ﻿import {
   PRODUCT_READ_MODEL_VERSION,
   type CatalogueStockVisibility,
-  type ProductReadCategoryNode,
   type ProductReadCatalogueReadiness,
   type ProductReadMedia,
   type ProductReadModel,
@@ -11,6 +10,7 @@
   type ProductReadVariant,
 } from './contracts';
 import { resolveMedia, type MediaReadSourceRow } from './media-read';
+import { buildHierarchy, type ProductHierarchySource } from './hierarchy-read';
 
 export type ProductReadCategorySource =
   | {
@@ -106,6 +106,12 @@ export type ProductReadSourceRow = {
   updatedAt: Date;
 
   category?: ProductReadCategorySource;
+  categoryId?: string | null;
+  categorySlug?: string | null;
+  categoryName?: string | null;
+  categoryPath?: string | null;
+  categoryLevel?: number | null;
+
   variants?: ProductReadVariantSource[];
 };
 
@@ -254,9 +260,12 @@ export function deriveStock(product: ProductReadSourceRow): ProductReadStock {
     return qty > 0 && qty <= threshold;
   });
 
-  const stockVisibility = normalizeStockVisibility(product.catalogueStockVisibility);
+  const stockVisibility = normalizeStockVisibility(
+    product.catalogueStockVisibility
+  );
   const inStock = totalInventory > 0;
-  const availableQuantity = stockVisibility === 'SHOW_ALL' ? totalInventory : null;
+  const availableQuantity =
+    stockVisibility === 'SHOW_ALL' ? totalInventory : null;
 
   let label = 'Out of stock';
   if (stockVisibility === 'HIDE_STOCK') {
@@ -279,53 +288,6 @@ export function deriveStock(product: ProductReadSourceRow): ProductReadStock {
   };
 }
 
-export function buildHierarchy(category: ProductReadCategorySource) {
-  if (!category) {
-    return {
-      lineage: [],
-      breadcrumb: [],
-      breadcrumbSlugs: [],
-      path: null,
-      depth: 0,
-      mainCategory: null,
-      subCategory: null,
-      subSubCategory: null,
-      leafCategory: null,
-    };
-  }
-
-  const lineage: ProductReadCategoryNode[] = [];
-  let current: ProductReadCategorySource = category ?? null;
-
-  while (current) {
-    lineage.push({
-      id: current.id,
-      name: current.name,
-      slug: current.slug,
-      path: current.path ?? null,
-      level: typeof current.level === 'number' ? current.level : null,
-      parentId: current.parentId ?? null,
-    });
-    current = current.parent ?? null;
-  }
-
-  lineage.reverse();
-
-  return {
-    lineage,
-    breadcrumb: lineage.map((node) => node.name),
-    breadcrumbSlugs: lineage.map((node) => node.slug),
-    path:
-      asString(category.path) ||
-      (lineage.length > 0 ? lineage.map((node) => node.slug).join('/') : null),
-    depth: lineage.length,
-    mainCategory: lineage[0] ?? null,
-    subCategory: lineage[1] ?? null,
-    subSubCategory: lineage[2] ?? null,
-    leafCategory: lineage[lineage.length - 1] ?? null,
-  };
-}
-
 export function buildCatalogueReadiness(
   product: ProductReadSourceRow,
   media: ProductReadMedia,
@@ -338,7 +300,9 @@ export function buildCatalogueReadiness(
   if (!!product.catalogueExclude) blockers.push('excluded_from_catalogue');
   if (!media.primaryImage) blockers.push('missing_primary_image');
   if (!media.imageApproved) blockers.push('image_not_approved');
-  if (!media.approvedPrimaryImage) blockers.push('missing_approved_primary_image');
+  if (!media.approvedPrimaryImage) {
+    blockers.push('missing_approved_primary_image');
+  }
   if (
     typeof pricing.effectivePrice !== 'number' ||
     !Number.isFinite(pricing.effectivePrice) ||
@@ -394,8 +358,13 @@ export function buildProductReadModel(
   const pricing = buildPricing(product, now);
   const media = buildMedia(product);
   const stock = deriveStock(product);
-  const hierarchy = buildHierarchy(product.category ?? null);
-  const catalogueReadiness = buildCatalogueReadiness(product, media, pricing, stock);
+  const hierarchy = buildHierarchy(product as ProductHierarchySource);
+  const catalogueReadiness = buildCatalogueReadiness(
+    product,
+    media,
+    pricing,
+    stock
+  );
 
   return {
     version: PRODUCT_READ_MODEL_VERSION,
@@ -459,11 +428,12 @@ export function buildProductReadModel(
       returnPolicy: asString(product.returnPolicy),
     },
     category: hierarchy.leafCategory,
-    variants: (Array.isArray(product.variants) ? product.variants : []).map(mapVariant),
+    variants: (Array.isArray(product.variants) ? product.variants : []).map(
+      mapVariant
+    ),
     timestamps: {
       createdAt: product.createdAt,
       updatedAt: product.updatedAt,
     },
   };
 }
-
