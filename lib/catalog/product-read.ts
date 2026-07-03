@@ -1,14 +1,18 @@
-﻿import {
+﻿export { buildPricing } from './pricing-read';
+import {
   PRODUCT_READ_MODEL_VERSION,
   type CatalogueStockVisibility,
   type ProductReadCatalogueReadiness,
   type ProductReadMedia,
   type ProductReadModel,
-  type ProductReadPricing,
   type ProductReadSource,
   type ProductReadStock,
   type ProductReadVariant,
 } from './contracts';
+import {
+  buildPricing,
+  type PricingReadSourceRow,
+} from './pricing-read';
 import { resolveMedia, type MediaReadSourceRow } from './media-read';
 import { buildHierarchy, type ProductHierarchySource } from './hierarchy-read';
 
@@ -151,88 +155,6 @@ export function normalizeStockVisibility(
   return 'IN_STOCK_ONLY';
 }
 
-export function isSaleLive(
-  product: ProductReadSourceRow,
-  now = new Date()
-): boolean {
-  const salePrice =
-    typeof product.salePrice === 'number'
-      ? product.salePrice
-      : Number.parseInt(String(product.salePrice ?? ''), 10);
-
-  const sellingPrice =
-    typeof product.sellingPrice === 'number'
-      ? product.sellingPrice
-      : Number.parseInt(String(product.sellingPrice ?? ''), 10);
-
-  if (!Number.isFinite(salePrice) || salePrice <= 0) return false;
-  if (!Number.isFinite(sellingPrice) || sellingPrice <= 0) return false;
-  if (salePrice >= sellingPrice) return false;
-
-  const startsAt = product.saleStartsAt ? new Date(product.saleStartsAt) : null;
-  const endsAt = product.saleEndsAt ? new Date(product.saleEndsAt) : null;
-
-  if (startsAt && Number.isNaN(startsAt.getTime())) return false;
-  if (endsAt && Number.isNaN(endsAt.getTime())) return false;
-
-  if (startsAt && now < startsAt) return false;
-  if (endsAt && now > endsAt) return false;
-
-  return true;
-}
-
-export function buildPricing(
-  product: ProductReadSourceRow,
-  now = new Date()
-): ProductReadPricing {
-  const mrp =
-    typeof product.mrp === 'number'
-      ? product.mrp
-      : Number.parseInt(String(product.mrp ?? 0), 10) || 0;
-
-  const sellingPrice =
-    typeof product.sellingPrice === 'number'
-      ? product.sellingPrice
-      : Number.parseInt(String(product.sellingPrice ?? 0), 10) || 0;
-
-  const liveSale = isSaleLive(product, now);
-  const parsedSalePrice =
-    typeof product.salePrice === 'number'
-      ? product.salePrice
-      : Number.parseInt(String(product.salePrice ?? 0), 10) || 0;
-
-  const salePrice = liveSale && parsedSalePrice > 0 ? parsedSalePrice : null;
-  const effectivePrice = salePrice && salePrice > 0 ? salePrice : sellingPrice;
-
-  const discountAmount =
-    mrp > 0 && effectivePrice > 0 && mrp > effectivePrice
-      ? mrp - effectivePrice
-      : 0;
-
-  const discountPercent =
-    mrp > 0 && discountAmount > 0
-      ? Math.round((discountAmount / mrp) * 100)
-      : 0;
-
-  return {
-    mrp,
-    sellingPrice,
-    salePrice,
-    effectivePrice,
-    displayPrice: effectivePrice,
-    onSale: liveSale,
-    discountAmount,
-    discountPercent,
-    saleWindow: {
-      startsAt: product.saleStartsAt ?? null,
-      endsAt: product.saleEndsAt ?? null,
-    },
-    gstRate: product.gstRate ?? null,
-    hsnCode: product.hsnCode ?? null,
-    currency: 'INR',
-  };
-}
-
 export function buildMedia(product: ProductReadSourceRow): ProductReadMedia {
   return resolveMedia(product as MediaReadSourceRow);
 }
@@ -291,7 +213,7 @@ export function deriveStock(product: ProductReadSourceRow): ProductReadStock {
 export function buildCatalogueReadiness(
   product: ProductReadSourceRow,
   media: ProductReadMedia,
-  pricing: ProductReadPricing,
+  pricing: ReturnType<typeof buildPricing>,
   stock: ProductReadStock
 ): ProductReadCatalogueReadiness {
   const blockers: string[] = [];
@@ -355,7 +277,7 @@ export function buildProductReadModel(
   source: ProductReadSource = 'catalogue',
   now = new Date()
 ): ProductReadModel {
-  const pricing = buildPricing(product, now);
+  const pricing = buildPricing(product as PricingReadSourceRow, now);
   const media = buildMedia(product);
   const stock = deriveStock(product);
   const hierarchy = buildHierarchy(product as ProductHierarchySource);
@@ -437,3 +359,4 @@ export function buildProductReadModel(
     },
   };
 }
+
