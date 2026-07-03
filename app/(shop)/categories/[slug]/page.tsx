@@ -23,7 +23,14 @@ type CategorySummary = {
   breadcrumbSlugs?: string[];
 };
 
+type RedirectResponse = {
+  found?: boolean;
+  toSlug?: string;
+  permanent?: boolean;
+};
+
 type ProductsResponse = {
+  ok?: boolean;
   matchedCategory?: CategorySummary | null;
   readModel?: {
     version?: string;
@@ -44,38 +51,12 @@ type FacetsResponse = {
   materials?: FacetTuple[];
   occasions?: FacetTuple[];
   badges?: FacetTuple[];
+  audienceTags?: FacetTuple[];
   priceRange?: {
     minPaise?: number;
     maxPaise?: number;
   };
   total?: number;
-  error?: string;
-};
-
-type CategoriesResponse = {
-  ok?: boolean;
-  categories?: Array<{
-    id: string;
-    name: string;
-    slug: string;
-    path: string | null;
-    level: number | null;
-    parentId: string | null;
-    breadcrumb?: string[];
-    breadcrumbSlugs?: string[];
-    lineage?: Array<{
-      id: string;
-      name: string;
-      slug: string;
-      path: string | null;
-      level: number | null;
-      parentId: string | null;
-    }>;
-    mainCategory?: any;
-    subCategory?: any;
-    subSubCategory?: any;
-    leafCategory?: any;
-  }>;
   error?: string;
 };
 
@@ -98,6 +79,44 @@ function titleFromSlug(value: string) {
     .filter(Boolean)
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
     .join(' ');
+}
+
+function pathToBreadcrumbs(path: string | null | undefined) {
+  if (!path) return { breadcrumb: undefined, breadcrumbSlugs: undefined };
+
+  const breadcrumbSlugs = path
+    .split('/')
+    .map((part) => part.trim())
+    .filter(Boolean);
+
+  if (!breadcrumbSlugs.length) {
+    return { breadcrumb: undefined, breadcrumbSlugs: undefined };
+  }
+
+  return {
+    breadcrumb: breadcrumbSlugs.map(titleFromSlug),
+    breadcrumbSlugs,
+  };
+}
+
+function normalizeCategory(summary: CategorySummary | null | undefined, fallbackSlug: string): CategorySummary {
+  if (!summary) return asCategoryFallback(fallbackSlug);
+
+  const derived = pathToBreadcrumbs(summary.path);
+
+  return {
+    ...summary,
+    name: summary.name || titleFromSlug(summary.slug || fallbackSlug),
+    slug: summary.slug || fallbackSlug,
+    breadcrumb:
+      Array.isArray(summary.breadcrumb) && summary.breadcrumb.length > 0
+        ? summary.breadcrumb
+        : derived.breadcrumb || [titleFromSlug(summary.slug || fallbackSlug)],
+    breadcrumbSlugs:
+      Array.isArray(summary.breadcrumbSlugs) && summary.breadcrumbSlugs.length > 0
+        ? summary.breadcrumbSlugs
+        : derived.breadcrumbSlugs || [summary.slug || fallbackSlug],
+  };
 }
 
 function asCategoryFallback(slug: string): CategorySummary {
@@ -128,9 +147,9 @@ function mapProductToCardData(product: any): ProductCardData {
           typeof img === 'string' && img.trim().length > 0
       )
     : typeof product?.primaryImage === 'string' &&
-        product.primaryImage.trim().length > 0
-      ? [product.primaryImage]
-      : [];
+      product.primaryImage.trim().length > 0
+    ? [product.primaryImage]
+    : [];
 
   return {
     id: String(product?.id ?? ''),
@@ -160,51 +179,8 @@ function mapProductToCardData(product: any): ProductCardData {
   };
 }
 
-function chooseCategory(
-  slug: string,
-  productsData: ProductsResponse,
-  facetsData: FacetsResponse,
-  categoriesData: CategoriesResponse
-): CategorySummary {
-  const matched = facetsData?.matchedCategory || productsData?.matchedCategory;
-
-  if (matched?.name || matched?.slug) {
-    return matched;
-  }
-
-  const categories = Array.isArray(categoriesData?.categories)
-    ? categoriesData.categories
-    : [];
-
-  const bySlug =
-    categories.find((category) => category.slug === slug) ||
-    categories.find((category) => category.path === slug) ||
-    categories.find((category) => category.path?.split('/').pop() === slug);
-
-  if (bySlug) {
-    return {
-      id: bySlug.id,
-      name: bySlug.name,
-      slug: bySlug.slug,
-      path: bySlug.path,
-      level: bySlug.level,
-      breadcrumb: bySlug.breadcrumb || [bySlug.name],
-      breadcrumbSlugs: bySlug.breadcrumbSlugs || [bySlug.slug],
-    };
-  }
-
-  return asCategoryFallback(slug);
-}
-
-function PLPInner() {
-  const params = useParams();
-  const router = useRouter();
-  const sp = useSearchParams();
-  const spKey = sp?.toString() || '';
-  const slug = String(params?.slug || '');
-
-  const [products, setProducts] = useState<ProductCardData[]>([]);
-  const [facets, setFacets] = useState<FacetsState>({
+function emptyFacets(): FacetsState {
+  return {
     crafts: [],
     regions: [],
     materials: [],
@@ -212,7 +188,18 @@ function PLPInner() {
     badges: [],
     priceRange: { minPaise: 0, maxPaise: 0 },
     total: 0,
-  });
+  };
+}
+
+function PLPInner() {
+  const params = useParams();
+  const router = useRouter();
+  const sp = useSearchParams();
+  const spKey = sp?.toString() || '';
+  const slug = String(params?.slug || '').trim();
+
+  const [products, setProducts] = useState<ProductCardData[]>([]);
+  const [facets, setFacets] = useState<FacetsState>(emptyFacets());
   const [category, setCategory] = useState<CategorySummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
@@ -248,51 +235,66 @@ function PLPInner() {
     let cancelled = false;
 
     async function load() {
-      const qs = new URLSearchParams();
-      qs.set('category', slug);
-
-      Object.entries(filters).forEach(([key, value]) => {
-        if (value) qs.set(key, value);
-      });
+      if (!slug) {
+        setProducts([]);
+        setFacets(emptyFacets());
+        setCategory(null);
+        setLoading(false);
+        return;
+      }
 
       setLoading(true);
 
       try {
-        const [productsRes, facetsRes, categoriesRes] = await Promise.all([
+        const redirectRes = await fetch(
+          `/api/categories/redirect?slug=${encodeURIComponent(slug)}`,
+          { cache: 'no-store' }
+        );
+
+        if (redirectRes.ok) {
+          const redirectData: RedirectResponse = await redirectRes.json();
+          if (
+            redirectData?.found &&
+            redirectData?.toSlug &&
+            redirectData.toSlug !== slug
+          ) {
+            router.replace(`/categories/${redirectData.toSlug}`);
+            return;
+          }
+        }
+
+        const qs = new URLSearchParams();
+        qs.set('category', slug);
+
+        Object.entries(filters).forEach(([key, value]) => {
+          if (value) qs.set(key, value);
+        });
+
+        const [productsResult, facetsResult] = await Promise.allSettled([
           fetch(`/api/products?${qs.toString()}`, { cache: 'no-store' }),
-          fetch(`/api/facets?category=${encodeURIComponent(slug)}`, {
-            cache: 'no-store',
-          }),
-          fetch(
-            `/api/categories?visible=preview&counts=false&q=${encodeURIComponent(
-              slug
-            )}`,
-            { cache: 'no-store' }
-          ),
+          fetch(`/api/facets?${qs.toString()}`, { cache: 'no-store' }),
         ]);
 
-        const productsData: ProductsResponse = productsRes.ok
-          ? await productsRes.json()
-          : { products: [], error: `products ${productsRes.status}` };
-
-        const facetsData: FacetsResponse = facetsRes.ok
-          ? await facetsRes.json()
-          : {
-              crafts: [],
-              regions: [],
-              materials: [],
-              occasions: [],
-              badges: [],
-              priceRange: { minPaise: 0, maxPaise: 0 },
-              total: 0,
-              error: `facets ${facetsRes.status}`,
-            };
-
-        const categoriesData: CategoriesResponse = categoriesRes.ok
-          ? await categoriesRes.json()
-          : { categories: [], error: `categories ${categoriesRes.status}` };
-
         if (cancelled) return;
+
+        let productsData: ProductsResponse = { products: [], count: 0 };
+        let facetsData: FacetsResponse = {
+          crafts: [],
+          regions: [],
+          materials: [],
+          occasions: [],
+          badges: [],
+          priceRange: { minPaise: 0, maxPaise: 0 },
+          total: 0,
+        };
+
+        if (productsResult.status === 'fulfilled' && productsResult.value.ok) {
+          productsData = await productsResult.value.json();
+        }
+
+        if (facetsResult.status === 'fulfilled' && facetsResult.value.ok) {
+          facetsData = await facetsResult.value.json();
+        }
 
         const nextProducts = Array.isArray(productsData?.products)
           ? productsData.products
@@ -321,35 +323,35 @@ function PLPInner() {
           total:
             typeof facetsData?.total === 'number'
               ? facetsData.total
+              : typeof productsData?.count === 'number'
+              ? productsData.count
               : nextProducts.length,
         });
 
-        setCategory(chooseCategory(slug, productsData, facetsData, categoriesData));
+        setCategory(
+          normalizeCategory(
+            facetsData?.matchedCategory || productsData?.matchedCategory,
+            slug
+          )
+        );
       } catch (error) {
         if (cancelled) return;
 
-        setProducts([]);
-        setFacets({
-          crafts: [],
-          regions: [],
-          materials: [],
-          occasions: [],
-          badges: [],
-          priceRange: { minPaise: 0, maxPaise: 0 },
-          total: 0,
-        });
-        setCategory(asCategoryFallback(slug));
         console.error('[PLP slug] load failed', error);
+        setProducts([]);
+        setFacets(emptyFacets());
+        setCategory(asCategoryFallback(slug));
       } finally {
         if (!cancelled) setLoading(false);
       }
     }
 
     load();
+
     return () => {
       cancelled = true;
     };
-  }, [slug, filters]);
+  }, [slug, filters, router]);
 
   const activeFilters = Object.entries(filters).filter(
     ([key, value]) => value && key !== 'sort' && key !== 'q'
@@ -361,7 +363,7 @@ function PLPInner() {
 
       <section className="max-w-8xl mx-auto px-6 lg:px-12 pt-10 pb-6">
         <Link href="/" className="label text-mitti hover:text-madder">
-          ← HOME
+          HOME
         </Link>
 
         {!!category?.breadcrumb?.length && (
@@ -562,7 +564,7 @@ function FilterPanel({
             onChange={(e) => setParam('minPrice', e.target.value)}
             className="w-20 p-2 bg-beige border border-mitti/20 text-xs"
           />
-          <span className="text-mitti">–</span>
+          <span className="text-mitti">-</span>
           <input
             type="number"
             min="0"
@@ -575,7 +577,7 @@ function FilterPanel({
 
         {(minR || maxR) && (
           <p className="font-ui text-[10px] text-mitti mt-2">
-            Range: {formatINR(facets.priceRange.minPaise)} –{' '}
+            Range: {formatINR(facets.priceRange.minPaise)} -{' '}
             {formatINR(facets.priceRange.maxPaise)}
           </p>
         )}
