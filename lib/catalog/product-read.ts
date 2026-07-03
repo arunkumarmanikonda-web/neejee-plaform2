@@ -1,4 +1,4 @@
-import {
+﻿import {
   PRODUCT_READ_MODEL_VERSION,
   type CatalogueStockVisibility,
   type ProductReadCategoryNode,
@@ -10,6 +10,7 @@ import {
   type ProductReadStock,
   type ProductReadVariant,
 } from './contracts';
+import { resolveMedia, type MediaReadSourceRow } from './media-read';
 
 export type ProductReadCategorySource =
   | {
@@ -226,108 +227,8 @@ export function buildPricing(
   };
 }
 
-export function allImagesForProduct(product: ProductReadSourceRow): {
-  productImages: string[];
-  variantImages: string[];
-  gallery: string[];
-} {
-  const productImages = dedupeStrings(toStringArray(product.images));
-  const variantImages = dedupeStrings(
-    (Array.isArray(product.variants) ? product.variants : []).flatMap((variant) =>
-      toStringArray(variant?.images)
-    )
-  );
-  const gallery = dedupeStrings([...productImages, ...variantImages]);
-
-  return {
-    productImages,
-    variantImages,
-    gallery,
-  };
-}
-
-export function choosePrimaryImage(product: ProductReadSourceRow) {
-  const preferredImage = asString(product.cataloguePreferredImage);
-  const { productImages, variantImages, gallery } = allImagesForProduct(product);
-
-  if (preferredImage) {
-    return {
-      preferredImage,
-      primaryImage: preferredImage,
-      productImages,
-      variantImages,
-      gallery,
-      selectionMode: 'preferred_override' as const,
-      selectionSource: gallery.includes(preferredImage)
-        ? ('gallery' as const)
-        : ('external_override' as const),
-      usedFallback: false,
-    };
-  }
-
-  if (productImages.length > 0) {
-    return {
-      preferredImage: null,
-      primaryImage: productImages[0],
-      productImages,
-      variantImages,
-      gallery,
-      selectionMode: 'product_gallery' as const,
-      selectionSource: 'product_images' as const,
-      usedFallback: false,
-    };
-  }
-
-  if (variantImages.length > 0) {
-    return {
-      preferredImage: null,
-      primaryImage: variantImages[0],
-      productImages,
-      variantImages,
-      gallery,
-      selectionMode: 'variant_fallback' as const,
-      selectionSource: 'variant_images' as const,
-      usedFallback: true,
-    };
-  }
-
-  return {
-    preferredImage,
-    primaryImage: null,
-    productImages,
-    variantImages,
-    gallery,
-    selectionMode: 'none' as const,
-    selectionSource: 'none' as const,
-    usedFallback: false,
-  };
-}
-
 export function buildMedia(product: ProductReadSourceRow): ProductReadMedia {
-  const chosen = choosePrimaryImage(product);
-  const imageApproved = !!product.catalogueImageApproved;
-  const imageQualityScore = product.catalogueImageQualityScore ?? null;
-  const approvedGallery = imageApproved ? chosen.gallery : [];
-  const approvedPrimaryImage =
-    imageApproved && chosen.primaryImage ? chosen.primaryImage : null;
-
-  return {
-    primaryImage: chosen.primaryImage,
-    approvedPrimaryImage,
-    preferredImage: chosen.preferredImage,
-    gallery: chosen.gallery,
-    approvedGallery,
-    productImages: chosen.productImages,
-    variantImages: chosen.variantImages,
-    video: asString(product.video),
-    imageApproved,
-    imageQualityScore,
-    selectionMode: chosen.selectionMode,
-    selectionSource: chosen.selectionSource,
-    fallbackApplied: chosen.usedFallback,
-    hasMedia: chosen.gallery.length > 0 || !!chosen.primaryImage,
-    hasApprovedMedia: approvedGallery.length > 0 || !!approvedPrimaryImage,
-  };
+  return resolveMedia(product as MediaReadSourceRow);
 }
 
 export function deriveStock(product: ProductReadSourceRow): ProductReadStock {
@@ -565,3 +466,4 @@ export function buildProductReadModel(
     },
   };
 }
+
