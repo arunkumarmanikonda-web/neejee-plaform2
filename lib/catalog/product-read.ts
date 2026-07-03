@@ -3,14 +3,16 @@ export {
   deriveStock,
   normalizeStockVisibility,
 } from './stock-visibility';
+export {
+  buildCatalogueFlags,
+  buildCatalogueReadiness,
+} from './catalogue-curation';
 
 import {
   PRODUCT_READ_MODEL_VERSION,
-  type ProductReadCatalogueReadiness,
   type ProductReadMedia,
   type ProductReadModel,
   type ProductReadSource,
-  type ProductReadStock,
   type ProductReadVariant,
 } from './contracts';
 import {
@@ -21,6 +23,11 @@ import {
   deriveStock,
   type StockReadSourceRow,
 } from './stock-visibility';
+import {
+  buildCatalogueFlags,
+  buildCatalogueReadiness,
+  type CatalogueCurationSourceRow,
+} from './catalogue-curation';
 import { resolveMedia, type MediaReadSourceRow } from './media-read';
 import { buildHierarchy, type ProductHierarchySource } from './hierarchy-read';
 
@@ -152,40 +159,6 @@ export function buildMedia(product: ProductReadSourceRow): ProductReadMedia {
   return resolveMedia(product as MediaReadSourceRow);
 }
 
-export function buildCatalogueReadiness(
-  product: ProductReadSourceRow,
-  media: ProductReadMedia,
-  pricing: ReturnType<typeof buildPricing>,
-  stock: ProductReadStock
-): ProductReadCatalogueReadiness {
-  const blockers: string[] = [];
-
-  if (product.status !== 'ACTIVE') blockers.push('inactive_status');
-  if (!!product.catalogueExclude) blockers.push('excluded_from_catalogue');
-  if (!media.primaryImage) blockers.push('missing_primary_image');
-  if (!media.imageApproved) blockers.push('image_not_approved');
-  if (!media.approvedPrimaryImage) {
-    blockers.push('missing_approved_primary_image');
-  }
-  if (
-    typeof pricing.effectivePrice !== 'number' ||
-    !Number.isFinite(pricing.effectivePrice) ||
-    pricing.effectivePrice <= 0
-  ) {
-    blockers.push('invalid_effective_price');
-  }
-  if (!stock.inStock && stock.stockVisibility === 'IN_STOCK_ONLY') {
-    blockers.push('hidden_by_stock_rule');
-  }
-
-  return {
-    readyForCatalogue: blockers.length === 0,
-    visibleInFeed: product.status === 'ACTIVE' && !product.catalogueExclude,
-    usesApprovedMedia: !!media.imageApproved && !!media.approvedPrimaryImage,
-    blockers,
-  };
-}
-
 export function mapVariant(variant: ProductReadVariantSource): ProductReadVariant {
   return {
     id: variant.id,
@@ -223,8 +196,9 @@ export function buildProductReadModel(
   const media = buildMedia(product);
   const stock = deriveStock(product as StockReadSourceRow);
   const hierarchy = buildHierarchy(product as ProductHierarchySource);
+  const catalogue = buildCatalogueFlags(product as CatalogueCurationSourceRow);
   const catalogueReadiness = buildCatalogueReadiness(
-    product,
+    product as CatalogueCurationSourceRow,
     media,
     pricing,
     stock
@@ -262,16 +236,7 @@ export function buildProductReadModel(
     media,
     stock,
     hierarchy,
-    catalogue: {
-      featured: !!product.catalogueFeatured,
-      bestseller: !!product.catalogueBestseller,
-      editorial: !!product.catalogueEditorial,
-      pinHero: !!product.cataloguePinHero,
-      exclude: !!product.catalogueExclude,
-      audienceTag: asString(product.catalogueAudienceTag),
-      ctaMode: asString(product.catalogueCtaMode),
-      storyBlock: asString(product.catalogueStoryBlock),
-    },
+    catalogue,
     catalogueReadiness,
     badges: dedupeStrings(toStringArray(product.badges)),
     fulfilment: {
