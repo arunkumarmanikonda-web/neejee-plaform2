@@ -1,19 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import {
+  buildCatalogueReadiness,
+  buildMedia,
+  buildPricing,
+  deriveStock,
+  type ProductReadSourceRow,
+} from '@/lib/catalog/product-read';
+import {
+  CATALOGUE_STOCK_VISIBILITY,
+  PRODUCT_READ_MODEL_VERSION,
+} from '@/lib/catalog/contracts';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
-const READ_MODEL_VERSION = 'phase1.categories.v2';
-
-const CANONICAL_STOCK_VISIBILITY = [
-  'IN_STOCK_ONLY',
-  'SHOW_ALL',
-  'HIDE_STOCK',
-] as const;
-
-type CanonicalStockVisibility =
-  (typeof CANONICAL_STOCK_VISIBILITY)[number];
+const ROUTE_READ_MODEL_VERSION = 'phase1.categories.v3';
 
 type ParentCategoryRow = {
   id: string;
@@ -38,14 +40,29 @@ type CategoryRow = {
   parent: ParentCategoryRow | null;
 };
 
-type ProductRow = {
+type CategoryProductRow = Pick<
+  ProductReadSourceRow,
+  | 'id'
+  | 'slug'
+  | 'sku'
+  | 'status'
+  | 'name'
+  | 'mrp'
+  | 'sellingPrice'
+  | 'salePrice'
+  | 'saleStartsAt'
+  | 'saleEndsAt'
+  | 'images'
+  | 'catalogueExclude'
+  | 'cataloguePreferredImage'
+  | 'catalogueImageApproved'
+  | 'catalogueImageQualityScore'
+  | 'catalogueStockVisibility'
+  | 'createdAt'
+  | 'updatedAt'
+  | 'variants'
+> & {
   categoryId: string | null;
-  status: string;
-  catalogueExclude: boolean | null;
-  catalogueStockVisibility: string | null;
-  variants: Array<{
-    inventory: number | null;
-  }>;
 };
 
 type LineageNode = {
@@ -92,58 +109,8 @@ function normalizePath(value: string | null): string | null {
   return normalized || null;
 }
 
-function normalizeStockVisibility(
-  value: unknown
-): CanonicalStockVisibility {
-  const raw = asString(value)?.toUpperCase();
-
-  if (!raw) return 'IN_STOCK_ONLY';
-  if (raw === 'SHOW_ALL' || raw === 'SHOW_EXACT') return 'SHOW_ALL';
-  if (raw === 'HIDE_STOCK') return 'HIDE_STOCK';
-  if (raw === 'LOW_STOCK_BADGE' || raw === 'IN_STOCK_ONLY') {
-    return 'IN_STOCK_ONLY';
-  }
-
-  return 'IN_STOCK_ONLY';
-}
-
-function totalInventory(product: ProductRow): number {
-  return (Array.isArray(product.variants) ? product.variants : []).reduce(
-    (sum, variant) => {
-      const qty =
-        typeof variant?.inventory === 'number'
-          ? variant.inventory
-          : Number.parseInt(String(variant?.inventory ?? 0), 10) || 0;
-
-      return sum + qty;
-    },
-    0
-  );
-}
-
-function buildProductVisibility(product: ProductRow) {
-  const inStock = totalInventory(product) > 0;
-  const stockVisibility = normalizeStockVisibility(
-    product.catalogueStockVisibility
-  );
-  const visibleByStock =
-    stockVisibility === 'IN_STOCK_ONLY' ? inStock : true;
-
-  const visibleInCatalogue =
-    product.status === 'ACTIVE' &&
-    !product.catalogueExclude &&
-    visibleByStock;
-
-  return {
-    inStock,
-    stockVisibility,
-    visibleInCatalogue,
-  };
-}
-
 function buildLineage(category: CategoryRow) {
   const lineage: LineageNode[] = [];
-
   let current: CategoryRow | ParentCategoryRow | null = category;
 
   while (current) {
@@ -169,6 +136,25 @@ function buildLineage(category: CategoryRow) {
     subCategory: lineage[1] ?? null,
     subSubCategory: lineage[2] ?? null,
     leafCategory: lineage[lineage.length - 1] ?? null,
+  };
+}
+
+function buildProductVisibility(product: CategoryProductRow, now = new Date()) {
+  const media = buildMedia(product);
+  const pricing = buildPricing(product, now);
+  const stock = deriveStock(product);
+  const readiness = buildCatalogueReadiness(product, media, pricing, stock);
+
+  const visibleInCatalogue =
+    product.status === 'ACTIVE' &&
+    !product.catalogueExclude &&
+    (stock.stockVisibility === 'IN_STOCK_ONLY' ? stock.inStock : true);
+
+  return {
+    inStock: stock.inStock,
+    stockVisibility: stock.stockVisibility,
+    visibleInCatalogue,
+    readyForCatalogue: readiness.readyForCatalogue,
   };
 }
 
@@ -239,13 +225,11 @@ export async function GET(req: NextRequest) {
     });
 
     const typedCategories = categories as CategoryRow[];
-
     const categoryMap = new Map<string, CategoryRow>();
     const childCountMap = new Map<string, number>();
 
     for (const category of typedCategories) {
       categoryMap.set(category.id, category);
-
       if (category.parentId) {
         childCountMap.set(
           category.parentId,
@@ -265,25 +249,52 @@ export async function GET(req: NextRequest) {
           status: 'ACTIVE',
         },
         select: {
+          id: true,
+          slug: true,
+          sku: true,
+          name: true,
           categoryId: true,
           status: true,
           catalogueExclude: true,
           catalogueStockVisibility: true,
+          catalogueImageApproved: true,
+          catalogueImageQualityScore: true,
+          cataloguePreferredImage: true,
+          images: true,
+          mrp: true,
+          sellingPrice: true,
+          salePrice: true,
+          saleStartsAt: true,
+          saleEndsAt: true,
+          createdAt: true,
+          updatedAt: true,
           variants: {
             select: {
+              id: true,
+              sku: true,
+              size: true,
+              color: true,
+              colorHex: true,
+              material: true,
               inventory: true,
+              lowStockThreshold: true,
+              images: true,
+              mrp: true,
+              sellingPrice: true,
             },
           },
         },
       });
 
-      for (const product of products as ProductRow[]) {
+      const now = new Date();
+
+      for (const product of products as unknown as CategoryProductRow[]) {
         if (!product.categoryId) continue;
 
         const category = categoryMap.get(product.categoryId);
         if (!category) continue;
 
-        const visibility = buildProductVisibility(product);
+        const visibility = buildProductVisibility(product, now);
 
         if (visibility.visibleInCatalogue) {
           directVisibleCounts.set(
@@ -358,35 +369,12 @@ export async function GET(req: NextRequest) {
     });
 
     const filtered = mapped.filter((category) => {
-      if (slugFilter && category.slug.toLowerCase() !== slugFilter) {
-        return false;
-      }
-
-      if (
-        pathFilter &&
-        normalizePath(category.path ?? null) !== pathFilter
-      ) {
-        return false;
-      }
-
-      if (parentIdFilter && category.parentId !== parentIdFilter) {
-        return false;
-      }
-
-      if (
-        typeof levelFilter === 'number' &&
-        category.level !== levelFilter
-      ) {
-        return false;
-      }
-
-      if (rootOnly && !category.isRoot) {
-        return false;
-      }
-
-      if (leafOnly && !category.isLeaf) {
-        return false;
-      }
+      if (slugFilter && category.slug.toLowerCase() !== slugFilter) return false;
+      if (pathFilter && normalizePath(category.path ?? null) !== pathFilter) return false;
+      if (parentIdFilter && category.parentId !== parentIdFilter) return false;
+      if (typeof levelFilter === 'number' && category.level !== levelFilter) return false;
+      if (rootOnly && !category.isRoot) return false;
+      if (leafOnly && !category.isLeaf) return false;
 
       if (q) {
         const haystack = [
@@ -399,9 +387,7 @@ export async function GET(req: NextRequest) {
           .join(' ')
           .toLowerCase();
 
-        if (!haystack.includes(q.toLowerCase())) {
-          return false;
-        }
+        if (!haystack.includes(q.toLowerCase())) return false;
       }
 
       if (visibleOnly) {
@@ -422,9 +408,10 @@ export async function GET(req: NextRequest) {
     const response = NextResponse.json({
       ok: true,
       readModel: {
-        version: READ_MODEL_VERSION,
+        version: ROUTE_READ_MODEL_VERSION,
+        canonicalVersion: PRODUCT_READ_MODEL_VERSION,
         generatedAt: new Date().toISOString(),
-        supportedStockVisibility: CANONICAL_STOCK_VISIBILITY,
+        supportedStockVisibility: CATALOGUE_STOCK_VISIBILITY,
         includeCounts,
         filters: {
           visible: mode ?? null,
@@ -440,10 +427,11 @@ export async function GET(req: NextRequest) {
       categories: filtered,
     });
 
-    response.headers.set('x-read-model-version', READ_MODEL_VERSION);
+    response.headers.set('x-read-model-version', ROUTE_READ_MODEL_VERSION);
+    response.headers.set('x-canonical-read-model-version', PRODUCT_READ_MODEL_VERSION);
     response.headers.set(
       'x-supported-stock-visibility',
-      CANONICAL_STOCK_VISIBILITY.join(',')
+      CATALOGUE_STOCK_VISIBILITY.join(',')
     );
 
     return response;
