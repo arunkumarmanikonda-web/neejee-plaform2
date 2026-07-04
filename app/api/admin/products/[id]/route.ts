@@ -1,403 +1,259 @@
-// Admin single product endpoint - GET, PATCH, DELETE
 import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
 import { getSession, requireRole } from '@/lib/auth';
+import { openaiChat, aiTextConfigured } from '@/lib/ai';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
+export const maxDuration = 60;
 
-const CANONICAL_STOCK_VISIBILITY = [
+const STOCK_VISIBILITY_OPTIONS = [
   'IN_STOCK_ONLY',
   'SHOW_ALL',
   'HIDE_STOCK',
 ] as const;
 
-type CanonicalStockVisibility =
-  (typeof CANONICAL_STOCK_VISIBILITY)[number];
+const CTA_MODE_OPTIONS = [
+  'SHOP_NOW',
+  'EXPLORE',
+  'DISCOVER',
+  'VIEW_DETAILS',
+  'PREORDER',
+  'ENQUIRE',
+  'ADD_TO_CART',
+  'BUY_NOW',
+  'GIFT_NOW',
+  'LIMITED_DROP',
+] as const;
 
-function normalizeText(value: unknown): string | null {
-  if (value === undefined || value === null) return null;
-  const text = String(value).trim();
-  return text.length ? text : null;
+const AUDIENCE_TAG_OPTIONS = [
+  'EVERYDAY',
+  'FESTIVE',
+  'BRIDE',
+  'GROOM',
+  'GIFTING',
+  'HOUSEWARMING',
+  'COLLECTOR',
+  'LUXURY_HOME',
+  'HOSTING',
+  'SEASONAL',
+] as const;
+
+type StockVisibility = (typeof STOCK_VISIBILITY_OPTIONS)[number];
+
+type CatalogueDraftResponse = {
+  catalogueStoryBlock: string;
+  catalogueAudienceTag: string;
+  catalogueCtaMode: string;
+  catalogueImageQualityScore: number | null;
+  catalogueFeatured: boolean;
+  catalogueBestseller: boolean;
+  catalogueEditorial: boolean;
+  cataloguePinHero: boolean;
+  catalogueStockVisibility: StockVisibility;
+  cataloguePreferredImage: string | null;
+};
+
+function asText(value: unknown): string {
+  if (value === null || value === undefined) return '';
+  return String(value).trim();
 }
 
-function parseOptionalInt(value: unknown): number | null | undefined {
-  if (value === undefined) return undefined;
-  if (value === null || value === '') return null;
+function asStringArray(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map(v => asText(v))
+    .filter(Boolean);
+}
+
+function asNullableInt(value: unknown): number | null {
+  if (value === null || value === undefined || value === '') return null;
   const n = Number.parseInt(String(value), 10);
-  return Number.isFinite(n) ? n : null;
-}
-
-function parseOptionalFloat(value: unknown): number | undefined {
-  if (value === undefined) return undefined;
-  if (value === null || value === '') return 0;
-  const n = Number.parseFloat(String(value));
-  return Number.isFinite(n) ? n : 0;
-}
-
-function parseOptionalDate(value: unknown): Date | null | undefined {
-  if (value === undefined) return undefined;
-  if (value === null || value === '') return null;
-  const d = new Date(String(value));
-  return Number.isNaN(d.getTime()) ? null : d;
+  if (!Number.isFinite(n)) return null;
+  return Math.max(0, Math.min(100, n));
 }
 
 function asBoolean(value: unknown): boolean {
   return value === true || value === 'true' || value === 1 || value === '1';
 }
 
-function firstDefined<T>(...values: T[]): T | undefined {
-  for (const value of values) {
-    if (value !== undefined) return value;
-  }
-  return undefined;
-}
-
-function sanitizeSlug(input: string): string {
-  return input
-    .toLowerCase()
-    .trim()
-    .replace(/[^\w\s-]/g, '')
-    .replace(/[\s_-]+/g, '-')
-    .replace(/^-+|-+$/g, '');
-}
-
-function normalizeStockVisibility(
-  value: unknown
-): CanonicalStockVisibility {
-  const raw = normalizeText(value)?.toUpperCase();
-
-  if (!raw) return 'IN_STOCK_ONLY';
-  if (raw === 'SHOW_ALL' || raw === 'SHOW_EXACT') return 'SHOW_ALL';
+function normalizeStockVisibility(value: unknown): StockVisibility {
+  const raw = asText(value).toUpperCase();
+  if (raw === 'SHOW_ALL') return 'SHOW_ALL';
   if (raw === 'HIDE_STOCK') return 'HIDE_STOCK';
-  if (raw === 'LOW_STOCK_BADGE' || raw === 'IN_STOCK_ONLY') return 'IN_STOCK_ONLY';
-
   return 'IN_STOCK_ONLY';
 }
 
-function normalizeProductForAdmin(product: any) {
+function normalizeAudienceTag(value: unknown): string {
+  const raw = asText(value).toUpperCase().replace(/\s+/g, '_');
+  if (AUDIENCE_TAG_OPTIONS.includes(raw as any)) return raw;
+  return raw || 'EVERYDAY';
+}
+
+function normalizeCtaMode(value: unknown): string {
+  const raw = asText(value).toUpperCase().replace(/\s+/g, '_');
+  if (CTA_MODE_OPTIONS.includes(raw as any)) return raw;
+  return raw || 'EXPLORE';
+}
+
+function normalizePreferredImage(value: unknown, images: string[]): string | null {
+  const url = asText(value);
+  if (!url) return null;
+  if (images.includes(url)) return url;
+  return images[0] || null;
+}
+
+function buildPromptContext(body: any) {
+  const images = asStringArray(body.images).slice(0, 12);
+
   return {
-    ...product,
-    catalogueStockVisibility: normalizeStockVisibility(
-      product?.catalogueStockVisibility
-    ),
-    aiRoomEligible: !!product?.aiRoomEligible,
-    aiStylistEligible: !!product?.aiRoomEligible,
-    editionSize: product?.editionSize ?? null,
-    editionTotal: product?.editionSize ?? null,
+    name: asText(body.name),
+    shortName: asText(body.shortName),
+    description: asText(body.description),
+    poeticLine: asText(body.poeticLine),
+    story: asText(body.story),
+    craft: asText(body.craft),
+    region: asText(body.region),
+    material: asText(body.material),
+    technique: asText(body.technique),
+    occasion: asText(body.occasion),
+    categoryName: asText(body.categoryName),
+    images,
+    overwrite: asBoolean(body.overwrite),
+    feedback: asText(body.feedback).slice(0, 500),
+    existingCatalogue: {
+      catalogueStoryBlock: asText(body.catalogueStoryBlock),
+      catalogueAudienceTag: asText(body.catalogueAudienceTag),
+      catalogueCtaMode: asText(body.catalogueCtaMode),
+      catalogueImageQualityScore: asNullableInt(body.catalogueImageQualityScore),
+      catalogueFeatured: asBoolean(body.catalogueFeatured),
+      catalogueBestseller: asBoolean(body.catalogueBestseller),
+      catalogueEditorial: asBoolean(body.catalogueEditorial),
+      cataloguePinHero: asBoolean(body.cataloguePinHero),
+      catalogueStockVisibility: normalizeStockVisibility(body.catalogueStockVisibility),
+      cataloguePreferredImage: asText(body.cataloguePreferredImage),
+    },
   };
 }
 
-export async function GET(_request: Request, { params }: { params: { id: string } }) {
+export async function POST(request: Request) {
   const user = await getSession();
-
-  if (!requireRole(user, ['ADMIN', 'SUPER_ADMIN', 'CONTENT_EDITOR'])) {
-    return NextResponse.json(
-      { error: 'Unauthorized — sign in as ADMIN/SUPER_ADMIN/CONTENT_EDITOR' },
-      { status: 401 }
-    );
-  }
-
-  const key = String(params.id || '').trim();
-  if (!key) {
-    return NextResponse.json({ error: 'Missing product identifier' }, { status: 400 });
-  }
-
-  try {
-    const product = await prisma.product.findFirst({
-      where: {
-        OR: [
-          { id: key },
-          { slug: key },
-          { slug: key.toLowerCase() },
-          { sku: key },
-          { sku: key.toUpperCase() },
-        ],
-      },
-      include: {
-        category: true,
-        variants: { orderBy: { sku: 'asc' } },
-        seller: true,
-      },
-    });
-
-    if (!product) {
-      const recent = await prisma.product.findFirst({
-        where: {
-          OR: [
-            { id: { startsWith: key.slice(0, 6) } },
-            { slug: { contains: key.slice(0, 6), mode: 'insensitive' } },
-          ],
-        },
-        select: { id: true, slug: true, status: true },
-      });
-
-      console.warn(
-        `[admin.products.GET] not found for key="${key}". Nearest match:`,
-        recent || 'none'
-      );
-
-      return NextResponse.json(
-        {
-          error: `No product matches id/slug/sku "${key}"`,
-          searched: key,
-          nearest: recent || null,
-        },
-        { status: 404 }
-      );
-    }
-
-    return NextResponse.json({
-      product: normalizeProductForAdmin(product),
-      readModel: {
-        stockVisibility: CANONICAL_STOCK_VISIBILITY,
-      },
-    });
-  } catch (e: any) {
-    console.error(
-      `[admin.products.GET] error for key="${key}":`,
-      e?.message,
-      e?.stack
-    );
-
-    return NextResponse.json(
-      {
-        error: e.message || 'Database error',
-        type: e?.code || e?.name || 'UnknownError',
-        searched: key,
-      },
-      { status: 500 }
-    );
-  }
-}
-
-export async function PATCH(request: Request, { params }: { params: { id: string } }) {
-  const user = await getSession();
-
   if (!requireRole(user, ['ADMIN', 'SUPER_ADMIN', 'CONTENT_EDITOR'])) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  if (!aiTextConfigured()) {
+    return NextResponse.json({
+      ok: true,
+      configured: false,
+      message: 'AI Content Assistant is being prepared. Add OPENAI_API_KEY to activate.',
+    });
   }
 
   try {
     const body = await request.json();
+    const context = buildPromptContext(body);
 
-    const existing = await prisma.product.findFirst({
-      where: { OR: [{ id: params.id }, { slug: params.id }, { sku: params.id }] },
-      select: { id: true, slug: true },
-    });
-
-    if (!existing) {
-      return NextResponse.json({ error: 'Not found' }, { status: 404 });
-    }
-
-    const stringFields = [
-      'name',
-      'shortName',
-      'description',
-      'craft',
-      'region',
-      'state',
-      'cluster',
-      'artisanName',
-      'material',
-      'technique',
-      'occasion',
-      'hsnCode',
-      'categoryId',
-      'poeticLine',
-      'story',
-      'craftNote',
-      'careInstructions',
-      'sustainabilityNote',
-      'returnPolicy',
-      'seoTitle',
-      'seoDesc',
-      'status',
-      'fulfilmentMode',
-      'cataloguePreferredImage',
-      'catalogueAudienceTag',
-      'catalogueCtaMode',
-      'catalogueStoryBlock',
-    ] as const;
-
-    const arrayFields = ['images', 'badges'] as const;
-
-    const boolFields = [
-      'aiTryOnEligible',
-      'arTryOnEligible',
-      'codEligible',
-      'returnEligible',
-      'catalogueFeatured',
-      'catalogueBestseller',
-      'catalogueEditorial',
-      'cataloguePinHero',
-      'catalogueExclude',
-      'catalogueImageApproved',
-    ] as const;
-
-    const data: Record<string, any> = {};
-
-    for (const key of stringFields) {
-      if (body[key] !== undefined) {
-        data[key] = body[key] === '' ? null : body[key];
-      }
-    }
-
-    if (body.slug !== undefined) {
-      if (body.slug === '') {
-        data.slug = null;
-      } else {
-        const cleaned = sanitizeSlug(String(body.slug));
-        data.slug = cleaned || null;
-      }
-    }
-
-    if (body.mrp !== undefined) {
-      data.mrp = parseOptionalInt(body.mrp);
-    }
-
-    if (body.sellingPrice !== undefined) {
-      data.sellingPrice = parseOptionalInt(body.sellingPrice);
-    }
-
-    if (body.salePrice !== undefined) {
-      data.salePrice = parseOptionalInt(body.salePrice);
-    }
-
-    if (body.depositPercent !== undefined) {
-      data.depositPercent = parseOptionalInt(body.depositPercent);
-    }
-
-    if (body.editionSold !== undefined) {
-      data.editionSold = parseOptionalInt(body.editionSold);
-    }
-
-    if (body.catalogueImageQualityScore !== undefined) {
-      data.catalogueImageQualityScore = parseOptionalInt(
-        body.catalogueImageQualityScore
-      );
-    }
-
-    const editionSizeInput = firstDefined(body.editionSize, body.editionTotal);
-    if (editionSizeInput !== undefined) {
-      data.editionSize = parseOptionalInt(editionSizeInput);
-    }
-
-    if (body.gstRate !== undefined) {
-      data.gstRate = parseOptionalFloat(body.gstRate);
-    }
-
-    if (body.saleStartsAt !== undefined) {
-      data.saleStartsAt = parseOptionalDate(body.saleStartsAt);
-    }
-
-    if (body.saleEndsAt !== undefined) {
-      data.saleEndsAt = parseOptionalDate(body.saleEndsAt);
-    }
-
-    if (body.releaseDate !== undefined) {
-      data.releaseDate = parseOptionalDate(body.releaseDate);
-    }
-
-    for (const key of arrayFields) {
-      if (Array.isArray(body[key])) {
-        data[key] = body[key];
-      }
-    }
-
-    for (const key of boolFields) {
-      if (body[key] !== undefined) {
-        data[key] = !!body[key];
-      }
-    }
-
-    const aiRoomEligibleInput = firstDefined(
-      body.aiRoomEligible,
-      body.aiStylistEligible
-    );
-    if (aiRoomEligibleInput !== undefined) {
-      data.aiRoomEligible = asBoolean(aiRoomEligibleInput);
-    }
-
-    if (body.catalogueStockVisibility !== undefined) {
-      data.catalogueStockVisibility = normalizeStockVisibility(
-        body.catalogueStockVisibility
-      );
-    }
-
-    if (data.name === null || data.name === '') {
-      return NextResponse.json({ error: 'Name cannot be empty' }, { status: 400 });
-    }
-
-    if (
-      data.slug !== undefined &&
-      data.slug !== null &&
-      String(data.slug).trim() === ''
-    ) {
-      return NextResponse.json({ error: 'Slug cannot be empty' }, { status: 400 });
-    }
-
-    if (
-      data.catalogueStockVisibility &&
-      !CANONICAL_STOCK_VISIBILITY.includes(data.catalogueStockVisibility)
-    ) {
+    if (!context.name && !context.description && !context.story && !context.categoryName) {
       return NextResponse.json(
-        { error: 'Invalid catalogueStockVisibility value' },
+        { error: 'Need at least name, description, story, or category to draft catalogue fields' },
         { status: 400 }
       );
     }
 
-    const updated = await prisma.product.update({
-      where: { id: existing.id },
-      data,
-      include: {
-        category: true,
-        variants: { orderBy: { sku: 'asc' } },
-        seller: true,
-      },
-    });
+    const system = `You are NEEJEE's Catalogue Merchandising Assistant.
+You draft catalogue-surface suggestions for a single product.
+The output MUST be a single JSON object only.
+Never output markdown.
+Never auto-approve images.
+Only choose cataloguePreferredImage from the provided image list.
+Keep catalogueStoryBlock concise: 18 to 40 words.
+Use quiet, premium, editorial Indian-English brand language.
+Do not invent facts that contradict the supplied product data.
 
-    return NextResponse.json({
-      success: true,
-      product: normalizeProductForAdmin(updated),
-      readModel: {
-        stockVisibility: CANONICAL_STOCK_VISIBILITY,
-      },
-    });
-  } catch (e: any) {
-    const message =
-      e?.code === 'P2002'
-        ? 'SKU or slug already exists'
-        : e?.message || 'Failed to update product';
-
-    return NextResponse.json({ error: message }, { status: 500 });
-  }
+Return exactly this shape:
+{
+  "catalogueStoryBlock": "string",
+  "catalogueAudienceTag": "EVERYDAY|FESTIVE|BRIDE|GROOM|GIFTING|HOUSEWARMING|COLLECTOR|LUXURY_HOME|HOSTING|SEASONAL",
+  "catalogueCtaMode": "SHOP_NOW|EXPLORE|DISCOVER|VIEW_DETAILS|PREORDER|ENQUIRE|ADD_TO_CART|BUY_NOW|GIFT_NOW|LIMITED_DROP",
+  "catalogueImageQualityScore": 0,
+  "catalogueFeatured": false,
+  "catalogueBestseller": false,
+  "catalogueEditorial": false,
+  "cataloguePinHero": false,
+  "catalogueStockVisibility": "IN_STOCK_ONLY|SHOW_ALL|HIDE_STOCK",
+  "cataloguePreferredImage": "string or empty"
 }
 
-export async function DELETE(_request: Request, { params }: { params: { id: string } }) {
-  const user = await getSession();
+Guidance for flags:
+- cataloguePinHero = true only for an especially visual, hero-worthy piece.
+- catalogueEditorial = true for distinctive storytelling or design-led products.
+- catalogueFeatured = true for broadly merchandisable products.
+- catalogueBestseller = true only if the product copy strongly suggests broad popular appeal; be conservative.
+- catalogueImageQualityScore should be an integer 0-100. Use 80+ only if the image set sounds strong and catalogue-ready.
+- catalogueStockVisibility should usually be IN_STOCK_ONLY unless the product context suggests transparent stock display is valuable.
+- If no image clearly deserves override, return an empty string for cataloguePreferredImage.
+`;
 
-  if (!requireRole(user, ['ADMIN', 'SUPER_ADMIN'])) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
+    const userMsg = `Product context:
+${JSON.stringify(context, null, 2)}
 
-  try {
-    const existing = await prisma.product.findFirst({
-      where: { OR: [{ id: params.id }, { slug: params.id }, { sku: params.id }] },
-      select: { id: true },
+Draft all catalogue fields now. If overwrite is false and an existing catalogue field already looks usable, you may keep it or lightly refine it, but still return every key.
+If editor feedback is present, follow it carefully.
+The preferred image must be chosen only from the provided images array, or left empty.`;
+
+    const ai = await openaiChat({
+      system,
+      messages: [{ role: 'user', content: userMsg }],
+      temperature: 0.5,
+      jsonMode: true,
     });
 
-    if (!existing) {
-      return NextResponse.json({ error: 'Not found' }, { status: 404 });
+    if (!ai.ok) {
+      return NextResponse.json({ error: ai.error || 'AI request failed' }, { status: 500 });
     }
 
-    await prisma.product.update({
-      where: { id: existing.id },
-      data: { status: 'ARCHIVED' },
-    });
+    if (!ai.json || typeof ai.json !== 'object') {
+      return NextResponse.json({ error: 'AI returned no JSON' }, { status: 500 });
+    }
 
-    return NextResponse.json({ success: true, archived: true });
+    const json = ai.json as Record<string, unknown>;
+    const images = context.images;
+
+    const draft: CatalogueDraftResponse = {
+      catalogueStoryBlock: asText(json.catalogueStoryBlock) || context.existingCatalogue.catalogueStoryBlock || '',
+      catalogueAudienceTag: normalizeAudienceTag(json.catalogueAudienceTag || context.existingCatalogue.catalogueAudienceTag),
+      catalogueCtaMode: normalizeCtaMode(json.catalogueCtaMode || context.existingCatalogue.catalogueCtaMode),
+      catalogueImageQualityScore: asNullableInt(
+        json.catalogueImageQualityScore ?? context.existingCatalogue.catalogueImageQualityScore
+      ),
+      catalogueFeatured: typeof json.catalogueFeatured === 'boolean'
+        ? json.catalogueFeatured
+        : context.existingCatalogue.catalogueFeatured,
+      catalogueBestseller: typeof json.catalogueBestseller === 'boolean'
+        ? json.catalogueBestseller
+        : context.existingCatalogue.catalogueBestseller,
+      catalogueEditorial: typeof json.catalogueEditorial === 'boolean'
+        ? json.catalogueEditorial
+        : context.existingCatalogue.catalogueEditorial,
+      cataloguePinHero: typeof json.cataloguePinHero === 'boolean'
+        ? json.cataloguePinHero
+        : context.existingCatalogue.cataloguePinHero,
+      catalogueStockVisibility: normalizeStockVisibility(
+        json.catalogueStockVisibility ?? context.existingCatalogue.catalogueStockVisibility
+      ),
+      cataloguePreferredImage: normalizePreferredImage(
+        json.cataloguePreferredImage ?? context.existingCatalogue.cataloguePreferredImage,
+        images
+      ),
+    };
+
+    return NextResponse.json({
+      ok: true,
+      configured: true,
+      draft,
+    });
   } catch (e: any) {
-    return NextResponse.json({ error: e.message }, { status: 500 });
+    console.error('[ai-draft-catalogue] error:', e);
+    return NextResponse.json({ error: e?.message || 'Failed' }, { status: 500 });
   }
 }
