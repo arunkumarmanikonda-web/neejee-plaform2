@@ -55,3 +55,12 @@ _phase0/env/*
 !_phase0/env/.env.phase0.normalized.example
 _phase1/reports/
 _phase1/patch-backups/
+
+# Local debug / transient error artifacts
+build-error*.txt
+err*.txt
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+*.stackdump
