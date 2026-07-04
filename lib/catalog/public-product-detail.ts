@@ -142,16 +142,15 @@ export function mapPublicProductDetail(
       colorHex: variant?.colorHex ?? null,
       material: variant?.material ?? null,
       images: variant?.images ?? variant?.media?.gallery ?? [],
-      inventory: variant?.inventory ?? variant?.stock?.totalInventory ?? 0,
+      inventory: variant?.stock?.totalInventory ?? variant?.inventory ?? 0,
       mrp: variant?.mrp ?? variant?.pricing?.mrp ?? null,
       sellingPrice: variant?.sellingPrice ?? variant?.pricing?.sellingPrice ?? null,
       salePrice:
         variant?.salePrice ?? variant?.pricing?.salePrice ?? pricing.salePrice ?? null,
       lowStockThreshold: variant?.lowStockThreshold ?? null,
       inStock:
-        typeof variant?.inventory === 'number'
-          ? variant.inventory > 0
-          : (variant?.stock?.inStock ?? false),
+        variant?.stock?.inStock ??
+        ((variant?.stock?.totalInventory ?? variant?.inventory ?? 0) > 0),
     })),
 
     inventory: stock.totalInventory ?? 0,

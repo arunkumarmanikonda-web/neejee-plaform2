@@ -1026,6 +1026,41 @@ export function buildProductReadModel(
     (variant) => mapVariant(variant, _mode, now),
   );
 
+  const normalizedVariants =
+    Array.isArray(variants) &&
+    variants.length === 1 &&
+    (stock?.totalInventory ?? 0) > 0 &&
+    ((variants[0]?.stock?.totalInventory ?? variants[0]?.inventory ?? 0) <= 0)
+      ? variants.map((variant) => ({
+          ...variant,
+          inventory: stock?.totalInventory ?? variant?.inventory ?? 0,
+          stock: {
+            ...(variant?.stock ?? {}),
+            inStock: stock?.inStock ?? variant?.stock?.inStock ?? false,
+            totalInventory:
+              stock?.totalInventory ?? variant?.stock?.totalInventory ?? 0,
+            lowStock: stock?.lowStock ?? variant?.stock?.lowStock ?? false,
+            stockVisibility:
+              stock?.stockVisibility ??
+              variant?.stock?.stockVisibility ??
+              'IN_STOCK_ONLY',
+            availableQuantity:
+              stock?.availableQuantity ?? variant?.stock?.availableQuantity ?? null,
+            showExactQuantity:
+              stock?.showExactQuantity ??
+              variant?.stock?.showExactQuantity ??
+              false,
+            label: stock?.label ?? variant?.stock?.label ?? null,
+            purchasable:
+              stock?.purchasable ?? variant?.stock?.purchasable ?? false,
+            visibleInListing:
+              stock?.visibleInListing ??
+              variant?.stock?.visibleInListing ??
+              true,
+          },
+        }))
+      : variants;
+
   const category = buildCategory(hierarchy, breadcrumbs, source);
 
   const categoryPath = category.path;
@@ -1121,7 +1156,7 @@ export function buildProductReadModel(
     catalogueStoryBlock: catalogueFlags.storyBlock,
     catalogueReadiness,
 
-    variants,
+    variants: normalizedVariants,
     createdAt,
     updatedAt,
     timestamps,
