@@ -15,6 +15,7 @@ import VariantImageManager from '@/components/admin/VariantImageManager';
 import AiDraftAllButton from '@/components/admin/AiDraftAllButton';
 import AiNameSuggester from '@/components/admin/AiNameSuggester';
 import AiFieldRedraft from '@/components/admin/AiFieldRedraft';
+import AiCatalogueDraftButton from '@/components/admin/AiCatalogueDraftButton';
 import CategoryPicker, { CategoryPickerValue } from '@/components/admin/CategoryPicker';
 import { BADGE_CATALOG } from '@/lib/badges';
 import { suggestSizesForCategory, suggestColorsForCategory } from '@/lib/variant-suggestions';
@@ -539,11 +540,40 @@ export default function AdminProductEdit() {
 
           {tab === 'CATALOGUE' && (
             <div className="bg-beige p-6 space-y-6">
-              <div>
-                <p className="label text-madder mb-1">CATALOGUE CURATION</p>
-                <p className="font-italic italic text-mitti text-sm">
-                  Control merchandising, editorial placement, preferred imagery, and stock display behavior for catalogue surfaces.
-                </p>
+              <div className="flex items-start justify-between gap-4 flex-wrap">
+                <div>
+                  <p className="label text-madder mb-1">CATALOGUE CURATION</p>
+                  <p className="font-italic italic text-mitti text-sm">
+                    Control merchandising, editorial placement, preferred imagery, and stock display behavior for catalogue surfaces.
+                  </p>
+                </div>
+                <AiCatalogueDraftButton
+                  form={{
+                    name: form.name,
+                    shortName: form.shortName,
+                    description: form.description,
+                    poeticLine: form.poeticLine,
+                    story: form.story,
+                    craft: form.craft,
+                    region: form.region,
+                    material: form.material,
+                    technique: form.technique,
+                    occasion: form.occasion,
+                    categoryName: product?.category?.name,
+                    images: Array.isArray(form.images) ? form.images : [],
+                    catalogueStoryBlock: form.catalogueStoryBlock,
+                    catalogueAudienceTag: form.catalogueAudienceTag,
+                    catalogueCtaMode: form.catalogueCtaMode,
+                    catalogueImageQualityScore: form.catalogueImageQualityScore,
+                    catalogueFeatured: !!form.catalogueFeatured,
+                    catalogueBestseller: !!form.catalogueBestseller,
+                    catalogueEditorial: !!form.catalogueEditorial,
+                    cataloguePinHero: !!form.cataloguePinHero,
+                    catalogueStockVisibility: form.catalogueStockVisibility || 'IN_STOCK_ONLY',
+                    cataloguePreferredImage: form.cataloguePreferredImage || null,
+                  }}
+                  onApply={(draft: any) => setForm((f: any) => ({ ...f, ...draft }))}
+                />
               </div>
 
               <div className="grid grid-cols-2 gap-3">
