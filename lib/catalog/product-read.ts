@@ -107,10 +107,15 @@ export type ProductReadCatalogue = {
   bestseller: boolean;
   editorial: boolean;
   pinHero: boolean;
+  exclude: boolean;
   audienceTag: string | null;
   ctaMode: string | null;
   mode: string | null;
   storyBlock: string | null;
+  preferredImage: string | null;
+  imageApproved: boolean;
+  imageQualityScore: number | null;
+  stockVisibility: string;
   cta: ProductReadCta;
   readiness: Record<string, any>;
   [key: string]: any;
@@ -355,6 +360,7 @@ export type ProductReadModel = {
     bestseller: boolean;
     editorial: boolean;
     pinHero: boolean;
+    exclude: boolean;
     audienceTag: string | null;
     ctaMode: string | null;
     storyBlock: string | null;
@@ -364,9 +370,14 @@ export type ProductReadModel = {
   catalogueBestseller: boolean;
   catalogueEditorial: boolean;
   cataloguePinHero: boolean;
+  catalogueExclude: boolean;
+  cataloguePreferredImage: string | null;
   catalogueAudienceTag: string | null;
   catalogueCtaMode: string | null;
   catalogueStoryBlock: string | null;
+  catalogueImageApproved: boolean;
+  catalogueImageQualityScore: number | null;
+  catalogueStockVisibility: string;
   catalogueReadiness: Record<string, any>;
 
   variants: ProductReadVariant[];
@@ -636,6 +647,10 @@ function normalizeCatalogueFlags(flags: unknown) {
     pinHero:
       asBoolean(record.pinHero) ??
       asBoolean(record.cataloguePinHero) ??
+      false,
+    exclude:
+      asBoolean(record.exclude) ??
+      asBoolean(record.catalogueExclude) ??
       false,
     audienceTag:
       asString(record.audienceTag) ??
@@ -956,10 +971,15 @@ function mapVariant(
     bestseller: catalogueFlags.bestseller,
     editorial: catalogueFlags.editorial,
     pinHero: catalogueFlags.pinHero,
+    exclude: catalogueFlags.exclude,
     audienceTag: catalogueFlags.audienceTag,
     ctaMode: catalogueFlags.ctaMode,
     mode: cta.mode,
     storyBlock: catalogueFlags.storyBlock,
+    preferredImage: asString(media.preferredImage),
+    imageApproved: !!media.imageApproved,
+    imageQualityScore: media.imageQualityScore ?? null,
+    stockVisibility: stock.stockVisibility ?? 'IN_STOCK_ONLY',
     cta,
     readiness: catalogueReadiness,
   };
@@ -1014,10 +1034,15 @@ export function buildProductReadModel(
     bestseller: catalogueFlags.bestseller,
     editorial: catalogueFlags.editorial,
     pinHero: catalogueFlags.pinHero,
+    exclude: catalogueFlags.exclude,
     audienceTag: catalogueFlags.audienceTag,
     ctaMode: catalogueFlags.ctaMode,
     mode: cta.mode,
     storyBlock: catalogueFlags.storyBlock,
+    preferredImage: asString(media.preferredImage),
+    imageApproved: !!media.imageApproved,
+    imageQualityScore: media.imageQualityScore ?? null,
+    stockVisibility: stock.stockVisibility ?? 'IN_STOCK_ONLY',
     cta,
     readiness: catalogueReadiness,
   };
@@ -1151,9 +1176,14 @@ export function buildProductReadModel(
     catalogueBestseller: catalogueFlags.bestseller,
     catalogueEditorial: catalogueFlags.editorial,
     cataloguePinHero: catalogueFlags.pinHero,
+    catalogueExclude: catalogueFlags.exclude,
+    cataloguePreferredImage: asString(media.preferredImage),
     catalogueAudienceTag: catalogueFlags.audienceTag,
     catalogueCtaMode: catalogueFlags.ctaMode,
     catalogueStoryBlock: catalogueFlags.storyBlock,
+    catalogueImageApproved: !!media.imageApproved,
+    catalogueImageQualityScore: media.imageQualityScore ?? null,
+    catalogueStockVisibility: stock.stockVisibility ?? 'IN_STOCK_ONLY',
     catalogueReadiness,
 
     variants: normalizedVariants,
