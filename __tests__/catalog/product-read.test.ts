@@ -4,10 +4,38 @@ import assert from 'node:assert/strict';
 import {
   buildProductReadModel,
   type ProductReadSourceRow,
+  type ProductReadVariantSource,
 } from '../../lib/catalog/product-read';
 
 test('buildProductReadModel normalizes pricing, stock, hierarchy and catalogue fields', () => {
   const now = new Date('2026-07-04T12:00:00.000Z');
+
+  const variants: ProductReadVariantSource[] = [
+    {
+      id: 'var_1',
+      sku: 'NB-001-RED',
+      size: 'Free Size',
+      color: 'Red',
+      colorHex: '#cc0000',
+      material: 'Silk',
+      inventory: 3,
+      mrp: 1000,
+      sellingPrice: 800,
+      images: ['https://example.com/variant-red.jpg'],
+    },
+    {
+      id: 'var_2',
+      sku: 'NB-001-MAROON',
+      size: 'Free Size',
+      color: 'Maroon',
+      colorHex: '#800000',
+      material: 'Silk',
+      inventory: 1,
+      mrp: 1000,
+      sellingPrice: 790,
+      images: ['https://example.com/variant-maroon.jpg'],
+    },
+  ];
 
   const row: ProductReadSourceRow = {
     id: 'prod_001',
@@ -106,32 +134,7 @@ test('buildProductReadModel normalizes pricing, stock, hierarchy and catalogue f
       },
     },
 
-    variants: [
-      {
-        id: 'var_1',
-        sku: 'NB-001-RED',
-        size: 'Free Size',
-        color: 'Red',
-        colorHex: '#cc0000',
-        material: 'Silk',
-        inventory: 3,
-        mrp: 1000,
-        sellingPrice: 800,
-        images: ['https://example.com/variant-red.jpg'],
-      },
-      {
-        id: 'var_2',
-        sku: 'NB-001-MAROON',
-        size: 'Free Size',
-        color: 'Maroon',
-        colorHex: '#800000',
-        material: 'Silk',
-        inventory: 1,
-        mrp: 1000,
-        sellingPrice: 790,
-        images: ['https://example.com/variant-maroon.jpg'],
-      },
-    ],
+    variants,
 
     createdAt: new Date('2026-06-01T00:00:00.000Z'),
     updatedAt: new Date('2026-07-03T00:00:00.000Z'),
@@ -188,6 +191,14 @@ test('buildProductReadModel normalizes pricing, stock, hierarchy and catalogue f
 });
 
 test('buildProductReadModel respects exclusion and keeps deterministic top-level catalogue fields', () => {
+  const variants: ProductReadVariantSource[] = [
+    {
+      id: 'var_simple',
+      sku: 'NB-002-STD',
+      inventory: 2,
+    },
+  ];
+
   const row: ProductReadSourceRow = {
     id: 'prod_002',
     slug: 'excluded-product',
@@ -225,13 +236,7 @@ test('buildProductReadModel respects exclusion and keeps deterministic top-level
         parentId: null,
       },
     },
-    variants: [
-      {
-        id: 'var_simple',
-        sku: 'NB-002-STD',
-        inventory: 2,
-      },
-    ],
+    variants,
     createdAt: new Date('2026-06-10T00:00:00.000Z'),
     updatedAt: new Date('2026-06-20T00:00:00.000Z'),
   };
