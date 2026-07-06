@@ -9,6 +9,8 @@
     "start": "next start",
     "lint": "next lint",
     "type-check": "tsc --noEmit",
+    "test": "tsx --test __tests__/**/*.test.ts",
+    "test:catalog": "tsx --test __tests__/catalog/*.test.ts",
     "postinstall": "prisma generate",
     "seed": "tsx scripts/seed.ts",
     "db:push": "prisma db push",
