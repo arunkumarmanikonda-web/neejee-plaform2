@@ -4,13 +4,26 @@ import assert from 'node:assert/strict';
 import {
   buildProductReadModel,
   type ProductReadSourceRow,
-  type ProductReadVariantSource,
 } from '../../lib/catalog/product-read';
+
+type TestVariant = {
+  id: string;
+  images?: unknown;
+  inventory?: number | null;
+  lowStockThreshold?: number | null;
+  sku?: string;
+  size?: string;
+  color?: string;
+  colorHex?: string;
+  material?: string;
+  mrp?: number;
+  sellingPrice?: number;
+};
 
 test('buildProductReadModel normalizes pricing, stock, hierarchy and catalogue fields', () => {
   const now = new Date('2026-07-04T12:00:00.000Z');
 
-  const variants: ProductReadVariantSource[] = [
+  const variants: TestVariant[] = [
     {
       id: 'var_1',
       sku: 'NB-001-RED',
@@ -191,7 +204,7 @@ test('buildProductReadModel normalizes pricing, stock, hierarchy and catalogue f
 });
 
 test('buildProductReadModel respects exclusion and keeps deterministic top-level catalogue fields', () => {
-  const variants: ProductReadVariantSource[] = [
+  const variants: TestVariant[] = [
     {
       id: 'var_simple',
       sku: 'NB-002-STD',
