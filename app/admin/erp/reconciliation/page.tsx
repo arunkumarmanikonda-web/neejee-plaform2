@@ -113,10 +113,24 @@ export default function AdminErpReconciliationPage() {
           ))}
 
           <Link
+            href="/admin/erp"
+            className="bg-beige px-4 py-2 text-xs tracking-wider font-ui text-kohl hover:bg-white"
+          >
+            ERP HOME
+          </Link>
+
+          <Link
             href="/admin/erp/dashboard"
-            className="bg-madder px-4 py-2 text-xs tracking-wider font-ui text-white hover:opacity-90"
+            className="bg-beige px-4 py-2 text-xs tracking-wider font-ui text-kohl hover:bg-white"
           >
             OPEN DASHBOARD
+          </Link>
+
+          <Link
+            href="/admin/erp/failures"
+            className="bg-madder px-4 py-2 text-xs tracking-wider font-ui text-white hover:opacity-90"
+          >
+            OPEN FAILURE QUEUE
           </Link>
         </div>
       </div>
@@ -312,4 +326,3 @@ function SnapshotCard({
     </div>
   );
 }
-

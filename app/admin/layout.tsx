@@ -130,6 +130,15 @@ const NAV_GROUPS: NavGroup[] = [
     ],
   },
   {
+    label: 'ERP',
+    items: [
+      { href: '/admin/erp', label: 'ERP Home', icon: LayoutDashboard },
+      { href: '/admin/erp/dashboard', label: 'Sync Dashboard', icon: BarChart3 },
+      { href: '/admin/erp/failures', label: 'Failure Queue', icon: MessageSquareWarning },
+      { href: '/admin/erp/reconciliation', label: 'Reconciliation', icon: FileSpreadsheet },
+    ],
+  },
+  {
     label: 'CONTENT',
     items: [
       { href: '/admin/cms', label: 'CMS Pages', icon: FileText },

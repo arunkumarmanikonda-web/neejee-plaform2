@@ -11,6 +11,7 @@ const QUICK_LINKS = [
   { href: '/admin/categories', label: 'CATEGORIES', desc: 'Manage taxonomy and category placement.' },
   { href: '/admin/analytics', label: 'ANALYTICS', desc: 'Open reporting pages when database capacity allows.' },
   { href: '/admin/ai-photo-studio', label: 'AI PHOTO STUDIO', desc: 'Run creative and catalogue media workflows.' },
+  { href: '/admin/erp', label: 'ERP CONTROL PANEL', desc: 'Open ERP sync monitoring, reconciliation, and failure handling.' },
 ];
 
 export default async function AdminDashboard() {
@@ -71,12 +72,12 @@ export default async function AdminDashboard() {
         </div>
 
         <div className="bg-beige p-8">
-          <p className="label text-madder">WHY THIS PAGE LOOKS DIFFERENT</p>
+          <p className="label text-madder">ERP WORKFLOWS</p>
           <p className="font-ui text-sm text-mitti mt-3 leading-6">
-            The previous dashboard attempted several live database reads and could still trigger connection exhaustion. This safe-mode version removes those reads completely so the admin shell remains available.
+            ERP monitoring, reconciliation, and dead-letter handling are now grouped under a single control panel so the team can enter the full workflow from one visible admin location.
           </p>
-          <Link href="/admin/orders" className="font-ui text-xs text-madder hover:underline mt-6 inline-block">
-            OPEN ORDERS →
+          <Link href="/admin/erp" className="font-ui text-xs text-madder hover:underline mt-6 inline-block">
+            OPEN ERP CONTROL PANEL →
           </Link>
         </div>
       </div>

@@ -120,6 +120,20 @@ export default function AdminErpDashboardPage() {
           ))}
 
           <Link
+            href="/admin/erp"
+            className="bg-beige px-4 py-2 text-xs tracking-wider font-ui text-kohl hover:bg-white"
+          >
+            ERP HOME
+          </Link>
+
+          <Link
+            href="/admin/erp/reconciliation"
+            className="bg-beige px-4 py-2 text-xs tracking-wider font-ui text-kohl hover:bg-white"
+          >
+            OPEN RECONCILIATION
+          </Link>
+
+          <Link
             href="/admin/erp/failures"
             className="bg-madder px-4 py-2 text-xs tracking-wider font-ui text-white hover:opacity-90"
           >
@@ -226,12 +240,20 @@ export default function AdminErpDashboardPage() {
         <section className="bg-beige p-6">
           <div className="mb-4 flex items-center justify-between">
             <p className="label text-madder">DEAD-LETTER STATUS</p>
-            <Link
-              href="/admin/erp/failures"
-              className="text-xs text-kohl underline underline-offset-2"
-            >
-              Review queue
-            </Link>
+            <div className="flex items-center gap-3">
+              <Link
+                href="/admin/erp"
+                className="text-xs text-kohl underline underline-offset-2"
+              >
+                ERP home
+              </Link>
+              <Link
+                href="/admin/erp/failures"
+                className="text-xs text-kohl underline underline-offset-2"
+              >
+                Review queue
+              </Link>
+            </div>
           </div>
 
           <div className="space-y-3 text-sm">
@@ -305,12 +327,20 @@ export default function AdminErpDashboardPage() {
         <section className="bg-beige p-6">
           <div className="mb-4 flex items-center justify-between">
             <p className="label text-madder">RECENT DEAD LETTERS</p>
-            <Link
-              href="/admin/erp/failures"
-              className="text-xs text-kohl underline underline-offset-2"
-            >
-              Open queue
-            </Link>
+            <div className="flex items-center gap-3">
+              <Link
+                href="/admin/erp/reconciliation"
+                className="text-xs text-kohl underline underline-offset-2"
+              >
+                Reconciliation
+              </Link>
+              <Link
+                href="/admin/erp/failures"
+                className="text-xs text-kohl underline underline-offset-2"
+              >
+                Open queue
+              </Link>
+            </div>
           </div>
 
           {data.recentDeadLetters.length === 0 ? (

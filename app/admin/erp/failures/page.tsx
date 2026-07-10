@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 
 type FailureStatus = 'OPEN' | 'RETRY_SCHEDULED' | 'RESOLVED' | 'DISCARDED';
@@ -161,11 +162,34 @@ export default function AdminErpFailuresPage() {
 
   return (
     <div className="space-y-6 p-6">
-      <div>
-        <h1 className="text-2xl font-semibold text-neutral-900">ERP failure queue</h1>
-        <p className="mt-1 text-sm text-neutral-600">
-          Review dead-letter items, schedule retries, and mark failures resolved.
-        </p>
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold text-neutral-900">ERP failure queue</h1>
+          <p className="mt-1 text-sm text-neutral-600">
+            Review dead-letter items, schedule retries, and mark failures resolved.
+          </p>
+        </div>
+
+        <div className="flex flex-wrap gap-2">
+          <Link
+            href="/admin/erp"
+            className="rounded-full border border-neutral-300 bg-white px-4 py-2 text-sm text-neutral-700"
+          >
+            ERP home
+          </Link>
+          <Link
+            href="/admin/erp/dashboard"
+            className="rounded-full border border-neutral-300 bg-white px-4 py-2 text-sm text-neutral-700"
+          >
+            Sync dashboard
+          </Link>
+          <Link
+            href="/admin/erp/reconciliation"
+            className="rounded-full border border-neutral-300 bg-white px-4 py-2 text-sm text-neutral-700"
+          >
+            Reconciliation
+          </Link>
+        </div>
       </div>
 
       <div className="flex flex-wrap gap-3">
