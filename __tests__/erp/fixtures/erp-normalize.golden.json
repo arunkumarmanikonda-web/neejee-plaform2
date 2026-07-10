@@ -1,0 +1,72 @@
+{
+  "bundle": {
+    "product": {
+      "version": "phase3.erp-normalize.v1",
+      "externalId": "erp-item-1001",
+      "sku": "NJ-CER-LAMP-001",
+      "slug": "istanbul-ceramic-mushroom-lamp",
+      "name": "Istanbul Ceramic Mushroom Lamp",
+      "sellerCode": "SELLER-001",
+      "status": "ACTIVE",
+      "categoryCode": "lighting",
+      "price": {
+        "currency": "INR",
+        "mrpPaise": 149990,
+        "sellingPricePaise": 129990,
+        "effectivePricePaise": 129990,
+        "onSale": true
+      },
+      "dimensions": {
+        "weightGrams": 1250,
+        "lengthMm": 125,
+        "widthMm": 100,
+        "heightMm": 90
+      },
+      "attributes": {
+        "color": "Ivory",
+        "finish": "Gloss"
+      },
+      "updatedAt": "2026-07-10T12:00:00.000Z",
+      "raw": {
+        "id": "erp-item-1001",
+        "itemCode": " nj-cer-lamp-001 ",
+        "productName": "Istanbul Ceramic Mushroom Lamp",
+        "sellerCode": "SELLER-001",
+        "status": "enabled",
+        "category": "lighting",
+        "currency": "rs",
+        "mrp": 1499.9,
+        "sellingPrice": 1299.9,
+        "weight": "1.25",
+        "weightUnit": "kg",
+        "length": "12.5",
+        "width": "10",
+        "height": "9",
+        "dimensionUnit": "cm",
+        "color": "Ivory",
+        "finish": "Gloss",
+        "updatedAt": "2026-07-10T12:00:00Z"
+      }
+    },
+    "inventory": {
+      "version": "phase3.erp-normalize.v1",
+      "externalId": "inv-1001",
+      "sku": "NJ-CER-LAMP-001",
+      "availableQuantity": 5,
+      "reservedQuantity": 1,
+      "incomingQuantity": 2,
+      "lowStockThreshold": 3,
+      "inStock": true,
+      "updatedAt": "2026-07-10T12:05:00.000Z",
+      "raw": {
+        "id": "inv-1001",
+        "sku": "nj-cer-lamp-001",
+        "onHand": "5",
+        "allocated": "1",
+        "incoming": "2",
+        "reorderLevel": "3",
+        "updatedAt": "2026-07-10T12:05:00Z"
+      }
+    }
+  }
+}
