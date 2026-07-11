@@ -1,7 +1,3 @@
-// Weekly journal generator. Picks a rotating seed, drafts a story via OpenAI,
-// generates a cover image via FAL (unless a manual cover is supplied),
-// persists a JournalDraft row, and returns it.
-
 import { randomBytes } from 'crypto';
 import { prisma } from '@/lib/prisma';
 import { openaiChat, aiTextConfigured } from '@/lib/ai';
@@ -29,20 +25,41 @@ export interface StoryImage {
   alt?: string | null;
 }
 
+export interface JournalTextResult {
+  title: string;
+  excerpt: string | null;
+  body: string;
+  tags: string[];
+  coverImagePrompt: string | null;
+  theme: Theme;
+  seedRef: string | null;
+}
+
 export interface CuratedDraft {
   draftId: string;
   title: string;
   excerpt: string | null;
   body: string;
   coverImage: string | null;
+  coverImagePrompt: string | null;
   approvalToken: string;
   theme: Theme;
   seedRef: string | null;
   storyImages: StoryImage[];
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Helpers
+export interface CurateOpts {
+  forceTheme?: Theme;
+  createdByCron?: boolean;
+  textPrompt?: string | null;
+  coverImagePrompt?: string | null;
+  coverImageUrl?: string | null;
+  storyImages?: StoryImage[];
+  manualTitle?: string | null;
+  manualExcerpt?: string | null;
+  manualBody?: string | null;
+  manualTags?: string[] | null;
+}
 
 function generateApprovalToken(): string {
   return randomBytes(32).toString('hex');
@@ -52,20 +69,24 @@ function normalizeString(value: unknown): string {
   return typeof value === 'string' ? value.trim() : '';
 }
 
-function normalizeStoryImages(value: unknown): StoryImage[] {
+function normalizeTags(value: unknown): string[] {
   if (!Array.isArray(value)) return [];
+  return value
+    .map((t) => String(t || '').toLowerCase().trim())
+    .filter(Boolean)
+    .slice(0, 8);
+}
 
+export function normalizeStoryImages(value: unknown): StoryImage[] {
+  if (!Array.isArray(value)) return [];
   return value
     .map((item) => {
       if (!item || typeof item !== 'object') return null;
       const raw = item as Record<string, unknown>;
-
       const url = normalizeString(raw.url);
       if (!url) return null;
-
       const caption = normalizeString(raw.caption);
       const alt = normalizeString(raw.alt);
-
       return {
         url,
         ...(caption ? { caption } : {}),
@@ -73,6 +94,11 @@ function normalizeStoryImages(value: unknown): StoryImage[] {
       } as StoryImage;
     })
     .filter(Boolean) as StoryImage[];
+}
+
+function ensureNidhi(body: string): string {
+  if (/\bNidhi\b/i.test(body)) return body;
+  return `${body}\n\nNidhi sends this dispatch with her thanks.`;
 }
 
 async function pickTheme(): Promise<Theme> {
@@ -98,7 +124,6 @@ async function pickSeedRef(theme: Theme): Promise<{ ref: string | null; brief: s
       const products = await prisma.product.findMany({
         where: { status: 'ACTIVE' },
         select: {
-          id: true,
           slug: true,
           name: true,
           craft: true,
@@ -215,7 +240,21 @@ async function pickSeedRef(theme: Theme): Promise<{ ref: string | null; brief: s
   }
 }
 
-async function generateCoverImage(prompt: string): Promise<string | null> {
+function buildStoryImageBrief(storyImages: StoryImage[]): string {
+  if (storyImages.length === 0) return '';
+  return storyImages
+    .map((img, index) => {
+      const caption = img.caption ? ` Caption: ${img.caption}.` : '';
+      const alt = img.alt ? ` Alt: ${img.alt}.` : '';
+      return `Image ${index + 1}: ${img.url}.${caption}${alt}`;
+    })
+    .join('\n');
+}
+
+export async function generateCoverFromPrompt(prompt: string): Promise<string | null> {
+  const cleanPrompt = normalizeString(prompt);
+  if (!cleanPrompt) return null;
+
   const key = process.env.FAL_KEY;
   if (!key) return null;
 
@@ -229,7 +268,7 @@ async function generateCoverImage(prompt: string): Promise<string | null> {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        prompt,
+        prompt: cleanPrompt,
         image_size: 'landscape_16_9',
         num_inference_steps: 4,
         num_images: 1,
@@ -264,11 +303,8 @@ async function generateCoverImage(prompt: string): Promise<string | null> {
       if (sJson?.status === 'COMPLETED') {
         const rRes = await fetch(
           sJson.response_url || `${FAL_BASE}/fal-ai/flux/schnell/requests/${requestId}`,
-          {
-            headers: { Authorization: `Key ${key}` },
-          }
+          { headers: { Authorization: `Key ${key}` } }
         );
-
         const rJson: any = await rRes.json();
         return rJson?.images?.[0]?.url || null;
       }
@@ -284,61 +320,45 @@ async function generateCoverImage(prompt: string): Promise<string | null> {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Main entrypoint
-
-export interface CurateOpts {
+export async function generateJournalText(opts: {
   forceTheme?: Theme;
-  createdByCron?: boolean;
-  coverImageUrl?: string | null;
+  textPrompt?: string | null;
+  coverImagePrompt?: string | null;
   storyImages?: StoryImage[];
-}
-
-export async function curateWeeklyJournal(opts: CurateOpts = {}): Promise<CuratedDraft> {
+} = {}): Promise<JournalTextResult> {
   if (!aiTextConfigured()) {
     throw new Error('OPENAI_API_KEY not configured — cannot draft journals');
   }
 
   const theme = opts.forceTheme || (await pickTheme());
   const { ref: seedRef, brief } = await pickSeedRef(theme);
-
-  const suppliedCoverImage = normalizeString(opts.coverImageUrl) || null;
-  const suppliedStoryImages = normalizeStoryImages(opts.storyImages);
-
-  const storyImageBrief =
-    suppliedStoryImages.length > 0
-      ? suppliedStoryImages
-          .map((img, index) => {
-            const caption = img.caption ? ` Caption: ${img.caption}.` : '';
-            const alt = img.alt ? ` Alt: ${img.alt}.` : '';
-            return `Image ${index + 1}: ${img.url}.${caption}${alt}`;
-          })
-          .join('\n')
-      : '';
+  const storyImages = normalizeStoryImages(opts.storyImages);
+  const storyImageBrief = buildStoryImageBrief(storyImages);
+  const manualTextPrompt = normalizeString(opts.textPrompt);
+  const manualCoverPrompt = normalizeString(opts.coverImagePrompt);
 
   const systemPrompt = [
     'You are the Editorial Voice of NEEJEE — a slow-luxury Indian artisanal atelier.',
     'Brand pillars: quiet reverence, named places, named hands, tactile detail, no exclamation marks.',
     'Hard rules:',
-    '  • Every journal must mention Nidhi (the founder) by name once, naturally.',
-    '  • No salesy language. No "shop now". No emojis. No exclamation marks.',
-    '  • Use specific Indian place names and craft terms where the brief gives them.',
-    '  • Title: 5-9 words, evocative, no clickbait.',
-    '  • Excerpt: 30-50 words, one or two sentences, invites the reader in.',
-    '  • Body: 320-450 words, 3-5 paragraphs, plain text with blank lines between paragraphs.',
-    '  • If story images are supplied, structure the body so it reads naturally alongside a short editorial photo essay.',
-    '  • coverImagePrompt: a 40-70 word prompt for a flux/schnell image generator. Describe a quiet, editorial photograph; no models facing camera; muted ivory/madder/indigo palette; natural light; no text.',
-    '  • tags: 3-5 short lowercase tags (e.g. "banarasi", "weaving", "varanasi").',
-    'Return strictly valid JSON with keys: title, excerpt, body, tags (string array), coverImagePrompt.',
+    '• Every journal must mention Nidhi (the founder) by name once, naturally.',
+    '• No salesy language. No "shop now". No emojis. No exclamation marks.',
+    '• Use specific Indian place names and craft terms where the brief gives them.',
+    '• Title: 5-9 words, evocative, no clickbait.',
+    '• Excerpt: 30-50 words, one or two sentences.',
+    '• Body: 320-450 words, 3-5 paragraphs, plain text with blank lines between paragraphs.',
+    '• If story images are supplied, structure the body so it reads naturally alongside a short editorial photo essay.',
+    '• coverImagePrompt: a 40-70 word prompt for a quiet editorial photograph; muted ivory/madder/indigo palette; natural light; no text; no front-facing model.',
+    '• tags: 3-5 lowercase tags.',
+    'Return strictly valid JSON with keys: title, excerpt, body, tags, coverImagePrompt.',
   ].join('\n');
 
   const userMessage = [
     `This week's theme: ${theme}`,
     `Brief: ${brief}`,
-    suppliedCoverImage
-      ? 'A manual cover image URL has been supplied and should be used instead of relying on generated cover art.'
-      : '',
-    storyImageBrief ? `Story images to include in the editorial sequencing:\n${storyImageBrief}` : '',
+    storyImageBrief ? `Story images to sequence into the editorial flow:\n${storyImageBrief}` : '',
+    manualTextPrompt ? `Additional editorial direction from admin:\n${manualTextPrompt}` : '',
+    manualCoverPrompt ? `Use this exact direction for the cover image prompt:\n${manualCoverPrompt}` : '',
     'Compose the journal entry now. Remember to mention Nidhi once, naturally.',
   ]
     .filter(Boolean)
@@ -357,42 +377,84 @@ export async function curateWeeklyJournal(opts: CurateOpts = {}): Promise<Curate
   }
 
   const j = res.json as any;
-  const title = String(j.title || '').trim() || 'Untitled Dispatch';
-  const excerpt = j.excerpt ? String(j.excerpt).trim() : null;
-  const body = String(j.body || '').trim();
+  const title = normalizeString(j.title) || 'Untitled Dispatch';
+  const excerpt = normalizeString(j.excerpt) || null;
+  const body = normalizeString(j.body);
   const tags = Array.isArray(j.tags)
-    ? j.tags
-        .map((t: any) => String(t).toLowerCase().trim())
-        .filter(Boolean)
-        .slice(0, 8)
+    ? j.tags.map((t: any) => String(t).toLowerCase().trim()).filter(Boolean).slice(0, 8)
     : [];
-  const coverImagePrompt = j.coverImagePrompt ? String(j.coverImagePrompt).trim() : null;
+  const coverImagePrompt = manualCoverPrompt || normalizeString(j.coverImagePrompt) || null;
 
   if (!body) {
     throw new Error('OpenAI returned empty body');
   }
 
-  const finalBody = /\bNidhi\b/i.test(body)
-    ? body
-    : `${body}\n\nNidhi sends this dispatch with her thanks.`;
+  return {
+    title,
+    excerpt,
+    body: ensureNidhi(body),
+    tags,
+    coverImagePrompt,
+    theme,
+    seedRef,
+  };
+}
+
+export async function curateWeeklyJournal(opts: CurateOpts = {}): Promise<CuratedDraft> {
+  const suppliedCoverImage = normalizeString(opts.coverImageUrl) || null;
+  const suppliedStoryImages = normalizeStoryImages(opts.storyImages);
+
+  const manualBody = normalizeString(opts.manualBody);
+  const manualTitle = normalizeString(opts.manualTitle);
+  const manualExcerpt = normalizeString(opts.manualExcerpt);
+  const manualTags = normalizeTags(opts.manualTags);
+  const manualCoverPrompt = normalizeString(opts.coverImagePrompt) || null;
+
+  let textResult: JournalTextResult;
+
+  if (manualBody) {
+    const theme = opts.forceTheme || (await pickTheme());
+    const { ref: seedRef } = await pickSeedRef(theme);
+
+    textResult = {
+      title: manualTitle || 'Untitled Dispatch',
+      excerpt: manualExcerpt || null,
+      body: ensureNidhi(manualBody),
+      tags: manualTags,
+      coverImagePrompt: manualCoverPrompt,
+      theme,
+      seedRef,
+    };
+  } else {
+    textResult = await generateJournalText({
+      forceTheme: opts.forceTheme,
+      textPrompt: opts.textPrompt,
+      coverImagePrompt: manualCoverPrompt,
+      storyImages: suppliedStoryImages,
+    });
+
+    if (manualTitle) textResult.title = manualTitle;
+    if (manualExcerpt) textResult.excerpt = manualExcerpt;
+    if (manualTags.length > 0) textResult.tags = manualTags;
+  }
 
   let coverImage: string | null = suppliedCoverImage;
-  if (!coverImage && coverImagePrompt) {
-    coverImage = await generateCoverImage(coverImagePrompt);
+  if (!coverImage && textResult.coverImagePrompt) {
+    coverImage = await generateCoverFromPrompt(textResult.coverImagePrompt);
   }
 
   const approvalToken = generateApprovalToken();
 
   const draft = await prisma.journalDraft.create({
     data: {
-      title,
-      excerpt,
-      body: finalBody,
+      title: textResult.title,
+      excerpt: textResult.excerpt,
+      body: textResult.body,
       coverImage,
-      coverImagePrompt,
-      tags,
-      seedTheme: theme,
-      seedRef: seedRef || null,
+      coverImagePrompt: textResult.coverImagePrompt,
+      tags: textResult.tags,
+      seedTheme: textResult.theme,
+      seedRef: textResult.seedRef || null,
       status: 'PENDING_REVIEW',
       approvalToken,
       createdByCron: !!opts.createdByCron,
@@ -401,24 +463,26 @@ export async function curateWeeklyJournal(opts: CurateOpts = {}): Promise<Curate
   });
 
   await prisma.journalSeedLog.create({
-    data: { theme, seedRef: seedRef || null, draftId: draft.id },
+    data: {
+      theme: textResult.theme,
+      seedRef: textResult.seedRef || null,
+      draftId: draft.id,
+    },
   });
 
   return {
     draftId: draft.id,
-    title,
-    excerpt,
-    body: finalBody,
-    coverImage,
+    title: draft.title,
+    excerpt: draft.excerpt,
+    body: draft.body,
+    coverImage: draft.coverImage,
+    coverImagePrompt: draft.coverImagePrompt,
     approvalToken,
-    theme,
-    seedRef,
+    theme: textResult.theme,
+    seedRef: textResult.seedRef,
     storyImages: suppliedStoryImages,
   };
 }
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Publish helper: copy approved draft into CmsPage and archive the oldest.
 
 const MAX_PUBLISHED_JOURNALS = 12;
 
