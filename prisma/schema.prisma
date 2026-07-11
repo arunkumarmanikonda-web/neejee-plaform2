@@ -2433,6 +2433,7 @@ model JournalDraft {
   reviewedAt       DateTime?
   publishedPageId  String?
   createdByCron    Boolean  @default(false)
+  storyImages      Json?
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
@@ -2456,6 +2457,109 @@ model JournalSeedLog {
   draftId  String?
 
   @@index([usedAt(sort: Desc)])
+}
+
+model EditorialBlock {
+  id          String               @id @default(cuid())
+  slug        String               @unique
+  title       String
+  blockType   String
+  body        String               @db.Text
+  subhead     String?
+  kicker      String?
+  audienceTag String?
+  ctaLabel    String?
+  ctaHref     String?
+  coverImage  String?
+  tags        String[]             @default([])
+  placement   String?
+  status      EditorialBlockStatus @default(DRAFT)
+  previewToken String?             @unique
+  publishedAt DateTime?
+  createdById String?
+  updatedById String?
+  createdAt   DateTime             @default(now())
+  updatedAt   DateTime             @updatedAt
+
+  @@index([status, updatedAt(sort: Desc)])
+  @@index([placement])
+  @@index([audienceTag])
+}
+
+enum EditorialBlockStatus {
+  DRAFT
+  PREVIEW
+  PUBLISHED
+  ARCHIVED
+}
+
+enum ErpQueueEntityType {
+  PRODUCT
+  INVENTORY
+  PRICE
+  SELLER
+  ORDER
+  PURCHASE_ORDER
+}
+
+enum ErpSyncAttemptStatus {
+  QUEUED
+  PROCESSING
+  SUCCEEDED
+  FAILED
+  DEAD_LETTER
+}
+
+enum ErpDeadLetterStatus {
+  OPEN
+  RETRY_SCHEDULED
+  RESOLVED
+  DISCARDED
+}
+
+model ErpSyncAttempt {
+  id            String               @id @default(cuid())
+  entityType    ErpQueueEntityType
+  entityKey     String
+  adapterKind   String
+  action        String
+  status        ErpSyncAttemptStatus @default(QUEUED)
+  attemptNumber Int                  @default(1)
+  maxAttempts   Int                  @default(5)
+  runAfter      DateTime
+  startedAt     DateTime?
+  finishedAt    DateTime?
+  errorCode     String?
+  errorMessage  String?
+  requestPayload Json?
+  meta          Json?
+  deadLetter    ErpDeadLetter?
+  createdAt     DateTime             @default(now())
+  updatedAt     DateTime             @updatedAt
+
+  @@index([status, runAfter])
+  @@index([entityType, entityKey])
+  @@index([createdAt(sort: Desc)])
+}
+
+model ErpDeadLetter {
+  id             String              @id @default(cuid())
+  syncAttemptId  String              @unique
+  syncAttempt    ErpSyncAttempt      @relation(fields: [syncAttemptId], references: [id], onDelete: Cascade)
+  entityType     ErpQueueEntityType
+  entityKey      String
+  status         ErpDeadLetterStatus @default(OPEN)
+  errorCode      String?
+  errorMessage   String
+  resolutionNote String?
+  lastFailedAt   DateTime
+  resolvedAt     DateTime?
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+
+  @@index([status, updatedAt(sort: Desc)])
+  @@index([entityType, entityKey])
+  @@index([lastFailedAt(sort: Desc)])
 }
 
 // ============ SHIPPING CONFIG (v23.32) ============
