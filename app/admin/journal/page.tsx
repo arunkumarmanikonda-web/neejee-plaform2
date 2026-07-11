@@ -11,6 +11,9 @@ import {
   Plus,
   Trash2,
   ImageIcon,
+  Upload,
+  Wand2,
+  FilePenLine,
 } from 'lucide-react';
 
 interface StoryImageInput {
@@ -24,6 +27,7 @@ interface DraftRow {
   title: string;
   excerpt: string | null;
   coverImage: string | null;
+  coverImagePrompt?: string | null;
   tags: string[];
   seedTheme: string | null;
   seedRef: string | null;
@@ -67,15 +71,32 @@ function sanitizeStoryImages(items: StoryImageInput[]): StoryImageInput[] {
     .filter((item) => item.url);
 }
 
+function splitTags(value: string): string[] {
+  return String(value || '')
+    .split(',')
+    .map((t) => t.trim())
+    .filter(Boolean);
+}
+
 export default function AdminJournalPage() {
   const [drafts, setDrafts] = useState<DraftRow[]>([]);
   const [loading, setLoading] = useState(true);
-  const [generating, setGenerating] = useState(false);
+  const [busy, setBusy] = useState(false);
+
   const [theme, setTheme] = useState('');
+  const [textPrompt, setTextPrompt] = useState('');
+  const [coverImagePrompt, setCoverImagePrompt] = useState('');
   const [coverImageUrl, setCoverImageUrl] = useState('');
+
   const [storyImages, setStoryImages] = useState<StoryImageInput[]>([
     emptyStoryImage(),
   ]);
+
+  const [manualTitle, setManualTitle] = useState('');
+  const [manualExcerpt, setManualExcerpt] = useState('');
+  const [manualBody, setManualBody] = useState('');
+  const [manualTags, setManualTags] = useState('');
+
   const [error, setError] = useState('');
   const [info, setInfo] = useState('');
 
@@ -89,7 +110,9 @@ export default function AdminJournalPage() {
     setError('');
 
     try {
-      const res = await fetch('/api/admin/journal/drafts', { credentials: 'include' });
+      const res = await fetch('/api/admin/journal/drafts', {
+        credentials: 'include',
+      });
       const data = await res.json();
 
       if (!res.ok) {
@@ -98,7 +121,7 @@ export default function AdminJournalPage() {
 
       setDrafts(data.drafts || []);
     } catch (e: any) {
-      setError(e.message);
+      setError(e.message || 'Failed to load');
     } finally {
       setLoading(false);
     }
@@ -108,7 +131,11 @@ export default function AdminJournalPage() {
     load();
   }, []);
 
-  function updateStoryImage(index: number, key: keyof StoryImageInput, value: string) {
+  function updateStoryImage(
+    index: number,
+    key: keyof StoryImageInput,
+    value: string
+  ) {
     setStoryImages((current) =>
       current.map((item, i) => (i === index ? { ...item, [key]: value } : item))
     );
@@ -125,59 +152,198 @@ export default function AdminJournalPage() {
     });
   }
 
-  async function generateNow() {
-    setGenerating(true);
+  async function uploadImage(file: File): Promise<string> {
+    const form = new FormData();
+    form.append('file', file);
+    form.append('folder', 'journal');
+
+    const res = await fetch('/api/admin/upload', {
+      method: 'POST',
+      credentials: 'include',
+      body: form,
+    });
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      throw new Error(data.error || 'Upload failed');
+    }
+
+    const url = data?.files?.[0]?.url;
+    if (!url) {
+      throw new Error('Upload returned no URL');
+    }
+
+    return url;
+  }
+
+  async function onCoverUpload(file: File | null) {
+    if (!file) return;
+
+    setBusy(true);
     setError('');
     setInfo('');
 
     try {
-      const payload: any = {};
+      const url = await uploadImage(file);
+      setCoverImageUrl(url);
+      setInfo('Cover image uploaded.');
+    } catch (e: any) {
+      setError(e.message || 'Upload failed');
+    } finally {
+      setBusy(false);
+    }
+  }
 
-      if (theme) payload.theme = theme;
-      if (coverImageUrl.trim()) payload.coverImageUrl = coverImageUrl.trim();
-      if (cleanedStoryImages.length > 0) payload.storyImages = cleanedStoryImages;
+  async function onStoryUpload(index: number, file: File | null) {
+    if (!file) return;
 
-      const res = await fetch('/api/admin/journal/drafts', {
+    setBusy(true);
+    setError('');
+    setInfo('');
+
+    try {
+      const url = await uploadImage(file);
+      updateStoryImage(index, 'url', url);
+      setInfo(`Story image ${index + 1} uploaded.`);
+    } catch (e: any) {
+      setError(e.message || 'Upload failed');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function generateTextOnly() {
+    setBusy(true);
+    setError('');
+    setInfo('');
+
+    try {
+      const res = await fetch('/api/admin/journal/generate-text', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify(payload),
+        body: JSON.stringify({
+          theme: theme || undefined,
+          textPrompt,
+          coverImagePrompt,
+          storyImages: cleanedStoryImages,
+        }),
       });
 
       const data = await res.json();
 
       if (!res.ok) {
-        throw new Error(data.error || 'Generate failed');
+        throw new Error(data.error || 'Text generation failed');
+      }
+
+      const result = data.result || {};
+
+      setManualTitle(String(result.title || ''));
+      setManualExcerpt(String(result.excerpt || ''));
+      setManualBody(String(result.body || ''));
+      setManualTags(Array.isArray(result.tags) ? result.tags.join(', ') : '');
+      setCoverImagePrompt(String(result.coverImagePrompt || coverImagePrompt || ''));
+      setInfo('Generated text loaded into manual fields.');
+    } catch (e: any) {
+      setError(e.message || 'Text generation failed');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function generateCoverOnly() {
+    setBusy(true);
+    setError('');
+    setInfo('');
+
+    try {
+      const prompt = coverImagePrompt.trim();
+      if (!prompt) {
+        throw new Error('Enter a cover image prompt first.');
+      }
+
+      const res = await fetch('/api/admin/journal/generate-cover', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ prompt }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || 'Cover generation failed');
+      }
+
+      setCoverImageUrl(String(data.imageUrl || ''));
+      setInfo('Cover image generated.');
+    } catch (e: any) {
+      setError(e.message || 'Cover generation failed');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function createDraft() {
+    setBusy(true);
+    setError('');
+    setInfo('');
+
+    try {
+      const res = await fetch('/api/admin/journal/drafts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          theme: theme || undefined,
+          textPrompt,
+          coverImagePrompt,
+          coverImageUrl: coverImageUrl.trim() || undefined,
+          storyImages: cleanedStoryImages,
+          manualTitle: manualTitle.trim() || undefined,
+          manualExcerpt: manualExcerpt.trim() || undefined,
+          manualBody: manualBody.trim() || undefined,
+          manualTags: splitTags(manualTags),
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || 'Draft creation failed');
       }
 
       setInfo(
-        `✓ New draft created: "${data.draft.title}". Email sent to ${data.email?.sent ?? 0} reviewer(s).`
+        `✓ Draft created: "${data.draft.title}". Email sent to ${data.email?.sent ?? 0} reviewer(s).`
       );
 
       await load();
     } catch (e: any) {
-      setError(e.message);
+      setError(e.message || 'Draft creation failed');
     } finally {
-      setGenerating(false);
+      setBusy(false);
     }
   }
 
   return (
     <div className="max-w-7xl mx-auto px-6 py-8">
-      <div className="grid xl:grid-cols-[1.3fr_1fr] gap-6 mb-6">
+      <div className="grid xl:grid-cols-[1.25fr_1fr] gap-6 mb-6">
         <div>
           <p className="label text-madder mb-1">CONTENT · WEEKLY JOURNAL</p>
-          <h1 className="font-serif text-3xl text-kohl">The Journal · auto-curation</h1>
-          <p className="font-italic italic text-mitti mt-1">
-            A new draft is generated every Monday at 09:00 IST and emailed to Nidhi and admins for review.
-            Nothing publishes without approval.
+          <h1 className="font-serif text-3xl text-kohl">
+            The Journal · editorial generation
+          </h1>
+          <p className="italic text-mitti mt-1">
+            Auto-generate, prompt-guide, upload images, type manually, then review
+            before publish.
           </p>
         </div>
 
         <div className="border border-mitti/20 bg-ivory p-4 space-y-4">
           <div className="flex items-center justify-between">
-            <p className="label text-madder">MANUAL GENERATION</p>
-            <p className="text-[11px] text-mitti">~60–120 s</p>
+            <p className="label text-madder">CREATE OR GUIDE A DRAFT</p>
+            <p className="text-[11px] text-mitti">text + image + manual</p>
           </div>
 
           <div>
@@ -185,7 +351,7 @@ export default function AdminJournalPage() {
             <select
               value={theme}
               onChange={(e) => setTheme(e.target.value)}
-              disabled={generating}
+              disabled={busy}
               className="w-full border border-mitti/30 bg-ivory p-2 text-sm font-ui"
             >
               {THEMES.map((t) => (
@@ -197,7 +363,32 @@ export default function AdminJournalPage() {
           </div>
 
           <div>
+            <label className="label text-mitti">TEXT PROMPT</label>
+            <textarea
+              value={textPrompt}
+              onChange={(e) => setTextPrompt(e.target.value)}
+              rows={4}
+              disabled={busy}
+              placeholder="Optional editorial direction for tone, angle, product focus, founder note, sequencing..."
+              className="w-full p-2 bg-ivory border border-mitti/20 text-sm"
+            />
+          </div>
+
+          <div>
+            <label className="label text-mitti">COVER IMAGE PROMPT</label>
+            <textarea
+              value={coverImagePrompt}
+              onChange={(e) => setCoverImagePrompt(e.target.value)}
+              rows={3}
+              disabled={busy}
+              placeholder="Optional direct art direction for the cover image"
+              className="w-full p-2 bg-ivory border border-mitti/20 text-sm"
+            />
+          </div>
+
+          <div>
             <label className="label text-mitti">MANUAL COVER IMAGE URL</label>
+
             {coverImageUrl ? (
               <img
                 src={coverImageUrl}
@@ -206,19 +397,28 @@ export default function AdminJournalPage() {
               />
             ) : (
               <div className="w-full aspect-video border border-dashed border-mitti/20 bg-beige flex items-center justify-center text-mitti text-sm mb-2">
-                No manual cover supplied
+                No cover yet
               </div>
             )}
+
             <input
               value={coverImageUrl}
               onChange={(e) => setCoverImageUrl(e.target.value)}
-              disabled={generating}
+              disabled={busy}
               placeholder="https://..."
               className="w-full p-2 bg-ivory border border-mitti/20 text-xs font-mono"
             />
-            <p className="text-[11px] text-mitti mt-1">
-              Leave blank to let the system generate the cover image automatically.
-            </p>
+
+            <label className="mt-2 inline-flex items-center gap-2 text-xs text-madder cursor-pointer">
+              <Upload className="w-4 h-4" />
+              Upload cover image
+              <input
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={(e) => onCoverUpload(e.target.files?.[0] || null)}
+              />
+            </label>
           </div>
 
           <div className="space-y-3">
@@ -227,7 +427,7 @@ export default function AdminJournalPage() {
               <button
                 type="button"
                 onClick={addStoryImage}
-                disabled={generating}
+                disabled={busy}
                 className="text-xs font-ui text-madder hover:underline inline-flex items-center gap-1"
               >
                 <Plus className="w-3 h-3" /> ADD IMAGE
@@ -235,15 +435,19 @@ export default function AdminJournalPage() {
             </div>
 
             {storyImages.map((item, index) => (
-              <div key={index} className="border border-mitti/15 bg-beige p-3 space-y-2">
+              <div
+                key={index}
+                className="border border-mitti/15 bg-beige p-3 space-y-2"
+              >
                 <div className="flex items-center justify-between">
                   <p className="text-[11px] tracking-widest text-mitti font-ui">
                     IMAGE {index + 1}
                   </p>
+
                   <button
                     type="button"
                     onClick={() => removeStoryImage(index)}
-                    disabled={generating}
+                    disabled={busy}
                     className="text-xs font-ui text-kohl hover:text-madder inline-flex items-center gap-1"
                   >
                     <Trash2 className="w-3 h-3" /> REMOVE
@@ -259,22 +463,24 @@ export default function AdminJournalPage() {
                 ) : (
                   <div className="w-full aspect-video border border-dashed border-mitti/20 bg-ivory flex items-center justify-center text-mitti text-sm">
                     <ImageIcon className="w-4 h-4 mr-2" />
-                    No image URL
+                    No image yet
                   </div>
                 )}
 
                 <input
                   value={item.url}
                   onChange={(e) => updateStoryImage(index, 'url', e.target.value)}
-                  disabled={generating}
+                  disabled={busy}
                   placeholder="Image URL"
                   className="w-full p-2 bg-ivory border border-mitti/20 text-xs font-mono"
                 />
 
                 <input
                   value={item.caption}
-                  onChange={(e) => updateStoryImage(index, 'caption', e.target.value)}
-                  disabled={generating}
+                  onChange={(e) =>
+                    updateStoryImage(index, 'caption', e.target.value)
+                  }
+                  disabled={busy}
                   placeholder="Caption"
                   className="w-full p-2 bg-ivory border border-mitti/20 text-sm"
                 />
@@ -282,37 +488,114 @@ export default function AdminJournalPage() {
                 <input
                   value={item.alt}
                   onChange={(e) => updateStoryImage(index, 'alt', e.target.value)}
-                  disabled={generating}
+                  disabled={busy}
                   placeholder="Alt text"
                   className="w-full p-2 bg-ivory border border-mitti/20 text-sm"
                 />
+
+                <label className="inline-flex items-center gap-2 text-xs text-madder cursor-pointer">
+                  <Upload className="w-4 h-4" />
+                  Upload image
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => onStoryUpload(index, e.target.files?.[0] || null)}
+                  />
+                </label>
               </div>
             ))}
+          </div>
 
-            <p className="text-[11px] text-mitti">
-              These images are stored on the draft and carried into the published journal entry.
-            </p>
+          <div className="border-t border-mitti/15 pt-4 space-y-3">
+            <p className="label text-madder">MANUAL TEXT OVERRIDE</p>
+
+            <input
+              value={manualTitle}
+              onChange={(e) => setManualTitle(e.target.value)}
+              disabled={busy}
+              placeholder="Title"
+              className="w-full p-2 bg-ivory border border-mitti/20 font-serif"
+            />
+
+            <textarea
+              value={manualExcerpt}
+              onChange={(e) => setManualExcerpt(e.target.value)}
+              disabled={busy}
+              rows={3}
+              placeholder="Excerpt"
+              className="w-full p-2 bg-ivory border border-mitti/20 italic"
+            />
+
+            <textarea
+              value={manualBody}
+              onChange={(e) => setManualBody(e.target.value)}
+              disabled={busy}
+              rows={10}
+              placeholder="Body — type manually here, or click Generate Text first and edit the result"
+              className="w-full p-2 bg-ivory border border-mitti/20 font-serif leading-relaxed"
+            />
+
+            <input
+              value={manualTags}
+              onChange={(e) => setManualTags(e.target.value)}
+              disabled={busy}
+              placeholder="tags, comma, separated"
+              className="w-full p-2 bg-ivory border border-mitti/20"
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              onClick={generateTextOnly}
+              disabled={busy}
+              className="border border-kohl text-kohl px-4 py-3 font-ui text-xs tracking-widest hover:bg-kohl hover:text-ivory disabled:opacity-50 inline-flex items-center justify-center gap-2"
+            >
+              {busy ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <FilePenLine className="w-4 h-4" />
+              )}
+              GENERATE TEXT
+            </button>
+
+            <button
+              onClick={generateCoverOnly}
+              disabled={busy}
+              className="border border-kohl text-kohl px-4 py-3 font-ui text-xs tracking-widest hover:bg-kohl hover:text-ivory disabled:opacity-50 inline-flex items-center justify-center gap-2"
+            >
+              {busy ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Wand2 className="w-4 h-4" />
+              )}
+              GENERATE COVER
+            </button>
           </div>
 
           <button
-            onClick={generateNow}
-            disabled={generating}
+            onClick={createDraft}
+            disabled={busy}
             className="w-full bg-madder text-ivory px-5 py-3 font-ui text-xs tracking-widest hover:bg-kohl transition-colors disabled:opacity-50 inline-flex items-center justify-center gap-2"
           >
-            {generating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-            {generating ? 'GENERATING...' : 'GENERATE NOW'}
+            {busy ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <Sparkles className="w-4 h-4" />
+            )}
+            CREATE DRAFT
           </button>
         </div>
       </div>
 
       {error && (
-        <div className="border border-madder bg-madder/10 text-madder p-3 mb-4 font-ui text-sm">
+        <div className="border border-madder bg-madder/10 text-madder p-3 mb-4 text-sm">
           {error}
         </div>
       )}
 
       {info && (
-        <div className="border border-emerald-500 bg-emerald-50 text-emerald-700 p-3 mb-4 font-ui text-sm">
+        <div className="border border-emerald-500 bg-emerald-50 text-emerald-700 p-3 mb-4 text-sm">
           {info}
         </div>
       )}
@@ -322,9 +605,7 @@ export default function AdminJournalPage() {
       ) : drafts.length === 0 ? (
         <div className="border border-mitti/20 bg-beige p-8 text-center">
           <FileText className="w-10 h-10 text-mitti mx-auto mb-3" />
-          <p className="text-kohl">
-            No drafts yet. Click <strong>GENERATE NOW</strong> to create the first one.
-          </p>
+          <p className="text-kohl">No drafts yet. Create the first one above.</p>
         </div>
       ) : (
         <div className="grid lg:grid-cols-2 gap-4">
@@ -345,18 +626,28 @@ export default function AdminJournalPage() {
 
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-1 flex-wrap">
-                    <span className={`px-2 py-0.5 text-[10px] font-ui tracking-widest ${STATUS_COLOURS[d.status]}`}>
+                    <span
+                      className={`px-2 py-0.5 text-[10px] font-ui tracking-widest ${STATUS_COLOURS[d.status]}`}
+                    >
                       {d.status}
                     </span>
+
                     {d.createdByCron && (
-                      <span className="text-[10px] text-mitti font-ui tracking-widest">CRON</span>
+                      <span className="text-[10px] text-mitti font-ui tracking-widest">
+                        CRON
+                      </span>
                     )}
+
                     {d.seedTheme && (
-                      <span className="text-[10px] text-mitti font-ui">· {d.seedTheme}</span>
+                      <span className="text-[10px] text-mitti font-ui">
+                        · {d.seedTheme}
+                      </span>
                     )}
+
                     {Array.isArray(d.storyImages) && d.storyImages.length > 0 && (
                       <span className="text-[10px] text-mitti font-ui">
-                        · {d.storyImages.length} story image{d.storyImages.length === 1 ? '' : 's'}
+                        · {d.storyImages.length} story image
+                        {d.storyImages.length === 1 ? '' : 's'}
                       </span>
                     )}
                   </div>
@@ -369,7 +660,8 @@ export default function AdminJournalPage() {
 
                   <p className="text-[11px] text-mitti mt-2">
                     Created {new Date(d.createdAt).toLocaleDateString()}
-                    {d.reviewedAt && ` · Reviewed ${new Date(d.reviewedAt).toLocaleDateString()}`}
+                    {d.reviewedAt &&
+                      ` · Reviewed ${new Date(d.reviewedAt).toLocaleDateString()}`}
                   </p>
 
                   <div className="flex gap-2 mt-3">
@@ -382,7 +674,7 @@ export default function AdminJournalPage() {
 
                     {d.publishedPageId && (
                       <a
-                        href={`/journal`}
+                        href="/journal"
                         target="_blank"
                         rel="noreferrer"
                         className="text-xs font-ui text-kohl hover:underline inline-flex items-center gap-1"
