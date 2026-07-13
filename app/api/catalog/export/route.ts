@@ -29,7 +29,10 @@ function asStringArray(value: unknown): string[] {
     return value.map((item) => asString(item)).filter(Boolean);
   }
   if (typeof value === 'string') {
-    return value.split(',').map((item) => item.trim()).filter(Boolean);
+    return value
+      .split(',')
+      .map((item) => item.trim())
+      .filter(Boolean);
   }
   return [];
 }
@@ -66,9 +69,6 @@ function buildProductSelect() {
     shortName: true,
     poeticLine: true,
     description: true,
-    shortDescription: true,
-    summary: true,
-    excerpt: true,
     craft: true,
     region: true,
     state: true,
@@ -181,7 +181,9 @@ function matchesCategory(
   categoryPath: string
 ): boolean {
   if (categorySlug) {
-    const lineage = Array.isArray(read?.hierarchy?.lineage) ? read.hierarchy.lineage : [];
+    const lineage = Array.isArray(read?.hierarchy?.lineage)
+      ? read.hierarchy.lineage
+      : [];
     const matchedLineage = lineage.some((node: any) => node?.slug === categorySlug);
     return matchedLineage || read?.category?.slug === categorySlug;
   }
