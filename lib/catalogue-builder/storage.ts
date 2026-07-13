@@ -1,4 +1,4 @@
-import { prisma } from '@/lib/prisma';
+﻿import { prisma } from '@/lib/prisma';
 import { slugify } from '@/lib/utils';
 import {
   CatalogueBuilderProduct,
@@ -271,13 +271,12 @@ export async function loadCatalogueProducts(productIds: string[]): Promise<Catal
       mrp: true,
       sellingPrice: true,
       salePrice: true,
-      image: true,
+      cataloguePreferredImage: true,
       images: true,
       catalogueFeatured: true,
       cataloguePinHero: true,
       catalogueExclude: true,
       catalogueAudienceTag: true,
-      cataloguePreferredImage: true,
       category: {
         select: {
           name: true,
@@ -345,3 +344,5 @@ export async function getCatalogueProject(idOrSlug: string): Promise<CataloguePr
     products,
   };
 }
+
+
