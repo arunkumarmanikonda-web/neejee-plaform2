@@ -108,6 +108,7 @@ const NAV_GROUPS: NavGroup[] = [
     label: 'CATALOG',
     items: [
       { href: '/admin/products', label: 'Products', icon: Package },
+      { href: '/admin/catalogues', label: 'Catalogues', icon: BookOpen },
       { href: '/admin/categories', label: 'Categories', icon: TagIcon },
       { href: '/admin/crafts', label: 'Crafts', icon: Sparkles },
       { href: '/admin/ai-photo-studio', label: 'AI Photo Studio', icon: Camera },
@@ -250,12 +251,8 @@ export default async function AdminLayout({
         <div className="pt-6 border-t border-mitti/30 mt-6">
           <p className="label text-banarasi">SIGNED IN AS</p>
           <p className="font-italic italic text-beige mt-1 truncate">{displayName}</p>
-          <p className="font-ui text-[10px] text-beige/60 tracking-widest mt-1">
-            {roleLabel}
-          </p>
-          <p className="font-ui text-[10px] text-beige/40 tracking-widest mt-1 truncate">
-            {user.email}
-          </p>
+          <p className="font-ui text-[10px] text-beige/60 tracking-widest mt-1">{roleLabel}</p>
+          <p className="font-ui text-[10px] text-beige/40 tracking-widest mt-1 truncate">{user.email}</p>
           {!canSeeFinance && (
             <p className="font-ui text-[10px] text-haldi tracking-wider mt-2 leading-relaxed">
               Finance tools are hidden for this role.
