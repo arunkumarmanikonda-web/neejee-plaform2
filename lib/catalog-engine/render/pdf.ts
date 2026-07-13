@@ -1,5 +1,12 @@
 import type { PremiumCatalogueTemplateBlock } from '../templates';
 import type { PremiumCatalogueRenderContext } from './contracts';
+import {
+  buildFounderEndingNote,
+  buildFounderEndingQuote,
+  buildFounderPreNote,
+  buildFounderPreQuote,
+  buildNeejeeInsight,
+} from '../neejee-founder-copy';
 
 function escapePdfText(value: string): string {
   return value.replace(/\\/g, '\\\\').replace(/\(/g, '\\(').replace(/\)/g, '\\)');
@@ -35,13 +42,15 @@ function blockLines(block: PremiumCatalogueTemplateBlock): string[] {
   ];
 
   for (const product of block.products) {
-    const price = typeof product.pricing.effectivePrice === 'number'
-      ? `${product.pricing.currency || 'INR'} ${product.pricing.effectivePrice}`
-      : 'Price on request';
+    const price =
+      typeof product.pricing.effectivePrice === 'number'
+        ? `${product.pricing.currency || 'INR'} ${product.pricing.effectivePrice}`
+        : 'Price on request';
 
     lines.push(`• ${product.name} — ${price}`);
     if (product.categoryPath) lines.push(`  Category: ${product.categoryPath}`);
     if (product.poeticLine) lines.push(...wrapLine(`  ${product.poeticLine}`));
+    if (product.badges?.length) lines.push(...wrapLine(`  Badges: ${product.badges.join(', ')}`));
   }
 
   if (Object.keys(block.meta || {}).length > 0) {
@@ -57,7 +66,46 @@ function blockLines(block: PremiumCatalogueTemplateBlock): string[] {
   return lines;
 }
 
-function buildDocumentLines(context: PremiumCatalogueRenderContext): string[] {
+function buildLuxuryFounderLines(context: PremiumCatalogueRenderContext): string[] {
+  const { engineOutput, template } = context;
+  const founderName = 'Nidhi Chauhan';
+  const hero = engineOutput.heroProduct || engineOutput.products[0] || null;
+  const lines: string[] = [];
+
+  lines.push(template.title || 'Neejee Luxury Catalogue');
+  lines.push(`Template: ${template.templateKey}`);
+  lines.push(`Generated: ${template.generatedAt}`);
+  lines.push(`Founder: ${founderName}`);
+  lines.push(`Products: ${engineOutput.products.length}`);
+  if (hero?.identity?.name) lines.push(`Lead product: ${hero.identity.name}`);
+  lines.push('');
+
+  lines.push('Founder Pre-Note');
+  lines.push(...wrapLine(buildFounderPreNote(engineOutput, founderName)));
+  lines.push(...wrapLine(buildFounderPreQuote(engineOutput, founderName)));
+  lines.push('');
+
+  engineOutput.products.forEach((product, index) => {
+    lines.push(`Product ${index + 1}: ${product.identity.name}`);
+    lines.push(...wrapLine(product.identity.poeticLine || product.identity.description || ''));
+    lines.push(...wrapLine(buildNeejeeInsight(product)));
+    lines.push('');
+  });
+
+  lines.push('Founder Ending Note');
+  lines.push(...wrapLine(buildFounderEndingNote(engineOutput, founderName)));
+  lines.push(...wrapLine(buildFounderEndingQuote(engineOutput, founderName)));
+  lines.push('');
+
+  template.blocks.forEach((block, index) => {
+    lines.push(`${index + 1}. ${block.title}`);
+    lines.push(...blockLines(block));
+  });
+
+  return lines;
+}
+
+function buildDefaultDocumentLines(context: PremiumCatalogueRenderContext): string[] {
   const { engineOutput, template } = context;
   const lines: string[] = [];
 
@@ -70,7 +118,11 @@ function buildDocumentLines(context: PremiumCatalogueRenderContext): string[] {
     lines.push(`Cover hero: ${engineOutput.heroProduct.identity.name}`);
   }
   if (engineOutput.heroProduct?.media?.preferredImage || engineOutput.heroProduct?.media?.primaryImage) {
-    lines.push(`Cover image URL: ${engineOutput.heroProduct.media.preferredImage || engineOutput.heroProduct.media.primaryImage}`);
+    lines.push(
+      `Cover image URL: ${
+        engineOutput.heroProduct.media.preferredImage || engineOutput.heroProduct.media.primaryImage
+      }`
+    );
   }
   lines.push('');
   lines.push('Table of contents');
@@ -115,7 +167,9 @@ function buildPdfBufferFromPages(pages: string[][]): Buffer {
     objects[contentObjectNumber - 1] = `<< /Length ${Buffer.byteLength(stream, 'utf8')} >>\nstream\n${stream}\nendstream`;
   }
 
-  objects[1] = `<< /Type /Pages /Kids [${pageObjectNumbers.map((n) => `${n} 0 R`).join(' ')}] /Count ${pages.length} >>`;
+  objects[1] = `<< /Type /Pages /Kids [${pageObjectNumbers
+    .map((n) => `${n} 0 R`)
+    .join(' ')}] /Count ${pages.length} >>`;
 
   let pdf = '%PDF-1.4\n';
   const offsets: number[] = [0];
@@ -137,7 +191,11 @@ function buildPdfBufferFromPages(pages: string[][]): Buffer {
 }
 
 export function renderPremiumCataloguePdfBuffer(context: PremiumCatalogueRenderContext): Buffer {
-  const allLines = buildDocumentLines(context);
+  const allLines =
+    context.template.templateKey === 'luxury_signature'
+      ? buildLuxuryFounderLines(context)
+      : buildDefaultDocumentLines(context);
+
   const pageSize = 42;
   const pages: string[][] = [];
 

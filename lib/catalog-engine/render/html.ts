@@ -1,5 +1,6 @@
 import type { PremiumCatalogueTemplateBlock } from '../templates';
 import type { PremiumCatalogueRenderContext } from './contracts';
+import { renderNeejeeFounderLuxuryCatalogueHtmlDocument } from '../neejee-founder-renderer';
 
 function escapeHtml(value: unknown): string {
   return String(value ?? '')
@@ -11,11 +12,13 @@ function escapeHtml(value: unknown): string {
 }
 
 function slugify(value: string): string {
-  return value
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '') || 'premium-catalogue';
+  return (
+    value
+      .toLowerCase()
+      .trim()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '') || 'premium-catalogue'
+  );
 }
 
 function money(value: number | null | undefined, currency: string | null | undefined): string {
@@ -70,7 +73,12 @@ function renderBlock(block: PremiumCatalogueTemplateBlock, index: number): strin
   const products = block.products.map(renderProductCard).join('');
   const meta = Object.entries(block.meta || {})
     .filter(([, value]) => value !== null && value !== '' && value !== false)
-    .map(([key, value]) => `<li><strong>${escapeHtml(key)}</strong>: ${escapeHtml(Array.isArray(value) ? value.join(', ') : value)}</li>`)
+    .map(
+      ([key, value]) =>
+        `<li><strong>${escapeHtml(key)}</strong>: ${escapeHtml(
+          Array.isArray(value) ? value.join(', ') : value
+        )}</li>`
+    )
     .join('');
 
   return `<section id="section-${index + 1}" class="block block-${escapeHtml(block.kind)}">
@@ -91,14 +99,28 @@ export function buildPremiumCatalogueFileBaseName(context: PremiumCatalogueRende
 
 export function renderPremiumCatalogueHtmlDocument(context: PremiumCatalogueRenderContext): string {
   const { engineOutput, template } = context;
+
+  if (template.templateKey === 'luxury_signature') {
+    return renderNeejeeFounderLuxuryCatalogueHtmlDocument(engineOutput, {
+      founderName: 'Nidhi Chauhan',
+      brandName: 'Neejee',
+      includeFounderNotes: true,
+      template,
+    });
+  }
+
   const title = template.title || engineOutput.brief.title || 'Premium Catalogue';
-  const coverImage = engineOutput.heroProduct?.media?.preferredImage
-    ?? engineOutput.heroProduct?.media?.approvedPrimaryImage
-    ?? engineOutput.heroProduct?.media?.primaryImage
-    ?? null;
+  const coverImage =
+    engineOutput.heroProduct?.media?.preferredImage ??
+    engineOutput.heroProduct?.media?.approvedPrimaryImage ??
+    engineOutput.heroProduct?.media?.primaryImage ??
+    null;
 
   const toc = template.blocks
-    .map((block, index) => `<li><a href="#section-${index + 1}">${index + 1}. ${escapeHtml(block.title)}</a></li>`)
+    .map(
+      (block, index) =>
+        `<li><a href="#section-${index + 1}">${index + 1}. ${escapeHtml(block.title)}</a></li>`
+    )
     .join('');
 
   return `<!doctype html>
@@ -257,7 +279,11 @@ export function renderPremiumCatalogueHtmlDocument(context: PremiumCatalogueRend
       <div class="cover-copy">
         <div class="cover-kicker">Neejee premium catalogue export</div>
         <h1>${escapeHtml(title)}</h1>
-        <p>${escapeHtml(engineOutput.heroProduct?.catalogue?.storyBlock || template.blocks[0]?.body || 'A deterministic premium catalogue assembled from the live read model and template engine.')}</p>
+        <p>${escapeHtml(
+          engineOutput.heroProduct?.catalogue?.storyBlock ||
+            template.blocks[0]?.body ||
+            'A deterministic premium catalogue assembled from the live read model and template engine.'
+        )}</p>
         <div class="cover-stats">
           <div class="stat"><strong>Generated</strong><br/>${escapeHtml(template.generatedAt)}</div>
           <div class="stat"><strong>Template</strong><br/>${escapeHtml(template.templateKey)}</div>
