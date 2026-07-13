@@ -9,43 +9,17 @@ out/
 .env
 .env.*
 !.env.example
+.env.local
+.env.*.local
 
 # local backups / generated junk
 *.bak_*
+*.bak
+*.zip
+_backup_*/
 auth-secret-backup.txt
 tree-full.json
 tree-visible.json
-
-*.zip
-_backup_*/
-*.bak
-
-
-.env.local
-
-.env.*.local
-
-
-
-
-
-
-_phase0/*
-
-
-_phase0/env/*
-
-
-_phase0/*
-
-_phase0_should_not_exist_ignore_guard
-
-_phase0_should_not_exist_ignore_guard_2
-
-_phase0_fix_dummy
-
-_phase0/*
-_phase0/env/*
 
 # Phase 0 / Phase 1 generated artifacts
 _phase0/*

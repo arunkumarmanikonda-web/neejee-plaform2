@@ -74,6 +74,8 @@ export type VerifyOtpResult =
         | 'max_attempts';
     };
 
+type Fast2SmsTemplateKind = 'login' | 'admin';
+
 export class OtpError extends Error {
   code: string;
   status: number;
@@ -199,6 +201,33 @@ function getFast2SmsApiKey() {
   ).trim();
 }
 
+function getFast2SmsTemplateKindForPurpose(
+  purpose: OtpPurpose,
+): Fast2SmsTemplateKind {
+  switch (purpose) {
+    case 'admin_2fa':
+      return 'admin';
+    case 'login':
+    case 'signup':
+    case 'signup_customer':
+    case 'checkout_guest':
+    case 'change_phone':
+    default:
+      return 'login';
+  }
+}
+
+/**
+ * Fast2SMS DLT mapping
+ *
+ * Current approved intent:
+ * - admin_2fa -> FAST2SMS_DLT_ADMIN_MESSAGE_ID
+ * - login / signup / signup_customer / checkout_guest / change_phone
+ *   -> FAST2SMS_DLT_LOGIN_MESSAGE_ID
+ *
+ * If dedicated DLT templates are approved later for signup / checkout /
+ * change-phone, extend the mapping here without changing request/verify APIs.
+ */
 function getFast2SmsDltConfig(purpose: OtpPurpose) {
   const senderId = (
     process.env.FAST2SMS_DLT_SENDER_ID ||
@@ -215,12 +244,15 @@ function getFast2SmsDltConfig(purpose: OtpPurpose) {
     loginMessageId
   ).trim();
 
-  const messageId = purpose === 'admin_2fa' ? adminMessageId : loginMessageId;
+  const templateKind = getFast2SmsTemplateKindForPurpose(purpose);
+  const messageId =
+    templateKind === 'admin' ? adminMessageId : loginMessageId;
 
   return {
     senderId,
     messageId,
     route: 'dlt' as const,
+    templateKind,
   };
 }
 
@@ -271,9 +303,7 @@ async function sendOtpSmsInternal(args: {
 
   if (!apiKey) {
     if (process.env.NODE_ENV !== 'production') {
-      console.log(
-        `[otp:dev] ${purpose} OTP for ${phone}: ${code}`,
-      );
+      console.log(`[otp:dev] ${purpose} OTP for ${phone}: ${code}`);
       return;
     }
 
