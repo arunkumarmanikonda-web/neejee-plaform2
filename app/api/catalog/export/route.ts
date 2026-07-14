@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+﻿import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getSession, requireRole } from '@/lib/auth';
 import {
@@ -278,7 +278,7 @@ async function handleExport(input: any) {
   );
   const baseName = buildPremiumCatalogueFileBaseName({ engineOutput, template });
   const html = renderPremiumCatalogueHtmlDocument({ engineOutput, template });
-  const pdf = renderPremiumCataloguePdfBuffer({ engineOutput, template });
+  const pdf = await renderPremiumCataloguePdfBuffer({ engineOutput, template });
 
   const manifest = {
     version: 'phase2.catalogue-export.v1',
@@ -304,7 +304,14 @@ async function handleExport(input: any) {
   }
 
   if (format === 'pdf') {
-    return new NextResponse(new Uint8Array(pdf), {
+    const pdfStream = new ReadableStream({
+      start(controller) {
+        controller.enqueue(Uint8Array.from(pdf));
+        controller.close();
+      },
+    });
+
+    return new NextResponse(pdfStream, {
       status: 200,
       headers: {
         'Content-Type': 'application/pdf',
@@ -375,3 +382,7 @@ export async function GET(req: NextRequest) {
     );
   }
 }
+
+
+
+
