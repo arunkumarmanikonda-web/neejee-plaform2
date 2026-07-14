@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
@@ -31,6 +31,9 @@ type SellerRow = {
   hasBank: boolean;
   hasPortfolio: boolean;
   hasUserAccount: boolean;
+  phoneVerified: boolean;
+  emailVerified: boolean;
+  autoKycPassed: boolean;
   canActivate: boolean;
 };
 
@@ -244,6 +247,9 @@ export default function SellerOnboardingPage() {
                             <Gate ok={seller.hasGstin} label="GSTIN" />
                             <Gate ok={seller.hasPortfolio} label="Portfolio" />
                             <Gate ok={seller.hasUserAccount} label="User" />
+                            <Gate ok={seller.phoneVerified} label="Phone OTP" />
+                            <Gate ok={seller.emailVerified} label="Email OTP" />
+                            <Gate ok={seller.autoKycPassed} label="Auto KYC" />
                           </div>
                         </td>
                         <td className="px-3 py-3 text-xs text-mitti">{fmtDate(seller.createdAt)}</td>

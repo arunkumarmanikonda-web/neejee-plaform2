@@ -1,4 +1,4 @@
-﻿import { NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getSession, requireRole } from '@/lib/auth';
 
@@ -21,7 +21,7 @@ export async function GET() {
       sellerCountsRaw,
       inventoryCountsRaw,
       pendingChangeRequestCount,
-      pendingSellers,
+      sellerRowsRaw,
       pendingChangeRequests,
       inventoryQueue,
     ] = await Promise.all([
@@ -44,24 +44,13 @@ export async function GET() {
         },
         orderBy: { createdAt: 'desc' },
         take: 12,
-        select: {
-          id: true,
-          slug: true,
-          businessName: true,
-          contactName: true,
-          email: true,
-          phone: true,
-          craft: true,
-          region: true,
-          kycStatus: true,
-          createdAt: true,
-          pan: true,
-          gstin: true,
-          bankAccount: true,
-          ifsc: true,
-          bankName: true,
-          portfolio: true,
-          userId: true,
+        include: {
+          user: {
+            select: {
+              emailVerified: true,
+              phoneVerified: true,
+            },
+          },
           products: { select: { id: true } },
         },
       }),
@@ -122,12 +111,16 @@ export async function GET() {
       return acc;
     }, {});
 
-    const sellerRows = pendingSellers.map((seller) => {
+    const pendingSellers = sellerRowsRaw.map((seller: any) => {
       const hasPan = !!seller.pan;
       const hasGstin = !!seller.gstin;
       const hasBank = !!seller.bankAccount && !!seller.ifsc && !!seller.bankName;
       const hasPortfolio = Array.isArray(seller.portfolio) && seller.portfolio.length > 0;
-      const canActivate = seller.kycStatus === 'APPROVED' && hasPan && hasBank;
+      const hasUserAccount = !!seller.userId;
+      const phoneVerified = !!seller.user?.phoneVerified;
+      const emailVerified = !!seller.user?.emailVerified;
+      const autoKycPassed = !!seller.autoKycPassed;
+      const canActivate = autoKycPassed && phoneVerified && emailVerified && seller.kycStatus === 'UNDER_REVIEW';
 
       return {
         id: seller.id,
@@ -145,12 +138,13 @@ export async function GET() {
         hasGstin,
         hasBank,
         hasPortfolio,
-        hasUserAccount: !!seller.userId,
+        hasUserAccount,
+        phoneVerified,
+        emailVerified,
+        autoKycPassed,
         canActivate,
       };
     });
-
-    const activationReadyCount = sellerRows.filter((row) => row.canActivate).length;
 
     return NextResponse.json({
       summary: {
@@ -162,9 +156,9 @@ export async function GET() {
         inventorySubmitted: inventoryCounts.SUBMITTED || 0,
         inventoryUnderReview: inventoryCounts.UNDER_REVIEW || 0,
         inventoryNeedsInfo: inventoryCounts.NEEDS_INFO || 0,
-        activationReady: activationReadyCount,
+        activationReady: pendingSellers.filter((row: any) => row.canActivate).length,
       },
-      pendingSellers: sellerRows,
+      pendingSellers,
       pendingChangeRequests: pendingChangeRequests.map((row: any) => ({
         id: row.id,
         sellerId: row.sellerId,
