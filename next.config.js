@@ -22,6 +22,17 @@ const nextConfig = {
   experimental: { optimizePackageImports: ['lucide-react'] },
   poweredByHeader: false,
   compress: true,
+
+  async redirects() {
+    return [
+      {
+        source: '/sellers/apply',
+        destination: '/sell/apply',
+        permanent: true,
+      },
+    ];
+  },
+
   // Security & cache headers
   async headers() {
     return [
@@ -51,4 +62,5 @@ const nextConfig = {
     ];
   },
 };
+
 module.exports = nextConfig;

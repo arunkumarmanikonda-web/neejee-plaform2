@@ -15,9 +15,8 @@ export default function SellersPage() {
           A platform for India&apos;s finest. Curated, never crowded.
         </p>
         <div className="madder-divider mx-auto mt-8"></div>
-        {/* v23.40.25 — Primary CTA at the top so applicants don't have to scroll */}
         <div className="mt-10 flex flex-wrap items-center justify-center gap-4">
-          <Link href="/sellers/apply" className="btn-primary inline-block">BEGIN APPLICATION</Link>
+          <Link href="/sell/apply" className="btn-primary inline-block">BEGIN APPLICATION</Link>
           <Link href="/seller/login" className="font-ui text-xs tracking-widest text-kohl hover:text-madder underline underline-offset-4">
             EXISTING SELLER? SIGN IN →
           </Link>
@@ -32,7 +31,7 @@ export default function SellersPage() {
           { t: 'AI-POWERED MARKETING', d: 'NEEJEE Mirror & Space drive 4x more conversions on your products.' },
           { t: 'PAN-INDIA LOGISTICS', d: 'Shiprocket-powered. Pick-up from your studio. Door delivery, COD.' },
           { t: 'GROW WITH NEEJEE SELECT', d: 'Top sellers get featured in our quarterly editorial drops.' },
-        ].map(b => (
+        ].map((b) => (
           <div key={b.t} className="bg-beige p-6">
             <p className="label text-madder">{b.t}</p>
             <p className="font-body text-kohl/85 mt-3">{b.d}</p>
@@ -45,12 +44,12 @@ export default function SellersPage() {
         <div className="madder-divider mx-auto mt-4 mb-12"></div>
         <ol className="space-y-6 font-body text-lg text-kohl/85">
           {[
-            ['01', 'APPLY', 'Tell us about your craft, region, and clusters. 5-minute form.'],
-            ['02', 'CURATE', 'Send 3 samples. We review with our craft council in 14 days.'],
-            ['03', 'CONTRACT', 'Sign fair-trade agreement. Get your seller dashboard.'],
-            ['04', 'LAUNCH', 'Upload your catalogue. We photograph, story, and list.'],
-            ['05', 'SELL', 'You make it. We sell it. You get paid weekly.'],
-          ].map(([n,t,d]) => (
+            ['01', 'APPLY', 'Tell us about your craft, region, and clusters. Complete KYC and onboarding.'],
+            ['02', 'CURATE', 'Upload samples and documents. We review with our craft council.'],
+            ['03', 'REVIEW', 'We verify business, bank, and craft details.'],
+            ['04', 'APPROVE', 'Sign fair-trade terms and get your seller dashboard.'],
+            ['05', 'LAUNCH', 'Upload your catalogue. We photograph, story, and list.'],
+          ].map(([n, t, d]) => (
             <li key={n} className="flex gap-6">
               <span className="font-display text-4xl text-mitti/40">{n}</span>
               <div>
@@ -61,8 +60,8 @@ export default function SellersPage() {
           ))}
         </ol>
         <div className="text-center mt-12">
-          <Link href="/sellers/apply" className="btn-primary inline-block">BEGIN APPLICATION</Link>
-          <p className="text-xs text-mitti mt-3">Takes about 5 minutes. We respond in 14 days.</p>
+          <Link href="/sell/apply" className="btn-primary inline-block">BEGIN APPLICATION</Link>
+          <p className="text-xs text-mitti mt-3">Takes about 5 minutes to start. KYC and documents are collected in the flow.</p>
         </div>
       </section>
       <Footer />

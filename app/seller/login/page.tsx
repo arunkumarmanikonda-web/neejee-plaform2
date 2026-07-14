@@ -1,13 +1,6 @@
 'use client';
 /**
- * Seller Studio login — v26.1.7
- *
- * Seller-branded sign-in with onboarding entry for new artisans.
- * Hits the same /api/auth/login endpoint as the customer login but:
- *   - has its own visual identity ("SELLER STUDIO")
- *   - shows an apply CTA above the form
- *   - if a logged-in customer tries here, shows a friendly apply panel
- *     instead of bouncing to a generic error.
+ * Seller Studio login — canonical seller onboarding points to /sell/apply
  */
 import { Suspense, useState } from 'react';
 import Link from 'next/link';
@@ -22,7 +15,15 @@ const SELLER_ROLES = ['SELLER', 'SELLER_STAFF', 'ADMIN', 'SUPER_ADMIN'];
 
 export default function SellerLoginPage() {
   return (
-    <Suspense fallback={<PageShell><div className="py-24 flex justify-center"><Loader2 className="w-5 h-5 animate-spin text-madder" /></div></PageShell>}>
+    <Suspense
+      fallback={
+        <PageShell>
+          <div className="py-24 flex justify-center">
+            <Loader2 className="w-5 h-5 animate-spin text-madder" />
+          </div>
+        </PageShell>
+      }
+    >
       <SellerLoginInner />
     </Suspense>
   );
@@ -46,6 +47,7 @@ function SellerLoginInner() {
     setError('');
     setNeedsOnboarding(false);
     setLoading(true);
+
     try {
       const res = await fetch('/api/auth/login', {
         method: 'POST',
@@ -53,11 +55,14 @@ function SellerLoginInner() {
         credentials: 'include',
         body: JSON.stringify({ email: email.trim().toLowerCase(), password }),
       });
+
       const data = await res.json();
+
       if (!res.ok) {
         setError(data?.error || 'Invalid credentials. Please try again.');
         return;
       }
+
       const role = data?.role || '';
       if (SELLER_ROLES.includes(role)) {
         router.push('/seller/dashboard');
@@ -80,7 +85,10 @@ function SellerLoginInner() {
           <p className="mt-1 font-italic italic text-mitti">
             Seller Studio is by application. Begin yours below and we&apos;ll review it within a week.
           </p>
-          <Link href="/sellers/apply" className="mt-3 inline-flex items-center gap-2 text-xs tracking-widest text-madder hover:text-kohl underline underline-offset-4">
+          <Link
+            href="/sell/apply"
+            className="mt-3 inline-flex items-center gap-2 text-xs tracking-widest text-madder hover:text-kohl underline underline-offset-4"
+          >
             BEGIN APPLICATION <ArrowRight className="w-3 h-3" />
           </Link>
         </div>
@@ -106,22 +114,33 @@ function SellerLoginInner() {
         </div>
 
         <div className="mt-10 grid md:grid-cols-2 gap-3">
-          <Link href="/sellers/apply" className="group bg-beige p-5 hover:bg-madder/5 transition border border-transparent hover:border-madder/30">
+          <Link
+            href="/sell/apply"
+            className="group bg-beige p-5 hover:bg-madder/5 transition border border-transparent hover:border-madder/30"
+          >
             <p className="label text-madder flex items-center gap-2">
               <Sparkles className="w-3 h-3" /> NEW TO NEEJEE
             </p>
             <p className="font-display text-xl text-kohl mt-2 leading-snug">Apply to sell with us</p>
-            <p className="font-body text-sm text-kohl/70 mt-2">A short form. KYC, GST, bank — collected like Razorpay, once.</p>
+            <p className="font-body text-sm text-kohl/70 mt-2">
+              A short form. KYC, GST, bank — collected like Razorpay, once.
+            </p>
             <span className="mt-3 inline-flex items-center gap-1.5 text-xs tracking-widest text-madder group-hover:gap-2.5 transition-all">
               BEGIN APPLICATION <ArrowRight className="w-3 h-3" />
             </span>
           </Link>
-          <Link href="/sellers" className="group bg-ivory p-5 hover:bg-beige/50 transition border border-mitti/15">
+
+          <Link
+            href="/sellers"
+            className="group bg-ivory p-5 hover:bg-beige/50 transition border border-mitti/15"
+          >
             <p className="label text-mitti flex items-center gap-2">
               <ShieldCheck className="w-3 h-3" /> WHAT WE OFFER
             </p>
             <p className="font-display text-xl text-kohl mt-2 leading-snug">Why NEEJEE?</p>
-            <p className="font-body text-sm text-kohl/70 mt-2">Curated catalogue, weekly payouts, story-first listings, AI tools.</p>
+            <p className="font-body text-sm text-kohl/70 mt-2">
+              Curated catalogue, weekly payouts, story-first listings, AI tools.
+            </p>
             <span className="mt-3 inline-flex items-center gap-1.5 text-xs tracking-widest text-kohl group-hover:gap-2.5 transition-all">
               READ MORE <ArrowRight className="w-3 h-3" />
             </span>
@@ -137,38 +156,70 @@ function SellerLoginInner() {
         <form onSubmit={onSubmit} className="space-y-4">
           <div>
             <label htmlFor="email" className="label text-mitti">EMAIL</label>
-            <input id="email" type="email" autoComplete="username" required value={email}
-              onChange={e => setEmail(e.target.value)} placeholder="you@yourstudio.in"
+            <input
+              id="email"
+              type="email"
+              autoComplete="username"
+              required
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="you@yourstudio.in"
               disabled={loading || needsOnboarding}
-              className="w-full mt-1 p-3 bg-ivory border border-mitti/25 font-ui text-sm focus:outline-none focus:border-madder" />
+              className="w-full mt-1 p-3 bg-ivory border border-mitti/25 font-ui text-sm focus:outline-none focus:border-madder"
+            />
           </div>
+
           <div>
             <label htmlFor="password" className="label text-mitti">PASSWORD</label>
             <div className="relative mt-1">
-              <input id="password" type={showPwd ? 'text' : 'password'} autoComplete="current-password" required
-                value={password} onChange={e => setPassword(e.target.value)}
+              <input
+                id="password"
+                type={showPwd ? 'text' : 'password'}
+                autoComplete="current-password"
+                required
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
                 disabled={loading || needsOnboarding}
-                className="w-full p-3 pr-10 bg-ivory border border-mitti/25 font-ui text-sm focus:outline-none focus:border-madder" />
-              <button type="button" onClick={() => setShowPwd(s => !s)} tabIndex={-1}
+                className="w-full p-3 pr-10 bg-ivory border border-mitti/25 font-ui text-sm focus:outline-none focus:border-madder"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPwd((s) => !s)}
+                tabIndex={-1}
                 className="absolute right-3 top-1/2 -translate-y-1/2 text-mitti hover:text-kohl"
-                aria-label={showPwd ? 'Hide password' : 'Show password'}>
+                aria-label={showPwd ? 'Hide password' : 'Show password'}
+              >
                 {showPwd ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
               </button>
             </div>
             <div className="mt-2 text-right">
-              <Link href="/forgot-password?role=seller" className="text-xs text-mitti hover:text-madder underline-offset-4 hover:underline">
+              <Link
+                href="/forgot-password?role=seller"
+                className="text-xs text-mitti hover:text-madder underline-offset-4 hover:underline"
+              >
                 Forgot password?
               </Link>
             </div>
           </div>
 
           {error && (
-            <div className="bg-madder/10 border-l-4 border-madder p-3 text-sm text-madder">{error}</div>
+            <div className="bg-madder/10 border-l-4 border-madder p-3 text-sm text-madder">
+              {error}
+            </div>
           )}
 
-          <button type="submit" disabled={loading || needsOnboarding || !email || !password}
-            className="w-full py-3 bg-madder text-ivory font-ui text-sm tracking-widest hover:bg-madder/90 disabled:opacity-40 inline-flex items-center justify-center gap-2">
-            {loading ? <><Loader2 className="w-4 h-4 animate-spin" /> SIGNING IN</> : <>SIGN IN TO SELLER STUDIO</>}
+          <button
+            type="submit"
+            disabled={loading || needsOnboarding || !email || !password}
+            className="w-full py-3 bg-madder text-ivory font-ui text-sm tracking-widest hover:bg-madder/90 disabled:opacity-40 inline-flex items-center justify-center gap-2"
+          >
+            {loading ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" /> SIGNING IN
+              </>
+            ) : (
+              <>SIGN IN TO SELLER STUDIO</>
+            )}
           </button>
         </form>
 
@@ -179,10 +230,16 @@ function SellerLoginInner() {
               You&apos;re signed in — but you don&apos;t have Seller Studio access yet. Apply with the same email and our team will review your studio within a week.
             </p>
             <div className="mt-4 flex flex-wrap items-center gap-3">
-              <Link href="/sellers/apply" className="px-4 py-2 bg-madder text-ivory text-xs tracking-widest inline-flex items-center gap-2">
+              <Link
+                href="/sell/apply"
+                className="px-4 py-2 bg-madder text-ivory text-xs tracking-widest inline-flex items-center gap-2"
+              >
                 BEGIN SELLER APPLICATION <ArrowRight className="w-3 h-3" />
               </Link>
-              <Link href="/account" className="text-xs tracking-widest text-kohl hover:text-madder underline-offset-4 hover:underline">
+              <Link
+                href="/account"
+                className="text-xs tracking-widest text-kohl hover:text-madder underline-offset-4 hover:underline"
+              >
                 Go to my customer account →
               </Link>
             </div>
@@ -195,7 +252,9 @@ function SellerLoginInner() {
           </Link>
           <span>
             Customer?{' '}
-            <Link href="/login" className="text-kohl hover:text-madder underline underline-offset-4">Sign in here</Link>
+            <Link href="/login" className="text-kohl hover:text-madder underline underline-offset-4">
+              Sign in here
+            </Link>
           </span>
         </div>
       </div>
