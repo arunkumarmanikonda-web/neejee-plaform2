@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+﻿import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { isKycMockMode, normalizeText, normalizeUpper } from '@/lib/seller-onboarding/kyc-provider';
 
@@ -9,6 +9,8 @@ const BodySchema = z.object({
   pan: z.string().min(10),
   businessName: z.string().optional().nullable(),
 });
+
+const PAN_REGEX = /^[A-Z]{5}\d{4}[A-Z]$/;
 
 export async function POST(request: Request) {
   try {
@@ -25,13 +27,24 @@ export async function POST(request: Request) {
       });
     }
 
-    return NextResponse.json(
-      {
-        error: 'PAN verification provider not configured',
-        provider: 'unconfigured',
-      },
-      { status: 503 },
-    );
+    if (!PAN_REGEX.test(pan)) {
+      return NextResponse.json(
+        {
+          valid: false,
+          error: 'PAN format is invalid',
+          pan,
+          source: 'local_format',
+        },
+        { status: 400 },
+      );
+    }
+
+    return NextResponse.json({
+      valid: true,
+      pan,
+      name: businessName || null,
+      source: 'local_format',
+    });
   } catch (e: any) {
     if (e?.issues) {
       return NextResponse.json(
