@@ -1,4 +1,4 @@
-import Link from 'next/link';
+﻿import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import type { LucideIcon } from 'lucide-react';
 import {
@@ -109,6 +109,7 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { href: '/admin/products', label: 'Products', icon: Package },
       { href: '/admin/catalogues', label: 'Catalogues', icon: BookOpen },
+      { href: '/admin/merchandising', label: 'Merchandising', icon: Sparkles },
       { href: '/admin/categories', label: 'Categories', icon: TagIcon },
       { href: '/admin/crafts', label: 'Crafts', icon: Sparkles },
       { href: '/admin/ai-photo-studio', label: 'AI Photo Studio', icon: Camera },
