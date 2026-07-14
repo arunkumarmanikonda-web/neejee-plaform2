@@ -1,5 +1,5 @@
 ﻿import chromium from '@sparticuz/chromium';
-import puppeteer from 'puppeteer-core';
+import puppeteer, { type Page } from 'puppeteer-core';
 
 async function resolveExecutablePath(): Promise<string> {
   if (process.env.CHROME_EXECUTABLE_PATH) {
@@ -31,6 +31,51 @@ function resolveArgs(): string[] {
   return [...chromium.args];
 }
 
+async function waitForAssets(page: Page): Promise<void> {
+  try {
+    await page.waitForNetworkIdle({
+      idleTime: 800,
+      timeout: 15000
+    });
+  } catch {}
+
+  await page.evaluate(async () => {
+    const fonts = (document as any).fonts;
+    if (fonts?.ready) {
+      try {
+        await fonts.ready;
+      } catch {}
+    }
+
+    const images = Array.from(document.images || []);
+    await Promise.all(
+      images.map(async (img) => {
+        if (img.complete && img.naturalWidth > 0) {
+          try {
+            if (typeof (img as any).decode === 'function') {
+              await (img as any).decode();
+            }
+          } catch {}
+          return;
+        }
+
+        await new Promise<void>((resolve) => {
+          const done = () => resolve();
+          img.addEventListener('load', done, { once: true });
+          img.addEventListener('error', done, { once: true });
+          setTimeout(done, 10000);
+        });
+
+        try {
+          if (typeof (img as any).decode === 'function') {
+            await (img as any).decode();
+          }
+        } catch {}
+      })
+    );
+  });
+}
+
 export async function renderHtmlToPdfBuffer(html: string): Promise<Buffer> {
   const browser = await puppeteer.launch({
     executablePath: await resolveExecutablePath(),
@@ -47,9 +92,10 @@ export async function renderHtmlToPdfBuffer(html: string): Promise<Buffer> {
     const page = await browser.newPage();
 
     await page.setContent(html, {
-      waitUntil: 'domcontentloaded'
+      waitUntil: 'load'
     });
 
+    await waitForAssets(page);
     await page.emulateMediaType('print');
 
     const pdf = await page.pdf({
