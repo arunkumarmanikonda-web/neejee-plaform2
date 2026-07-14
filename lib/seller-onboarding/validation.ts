@@ -8,6 +8,7 @@ export type SellerAutoValidationResult = {
     cin: boolean;
     ifsc: boolean;
     bankAccount: boolean;
+    msmeNumber: boolean;
   };
 };
 
@@ -31,6 +32,12 @@ export function isValidIfsc(ifsc: unknown): boolean {
 
 export function isValidBankAccount(bankAccount: unknown): boolean {
   return /^[0-9]{9,18}$/.test(String(bankAccount || '').trim());
+}
+
+export function isValidMsmeNumber(msmeNumber: unknown): boolean {
+  const value = clean(msmeNumber);
+  if (!value) return true;
+  return /^UDYAM-[A-Z]{2}-\d{2}-\d{7}$/.test(value);
 }
 
 function gstCharValue(char: string): number {
@@ -81,6 +88,7 @@ export function evaluateSellerAutoKyc(input: {
   cin?: string | null;
   ifsc?: string | null;
   bankAccount?: string | null;
+  msmeNumber?: string | null;
 }): SellerAutoValidationResult {
   const errors: string[] = [];
 
@@ -101,6 +109,9 @@ export function evaluateSellerAutoKyc(input: {
   const bankOk = isValidBankAccount(input.bankAccount);
   if (!bankOk) errors.push('Bank account number format is invalid');
 
+  const msmeOk = isValidMsmeNumber(input.msmeNumber);
+  if (!msmeOk) errors.push('MSME/Udyam number format is invalid');
+
   const gstPanOk = gstRaw ? gstMatchesPan(gstRaw, input.pan) : true;
   if (!gstPanOk) errors.push('GSTIN does not match PAN');
 
@@ -114,6 +125,7 @@ export function evaluateSellerAutoKyc(input: {
       cin: cinOk,
       ifsc: ifscOk,
       bankAccount: bankOk,
+      msmeNumber: msmeOk,
     },
   };
 }

@@ -1,0 +1,536 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Neejee Premium Catalogue</title>
+  <style>
+    :root {
+      --paper: #f5efe6;
+      --card: rgba(255, 251, 245, 0.84);
+      --ink: #1f1914;
+      --muted: #5e5145;
+      --earth: #6f4b2f;
+      --rust: #8d3f2f;
+      --gold: #a87f3a;
+      --line: rgba(91, 63, 40, 0.28);
+      --sand: rgba(232, 220, 203, 0.55);
+    }
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0;
+      padding: 0;
+      background: var(--paper);
+      color: var(--ink);
+      font-family: Georgia, 'Times New Roman', serif;
+      text-rendering: optimizeLegibility;
+      -webkit-font-smoothing: antialiased;
+    }
+    .page {
+      position: relative;
+      width: 210mm;
+      min-height: 297mm;
+      background: var(--paper);
+      overflow: hidden;
+      page-break-after: always;
+    }
+    .page:last-child { page-break-after: auto; }
+    .page-border {
+      position: absolute;
+      inset: 10mm;
+      border: 1px solid var(--line);
+      pointer-events: none;
+    }
+    .page-pad {
+      position: relative;
+      z-index: 2;
+      padding: 17mm 18mm;
+    }
+    .eyebrow, .smallcaps, .quote-label, .stat-label {
+      font-family: Arial, sans-serif;
+      text-transform: uppercase;
+      letter-spacing: .2em;
+    }
+    .eyebrow {
+      font-size: 9px;
+      color: var(--rust);
+      margin-bottom: 4mm;
+    }
+    .smallcaps, .stat-label {
+      font-size: 8px;
+      color: #6d6156;
+    }
+    .display-title, .section-title, .subtitle, .body, p, h1, h2, h3, h4 { margin: 0; }
+    .display-title {
+      font-size: 42pt;
+      line-height: .96;
+      letter-spacing: -.035em;
+      font-weight: 600;
+    }
+    .display-title.small { font-size: 30pt; }
+    .section-title {
+      font-size: 28pt;
+      line-height: 1.02;
+      letter-spacing: -.02em;
+      font-weight: 600;
+    }
+    .subtitle {
+      margin-top: 2mm;
+      color: var(--muted);
+      font-style: italic;
+      font-size: 14pt;
+      line-height: 1.35;
+    }
+    .body {
+      color: #2f2721;
+      font-size: 12.5pt;
+      line-height: 1.6;
+      text-align: justify;
+    }
+    .body-large { font-size: 13.7pt; }
+    .body-small { font-size: 10.7pt; }
+    .rule {
+      width: 28mm;
+      height: 1px;
+      background: rgba(141, 63, 47, .38);
+      margin: 4mm 0 5mm;
+    }
+    .cover-grid {
+      min-height: 262mm;
+      display: grid;
+      grid-template-columns: 1.02fr .98fr;
+      gap: 9mm;
+      align-items: stretch;
+    }
+    .cover-copy, .cover-visual, .founder-panel, .founder-accent, .spec-panel, .toc-item, .stat-card {
+      background: var(--card);
+      border: 1px solid rgba(111, 75, 47, 0.14);
+      backdrop-filter: blur(3px);
+    }
+    .cover-copy {
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 7mm;
+    }
+    .cover-stats {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 3mm;
+      margin-top: 6mm;
+    }
+    .stat-card {
+      padding: 4mm;
+      min-height: 22mm;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+    .cover-visual {
+      display: grid;
+      grid-template-rows: 1fr auto;
+      padding: 4mm;
+      gap: 3mm;
+    }
+    .cover-image {
+      width: 100%;
+      height: 202mm;
+      object-fit: cover;
+      display: block;
+      border-radius: 22mm 22mm 5mm 5mm;
+      box-shadow: 0 20px 52px rgba(33, 23, 17, 0.22);
+    }
+    .cover-caption {
+      padding: 3mm 2mm 1mm;
+    }
+    .caption-title { font-size: 15pt; margin-top: 1.5mm; }
+    .caption-line { color: var(--muted); font-size: 11.5pt; margin-top: 1mm; }
+    .founder-layout {
+      min-height: 262mm;
+      display: grid;
+      grid-template-columns: 1.18fr .82fr;
+      gap: 8mm;
+      align-items: stretch;
+    }
+    .founder-panel, .founder-accent {
+      padding: 8mm;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
+    .founder-accent {
+      background: linear-gradient(180deg, rgba(168, 127, 58, 0.08), rgba(141, 63, 47, 0.08));
+    }
+    .quote-block {
+      margin-top: 6mm;
+      padding: 5mm;
+      border-left: 2px solid rgba(141, 63, 47, 0.45);
+      background: rgba(255, 250, 244, 0.5);
+    }
+    .quote-block.compact { margin-top: 5mm; }
+    .quote-block.sand { background: var(--sand); }
+    .quote-label {
+      display: block;
+      margin-bottom: 2mm;
+      font-size: 8px;
+      color: var(--rust);
+    }
+    .quote-block p {
+      font-size: 11.4pt;
+      line-height: 1.5;
+      color: #473b31;
+      font-style: italic;
+    }
+    .signature {
+      margin-top: 8mm;
+      font-family: Arial, sans-serif;
+      text-transform: uppercase;
+      letter-spacing: .18em;
+      color: #6d6156;
+      font-size: 10px;
+    }
+    .toc-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 3mm;
+      margin-top: 7mm;
+    }
+    .toc-item {
+      display: flex;
+      gap: 4mm;
+      align-items: baseline;
+      padding: 4mm;
+      min-height: 17mm;
+    }
+    .toc-item span {
+      font-family: Arial, sans-serif;
+      font-size: 10px;
+      letter-spacing: .18em;
+      color: var(--rust);
+      min-width: 12mm;
+    }
+    .toc-item strong {
+      font-size: 11pt;
+      line-height: 1.35;
+      color: #312821;
+    }
+    .toc-footer {
+      margin-top: 8mm;
+      color: #65584b;
+      font-family: Arial, sans-serif;
+      font-size: 9px;
+      letter-spacing: .14em;
+      text-transform: uppercase;
+    }
+    .hero-grid, .product-grid {
+      display: grid;
+      grid-template-columns: .96fr 1.04fr;
+      gap: 10mm;
+      align-items: center;
+    }
+    .hero-image-wrap, .product-main-image {
+      background: rgba(255, 251, 245, 0.58);
+      border: 1px solid rgba(111, 75, 47, 0.18);
+      padding: 4mm;
+    }
+    .hero-image, .spread-image {
+      width: 100%;
+      height: 162mm;
+      object-fit: cover;
+      display: block;
+    }
+    .product-page.alt .product-grid { grid-template-columns: 1.04fr .96fr; }
+    .product-page.alt .product-main-image { order: 2; }
+    .product-page.alt .product-main-copy { order: 1; }
+    .price-row {
+      display: flex;
+      gap: 4mm;
+      align-items: baseline;
+      margin-top: 5mm;
+    }
+    .price {
+      font-size: 22pt;
+      font-weight: 600;
+      color: var(--ink);
+    }
+    .mrp {
+      font-size: 10.5pt;
+      color: #7b6f63;
+      text-decoration: line-through;
+      font-family: Arial, sans-serif;
+    }
+    .badge-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 2.5mm;
+      margin-top: 4mm;
+    }
+    .badge {
+      border: 1px solid rgba(168, 127, 58, .34);
+      color: #6f542d;
+      background: rgba(255, 251, 245, .72);
+      padding: 1.8mm 2.3mm;
+      font-family: Arial, sans-serif;
+      font-size: 8px;
+      letter-spacing: .15em;
+      text-transform: uppercase;
+    }
+    .product-lower-grid {
+      padding-top: 0;
+      display: grid;
+      grid-template-columns: 1.02fr .98fr;
+      gap: 8mm;
+      align-items: stretch;
+    }
+    .gallery-stack {
+      display: grid;
+      grid-template-rows: 1fr auto;
+      gap: 4mm;
+    }
+    .gallery-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 4mm;
+    }
+    .gallery-tall {
+      width: 100%;
+      height: 94mm;
+      object-fit: cover;
+      display: block;
+      border: 1px solid rgba(111, 75, 47, 0.14);
+    }
+    .gallery-small {
+      width: 100%;
+      height: 44mm;
+      object-fit: cover;
+      display: block;
+      border: 1px solid rgba(111, 75, 47, 0.14);
+    }
+    .spec-panel {
+      padding: 5mm;
+    }
+    .spec-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 4mm;
+      font-family: Arial, sans-serif;
+      font-size: 9pt;
+      color: #40362d;
+    }
+    .spec-table td {
+      padding: 2.2mm 0;
+      border-bottom: 1px solid rgba(111, 75, 47, 0.14);
+      vertical-align: top;
+    }
+    .spec-table td:first-child {
+      width: 31%;
+      text-transform: uppercase;
+      letter-spacing: .12em;
+      color: #7a6959;
+      font-size: 7.6pt;
+    }
+    .divider-layout {
+      min-height: 262mm;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      max-width: 135mm;
+    }
+    .divider-meta {
+      margin-top: 6mm;
+      font-family: Arial, sans-serif;
+      font-size: 10px;
+      letter-spacing: .2em;
+      text-transform: uppercase;
+      color: #6d6156;
+    }
+    .closing-layout .founder-accent {
+      justify-content: flex-end;
+    }
+    .img-placeholder {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+      background: #efe6d9;
+      color: #6f6154;
+      border: 1px dashed rgba(111, 75, 47, 0.2);
+      text-align: center;
+      padding: 6mm;
+    }
+    .cover-image.img-placeholder { height: 202mm; border-radius: 22mm 22mm 5mm 5mm; }
+    .hero-image.img-placeholder, .spread-image.img-placeholder { height: 162mm; }
+    .gallery-tall.img-placeholder { height: 94mm; }
+    .gallery-small.img-placeholder { height: 44mm; }
+    @media print {
+      body { background: white; }
+      .page { margin: 0; }
+    }
+  </style>
+</head>
+<body>
+  <section class="page cover-page">
+    <div class="page-border"></div>
+    <div class="page-pad cover-grid">
+      <div class="cover-copy">
+        <div>
+          <div class="eyebrow">Neejee · Luxury Founder Catalogue</div>
+          <h1 class="display-title">A quieter kind of grandeur.</h1>
+          <div class="rule"></div>
+          <p class="subtitle">Earthy Indian luxury, editorial rhythm, and founder-led storytelling — generated directly from the live catalogue engine.</p>
+          <p class="body body-large">Neejee Premium Catalogue is designed to feel less like a product dump and more like a composed object: one that moves between provenance, atmosphere, and considered commerce.</p>
+        </div>
+        <div class="cover-stats">
+          <div class="stat-card"><span class="stat-label">Products</span><strong>1</strong></div>
+          <div class="stat-card"><span class="stat-label">Tone</span><strong>luxury</strong></div>
+          <div class="stat-card"><span class="stat-label">Selection</span><strong>|neejee-premium-catalogue|Neejee Premium Catalogue|luxury|4|||</strong></div>
+          <div class="stat-card"><span class="stat-label">Lead</span><strong>Catalogue Demo Product</strong></div>
+        </div>
+      </div>
+      <div class="cover-visual">
+        <img class="cover-image" src="https://images.unsplash.com/photo-1512436991641-6745cdb1723f?auto=format&amp;fit=crop&amp;w=1200&amp;q=80" alt="Catalogue Demo Product" />
+        <div class="cover-caption">
+          <div class="smallcaps">Signature object</div>
+          <div class="caption-title">Catalogue Demo Product</div>
+          <div class="caption-line">A quiet premium demo for export validation.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+  <section class="page founder-page">
+    <div class="page-border"></div>
+    <div class="page-pad founder-layout">
+      <div class="founder-panel">
+        <div class="eyebrow">Founder Pre-Note</div>
+        <h2 class="section-title">A note from Nidhi Chauhan</h2>
+        <div class="rule"></div>
+        <p class="body body-large">Neejee Premium Catalogue was never imagined as a fast catalogue. I wanted it to feel like a slower room — one in which material, craft, and memory have enough space to speak before commerce does. Catalogue Demo Product holds that intention clearly. It is the kind of object that changes a room without theatrics, allowing beauty to arrive through proportion, tactility, and restraint. What moves me most is the way hand-finished, brass, and from India can carry both stillness and presence at once.</p>
+        <div class="quote-block">
+          <span class="quote-label">Founder Quote</span>
+          <p>I want every Neejee catalogue to feel like an intimate conversation where hand-finished from India is given the dignity of stillness. — Nidhi Chauhan</p>
+        </div>
+        <div class="signature">Nidhi Chauhan · Founder, Neejee</div>
+      </div>
+      <div class="founder-accent">
+        <div class="smallcaps">Neejee editorial mode</div>
+        <p class="body body-small">The founder voice is intentionally woven into the catalogue rather than appended as a token letter: it frames the opening mood, punctuates select product moments, and closes the document with a position on beauty, craft, and permanence.</p>
+      </div>
+    </div>
+  </section>
+  <section class="page toc-page">
+    <div class="page-border"></div>
+    <div class="page-pad">
+      <div class="eyebrow">Table of Contents</div>
+      <h2 class="section-title">Catalogue map</h2>
+      <div class="rule"></div>
+      <div class="toc-grid">
+        <div class="toc-item"><span>01</span><strong>Cover</strong></div><div class="toc-item"><span>02</span><strong>Founder Pre-Note</strong></div><div class="toc-item"><span>03</span><strong>Table of Contents</strong></div><div class="toc-item"><span>04</span><strong>Signature Spread · Catalogue Demo Product</strong></div><div class="toc-item"><span>05</span><strong>Product 01 · Catalogue Demo Product</strong></div><div class="toc-item"><span>06</span><strong>Founder Closing Note</strong></div>
+      </div>
+      <div class="toc-footer">Neejee · Generated editorial sequence from live product data and founder-note automation.</div>
+    </div>
+  </section>
+  <section class="page hero-page">
+    <div class="page-border"></div>
+    <div class="page-pad hero-grid">
+      <div class="hero-image-wrap"><img class="hero-image" src="https://images.unsplash.com/photo-1512436991641-6745cdb1723f?auto=format&amp;fit=crop&amp;w=1200&amp;q=80" alt="Catalogue Demo Product" /></div>
+      <div class="hero-copy">
+        <div class="eyebrow">Signature Product Spread</div>
+        <h2 class="section-title">Catalogue Demo Product</h2>
+        <p class="subtitle">A quiet premium demo for export validation.</p>
+        <div class="rule"></div>
+        <p class="body">A quiet premium demo for export validation. This product exists purely to validate the catalogue export pipeline in local development.</p>
+        <div class="quote-block compact">
+          <span class="quote-label">Neejee Insight</span>
+          <p>Quiet luxury is not a style trick. It is what happens when brass and hand-finished from India are allowed to keep their dignity instead of being polished into sameness.</p>
+        </div>
+        <div class="quote-block compact sand">
+          <span class="quote-label">Founder Voice · Nidhi Chauhan</span>
+          <p>For Neejee Premium Catalogue, I wanted the lead object to establish stillness before it introduced detail.</p>
+        </div>
+        <div class="price-row">
+          <span class="price">₹99,900</span>
+          <span class="mrp">₹1,29,900</span>
+        </div>
+        <div class="badge-row"></div>
+      </div>
+    </div>
+  </section>
+  <section class="page divider-page">
+    <div class="page-border"></div>
+    <div class="page-pad divider-layout">
+      <div class="eyebrow">Section Transition</div>
+      <h2 class="display-title small">Neejee Premium Catalogue</h2>
+      <div class="rule"></div>
+      <p class="body body-large">A curated section featuring 1 product from the live catalogue engine.</p>
+      <div class="divider-meta">1 product</div>
+    </div>
+  </section>
+  <section class="page product-page alt">
+    <div class="page-border"></div>
+    <div class="page-pad product-grid">
+      <div class="product-main-image"><img class="spread-image" src="https://images.unsplash.com/photo-1512436991641-6745cdb1723f?auto=format&amp;fit=crop&amp;w=1200&amp;q=80" alt="Catalogue Demo Product" /></div>
+      <div class="product-main-copy">
+        <div class="eyebrow">Product 01</div>
+        <h2 class="section-title">Catalogue Demo Product</h2>
+        <p class="subtitle">A quiet premium demo for export validation.</p>
+        <div class="rule"></div>
+        <p class="body">A quiet premium demo for export validation. This product exists purely to validate the catalogue export pipeline in local development.</p>
+        <div class="quote-block compact">
+          <span class="quote-label">Nidhi Insight</span>
+          <p>Quiet luxury is not a style trick. It is what happens when brass and hand-finished from India are allowed to keep their dignity instead of being polished into sameness.</p>
+        </div>
+        <div class="quote-block compact sand">
+          <span class="quote-label">Founder Quote · Nidhi Chauhan</span>
+          <p>I am drawn to objects like Catalogue Demo Product because they hold attention without asking for noise.</p>
+        </div>
+      </div>
+    </div>
+    <div class="page-pad product-lower-grid">
+      <div class="gallery-stack">
+        <img class="gallery-tall" src="https://images.unsplash.com/photo-1512436991641-6745cdb1723f?auto=format&amp;fit=crop&amp;w=1200&amp;q=80" alt="Catalogue Demo Product detail" />
+        <div class="gallery-row">
+          <img class="gallery-small" src="https://images.unsplash.com/photo-1512436991641-6745cdb1723f?auto=format&amp;fit=crop&amp;w=1200&amp;q=80" alt="Catalogue Demo Product detail two" />
+          <img class="gallery-small" src="https://images.unsplash.com/photo-1512436991641-6745cdb1723f?auto=format&amp;fit=crop&amp;w=1200&amp;q=80" alt="Catalogue Demo Product detail three" />
+        </div>
+      </div>
+      <div class="spec-panel">
+        <div class="smallcaps">Collected Details</div>
+        <p class="body body-small">Within catalogue-demo, this piece was selected for its ability to anchor the category with calm authority.</p>
+        <table class="spec-table">
+          <tr><td>Price</td><td>₹99,900</td></tr>
+          <tr><td>MRP</td><td>₹1,29,900</td></tr>
+          <tr><td>Category</td><td>catalogue-demo</td></tr>
+          <tr><td>Craft</td><td>Hand-finished</td></tr>
+          <tr><td>Region</td><td>India</td></tr>
+          <tr><td>Material</td><td>Brass</td></tr>
+          <tr><td>Technique</td><td>Cast and polished</td></tr>
+          <tr><td>Occasion</td><td>Gifting</td></tr>
+          <tr><td>Stock</td><td>Out of stock · 0 units</td></tr>
+          <tr><td>Care</td><td>Clean with a soft, dry cloth and handle with care.</td></tr>
+          <tr><td>Sustainability</td><td>Craft-led production keeps material meaning and regional knowledge visible within the finished object.</td></tr>
+        </table>
+      </div>
+    </div>
+  </section>
+  <section class="page closing-page">
+    <div class="page-border"></div>
+    <div class="page-pad founder-layout closing-layout">
+      <div class="founder-panel">
+        <div class="eyebrow">Founder Ending Note</div>
+        <h2 class="section-title">A closing note from Nidhi Chauhan</h2>
+        <div class="rule"></div>
+        <p class="body body-large">This catalogue brings together 1 curated object that remind me luxury is ultimately a practice of discernment: what we choose to keep close, what we choose to honour, and what we choose not to rush. Catalogue Demo Product stands here not as an isolated product, but as evidence that thoughtful making can still shape how a room feels, remembers, and receives the people within it. May Neejee continue to privilege care, material honesty, and the quiet confidence of work made well.</p>
+        <div class="quote-block">
+          <span class="quote-label">Closing Quote</span>
+          <p>Catalogue Demo Product reminds me that true luxury is not louder detail — it is devotion made visible. — Nidhi Chauhan</p>
+        </div>
+        <div class="signature">Nidhi Chauhan · Founder, Neejee</div>
+      </div>
+      <div class="founder-accent">
+        <div class="smallcaps">Neejee closing frame</div>
+        <p class="body body-small">The document closes in the same voice with which it opened: founder-led, craft-forward, and deliberate about the emotional language of luxury.</p>
+      </div>
+    </div>
+  </section>
+</body>
+</html>
