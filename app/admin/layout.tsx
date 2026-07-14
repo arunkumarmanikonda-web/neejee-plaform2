@@ -124,6 +124,7 @@ const NAV_GROUPS: NavGroup[] = [
     label: 'MARKETPLACE',
     items: [
       { href: '/admin/sellers', label: 'Sellers', icon: Store },
+      { href: '/admin/seller-onboarding', label: 'Seller Onboarding', icon: ShieldCheck },
       { href: '/admin/seller-inventory', label: 'Seller Inventory Queue', icon: Package },
       { href: '/admin/seller-change-requests', label: 'Seller Changes', icon: Clock },
       { href: '/admin/vendors', label: 'Vendors', icon: Truck },
