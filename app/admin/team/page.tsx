@@ -8,11 +8,24 @@ const ROLES = [
   { value: 'CONTENT_EDITOR', label: 'Content Editor', desc: 'Manage products, CMS, journal' },
   { value: 'QC_TEAM', label: 'QC Team', desc: 'Quality control on incoming/returned products' },
   { value: 'SELLER', label: 'Seller', desc: 'Marketplace seller (limited to their own catalog)' },
+  { value: 'FINANCE', label: 'Finance', desc: 'Finance oversight, ledgers, payouts' },
+  { value: 'FINANCE_OPERATOR', label: 'Finance Operator', desc: 'Day-to-day finance ops and reconciliation' },
+  { value: 'MARKETING_OPERATOR', label: 'Marketing Operator', desc: 'Draft campaigns and submit for approval' },
+  { value: 'MARKETING_MANAGER', label: 'Marketing Manager', desc: 'Approve and send campaigns' },
+  { value: 'TELECALLER', label: 'Telecaller', desc: 'CRM follow-ups, outreach and abandoned cart recovery' },
 ];
 
 const ROLE_COLOR: Record<string, string> = {
-  SUPER_ADMIN: 'bg-madder', ADMIN: 'bg-kohl', CONTENT_EDITOR: 'bg-banarasi',
-  QC_TEAM: 'bg-ajrakh', SELLER: 'bg-mitti',
+  SUPER_ADMIN: 'bg-madder',
+  ADMIN: 'bg-kohl',
+  CONTENT_EDITOR: 'bg-banarasi',
+  QC_TEAM: 'bg-ajrakh',
+  SELLER: 'bg-mitti',
+  FINANCE: 'bg-neem',
+  FINANCE_OPERATOR: 'bg-neem/80',
+  MARKETING_OPERATOR: 'bg-banarasi',
+  MARKETING_MANAGER: 'bg-madder',
+  TELECALLER: 'bg-ajrakh',
 };
 
 export default function AdminTeamPage() {
@@ -22,14 +35,18 @@ export default function AdminTeamPage() {
   const [creating, setCreating] = useState(false);
 
   const load = async () => {
-    setLoading(true); setError('');
+    setLoading(true);
+    setError('');
     try {
-      const res = await fetch('/api/admin/team');
-      const d = await res.json();
-      if (!res.ok) throw new Error(d.error);
+      const res = await fetch('/api/admin/team', { cache: 'no-store' });
+      const d = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(d.error || 'Unable to load team right now.');
       setTeam(d.team || []);
-    } catch (e: any) { setError(e.message); }
-    finally { setLoading(false); }
+    } catch (e: any) {
+      setError(e.message || 'Unable to load team right now.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => { load(); }, []);
@@ -38,9 +55,12 @@ export default function AdminTeamPage() {
     if (!confirm(`Remove ${name} from the team? Their account becomes a CUSTOMER account.`)) return;
     try {
       const res = await fetch(`/api/admin/team/${id}`, { method: 'DELETE' });
-      if (!res.ok) throw new Error((await res.json()).error);
+      const d = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(d.error || 'Unable to remove team member');
       await load();
-    } catch (e: any) { alert(e.message); }
+    } catch (e: any) {
+      alert(e.message || 'Unable to remove team member');
+    }
   };
 
   return (
@@ -57,7 +77,11 @@ export default function AdminTeamPage() {
       </div>
       <div className="madder-divider mt-4"></div>
 
-      {error && <p className="mt-6 font-ui text-sm text-madder bg-madder/10 p-3">{error}</p>}
+      {error && (
+        <p className="mt-6 font-ui text-sm text-madder bg-madder/10 p-3">
+          {error}
+        </p>
+      )}
 
       <table className="w-full mt-8 bg-beige font-ui text-sm">
         <thead>
@@ -103,35 +127,55 @@ export default function AdminTeamPage() {
         <div className="space-y-2 font-ui text-sm">
           {ROLES.map(r => (
             <div key={r.value} className="flex items-baseline gap-3 border-b border-mitti/10 pb-2">
-              <span className={`badge-founder ${ROLE_COLOR[r.value]}`}>{r.label}</span>
+              <span className={`badge-founder ${ROLE_COLOR[r.value] || 'bg-mitti'}`}>{r.label}</span>
               <span className="text-mitti">{r.desc}</span>
             </div>
           ))}
         </div>
       </div>
 
-      {creating && <CreateModal onClose={() => setCreating(false)} onCreated={() => { setCreating(false); load(); }} />}
+      {creating && (
+        <CreateModal
+          onClose={() => setCreating(false)}
+          onCreated={() => {
+            setCreating(false);
+            load();
+          }}
+        />
+      )}
     </>
   );
 }
 
 function CreateModal({ onClose, onCreated }: any) {
-  const [form, setForm] = useState({ email: '', name: '', phone: '', role: 'ADMIN', password: '' });
+  const [form, setForm] = useState({
+    email: '',
+    name: '',
+    phone: '',
+    role: 'ADMIN',
+    password: '',
+  });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
   const submit = async (e: React.FormEvent) => {
-    e.preventDefault(); setSaving(true); setError('');
+    e.preventDefault();
+    setSaving(true);
+    setError('');
     try {
       const res = await fetch('/api/admin/team', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(form),
       });
-      const d = await res.json();
-      if (!res.ok) throw new Error(d.error);
+      const d = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(d.error || 'Unable to create account');
       onCreated();
-    } catch (e: any) { setError(e.message); }
-    finally { setSaving(false); }
+    } catch (e: any) {
+      setError(e.message || 'Unable to create account');
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -139,39 +183,78 @@ function CreateModal({ onClose, onCreated }: any) {
       <form onSubmit={submit} className="bg-ivory max-w-lg w-full max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between p-6 border-b border-mitti/20">
           <h2 className="font-display text-2xl text-kohl">Add Team Member</h2>
-          <button type="button" onClick={onClose}><X className="w-5 h-5 text-mitti" /></button>
+          <button type="button" onClick={onClose}>
+            <X className="w-5 h-5 text-mitti" />
+          </button>
         </div>
+
         <div className="p-6 space-y-4">
           {error && <p className="font-ui text-xs text-madder bg-madder/10 p-2">{error}</p>}
+
           <div>
             <label className="label text-mitti block mb-1">Full Name *</label>
-            <input required value={form.name} onChange={e => setForm({...form, name: e.target.value})}
-              className="w-full p-3 bg-beige border border-mitti/20 font-ui text-sm" />
+            <input
+              required
+              value={form.name}
+              onChange={e => setForm({ ...form, name: e.target.value })}
+              className="w-full p-3 bg-beige border border-mitti/20 font-ui text-sm"
+            />
           </div>
+
           <div>
             <label className="label text-mitti block mb-1">Email *</label>
-            <input type="email" required value={form.email} onChange={e => setForm({...form, email: e.target.value})}
-              className="w-full p-3 bg-beige border border-mitti/20 font-ui text-sm" />
+            <input
+              type="email"
+              required
+              value={form.email}
+              onChange={e => setForm({ ...form, email: e.target.value })}
+              className="w-full p-3 bg-beige border border-mitti/20 font-ui text-sm"
+            />
           </div>
+
           <div>
             <label className="label text-mitti block mb-1">Phone</label>
-            <input value={form.phone} onChange={e => setForm({...form, phone: e.target.value})}
-              placeholder="+91 ..." className="w-full p-3 bg-beige border border-mitti/20 font-ui text-sm" />
+            <input
+              value={form.phone}
+              onChange={e => setForm({ ...form, phone: e.target.value })}
+              placeholder="+91 ..."
+              className="w-full p-3 bg-beige border border-mitti/20 font-ui text-sm"
+            />
           </div>
+
           <div>
             <label className="label text-mitti block mb-1">Role *</label>
-            <select required value={form.role} onChange={e => setForm({...form, role: e.target.value})}
-              className="w-full p-3 bg-beige border border-mitti/20 font-ui text-sm">
-              {ROLES.map(r => <option key={r.value} value={r.value}>{r.label} — {r.desc}</option>)}
+            <select
+              required
+              value={form.role}
+              onChange={e => setForm({ ...form, role: e.target.value })}
+              className="w-full p-3 bg-beige border border-mitti/20 font-ui text-sm"
+            >
+              {ROLES.map(r => (
+                <option key={r.value} value={r.value}>
+                  {r.label} — {r.desc}
+                </option>
+              ))}
             </select>
           </div>
+
           <div>
             <label className="label text-mitti block mb-1">Temporary Password *</label>
-            <input type="text" required minLength={8} value={form.password} onChange={e => setForm({...form, password: e.target.value})}
-              placeholder="Min 8 characters" className="w-full p-3 bg-beige border border-mitti/20 font-mono text-sm" />
-            <p className="font-ui text-[11px] text-mitti mt-1">Share securely. Encourage user to change after first login.</p>
+            <input
+              type="text"
+              required
+              minLength={8}
+              value={form.password}
+              onChange={e => setForm({ ...form, password: e.target.value })}
+              placeholder="Min 8 characters"
+              className="w-full p-3 bg-beige border border-mitti/20 font-mono text-sm"
+            />
+            <p className="font-ui text-[11px] text-mitti mt-1">
+              Share securely. Encourage user to change after first login.
+            </p>
           </div>
         </div>
+
         <div className="border-t border-mitti/20 p-6 flex justify-end gap-3">
           <button type="button" onClick={onClose} className="btn-outline">CANCEL</button>
           <button type="submit" disabled={saving} className="btn-primary flex items-center gap-2 disabled:opacity-50">

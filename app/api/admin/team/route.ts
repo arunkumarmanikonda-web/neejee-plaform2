@@ -21,6 +21,18 @@ const STAFF_ROLES = [
 
 type StaffRole = (typeof STAFF_ROLES)[number];
 
+function getFriendlyTeamError(e: any) {
+  const msg = String(e?.message || '');
+  if (
+    msg.includes('Expected Role') ||
+    msg.includes('Invalid value for argument `in`') ||
+    msg.includes('prisma.user.findMany')
+  ) {
+    return 'Team roles are out of sync with the database schema. Apply the Prisma schema update and retry.';
+  }
+  return 'Failed to load team. Please try again.';
+}
+
 export async function GET() {
   const user = await getSession();
   if (!requireRole(user, ['SUPER_ADMIN', 'ADMIN'])) {
@@ -45,7 +57,7 @@ export async function GET() {
     return NextResponse.json({ team });
   } catch (e: any) {
     return NextResponse.json(
-      { error: e?.message || 'Failed to load team', team: [] },
+      { error: getFriendlyTeamError(e), team: [] },
       { status: 500 },
     );
   }
@@ -108,10 +120,13 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ success: true, user: created });
   } catch (e: any) {
+    const raw = String(e?.message || '');
     const msg =
       e?.code === 'P2002'
         ? 'Email or phone already in use'
-        : e?.message || 'Unable to create user';
+        : raw.includes('Expected Role') || raw.includes('Invalid value for argument')
+          ? 'Selected role is not available in the database schema yet. Run Prisma schema sync first.'
+          : 'Unable to create user';
 
     return NextResponse.json({ error: msg }, { status: 500 });
   }

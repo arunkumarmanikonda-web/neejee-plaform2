@@ -1,5 +1,5 @@
 // Admin analytics endpoint — aggregates revenue, funnel, top products,
-// channel attribution, and cohorts. Cheap-ish: each query is bounded.
+// channel attribution, and cohorts with lower DB pressure and no Prisma groupBy typing issues.
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getSession } from '@/lib/auth';
@@ -9,6 +9,14 @@ export const runtime = 'nodejs';
 
 const ADMIN_ROLES = ['ADMIN', 'SUPER_ADMIN', 'CONTENT_EDITOR', 'QC_TEAM'];
 
+function isPoolTimeoutError(e: any) {
+  const msg = String(e?.message || '');
+  return (
+    msg.includes('Timed out fetching a new connection from the connection pool') ||
+    msg.includes('connection pool')
+  );
+}
+
 export async function GET(request: Request) {
   try {
     const session = await getSession();
@@ -17,128 +25,194 @@ export async function GET(request: Request) {
     }
 
     const url = new URL(request.url);
-    const rangeDays = parseInt(url.searchParams.get('days') || '30');
+    const rawDays = parseInt(url.searchParams.get('days') || '30', 10);
+    const rangeDays = [7, 30, 90].includes(rawDays) ? rawDays : 30;
+
     const since = new Date(Date.now() - rangeDays * 24 * 60 * 60 * 1000);
     const sincePrev = new Date(Date.now() - 2 * rangeDays * 24 * 60 * 60 * 1000);
 
-    // Run all queries in parallel for speed
-    const [
-      orders,
-      ordersPrev,
-      eventsTotal,
-      eventsByType,
-      topProductOrders,
-      topProductViews,
-      channelOrders,
-      newCustomers,
-      returningCustomersRaw,
-      abandonedCarts,
-    ] = await Promise.all([
-      // Orders this window
-      prisma.order.findMany({
+    const paidOrders = await prisma.order.findMany({
+      where: { createdAt: { gte: since }, paymentStatus: 'PAID' },
+      select: {
+        id: true,
+        total: true,
+        createdAt: true,
+        utmSource: true,
+        userId: true,
+      },
+      orderBy: { createdAt: 'asc' },
+    });
+
+    const paidOrdersPrev = await prisma.order.findMany({
+      where: { createdAt: { gte: sincePrev, lt: since }, paymentStatus: 'PAID' },
+      select: {
+        total: true,
+      },
+    });
+
+    let events: Array<{ type: string; productId: string | null }> = [];
+    try {
+      events = await prisma.analyticsEvent.findMany({
         where: { createdAt: { gte: since } },
         select: {
-          id: true, total: true, paymentStatus: true, createdAt: true,
-          utmSource: true, utmMedium: true, utmCampaign: true, userId: true,
+          type: true,
+          productId: true,
         },
-      }),
-      // Orders previous window (for growth %)
-      prisma.order.findMany({
-        where: { createdAt: { gte: sincePrev, lt: since } },
-        select: { total: true, paymentStatus: true },
-      }),
-      // Total event count this window
-      prisma.analyticsEvent.count({ where: { createdAt: { gte: since } } }),
-      // Funnel counts grouped by type
-      prisma.analyticsEvent.groupBy({
-        by: ['type'],
-        where: { createdAt: { gte: since } },
-        _count: { _all: true },
-      }),
-      // Top products by paid order quantity (this window)
-      prisma.orderItem.groupBy({
-        by: ['productId'],
-        where: { order: { createdAt: { gte: since }, paymentStatus: 'PAID' } },
-        _sum: { quantity: true, total: true },
-        orderBy: { _sum: { total: 'desc' } },
-        take: 10,
-      }),
-      // Top products by PRODUCT_VIEW events
-      prisma.analyticsEvent.groupBy({
-        by: ['productId'],
-        where: { type: 'PRODUCT_VIEW', createdAt: { gte: since }, productId: { not: null } },
-        _count: { _all: true },
-        orderBy: { _count: { productId: 'desc' } },
-        take: 10,
-      }),
-      // Channel attribution from orders
-      prisma.order.groupBy({
-        by: ['utmSource'],
-        where: { createdAt: { gte: since }, paymentStatus: 'PAID' },
-        _sum: { total: true },
-        _count: { _all: true },
-      }),
-      // New customers this window
-      prisma.user.count({
-        where: { role: 'CUSTOMER', createdAt: { gte: since } },
-      }),
-      // Returning customers (users with 2+ paid orders ever)
-      prisma.order.groupBy({
-        by: ['userId'],
-        where: { paymentStatus: 'PAID', userId: { not: null } },
-        _count: { _all: true },
-      }),
-      // Abandoned cart count
-      prisma.abandonedCart.count({
-        where: { createdAt: { gte: since }, recoveredOrderId: null, optedOut: false },
-      }),
-    ]);
+      });
+    } catch (e) {
+      console.warn('[analytics] events query degraded:', e);
+    }
 
-    // Resolve top product names
+    let revenueItems: Array<{ productId: string; quantity: number; total: number }> = [];
+    try {
+      revenueItems = await prisma.orderItem.findMany({
+        where: {
+          order: {
+            createdAt: { gte: since },
+            paymentStatus: 'PAID',
+          },
+        },
+        select: {
+          productId: true,
+          quantity: true,
+          total: true,
+        },
+      });
+    } catch (e) {
+      console.warn('[analytics] order item query degraded:', e);
+    }
+
+    let newCustomers = 0;
+    try {
+      newCustomers = await prisma.user.count({
+        where: { role: 'CUSTOMER', createdAt: { gte: since } },
+      });
+    } catch (e) {
+      console.warn('[analytics] new customer count degraded:', e);
+    }
+
+    let abandonedCarts = 0;
+    try {
+      abandonedCarts = await prisma.abandonedCart.count({
+        where: {
+          createdAt: { gte: since },
+          recoveredOrderId: null,
+          optedOut: false,
+        },
+      });
+    } catch (e) {
+      console.warn('[analytics] abandoned cart count degraded:', e);
+    }
+
+    const totalRevenue = paidOrders.reduce((sum, o) => sum + o.total, 0);
+    const totalRevenuePrev = paidOrdersPrev.reduce((sum, o) => sum + o.total, 0);
+    const paidOrderCount = paidOrders.length;
+    const aov = paidOrderCount > 0 ? Math.round(totalRevenue / paidOrderCount) : 0;
+
+    const buyerCounts = new Map<string, number>();
+    for (const o of paidOrders) {
+      if (!o.userId) continue;
+      buyerCounts.set(o.userId, (buyerCounts.get(o.userId) || 0) + 1);
+    }
+    const repeatBuyers = Array.from(buyerCounts.values()).filter(v => v >= 2).length;
+    const oneTimeBuyers = Array.from(buyerCounts.values()).filter(v => v === 1).length;
+
+    const channelMap = new Map<string, { source: string; orders: number; revenue: number }>();
+    for (const o of paidOrders) {
+      const source = (o.utmSource || '').trim() || 'direct';
+      const current = channelMap.get(source) || { source, orders: 0, revenue: 0 };
+      current.orders += 1;
+      current.revenue += o.total;
+      channelMap.set(source, current);
+    }
+    const channels = Array.from(channelMap.values()).sort((a, b) => b.revenue - a.revenue);
+
+    const funnelCounts: Record<string, number> = {};
+    const viewCountsByProduct = new Map<string, number>();
+
+    for (const e of events) {
+      const type = String(e.type || '');
+      funnelCounts[type] = (funnelCounts[type] || 0) + 1;
+
+      if (type === 'PRODUCT_VIEW' && e.productId) {
+        viewCountsByProduct.set(
+          e.productId,
+          (viewCountsByProduct.get(e.productId) || 0) + 1
+        );
+      }
+    }
+
+    const topProductViews = Array.from(viewCountsByProduct.entries())
+      .map(([productId, views]) => ({
+        productId,
+        _count: { _all: views },
+      }))
+      .sort((a, b) => b._count._all - a._count._all)
+      .slice(0, 10);
+
+    const revenueByProduct = new Map<string, { qty: number; revenue: number }>();
+    for (const item of revenueItems) {
+      if (!item.productId) continue;
+      const current = revenueByProduct.get(item.productId) || { qty: 0, revenue: 0 };
+      current.qty += item.quantity || 0;
+      current.revenue += item.total || 0;
+      revenueByProduct.set(item.productId, current);
+    }
+
+    const topProductOrders = Array.from(revenueByProduct.entries())
+      .map(([productId, v]) => ({
+        productId,
+        _sum: {
+          quantity: v.qty,
+          total: v.revenue,
+        },
+      }))
+      .sort((a, b) => (b._sum.total || 0) - (a._sum.total || 0))
+      .slice(0, 10);
+
     const topIds = Array.from(new Set([
       ...topProductOrders.map(t => t.productId),
-      ...topProductViews.map(t => t.productId).filter(Boolean) as string[],
+      ...topProductViews.map(t => t.productId),
     ]));
+
     const products = topIds.length
       ? await prisma.product.findMany({
           where: { id: { in: topIds } },
-          select: { id: true, name: true, slug: true, sellingPrice: true, images: true },
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+            sellingPrice: true,
+            images: true,
+          },
         })
       : [];
-    const productMap = new Map(products.map(p => [p.id, p]));
 
-    // Build daily revenue series
+    const productMap = new Map(products.map((p) => [p.id, p]));
+
     const daily = new Map<string, { revenue: number; orders: number }>();
     for (let d = 0; d < rangeDays; d++) {
       const day = new Date(since.getTime() + d * 24 * 60 * 60 * 1000);
       const key = day.toISOString().slice(0, 10);
       daily.set(key, { revenue: 0, orders: 0 });
     }
-    for (const o of orders) {
-      if (o.paymentStatus !== 'PAID') continue;
+
+    for (const o of paidOrders) {
       const key = o.createdAt.toISOString().slice(0, 10);
       const row = daily.get(key);
-      if (row) { row.revenue += o.total; row.orders += 1; }
+      if (row) {
+        row.revenue += o.total;
+        row.orders += 1;
+      }
     }
 
-    const totalRevenue = orders.filter(o => o.paymentStatus === 'PAID').reduce((s, o) => s + o.total, 0);
-    const totalRevenuePrev = ordersPrev.filter(o => o.paymentStatus === 'PAID').reduce((s, o) => s + o.total, 0);
-    const paidOrders = orders.filter(o => o.paymentStatus === 'PAID').length;
-    const aov = paidOrders > 0 ? Math.round(totalRevenue / paidOrders) : 0;
-
-    // Funnel
-    const fmap = Object.fromEntries(eventsByType.map(e => [e.type, e._count._all]));
     const funnel = {
-      pageViews: fmap['PAGE_VIEW'] || 0,
-      productViews: fmap['PRODUCT_VIEW'] || 0,
-      addToCart: fmap['ADD_TO_CART'] || 0,
-      beginCheckout: fmap['BEGIN_CHECKOUT'] || 0,
-      purchase: fmap['PURCHASE'] || paidOrders, // fallback when tracking just rolled out
+      pageViews: funnelCounts['PAGE_VIEW'] || 0,
+      productViews: funnelCounts['PRODUCT_VIEW'] || 0,
+      addToCart: funnelCounts['ADD_TO_CART'] || 0,
+      beginCheckout: funnelCounts['BEGIN_CHECKOUT'] || 0,
+      purchase: funnelCounts['PURCHASE'] || paidOrderCount,
     };
-
-    // Cohort: returning rate
-    const repeatBuyers = returningCustomersRaw.filter(r => r._count._all >= 2).length;
-    const oneTimeBuyers = returningCustomersRaw.filter(r => r._count._all === 1).length;
 
     return NextResponse.json({
       rangeDays,
@@ -148,9 +222,9 @@ export async function GET(request: Request) {
         revenueGrowthPct: totalRevenuePrev > 0
           ? Math.round(((totalRevenue - totalRevenuePrev) / totalRevenuePrev) * 100)
           : null,
-        orders: paidOrders,
+        orders: paidOrderCount,
         aov,
-        eventsTotal,
+        eventsTotal: events.length,
         newCustomers,
         repeatBuyers,
         oneTimeBuyers,
@@ -158,28 +232,27 @@ export async function GET(request: Request) {
       },
       funnel,
       daily: Array.from(daily.entries()).map(([date, v]) => ({ date, ...v })),
-      topByRevenue: topProductOrders.map(t => ({
+      topByRevenue: topProductOrders.map((t) => ({
         id: t.productId,
         name: productMap.get(t.productId)?.name || 'Unknown',
         slug: productMap.get(t.productId)?.slug || '',
-        image: (productMap.get(t.productId)?.images as string[] | undefined)?.[0] || null,
+        image: ((productMap.get(t.productId)?.images as unknown as string[] | null | undefined) || [])[0] || null,
         qty: t._sum.quantity || 0,
         revenue: t._sum.total || 0,
       })),
-      topByViews: topProductViews.map(t => ({
+      topByViews: topProductViews.map((t) => ({
         id: t.productId,
-        name: productMap.get(t.productId!)?.name || 'Unknown',
-        slug: productMap.get(t.productId!)?.slug || '',
-        views: t._count._all,
+        name: productMap.get(t.productId)?.name || 'Unknown',
+        slug: productMap.get(t.productId)?.slug || '',
+        views: t._count._all || 0,
       })),
-      channels: channelOrders.map(c => ({
-        source: c.utmSource || 'direct',
-        orders: c._count._all,
-        revenue: c._sum.total || 0,
-      })).sort((a, b) => b.revenue - a.revenue),
+      channels,
     });
   } catch (e: any) {
     console.error('[analytics] error:', e);
-    return NextResponse.json({ error: e.message }, { status: 500 });
+    const error = isPoolTimeoutError(e)
+      ? 'Analytics is temporarily busy. Please retry in a minute.'
+      : 'Unable to load analytics right now.';
+    return NextResponse.json({ error }, { status: 500 });
   }
 }
