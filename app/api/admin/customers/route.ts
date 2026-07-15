@@ -1,9 +1,17 @@
-﻿import { NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getSession, requireRole } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
+
+const CUSTOMER_VIEW_ROLES = [
+  'ADMIN',
+  'SUPER_ADMIN',
+  'TELECALLER',
+  'MARKETING_OPERATOR',
+  'MARKETING_MANAGER',
+] as const;
 
 async function getCustomersPayload() {
   const customers = await prisma.user.findMany({
@@ -79,7 +87,7 @@ async function getCustomersPayload() {
 
 export async function GET() {
   const user = await getSession();
-  if (!requireRole(user, ['ADMIN', 'SUPER_ADMIN'])) {
+  if (!requireRole(user, [...CUSTOMER_VIEW_ROLES])) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
