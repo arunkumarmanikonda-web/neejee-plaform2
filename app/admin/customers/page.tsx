@@ -1,5 +1,6 @@
-﻿'use client';
+'use client';
 
+import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { formatPrice } from '@/lib/utils';
 
@@ -122,7 +123,7 @@ export default function AdminCustomersPage() {
     }
   }
 
-  const columnCount = canDeleteCustomers && deleteMode ? 8 : 7;
+  const columnCount = 8;
 
   return (
     <>
@@ -179,7 +180,7 @@ export default function AdminCustomersPage() {
             <th className="p-4">LIFETIME VALUE</th>
             <th className="p-4">LAST ORDER</th>
             <th className="p-4">TIER</th>
-            {canDeleteCustomers && deleteMode && <th className="p-4">ACTIONS</th>}
+            <th className="p-4">ACTIONS</th>
           </tr>
         </thead>
         <tbody>
@@ -218,19 +219,27 @@ export default function AdminCustomersPage() {
                     {c.tier}
                   </span>
                 </td>
-
-                {canDeleteCustomers && deleteMode && (
-                  <td className="p-4">
-                    <button
-                      onClick={() => handleDelete(c)}
-                      disabled={hasOrders || isDeleting}
-                      title={hasOrders ? 'Customers with orders cannot be deleted' : 'Delete customer'}
-                      className="px-3 py-2 text-xs font-ui border border-madder text-madder disabled:opacity-40 disabled:cursor-not-allowed hover:bg-madder hover:text-white"
+                <td className="p-4">
+                  <div className="flex items-center gap-2">
+                    <Link
+                      href={`/admin/customers/${c.id}`}
+                      className="px-3 py-2 text-xs font-ui border border-kohl text-kohl hover:bg-kohl hover:text-white"
                     >
-                      {isDeleting ? 'Deleting...' : hasOrders ? 'Protected' : 'Delete'}
-                    </button>
-                  </td>
-                )}
+                      Open
+                    </Link>
+
+                    {canDeleteCustomers && deleteMode && (
+                      <button
+                        onClick={() => handleDelete(c)}
+                        disabled={hasOrders || isDeleting}
+                        title={hasOrders ? 'Customers with orders cannot be deleted' : 'Delete customer'}
+                        className="px-3 py-2 text-xs font-ui border border-madder text-madder disabled:opacity-40 disabled:cursor-not-allowed hover:bg-madder hover:text-white"
+                      >
+                        {isDeleting ? 'Deleting...' : hasOrders ? 'Protected' : 'Delete'}
+                      </button>
+                    )}
+                  </div>
+                </td>
               </tr>
             );
           })}
@@ -248,7 +257,3 @@ function Stat({ label, value, color = 'text-kohl' }: any) {
     </div>
   );
 }
-
-
-
-
