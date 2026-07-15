@@ -1,4 +1,4 @@
-﻿import { NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import bcrypt from 'bcryptjs';
 import { prisma } from '@/lib/prisma';
@@ -22,6 +22,7 @@ const ADMIN_ROLES = new Set([
   'FINANCE_OPERATOR',
   'MARKETING_OPERATOR',
   'MARKETING_MANAGER',
+  'TELECALLER',
 ]);
 
 function isAdminSideRole(role: unknown): role is string {

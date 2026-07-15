@@ -1,4 +1,4 @@
-// JWT-based auth — works without external auth providers
+// JWT-based auth â€” works without external auth providers
 // In production, swap for NextAuth.js with Email + Google + Apple OAuth + Phone OTP
 import { SignJWT, jwtVerify } from 'jose';
 import { cookies } from 'next/headers';
@@ -24,7 +24,8 @@ export type SessionUser = {
     | 'QC_TEAM' | 'CONTENT_EDITOR'
     | 'VENDOR' | 'VENDOR_STAFF'
     | 'FINANCE' | 'FINANCE_OPERATOR'
-    | 'MARKETING_OPERATOR' | 'MARKETING_MANAGER';
+    | 'MARKETING_OPERATOR' | 'MARKETING_MANAGER'
+    | 'TELECALLER';
 };
 
 export async function signSession(user: SessionUser): Promise<string> {
