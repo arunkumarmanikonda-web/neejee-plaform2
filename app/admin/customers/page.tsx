@@ -98,14 +98,16 @@ export default function AdminCustomersPage() {
       setDeletingId(customer.id);
       setError('');
 
-      const res = await fetch(`/api/admin/customers/${customer.id}`, {
+      const res = await fetch('/api/admin/customers', {
         method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: customer.id }),
       });
 
       const data = await res.json().catch(() => ({}));
 
       if (!res.ok) {
-        throw new Error(data?.error || 'Failed to delete customer');
+        throw new Error(data?.error || JSON.stringify(data) || 'Failed to delete customer');
       }
 
       setCustomers((prev) => prev.filter((c) => c.id !== customer.id));
@@ -246,4 +248,7 @@ function Stat({ label, value, color = 'text-kohl' }: any) {
     </div>
   );
 }
+
+
+
 
