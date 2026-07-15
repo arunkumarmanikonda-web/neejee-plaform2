@@ -242,7 +242,7 @@ function buildCreateData(body: any, slug: string, sku: string): any {
 export async function GET(request: Request) {
   const user = await getSession();
 
-  if (!requireRole(user, ['ADMIN', 'SUPER_ADMIN', 'CONTENT_EDITOR'])) {
+  if (!requireRole(user, ['ADMIN', 'SUPER_ADMIN', 'CONTENT_EDITOR', 'MARKETING_OPERATOR', 'MARKETING_MANAGER'])) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
@@ -378,7 +378,7 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   const user = await getSession();
 
-  if (!requireRole(user, ['ADMIN', 'SUPER_ADMIN', 'CONTENT_EDITOR'])) {
+  if (!requireRole(user, ['ADMIN', 'SUPER_ADMIN', 'CONTENT_EDITOR', 'MARKETING_OPERATOR', 'MARKETING_MANAGER'])) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 

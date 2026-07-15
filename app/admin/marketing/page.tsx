@@ -7,7 +7,7 @@ export const dynamic = 'force-dynamic';
 const SEGMENTS = [
   { value: 'OPTED_IN_ONLY', label: 'All opted-in subscribers' },
   { value: 'CUSTOMERS', label: 'Customers (1+ paid order)' },
-  { value: 'VIP', label: 'VIP (3+ orders or ₹50k+)' },
+  { value: 'VIP', label: 'VIP (3+ orders or â‚¹50k+)' },
   { value: 'LAPSED', label: 'Lapsed (no order in 120+ days)' },
   { value: 'WISHLIST', label: 'Wishlist holders' },
 ];
@@ -123,7 +123,7 @@ function CampaignEditor({ existing: initial, onClose }: { existing: any; onClose
   const [form, setForm] = useState({
     name: existing?.name || '',
     subject: existing?.subject || '',
-    bodyHtml: existing?.bodyHtml || '<p>Dear {{firstName}},</p>\n<p>We have something quiet to share...</p>\n<p><a href="https://www.neejee.com/categories/women">See what is new →</a></p>',
+    bodyHtml: existing?.bodyHtml || '<p>Dear {{firstName}},</p>\n<p>We have something quiet to share...</p>\n<p><a href="https://www.neejee.com/categories/women">See what is new â†’</a></p>',
     segment: existing?.segment || 'OPTED_IN_ONLY',
     notes: existing?.notes || '',
   });
@@ -154,7 +154,7 @@ function CampaignEditor({ existing: initial, onClose }: { existing: any; onClose
   };
 
   const send = async () => {
-    // For ADMIN/SUPER_ADMIN — direct send (bypass). Otherwise the API will refuse and tell us to submit.
+    // For ADMIN/SUPER_ADMIN â€” direct send (bypass). Otherwise the API will refuse and tell us to submit.
     if (!confirm(`Send this broadcast to all opted-in recipients in the "${form.segment}" segment? This cannot be undone.`)) return;
     setSending(true); setErr('');
     try {
@@ -198,6 +198,7 @@ function CampaignEditor({ existing: initial, onClose }: { existing: any; onClose
 
   const aiDraft = async (kind: 'subject' | 'body') => {
     setDrafting(true);
+    setErr('');
     try {
       const res = await fetch('/api/ai/content', {
         method: 'POST',
@@ -205,16 +206,38 @@ function CampaignEditor({ existing: initial, onClose }: { existing: any; onClose
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           field: kind === 'subject' ? 'emailSubject' : 'emailBody',
-          brief: { campaign: form.name || 'NEEJEE update', segment: form.segment, notes: form.notes },
+          brief: {
+            campaign: form.name || 'NEEJEE update',
+            segment: form.segment,
+            notes: form.notes,
+          },
         }),
       });
-      const d = await res.json();
-      if (d.text) {
-        if (kind === 'subject') setForm(f => ({ ...f, subject: d.text.replace(/^["']|["']$/g, '') }));
-        else setForm(f => ({ ...f, bodyHtml: d.text }));
+
+      const d = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        throw new Error(d.error || 'AI drafting failed');
       }
-    } catch {}
-    finally { setDrafting(false); }
+
+      if (d.configured === false) {
+        throw new Error(d.message || 'AI drafting is not configured yet.');
+      }
+
+      if (!d.text) {
+        throw new Error('AI did not return any draft text.');
+      }
+
+      if (kind === 'subject') {
+        setForm(f => ({ ...f, subject: String(d.text).replace(/^["']|["']$/g, '') }));
+      } else {
+        setForm(f => ({ ...f, bodyHtml: String(d.text) }));
+      }
+    } catch (e: any) {
+      setErr(e.message || 'AI drafting failed');
+    } finally {
+      setDrafting(false);
+    }
   };
 
   return (
@@ -234,7 +257,7 @@ function CampaignEditor({ existing: initial, onClose }: { existing: any; onClose
               onChange={e => setForm({ ...form, name: e.target.value })}
               disabled={isReadOnly}
               className="w-full mt-1 p-3 bg-beige border border-mitti/20 font-ui"
-              placeholder="Diwali Drop · Sept 2025"
+              placeholder="Diwali Drop Â· Sept 2025"
             />
           </div>
 
@@ -272,7 +295,7 @@ function CampaignEditor({ existing: initial, onClose }: { existing: any; onClose
 
           <div>
             <div className="flex items-center justify-between">
-              <label className="label text-mitti">BODY (HTML supported · {`{{firstName}}, {{name}}, {{email}}`})</label>
+              <label className="label text-mitti">BODY (HTML supported Â· {`{{firstName}}, {{name}}, {{email}}`})</label>
               <div className="flex items-center gap-3">
                 <button onClick={() => setPreview(!preview)} className="text-xs text-mitti hover:text-kohl flex items-center gap-1">
                   <Eye className="w-3 h-3" /> {preview ? 'EDIT' : 'PREVIEW'}

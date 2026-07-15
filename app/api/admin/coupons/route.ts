@@ -8,7 +8,7 @@ export const runtime = 'nodejs';
 
 export async function GET() {
   const user = await getSession();
-  if (!requireRole(user, ['ADMIN', 'SUPER_ADMIN'])) {
+  if (!requireRole(user, ['ADMIN', 'SUPER_ADMIN', 'MARKETING_OPERATOR', 'MARKETING_MANAGER'])) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
   try {
