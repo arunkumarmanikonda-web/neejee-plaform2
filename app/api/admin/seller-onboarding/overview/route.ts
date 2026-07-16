@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getSession, requireRole } from '@/lib/auth';
+import { getSellerActivationSnapshot } from '@/lib/seller-onboarding/status';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -111,40 +112,36 @@ export async function GET() {
       return acc;
     }, {});
 
-    const pendingSellers = sellerRowsRaw.map((seller: any) => {
-      const hasPan = !!seller.pan;
-      const hasGstin = !!seller.gstin;
-      const hasBank = !!seller.bankAccount && !!seller.ifsc && !!seller.bankName;
-      const hasPortfolio = Array.isArray(seller.portfolio) && seller.portfolio.length > 0;
-      const hasUserAccount = !!seller.userId;
-      const phoneVerified = !!seller.user?.phoneVerified;
-      const emailVerified = !!seller.user?.emailVerified;
-      const autoKycPassed = !!seller.autoKycPassed;
-      const canActivate = autoKycPassed && phoneVerified && emailVerified && seller.kycStatus === 'UNDER_REVIEW';
+    const pendingSellers = await Promise.all(
+      sellerRowsRaw.map(async (seller: any) => {
+        const activation = await getSellerActivationSnapshot(seller.id);
 
-      return {
-        id: seller.id,
-        slug: seller.slug,
-        businessName: seller.businessName,
-        contactName: seller.contactName,
-        email: seller.email,
-        phone: seller.phone,
-        craft: seller.craft,
-        region: seller.region,
-        kycStatus: seller.kycStatus,
-        createdAt: seller.createdAt.toISOString(),
-        productCount: seller.products.length,
-        hasPan,
-        hasGstin,
-        hasBank,
-        hasPortfolio,
-        hasUserAccount,
-        phoneVerified,
-        emailVerified,
-        autoKycPassed,
-        canActivate,
-      };
-    });
+        return {
+          id: seller.id,
+          slug: seller.slug,
+          businessName: seller.businessName,
+          contactName: seller.contactName,
+          email: seller.email,
+          phone: seller.phone,
+          craft: seller.craft,
+          region: seller.region,
+          kycStatus: seller.kycStatus,
+          createdAt: seller.createdAt.toISOString(),
+          productCount: seller.products.length,
+          hasPan: !!activation?.hasPan,
+          hasGstin: !!activation?.hasGstin,
+          hasBank: !!activation?.hasBank,
+          hasPortfolio: !!activation?.hasPortfolio,
+          hasUserAccount: !!activation?.hasUserAccount,
+          phoneVerified: !!activation?.phoneVerified,
+          emailVerified: !!activation?.emailVerified,
+          autoKycPassed: !!activation?.autoKycPassed,
+          canActivate: !!activation?.canApprove && seller.kycStatus === 'UNDER_REVIEW',
+          blockers: activation?.blockers || [],
+          warnings: activation?.warnings || [],
+        };
+      })
+    );
 
     return NextResponse.json({
       summary: {

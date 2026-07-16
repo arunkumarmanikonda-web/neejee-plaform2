@@ -35,6 +35,8 @@ type SellerRow = {
   emailVerified: boolean;
   autoKycPassed: boolean;
   canActivate: boolean;
+  blockers?: string[];
+  warnings?: string[];
 };
 
 type ChangeRequestRow = {
@@ -146,6 +148,32 @@ export default function SellerOnboardingPage() {
   const [data, setData] = useState<Overview | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [busySellerId, setBusySellerId] = useState<string | null>(null);
+
+  async function patchSeller(id: string, body: any) {
+    setBusySellerId(id);
+    setError('');
+    try {
+      const res = await fetch(`/api/admin/sellers/${id}`, {
+        method: 'PATCH',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        const blockerText = Array.isArray(json?.blockers) && json.blockers.length
+          ? `: ${json.blockers.join(', ')}`
+          : '';
+        throw new Error((json?.error || 'Failed to update seller') + blockerText);
+      }
+      await load();
+    } catch (e: any) {
+      setError(e?.message || 'Failed to update seller');
+    } finally {
+      setBusySellerId(null);
+    }
+  }
 
   async function load() {
     setLoading(true);

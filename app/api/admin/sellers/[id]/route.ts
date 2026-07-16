@@ -4,6 +4,7 @@ import { prisma } from '@/lib/prisma';
 import { getSession, requireRole } from '@/lib/auth';
 import { sendEmail } from '@/lib/email';
 import { generateWelcomeCoupon } from '@/lib/welcome-coupon';
+import { getSellerActivationSnapshot } from '@/lib/seller-onboarding/status';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -61,6 +62,25 @@ export async function PATCH(request: Request, { params }: { params: { id: string
 
     let statusChange: 'APPROVED' | 'REJECTED' | 'REAPPROVED' | null = null;
     if (body.kycStatus && body.kycStatus !== existing.kycStatus) {
+      if (body.kycStatus === 'APPROVED') {
+        const activation = await getSellerActivationSnapshot(existing.id);
+        if (!activation) {
+          return NextResponse.json({ error: 'Seller activation snapshot unavailable' }, { status: 404 });
+        }
+        if (!activation.canApprove) {
+          return NextResponse.json(
+            {
+              error: 'Seller is not approval-ready',
+              code: 'seller_activation_blocked',
+              blockers: activation.blockers,
+              warnings: activation.warnings,
+              activation,
+            },
+            { status: 400 }
+          );
+        }
+      }
+
       data.kycStatus = body.kycStatus;
       if (body.kycStatus === 'APPROVED') {
         statusChange = existing.kycStatus === 'REJECTED' ? 'REAPPROVED' : 'APPROVED';
