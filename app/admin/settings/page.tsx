@@ -180,7 +180,7 @@ export default function AdminSettingsPage() {
 
 
   if (loading) {
-    return <div className="p-8 font-ui text-sm text-kohl/70">Loading settingsâ€¦</div>;
+    return <div className="p-8 font-ui text-sm text-kohl/70">Loading settingsÃ¢â‚¬Â¦</div>;
   }
 
   return (
@@ -215,7 +215,7 @@ export default function AdminSettingsPage() {
           </p>
           <p className="text-xs text-mitti mt-1 italic">
             {data?.vercel.configured
-              ? 'Field changes autosave on blur'
+              ? 'Click Save for each changed field'
               : 'Set VERCEL_ACCESS_TOKEN and VERCEL_PROJECT_ID on the server first'}
           </p>
         </div>
@@ -282,7 +282,7 @@ export default function AdminSettingsPage() {
                     <div className="flex items-center justify-between gap-3">
                       <label className="font-ui text-sm text-kohl">{LABELS[key] || key}</label>
                       <span className={`text-xs ${meta?.configured ? 'text-neem' : 'text-mitti'}`}>
-                        {saving ? 'Savingâ€¦' : meta?.configured ? 'Configured' : 'Empty'}
+                        {saving ? 'SavingÃ¢â‚¬Â¦' : meta?.configured ? 'Configured' : 'Empty'}
                       </span>
                     </div>
                     <input
@@ -294,7 +294,7 @@ export default function AdminSettingsPage() {
                       }}
 
                       disabled={!data?.canEdit}
-                      placeholder={meta?.secret ? 'â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢' : ''}
+                      placeholder={meta?.secret ? 'Ã¢â‚¬Â¢Ã¢â‚¬Â¢Ã¢â‚¬Â¢Ã¢â‚¬Â¢Ã¢â‚¬Â¢Ã¢â‚¬Â¢Ã¢â‚¬Â¢Ã¢â‚¬Â¢' : ''}
                       className="w-full mt-3 border border-kohl/15 px-3 py-2 bg-white font-ui text-sm"
                     />
                     <p className="font-ui text-xs text-mitti mt-2">
