@@ -180,7 +180,7 @@ export default function AdminSettingsPage() {
 
 
   if (loading) {
-    return <div className="p-8 font-ui text-sm text-kohl/70">Loading settingsÃ¢â‚¬Â¦</div>;
+    return <div className="p-8 font-ui text-sm text-kohl/70">Loading settingsÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¦</div>;
   }
 
   return (
@@ -279,11 +279,23 @@ export default function AdminSettingsPage() {
 
                 return (
                   <div key={key} className="bg-white border border-kohl/10 p-4">
-                    <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-start justify-between gap-3">
                       <label className="font-ui text-sm text-kohl">{LABELS[key] || key}</label>
-                      <span className={`text-xs ${meta?.configured ? 'text-neem' : 'text-mitti'}`}>
-                        {saving ? 'SavingÃ¢â‚¬Â¦' : meta?.configured ? 'Configured' : 'Empty'}
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <span className={`text-xs ${meta?.configured ? 'text-neem' : 'text-mitti'}`}>
+                          {saving ? 'Saving' : meta?.configured ? 'Configured' : 'Empty'}
+                        </span>
+                        {data?.canEdit ? (
+                          <button
+                            type="button"
+                            onClick={() => void saveKeys([key])}
+                            disabled={!dirty || saving}
+                            className="px-2 py-1 text-xs border border-kohl/20 hover:bg-beige disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            {saving ? 'Saving' : 'Save'}
+                          </button>
+                        ) : null}
+                      </div>
                     </div>
                     <input
                       type={meta?.secret ? 'password' : 'text'}
@@ -294,7 +306,7 @@ export default function AdminSettingsPage() {
                       }}
 
                       disabled={!data?.canEdit}
-                      placeholder={meta?.secret ? 'Ã¢â‚¬Â¢Ã¢â‚¬Â¢Ã¢â‚¬Â¢Ã¢â‚¬Â¢Ã¢â‚¬Â¢Ã¢â‚¬Â¢Ã¢â‚¬Â¢Ã¢â‚¬Â¢' : ''}
+                      placeholder={meta?.secret ? 'ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢' : ''}
                       className="w-full mt-3 border border-kohl/15 px-3 py-2 bg-white font-ui text-sm"
                     />
                     <p className="font-ui text-xs text-mitti mt-2">
