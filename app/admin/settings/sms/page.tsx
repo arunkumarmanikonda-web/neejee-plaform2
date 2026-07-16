@@ -1,6 +1,6 @@
-'use client';
+﻿'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 type Template = {
   event: string;
@@ -12,6 +12,20 @@ type Template = {
   category?: string | null;
   notes?: string | null;
   lastUsedAt?: string | null;
+};
+
+type ProviderTemplate = {
+  id?: string;
+  messageId: string;
+  entityId?: string | null;
+  entityName?: string | null;
+  senderId?: string | null;
+  status?: string | null;
+  category?: string | null;
+  language?: string | null;
+  body: string;
+  sourcePage?: string | null;
+  rawMeta?: Record<string, unknown> | null;
 };
 
 type Health = {
@@ -49,8 +63,19 @@ async function fetchJson(url: string) {
   return data;
 }
 
+function providerLabel(row: ProviderTemplate) {
+  const parts = [
+    row.messageId,
+    row.senderId || '',
+    row.category || '',
+    row.status || '',
+  ].filter(Boolean);
+  return parts.join(' • ');
+}
+
 export default function SmsAdminPage() {
   const [templates, setTemplates] = useState<Template[]>([]);
+  const [providerTemplates, setProviderTemplates] = useState<ProviderTemplate[]>([]);
   const [health, setHealth] = useState<Health | null>(null);
   const [logs, setLogs] = useState<LogRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -61,28 +86,39 @@ export default function SmsAdminPage() {
   const [testVars, setTestVars] = useState<Record<string, string>>({});
   const [testResult, setTestResult] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
+  const [providerHtml, setProviderHtml] = useState('');
+  const [syncingProvider, setSyncingProvider] = useState(false);
 
-  const selectableTemplates = templates.filter(
-    (row) => !!row.active && !!String(row.templateId || '').trim()
+  const selectableTemplates = useMemo(
+    () => templates.filter((row) => !!row.active && !!String(row.templateId || '').trim()),
+    [templates]
   );
 
   const selectedTemplate =
     templates.find((row) => row.event === testEvent) || null;
 
-  const primaryVarKey =
+  const approvedProviderTemplates = useMemo(() => {
+    const approved = providerTemplates.filter((row) =>
+      String(row.status || '').toLowerCase().includes('approved')
+    );
+    return approved.length ? approved : providerTemplates;
+  }, [providerTemplates]);
+
+  const selectedTemplateVarKeys =
     Array.isArray(selectedTemplate?.varOrder) && selectedTemplate!.varOrder.length
-      ? selectedTemplate!.varOrder[0]
-      : 'code';
+      ? selectedTemplate!.varOrder
+      : ['code'];
 
   async function loadAll() {
     setLoading(true);
     setPageError('');
     setTestResult(null);
 
-    const [t, h, l] = await Promise.allSettled([
+    const [t, h, l, p] = await Promise.allSettled([
       fetchJson('/api/admin/sms/templates'),
       fetchJson('/api/admin/sms/test'),
       fetchJson('/api/admin/sms/logs'),
+      fetchJson('/api/admin/sms/provider-templates'),
     ]);
 
     const issues: string[] = [];
@@ -115,6 +151,13 @@ export default function SmsAdminPage() {
       issues.push(`logs: ${l.reason?.message || 'failed'}`);
     }
 
+    if (p.status === 'fulfilled') {
+      setProviderTemplates(Array.isArray(p.value?.templates) ? p.value.templates : []);
+    } else {
+      setProviderTemplates([]);
+      issues.push(`provider templates: ${p.reason?.message || 'failed'}`);
+    }
+
     setPageError(
       issues.length
         ? `Some SMS admin data could not be loaded: ${issues.join(', ')}.`
@@ -143,10 +186,39 @@ export default function SmsAdminPage() {
       setTestEvent(templates[0].event);
       setTestVars({});
     }
-  }, [templates, testEvent]);
+  }, [templates, selectableTemplates, testEvent]);
 
   function updateTemplate(event: string, patch: Partial<Template>) {
     setTemplates((prev) => prev.map((row) => (row.event === event ? { ...row, ...patch } : row)));
+  }
+
+  function applyProviderTemplate(event: string, messageId: string) {
+    const provider = providerTemplates.find((row) => row.messageId === messageId);
+    if (!provider) return;
+
+    setTemplates((prev) =>
+      prev.map((row) => {
+        if (row.event !== event) return row;
+
+        const nextNotes = [
+          'Mapped from Fast2SMS',
+          provider.senderId ? `sender:${provider.senderId}` : '',
+          provider.entityId ? `entity:${provider.entityId}` : '',
+          provider.status ? `status:${provider.status}` : '',
+          provider.language ? `language:${provider.language}` : '',
+        ]
+          .filter(Boolean)
+          .join(' | ');
+
+        return {
+          ...row,
+          templateId: provider.messageId,
+          body: provider.body || row.body,
+          category: provider.category || row.category,
+          notes: nextNotes,
+        };
+      })
+    );
   }
 
   async function saveTemplate(row: Template) {
@@ -176,6 +248,29 @@ export default function SmsAdminPage() {
       setTestResult(e?.message || 'Template save failed.');
     } finally {
       setSavingEvent(null);
+    }
+  }
+
+  async function syncProviderTemplates() {
+    setSyncingProvider(true);
+    setTestResult(null);
+
+    try {
+      const res = await fetch('/api/admin/sms/provider-templates', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ html: providerHtml }),
+      });
+      const text = await res.text();
+      const data = text ? JSON.parse(text) : {};
+      if (!res.ok) throw new Error(data?.error || `Sync failed (${res.status})`);
+
+      setTestResult(`Imported ${data?.importedCount || 0} Fast2SMS provider templates.`);
+      await loadAll();
+    } catch (e: any) {
+      setTestResult(e?.message || 'Provider template sync failed.');
+    } finally {
+      setSyncingProvider(false);
     }
   }
 
@@ -224,7 +319,7 @@ export default function SmsAdminPage() {
         <div>
           <h1 className="font-display text-3xl text-kohl">SMS & OTP</h1>
           <p className="font-ui text-sm text-kohl/60 mt-1">
-            Template registry, provider health, and delivery logs.
+            Template registry, provider health, Fast2SMS sync, and delivery logs.
           </p>
         </div>
         <button
@@ -259,9 +354,50 @@ export default function SmsAdminPage() {
       ) : null}
 
       <div className="bg-white border border-kohl/10 p-5 mb-6">
+        <h2 className="font-display text-xl text-kohl mb-3">Sync from Fast2SMS</h2>
+        <p className="font-ui text-sm text-kohl/70 mb-3">
+          Paste the HTML page source from Fast2SMS DLT report3 and import approved provider templates into the local catalog.
+        </p>
+
+        <textarea
+          value={providerHtml}
+          onChange={(e) => setProviderHtml(e.target.value)}
+          rows={8}
+          placeholder="Paste Fast2SMS report3 page source HTML here"
+          className="w-full border border-kohl/15 px-3 py-2 font-ui text-sm"
+        />
+
+        <div className="mt-3 flex flex-wrap items-center gap-3">
+          <button
+            type="button"
+            onClick={() => void syncProviderTemplates()}
+            disabled={syncingProvider || !providerHtml.trim()}
+            className="px-4 py-2 bg-kohl text-white font-ui text-sm disabled:opacity-50"
+          >
+            {syncingProvider ? 'Syncing' : 'Sync from Fast2SMS'}
+          </button>
+
+          <span className="font-ui text-sm text-mitti">
+            Imported provider templates: {providerTemplates.length}
+          </span>
+        </div>
+
+        {providerTemplates.length ? (
+          <div className="mt-4 border border-kohl/10 bg-beige px-4 py-3">
+            <p className="font-ui text-sm text-kohl">
+              <span className="font-semibold">Catalog ready:</span> {providerTemplates.length} provider templates available for mapping.
+            </p>
+            <p className="font-ui text-xs text-mitti mt-1">
+              Approved-visible options: {approvedProviderTemplates.length}
+            </p>
+          </div>
+        ) : null}
+      </div>
+
+      <div className="bg-white border border-kohl/10 p-5 mb-6">
         <h2 className="font-display text-xl text-kohl mb-3">Send test SMS</h2>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <input
             value={testPhone}
             onChange={(e) => setTestPhone(e.target.value)}
@@ -287,16 +423,21 @@ export default function SmsAdminPage() {
               </option>
             ))}
           </select>
+        </div>
 
-          <input
-            value={testVars[primaryVarKey] || ''}
-            onChange={(e) =>
-              setTestVars((prev) => ({ ...prev, [primaryVarKey]: e.target.value }))
-            }
-            placeholder={`Sample var: ${primaryVarKey}`}
-            disabled={!selectedTemplate}
-            className="border border-kohl/15 px-3 py-2 font-ui text-sm disabled:opacity-50"
-          />
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-3">
+          {selectedTemplateVarKeys.map((key) => (
+            <input
+              key={key}
+              value={testVars[key] || ''}
+              onChange={(e) =>
+                setTestVars((prev) => ({ ...prev, [key]: e.target.value }))
+              }
+              placeholder={`Sample var: ${key}`}
+              disabled={!selectedTemplate}
+              className="border border-kohl/15 px-3 py-2 font-ui text-sm disabled:opacity-50"
+            />
+          ))}
         </div>
 
         {selectedTemplate ? (
@@ -310,9 +451,9 @@ export default function SmsAdminPage() {
               {' • '}
               Message ID: {selectedTemplate.templateId || 'Missing'}
               {' • '}
-              Category: {selectedTemplate.category || '—'}
+              Category: {selectedTemplate.category || ''}
               {' • '}
-              Vars: {Array.isArray(selectedTemplate.varOrder) ? (selectedTemplate.varOrder.join(', ') || '—') : '—'}
+              Vars: {Array.isArray(selectedTemplate.varOrder) ? (selectedTemplate.varOrder.join(', ') || '') : ''}
             </p>
             <p className="font-ui text-xs text-kohl/80 mt-2 whitespace-pre-wrap">
               {selectedTemplate.body || 'No template body saved.'}
@@ -340,7 +481,7 @@ export default function SmsAdminPage() {
         </button>
 
         {testResult ? (
-          <div className={`mt-3 px-3 py-2 font-ui text-sm ${/saved|accepted/i.test(testResult) ? 'bg-green-50 text-green-800' : 'bg-red-50 text-red-800'}`}>
+          <div className={`mt-3 px-3 py-2 font-ui text-sm ${/saved|accepted|imported/i.test(testResult) ? 'bg-green-50 text-green-800' : 'bg-red-50 text-red-800'}`}>
             {testResult}
           </div>
         ) : null}
@@ -354,61 +495,125 @@ export default function SmsAdminPage() {
           <p className="font-ui text-sm text-mitti">No templates found.</p>
         ) : (
           <div className="space-y-4">
-            {templates.map((row) => (
-              <div key={row.event} className="border border-kohl/10 p-4">
-                <div className="flex items-center justify-between gap-4">
-                  <div>
-                    <p className="font-display text-kohl">{row.label || row.event}</p>
-                    <p className="font-ui text-xs text-mitti mt-1">
-                      Event: {row.event}
-                      {' • '}
-                      Vars: {Array.isArray(row.varOrder) ? row.varOrder.join(', ') || '—' : '—'}
-                      {' • '}
-                      Message ID: {row.templateId || 'Missing'}
-                    </p>
+            {templates.map((row) => {
+              const mappedProviderExists = providerTemplates.some(
+                (provider) => provider.messageId === row.templateId
+              );
+
+              return (
+                <div key={row.event} className="border border-kohl/10 p-4">
+                  <div className="flex items-center justify-between gap-4">
+                    <div>
+                      <p className="font-display text-kohl">{row.label || row.event}</p>
+                      <p className="font-ui text-xs text-mitti mt-1">
+                        Event: {row.event}
+                        {' • '}
+                        Vars: {Array.isArray(row.varOrder) ? row.varOrder.join(', ') || '' : ''}
+                        {' • '}
+                        Message ID: {row.templateId || 'Missing'}
+                      </p>
+                    </div>
+                    <label className="font-ui text-sm flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        checked={!!row.active}
+                        onChange={(e) => updateTemplate(row.event, { active: e.target.checked })}
+                      />
+                      Active
+                    </label>
                   </div>
-                  <label className="font-ui text-sm flex items-center gap-2">
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3">
+                    <select
+                      value={mappedProviderExists ? row.templateId : ''}
+                      onChange={(e) => {
+                        const nextMessageId = e.target.value;
+                        if (!nextMessageId) return;
+                        applyProviderTemplate(row.event, nextMessageId);
+                      }}
+                      className="border border-kohl/15 px-3 py-2 font-ui text-sm bg-white"
+                    >
+                      <option value="">Map from Fast2SMS approved template</option>
+                      {approvedProviderTemplates.map((provider) => (
+                        <option key={provider.messageId} value={provider.messageId}>
+                          {providerLabel(provider)}
+                        </option>
+                      ))}
+                    </select>
+
                     <input
-                      type="checkbox"
-                      checked={!!row.active}
-                      onChange={(e) => updateTemplate(row.event, { active: e.target.checked })}
+                      value={row.templateId || ''}
+                      onChange={(e) => updateTemplate(row.event, { templateId: e.target.value })}
+                      placeholder="DLT template ID / Message ID"
+                      className="border border-kohl/15 px-3 py-2 font-ui text-sm"
                     />
-                    Active
-                  </label>
-                </div>
+                  </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3">
-                  <input
-                    value={row.templateId || ''}
-                    onChange={(e) => updateTemplate(row.event, { templateId: e.target.value })}
-                    placeholder="DLT template ID / Message ID"
-                    className="border border-kohl/15 px-3 py-2 font-ui text-sm"
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3">
+                    <input
+                      value={row.category || ''}
+                      onChange={(e) => updateTemplate(row.event, { category: e.target.value })}
+                      placeholder="Category"
+                      className="border border-kohl/15 px-3 py-2 font-ui text-sm"
+                    />
+                    <input
+                      value={row.notes || ''}
+                      onChange={(e) => updateTemplate(row.event, { notes: e.target.value })}
+                      placeholder="Notes / provider mapping metadata"
+                      className="border border-kohl/15 px-3 py-2 font-ui text-sm"
+                    />
+                  </div>
+
+                  <textarea
+                    value={row.body || ''}
+                    onChange={(e) => updateTemplate(row.event, { body: e.target.value })}
+                    rows={3}
+                    placeholder="Template body"
+                    className="w-full mt-3 border border-kohl/15 px-3 py-2 font-ui text-sm"
                   />
-                  <input
-                    value={row.category || ''}
-                    onChange={(e) => updateTemplate(row.event, { category: e.target.value })}
-                    placeholder="Category"
-                    className="border border-kohl/15 px-3 py-2 font-ui text-sm"
-                  />
+
+                  <button
+                    type="button"
+                    onClick={() => void saveTemplate(row)}
+                    className="mt-3 px-4 py-2 border border-kohl/20 hover:bg-beige font-ui text-sm"
+                  >
+                    {savingEvent === row.event ? 'Saving' : 'Save template'}
+                  </button>
                 </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
 
-                <textarea
-                  value={row.body || ''}
-                  onChange={(e) => updateTemplate(row.event, { body: e.target.value })}
-                  rows={3}
-                  placeholder="Template body"
-                  className="w-full mt-3 border border-kohl/15 px-3 py-2 font-ui text-sm"
-                />
-
-                <button
-                  type="button"
-                  onClick={() => void saveTemplate(row)}
-                  className="mt-3 px-4 py-2 border border-kohl/20 hover:bg-beige font-ui text-sm"
-                >
-                  {savingEvent === row.event ? 'Saving' : 'Save template'}
-                </button>
-              </div>
-            ))}
+      <div className="bg-white border border-kohl/10 p-5 mb-6">
+        <h2 className="font-display text-xl text-kohl mb-3">Imported Fast2SMS Templates</h2>
+        {providerTemplates.length === 0 ? (
+          <p className="font-ui text-sm text-mitti">No provider templates imported yet.</p>
+        ) : (
+          <div className="overflow-auto">
+            <table className="min-w-full text-sm font-ui">
+              <thead>
+                <tr className="text-left border-b border-kohl/10">
+                  <th className="py-2 pr-4">Message ID</th>
+                  <th className="py-2 pr-4">Sender</th>
+                  <th className="py-2 pr-4">Category</th>
+                  <th className="py-2 pr-4">Status</th>
+                  <th className="py-2 pr-4">Body</th>
+                </tr>
+              </thead>
+              <tbody>
+                {providerTemplates.map((row, idx) => (
+                  <tr key={`${row.messageId}-${idx}`} className="border-b border-kohl/5 align-top">
+                    <td className="py-2 pr-4">{row.messageId}</td>
+                    <td className="py-2 pr-4">{row.senderId || ''}</td>
+                    <td className="py-2 pr-4">{row.category || ''}</td>
+                    <td className="py-2 pr-4">{row.status || ''}</td>
+                    <td className="py-2 pr-4 whitespace-pre-wrap">{row.body || ''}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         )}
       </div>

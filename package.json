@@ -27,6 +27,7 @@
     "@sentry/nextjs": "^8.40.0",
     "@sparticuz/chromium": "^126.0.0",
     "bcryptjs": "^2.4.3",
+    "cheerio": "^1.2.0",
     "clsx": "^2.1.1",
     "exceljs": "^4.4.0",
     "jose": "^5.9.0",
