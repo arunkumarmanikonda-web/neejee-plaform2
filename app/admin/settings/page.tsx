@@ -1,140 +1,306 @@
-﻿import Link from 'next/link';
-import { getSession } from '@/lib/auth';
-import { storageConfigured } from '@/lib/storage';
-import { getIssuerProfile } from '@/lib/finance/legal-entity';
+'use client';
 
-export const dynamic = 'force-dynamic';
-export const runtime = 'nodejs';
+import Link from 'next/link';
+import { useEffect, useMemo, useState } from 'react';
 
-export default async function AdminSettings() {
-  const user = await getSession();
-  // v23.40.16 â€” Store Information now reads from the live Legal Entity record
-  // so editing in /admin/legal-entity reflects everywhere automatically.
-  const issuer = await getIssuerProfile();
-  const env = {
-    database: !!process.env.DATABASE_URL,
-    directUrl: !!process.env.DIRECT_URL,
-    authSecret: !!process.env.AUTH_SECRET,
-    razorpayKey: !!process.env.RAZORPAY_KEY_ID,
-    razorpaySecret: !!process.env.RAZORPAY_KEY_SECRET,
-    shiprocketEmail: !!process.env.SHIPROCKET_EMAIL,
-    shiprocketPassword: !!process.env.SHIPROCKET_PASSWORD,
-    watiKey: !!process.env.WATI_API_KEY,
-    resendKey: !!process.env.RESEND_API_KEY,
-    replicateToken: !!process.env.REPLICATE_API_TOKEN,
-    falKey: !!process.env.FAL_KEY,
-    openaiKey: !!process.env.OPENAI_API_KEY,
-    supabaseUrl: !!(process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL),
-    supabaseServiceKey: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
-    storage: storageConfigured(),
-    baseUrlConfigured: !!process.env.NEXT_PUBLIC_BASE_URL,
-    nodeEnv: process.env.NODE_ENV,
+type ApiField = {
+  key: string;
+  value: string;
+  configured: boolean;
+  secret: boolean;
+};
+
+type ApiData = {
+  canEdit: boolean;
+  vercel: {
+    configured: boolean;
+    projectId: string | null;
+    teamId: string | null;
   };
+  runtimeStatus: Record<string, boolean>;
+  fields: ApiField[];
+};
+
+const SECTIONS: Array<{
+  id: string;
+  title: string;
+  helper: string;
+  keys: string[];
+}> = [
+  {
+    id: 'core',
+    title: 'Core platform',
+    helper: 'Base URL and storage configuration used across storefront and uploads.',
+    keys: ['NEXT_PUBLIC_BASE_URL', 'NEXT_PUBLIC_SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY', 'SUPABASE_STORAGE_BUCKET'],
+  },
+  {
+    id: 'payments',
+    title: 'Payments',
+    helper: 'Razorpay credentials.',
+    keys: ['RAZORPAY_KEY_ID', 'RAZORPAY_KEY_SECRET'],
+  },
+  {
+    id: 'shipping',
+    title: 'Shipping and messaging',
+    helper: 'Shiprocket and WhatsApp/email providers.',
+    keys: ['SHIPROCKET_EMAIL', 'SHIPROCKET_PASSWORD', 'WATI_API_KEY', 'RESEND_API_KEY'],
+  },
+  {
+    id: 'ai',
+    title: 'AI services',
+    helper: 'Models and legacy image pipelines.',
+    keys: ['OPENAI_API_KEY', 'FAL_KEY', 'REPLICATE_API_TOKEN'],
+  },
+  {
+    id: 'sms',
+    title: 'SMS / OTP',
+    helper: 'Fast2SMS provider settings used by the SMS admin screen.',
+    keys: ['FAST2SMS_API_KEY', 'FAST2SMS_SENDER_ID', 'FAST2SMS_ENTITY_ID', 'FAST2SMS_ROUTE', 'FAST2SMS_TEST_PHONE'],
+  },
+];
+
+const LABELS: Record<string, string> = {
+  NEXT_PUBLIC_BASE_URL: 'Public base URL',
+  NEXT_PUBLIC_SUPABASE_URL: 'Supabase URL',
+  SUPABASE_SERVICE_ROLE_KEY: 'Supabase service role key',
+  SUPABASE_STORAGE_BUCKET: 'Supabase storage bucket',
+  RAZORPAY_KEY_ID: 'Razorpay key ID',
+  RAZORPAY_KEY_SECRET: 'Razorpay key secret',
+  SHIPROCKET_EMAIL: 'Shiprocket email',
+  SHIPROCKET_PASSWORD: 'Shiprocket password',
+  WATI_API_KEY: 'WATI API key',
+  RESEND_API_KEY: 'Resend API key',
+  OPENAI_API_KEY: 'OpenAI API key',
+  FAL_KEY: 'FAL key',
+  REPLICATE_API_TOKEN: 'Replicate token',
+  FAST2SMS_API_KEY: 'Fast2SMS API key',
+  FAST2SMS_SENDER_ID: 'Fast2SMS sender ID',
+  FAST2SMS_ENTITY_ID: 'Fast2SMS entity ID',
+  FAST2SMS_ROUTE: 'Fast2SMS route',
+  FAST2SMS_TEST_PHONE: 'Default SMS test phone',
+};
+
+const RUNTIME_LABELS: Array<{ key: string; label: string }> = [
+  { key: 'database', label: 'Database' },
+  { key: 'directUrl', label: 'Direct URL' },
+  { key: 'authSecret', label: 'Auth secret' },
+  { key: 'baseUrl', label: 'Base URL' },
+  { key: 'storage', label: 'Storage' },
+  { key: 'supabaseUrl', label: 'Supabase URL' },
+  { key: 'supabaseServiceKey', label: 'Supabase service key' },
+  { key: 'shiprocket', label: 'Shiprocket' },
+  { key: 'razorpay', label: 'Razorpay' },
+  { key: 'resend', label: 'Resend' },
+  { key: 'wati', label: 'WATI' },
+  { key: 'openai', label: 'OpenAI' },
+  { key: 'fal', label: 'FAL' },
+  { key: 'replicate', label: 'Replicate' },
+  { key: 'sms', label: 'SMS provider' },
+];
+
+export default function AdminSettingsPage() {
+  const [loading, setLoading] = useState(true);
+  const [savingKey, setSavingKey] = useState<string | null>(null);
+  const [error, setError] = useState('');
+  const [notice, setNotice] = useState('');
+  const [data, setData] = useState<ApiData | null>(null);
+  const [form, setForm] = useState<Record<string, string>>({});
+  const [original, setOriginal] = useState<Record<string, string>>({});
+
+  async function load() {
+    setLoading(true);
+    setError('');
+    try {
+      const res = await fetch('/api/admin/settings', { cache: 'no-store' });
+      const text = await res.text();
+      const json = text ? JSON.parse(text) : {};
+      if (!res.ok) throw new Error(json?.error || `Failed to load settings (${res.status})`);
+
+      const nextForm = Object.fromEntries((json.fields || []).map((f: ApiField) => [f.key, f.value || '']));
+      setData(json);
+      setForm(nextForm);
+      setOriginal(nextForm);
+    } catch (e: any) {
+      setError(e?.message || 'Failed to load settings.');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    load();
+  }, []);
+
+  const fieldMap = useMemo(() => {
+    const map = new Map<string, ApiField>();
+    for (const field of data?.fields || []) map.set(field.key, field);
+    return map;
+  }, [data]);
+
+  async function saveKeys(keys: string[]) {
+    if (!data?.canEdit || keys.length === 0) return;
+    const payload = Object.fromEntries(keys.map((key) => [key, form[key] || '']));
+    setSavingKey(keys.length === 1 ? keys[0] : '__bulk__');
+    setError('');
+    setNotice('');
+
+    try {
+      const res = await fetch('/api/admin/settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ values: payload }),
+      });
+      const text = await res.text();
+      const json = text ? JSON.parse(text) : {};
+      if (!res.ok) throw new Error(json?.error || `Save failed (${res.status})`);
+
+      setOriginal((prev) => ({ ...prev, ...payload }));
+      setNotice(json?.note || 'Saved to Vercel.');
+    } catch (e: any) {
+      setError(e?.message || 'Save failed.');
+    } finally {
+      setSavingKey(null);
+    }
+  }
+
+  function handleBlur(key: string) {
+    if ((form[key] || '') !== (original[key] || '')) {
+      void saveKeys([key]);
+    }
+  }
+
+  if (loading) {
+    return <div className="p-8 font-ui text-sm text-kohl/70">Loading settings…</div>;
+  }
 
   return (
-    <>
+    <div className="p-8 max-w-7xl mx-auto">
       <p className="label text-madder">CONFIG</p>
       <h1 className="font-display text-4xl text-kohl mt-2">Settings</h1>
-      <p className="font-italic italic text-mitti mt-2">Platform configuration and status</p>
+      <p className="font-italic italic text-mitti mt-2">
+        Environment sync, provider credentials, and runtime health.
+      </p>
       <div className="madder-divider mt-4"></div>
 
-      {/* Quick links to nested settings pages */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-8">
-        <Link href="/admin/settings/shipping" className="bg-beige p-5 hover:bg-madder/10 border border-mitti/15 hover:border-madder transition-colors">
-          <p className="label text-madder">SHIPPING ZONES</p>
-          <p className="font-display text-kohl mt-1">Configure rates by location</p>
-          <p className="text-xs text-mitti mt-1 italic">Per-state / pincode Â· nearest â‚¹50 Â· inclusive/extra</p>
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mt-8">
+        <Link href="/admin/legal-entity" className="bg-beige p-5 hover:bg-madder/10 border border-mitti/15 hover:border-madder transition-colors">
+          <p className="label text-madder">LEGAL ENTITY</p>
+          <p className="font-display text-kohl mt-1">Edit store identity</p>
+          <p className="text-xs text-mitti mt-1 italic">Invoices, GST, bank, public contact</p>
         </Link>
+        <Link href="/admin/settings/shipping" className="bg-beige p-5 hover:bg-madder/10 border border-mitti/15 hover:border-madder transition-colors">
+          <p className="label text-madder">SHIPPING</p>
+          <p className="font-display text-kohl mt-1">Rates and zones</p>
+          <p className="text-xs text-mitti mt-1 italic">Per-state and pincode rules</p>
+        </Link>
+        <Link href="/admin/settings/sms" className="bg-beige p-5 hover:bg-madder/10 border border-mitti/15 hover:border-madder transition-colors">
+          <p className="label text-madder">SMS</p>
+          <p className="font-display text-kohl mt-1">Templates and health</p>
+          <p className="text-xs text-mitti mt-1 italic">OTP and delivery logs</p>
+        </Link>
+        <div className="bg-beige p-5 border border-mitti/15">
+          <p className="label text-madder">VERCEL SYNC</p>
+          <p className="font-display text-kohl mt-1">
+            {data?.vercel.configured ? 'Connected' : 'Not configured'}
+          </p>
+          <p className="text-xs text-mitti mt-1 italic">
+            {data?.vercel.configured
+              ? 'Field changes autosave on blur'
+              : 'Set VERCEL_ACCESS_TOKEN and VERCEL_PROJECT_ID on the server first'}
+          </p>
+        </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-6 mt-12">
-        <section className="bg-beige p-8">
-          <p className="label text-madder mb-4">SIGNED-IN ADMIN</p>
-          <div className="space-y-2 font-ui text-sm">
-            <Row label="Name" value={user?.name || 'â€”'} />
-            <Row label="Email" value={user?.email || 'â€”'} />
-            <Row label="Role" value={user?.role?.replace(/_/g, ' ') || 'â€”'} />
-            <Row label="User ID" value={user?.id || 'â€”'} mono />
-          </div>
-        </section>
+      {error ? (
+        <div className="mt-6 border border-madder/30 bg-red-50 text-red-800 px-4 py-3 font-ui text-sm">
+          {error}
+        </div>
+      ) : null}
 
-        <section className="bg-beige p-8">
-          <p className="label text-madder mb-4">ENVIRONMENT STATUS</p>
-          <div className="space-y-2 font-ui text-sm">
-            <Row label="NODE_ENV" value={env.nodeEnv || 'â€”'} />
-            <Row label="DATABASE_URL" value={env.database ? 'âœ“ Connected' : 'âœ— Not set'} color={env.database ? 'text-neem' : 'text-madder'} />
-            <Row label="DIRECT_URL" value={env.directUrl ? 'âœ“ Set' : 'âš  Not set (Prisma migrations may fail)'} color={env.directUrl ? 'text-neem' : 'text-haldi'} />
-            <Row label="AUTH_SECRET" value={env.authSecret ? 'configured' : 'missing'} />
-            <Row label="SUPABASE_STORAGE" value={env.storage ? 'âœ“ Configured' : 'âœ— Not configured'} color={env.storage ? 'text-neem' : 'text-madder'} />
-            <Row label="RAZORPAY_KEY_ID" value={env.razorpayKey ? 'configured' : 'missing'} />
-            <Row label="RAZORPAY_KEY_SECRET" value={env.razorpaySecret ? 'configured' : 'missing'} />
-            <Row label="SHIPROCKET" value={(env.shiprocketEmail && env.shiprocketPassword) ? 'âœ“ Set' : 'âœ— Not set (manual fulfillment)'} color={(env.shiprocketEmail && env.shiprocketPassword) ? 'text-neem' : 'text-haldi'} />
-            <Row label="WATI (WhatsApp)" value={env.watiKey ? 'configured' : 'missing'} />
-            <Row label="RESEND (Email)" value={env.resendKey ? 'configured' : 'missing'} />
-            <Row label="FAL_KEY (AI Mirror / Space)" value={env.falKey ? 'âœ“ Set' : 'âœ— Not set'} color={env.falKey ? 'text-neem' : 'text-haldi'} />
-            <Row label="OPENAI (Gift / Content)" value={env.openaiKey ? 'âœ“ Set' : 'âœ— Not set'} color={env.openaiKey ? 'text-neem' : 'text-haldi'} />
-            <Row label="REPLICATE (legacy)" value={env.replicateToken ? 'âœ“ Set' : 'âœ— Not set'} color={env.replicateToken ? 'text-neem' : 'text-mitti/40'} />
-            <Row label="NEXT_PUBLIC_BASE_URL" value={env.baseUrlConfigured ? 'configured' : 'missing'} />
-          </div>
-        </section>
+      {notice ? (
+        <div className="mt-6 border border-neem/30 bg-green-50 text-green-800 px-4 py-3 font-ui text-sm">
+          {notice}
+        </div>
+      ) : null}
 
-        {!env.storage && (
-          <section className="bg-beige p-8 col-span-2 border-l-4 border-madder">
-            <p className="label text-madder mb-3">âš  IMAGE UPLOAD NOT YET CONFIGURED</p>
-            <p className="font-italic italic text-mitti mb-3">
-              To enable product image uploads, add these to Vercel â†’ Environment Variables, then redeploy:
+      <div className="bg-beige p-6 mt-8">
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <p className="label text-madder">RUNTIME HEALTH</p>
+            <p className="font-ui text-sm text-mitti mt-1">
+              Live status from the current server runtime.
             </p>
-            <div className="bg-ivory p-4 font-mono text-xs space-y-1">
-              <p><span className="text-madder">NEXT_PUBLIC_SUPABASE_URL</span> should be configured in environment only, not documented with a live value here.</p>
-              <p><span className="text-madder">SUPABASE_SERVICE_ROLE_KEY</span> = (from Supabase â†’ Settings â†’ API â†’ service_role key)</p>
-              <p><span className="text-madder">SUPABASE_STORAGE_BUCKET</span> = neejee-media (default)</p>
+          </div>
+          <button
+            type="button"
+            onClick={() => void load()}
+            className="px-4 py-2 border border-kohl/15 hover:bg-white font-ui text-sm"
+          >
+            Refresh
+          </button>
+        </div>
+
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mt-4">
+          {RUNTIME_LABELS.map((item) => {
+            const ok = !!data?.runtimeStatus?.[item.key];
+            return (
+              <div key={item.key} className="bg-white border border-kohl/10 p-4">
+                <p className="label text-mitti">{item.label}</p>
+                <p className={`font-display mt-2 ${ok ? 'text-neem' : 'text-madder'}`}>
+                  {ok ? 'Configured' : 'Missing'}
+                </p>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      <div className="space-y-8 mt-8">
+        {SECTIONS.map((section) => (
+          <section key={section.id} className="bg-beige p-6">
+            <p className="label text-madder">{section.title}</p>
+            <p className="font-ui text-sm text-mitti mt-1">{section.helper}</p>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+              {section.keys.map((key) => {
+                const meta = fieldMap.get(key);
+                const dirty = (form[key] || '') !== (original[key] || '');
+                const saving = savingKey === key || savingKey === '__bulk__';
+
+                return (
+                  <div key={key} className="bg-white border border-kohl/10 p-4">
+                    <div className="flex items-center justify-between gap-3">
+                      <label className="font-ui text-sm text-kohl">{LABELS[key] || key}</label>
+                      <span className={`text-xs ${meta?.configured ? 'text-neem' : 'text-mitti'}`}>
+                        {saving ? 'Saving…' : meta?.configured ? 'Configured' : 'Empty'}
+                      </span>
+                    </div>
+                    <input
+                      type={meta?.secret ? 'password' : 'text'}
+                      value={form[key] || ''}
+                      onChange={(e) => {
+                        setForm((prev) => ({ ...prev, [key]: e.target.value }));
+                        setNotice('');
+                      }}
+                      onBlur={() => handleBlur(key)}
+                      disabled={!data?.canEdit}
+                      placeholder={meta?.secret ? '••••••••' : ''}
+                      className="w-full mt-3 border border-kohl/15 px-3 py-2 bg-white font-ui text-sm"
+                    />
+                    <p className="font-ui text-xs text-mitti mt-2">
+                      {data?.canEdit
+                        ? dirty
+                          ? 'Unsaved change. Blur this field to autosave.'
+                          : 'Saved value loaded.'
+                        : 'Read-only. SUPER_ADMIN required for editing.'}
+                    </p>
+                  </div>
+                );
+              })}
             </div>
-            <p className="font-italic italic text-mitti text-xs mt-3">
-              Also create a public bucket called <span className="font-mono">neejee-media</span> in Supabase Dashboard â†’ Storage.
-            </p>
           </section>
-        )}
-
-        <section className="bg-beige p-8 col-span-2">
-          <div className="flex items-center justify-between mb-4">
-            <p className="label text-madder">STORE INFORMATION</p>
-            <Link href="/admin/legal-entity" className="text-xs text-banarasi hover:underline">
-              Edit in Legal Entity â†’
-            </Link>
-          </div>
-          <div className="grid grid-cols-2 gap-6 font-ui text-sm">
-            <div className="space-y-2">
-              <Row label="Legal name"    value={issuer.legalName} />
-              <Row label="Brand name"    value={issuer.brandName} />
-              <Row label="Tagline"       value={issuer.tagline} />
-              <Row label="Support email" value={issuer.email || 'â€”'} />
-              <Row label="Support phone" value={issuer.phone || 'â€”'} />
-              <Row label="Authorised signatory" value={`${issuer.signatory}${issuer.signatoryTitle ? ` Â· ${issuer.signatoryTitle}` : ''}`} />
-            </div>
-            <div className="space-y-2">
-              <Row label="GSTIN" value={issuer.gstin || 'â€”'} mono />
-              <Row label="PAN"   value={issuer.pan   || 'â€”'} mono />
-              <Row label="Address" value={issuer.address || 'â€”'} />
-              <Row label="Bank"  value={issuer.bankName ? `${issuer.bankName}${issuer.bankAccountNumber ? ` Â· ${issuer.bankAccountNumber}` : ''}` : 'â€”'} />
-              <Row label="IFSC"  value={issuer.bankIfsc || 'â€”'} mono />
-              <Row label="Currency" value="INR (â‚¹)" />
-            </div>
-          </div>
-        </section>
+        ))}
       </div>
-    </>
-  );
-}
-
-function Row({ label, value, color = 'text-kohl', mono = false }: any) {
-  return (
-    <div className="flex justify-between items-baseline border-b border-mitti/10 pb-2">
-      <span className="label text-mitti">{label}</span>
-      <span className={`${color} ${mono ? 'font-mono text-xs' : ''} truncate ml-2 max-w-[60%]`}>{value}</span>
     </div>
   );
 }
-
-
-
-
