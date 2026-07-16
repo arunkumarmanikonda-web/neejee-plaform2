@@ -57,10 +57,22 @@ export default function SmsAdminPage() {
   const [pageError, setPageError] = useState('');
   const [savingEvent, setSavingEvent] = useState<string | null>(null);
   const [testPhone, setTestPhone] = useState('');
-  const [testEvent, setTestEvent] = useState('otp_login');
+  const [testEvent, setTestEvent] = useState('');
   const [testVars, setTestVars] = useState<Record<string, string>>({});
   const [testResult, setTestResult] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
+
+  const selectableTemplates = templates.filter(
+    (row) => !!row.active && !!String(row.templateId || '').trim()
+  );
+
+  const selectedTemplate =
+    templates.find((row) => row.event === testEvent) || null;
+
+  const primaryVarKey =
+    Array.isArray(selectedTemplate?.varOrder) && selectedTemplate!.varOrder.length
+      ? selectedTemplate!.varOrder[0]
+      : 'code';
 
   async function loadAll() {
     setLoading(true);
@@ -116,6 +128,23 @@ export default function SmsAdminPage() {
     void loadAll();
   }, []);
 
+  useEffect(() => {
+    if (!templates.length) return;
+
+    if (selectableTemplates.length) {
+      if (!selectableTemplates.some((row) => row.event === testEvent)) {
+        setTestEvent(selectableTemplates[0].event);
+        setTestVars({});
+      }
+      return;
+    }
+
+    if (!testEvent && templates[0]) {
+      setTestEvent(templates[0].event);
+      setTestVars({});
+    }
+  }, [templates, testEvent]);
+
   function updateTemplate(event: string, patch: Partial<Template>) {
     setTemplates((prev) => prev.map((row) => (row.event === event ? { ...row, ...patch } : row)));
   }
@@ -142,6 +171,7 @@ export default function SmsAdminPage() {
       const data = text ? JSON.parse(text) : {};
       if (!res.ok) throw new Error(data?.error || `Save failed (${res.status})`);
       setTestResult(`Template ${row.event} saved.`);
+      await loadAll();
     } catch (e: any) {
       setTestResult(e?.message || 'Template save failed.');
     } finally {
@@ -156,6 +186,18 @@ export default function SmsAdminPage() {
     if (!health || health.disabled || !health.configured) {
       setSending(false);
       setTestResult(health?.message || 'SMS provider is disabled or not configured.');
+      return;
+    }
+
+    if (!selectedTemplate) {
+      setSending(false);
+      setTestResult('Choose an approved template first.');
+      return;
+    }
+
+    if (!String(selectedTemplate.templateId || '').trim()) {
+      setSending(false);
+      setTestResult('Selected template is missing a DLT message ID.');
       return;
     }
 
@@ -204,8 +246,8 @@ export default function SmsAdminPage() {
         <div className={`p-5 mb-6 grid grid-cols-2 md:grid-cols-5 gap-4 ${health.configured ? 'bg-beige' : 'bg-amber-50 border border-amber-200'}`}>
           <Stat label="Configured" value={health.configured ? 'Yes' : 'No'} />
           <Stat label="Provider" value={health.provider || 'Fast2SMS'} />
-          <Stat label="Sender ID" value={health.senderId || '—'} />
-          <Stat label="Entity ID" value={health.entityId || '—'} />
+          <Stat label="Sender ID" value={health.senderId || ''} />
+          <Stat label="Entity ID" value={health.entityId || ''} />
           <Stat label="Mode" value={health.mode || 'phase0'} />
         </div>
       ) : null}
@@ -218,6 +260,7 @@ export default function SmsAdminPage() {
 
       <div className="bg-white border border-kohl/10 p-5 mb-6">
         <h2 className="font-display text-xl text-kohl mb-3">Send test SMS</h2>
+
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
           <input
             value={testPhone}
@@ -225,27 +268,77 @@ export default function SmsAdminPage() {
             placeholder="Phone"
             className="border border-kohl/15 px-3 py-2 font-ui text-sm"
           />
-          <input
+
+          <select
             value={testEvent}
-            onChange={(e) => setTestEvent(e.target.value)}
-            placeholder="Event / template"
-            className="border border-kohl/15 px-3 py-2 font-ui text-sm"
-          />
+            onChange={(e) => {
+              setTestEvent(e.target.value);
+              setTestVars({});
+              setTestResult(null);
+            }}
+            className="border border-kohl/15 px-3 py-2 font-ui text-sm bg-white"
+          >
+            {!selectableTemplates.length ? (
+              <option value="">No active templates with DLT ID</option>
+            ) : null}
+            {selectableTemplates.map((row) => (
+              <option key={row.event} value={row.event}>
+                {(row.label || row.event)} — {row.event} — {row.templateId}
+              </option>
+            ))}
+          </select>
+
           <input
-            value={testVars.code || ''}
-            onChange={(e) => setTestVars((prev) => ({ ...prev, code: e.target.value }))}
-            placeholder="Sample var: code"
-            className="border border-kohl/15 px-3 py-2 font-ui text-sm"
+            value={testVars[primaryVarKey] || ''}
+            onChange={(e) =>
+              setTestVars((prev) => ({ ...prev, [primaryVarKey]: e.target.value }))
+            }
+            placeholder={`Sample var: ${primaryVarKey}`}
+            disabled={!selectedTemplate}
+            className="border border-kohl/15 px-3 py-2 font-ui text-sm disabled:opacity-50"
           />
         </div>
+
+        {selectedTemplate ? (
+          <div className="mt-4 border border-kohl/10 bg-beige px-4 py-3">
+            <p className="font-ui text-sm text-kohl">
+              <span className="font-semibold">Selected template:</span>{' '}
+              {selectedTemplate.label || selectedTemplate.event}
+            </p>
+            <p className="font-ui text-xs text-mitti mt-1">
+              Event: {selectedTemplate.event}
+              {' • '}
+              Message ID: {selectedTemplate.templateId || 'Missing'}
+              {' • '}
+              Category: {selectedTemplate.category || '—'}
+              {' • '}
+              Vars: {Array.isArray(selectedTemplate.varOrder) ? (selectedTemplate.varOrder.join(', ') || '—') : '—'}
+            </p>
+            <p className="font-ui text-xs text-kohl/80 mt-2 whitespace-pre-wrap">
+              {selectedTemplate.body || 'No template body saved.'}
+            </p>
+          </div>
+        ) : (
+          <div className="mt-4 border border-amber-200 bg-amber-50 text-amber-900 px-4 py-3 font-ui text-sm">
+            No approved template is ready for manual push. Mark a template Active and save a DLT message ID first.
+          </div>
+        )}
+
         <button
           type="button"
           onClick={() => void sendTest()}
-          disabled={sending || !health?.configured || !!health?.disabled}
+          disabled={
+            sending ||
+            !health?.configured ||
+            !!health?.disabled ||
+            !selectedTemplate ||
+            !String(selectedTemplate.templateId || '').trim()
+          }
           className="mt-4 px-4 py-2 bg-kohl text-white font-ui text-sm disabled:opacity-50"
         >
-          {sending ? 'Sending…' : 'Send test'}
+          {sending ? 'Sending' : 'Send test'}
         </button>
+
         {testResult ? (
           <div className={`mt-3 px-3 py-2 font-ui text-sm ${/saved|accepted/i.test(testResult) ? 'bg-green-50 text-green-800' : 'bg-red-50 text-red-800'}`}>
             {testResult}
@@ -256,7 +349,7 @@ export default function SmsAdminPage() {
       <div className="bg-white border border-kohl/10 p-5 mb-6">
         <h2 className="font-display text-xl text-kohl mb-3">DLT Template Registry</h2>
         {loading ? (
-          <p className="font-ui text-sm text-mitti">Loading templates…</p>
+          <p className="font-ui text-sm text-mitti">Loading templates</p>
         ) : templates.length === 0 ? (
           <p className="font-ui text-sm text-mitti">No templates found.</p>
         ) : (
@@ -267,7 +360,11 @@ export default function SmsAdminPage() {
                   <div>
                     <p className="font-display text-kohl">{row.label || row.event}</p>
                     <p className="font-ui text-xs text-mitti mt-1">
+                      Event: {row.event}
+                      {' • '}
                       Vars: {Array.isArray(row.varOrder) ? row.varOrder.join(', ') || '—' : '—'}
+                      {' • '}
+                      Message ID: {row.templateId || 'Missing'}
                     </p>
                   </div>
                   <label className="font-ui text-sm flex items-center gap-2">
@@ -284,7 +381,7 @@ export default function SmsAdminPage() {
                   <input
                     value={row.templateId || ''}
                     onChange={(e) => updateTemplate(row.event, { templateId: e.target.value })}
-                    placeholder="DLT template ID"
+                    placeholder="DLT template ID / Message ID"
                     className="border border-kohl/15 px-3 py-2 font-ui text-sm"
                   />
                   <input
@@ -308,7 +405,7 @@ export default function SmsAdminPage() {
                   onClick={() => void saveTemplate(row)}
                   className="mt-3 px-4 py-2 border border-kohl/20 hover:bg-beige font-ui text-sm"
                 >
-                  {savingEvent === row.event ? 'Saving…' : 'Save template'}
+                  {savingEvent === row.event ? 'Saving' : 'Save template'}
                 </button>
               </div>
             ))}
@@ -335,11 +432,11 @@ export default function SmsAdminPage() {
               <tbody>
                 {logs.map((row, idx) => (
                   <tr key={row.id || `${row.event || 'log'}-${idx}`} className="border-b border-kohl/5">
-                    <td className="py-2 pr-4">{row.createdAt ? new Date(row.createdAt).toLocaleString() : '—'}</td>
-                    <td className="py-2 pr-4">{row.event || '—'}</td>
-                    <td className="py-2 pr-4">{row.recipient || row.phone || row.to || '—'}</td>
-                    <td className="py-2 pr-4">{row.status || '—'}</td>
-                    <td className="py-2 pr-4 text-red-700">{row.error || '—'}</td>
+                    <td className="py-2 pr-4">{row.createdAt ? new Date(row.createdAt).toLocaleString() : ''}</td>
+                    <td className="py-2 pr-4">{row.event || ''}</td>
+                    <td className="py-2 pr-4">{row.recipient || row.phone || row.to || ''}</td>
+                    <td className="py-2 pr-4">{row.status || ''}</td>
+                    <td className="py-2 pr-4 text-red-700">{row.error || ''}</td>
                   </tr>
                 ))}
               </tbody>
