@@ -155,6 +155,21 @@ export default function AdminSettingsPage() {
       if (!res.ok) throw new Error(json?.error || `Save failed (${res.status})`);
 
       setOriginal((prev) => ({ ...prev, ...payload }));
+      setData((prev) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          fields: prev.fields.map((field) =>
+            Object.prototype.hasOwnProperty.call(payload, field.key)
+              ? {
+                  ...field,
+                  value: payload[field.key] || '',
+                  configured: !!(payload[field.key] || '').trim(),
+                }
+              : field
+          ),
+        };
+      });
       setNotice(json?.note || 'Saved to Vercel.');
     } catch (e: any) {
       setError(e?.message || 'Save failed.');
@@ -163,14 +178,9 @@ export default function AdminSettingsPage() {
     }
   }
 
-  function handleBlur(key: string) {
-    if ((form[key] || '') !== (original[key] || '')) {
-      void saveKeys([key]);
-    }
-  }
 
   if (loading) {
-    return <div className="p-8 font-ui text-sm text-kohl/70">Loading settings…</div>;
+    return <div className="p-8 font-ui text-sm text-kohl/70">Loading settingsâ€¦</div>;
   }
 
   return (
@@ -272,7 +282,7 @@ export default function AdminSettingsPage() {
                     <div className="flex items-center justify-between gap-3">
                       <label className="font-ui text-sm text-kohl">{LABELS[key] || key}</label>
                       <span className={`text-xs ${meta?.configured ? 'text-neem' : 'text-mitti'}`}>
-                        {saving ? 'Saving…' : meta?.configured ? 'Configured' : 'Empty'}
+                        {saving ? 'Savingâ€¦' : meta?.configured ? 'Configured' : 'Empty'}
                       </span>
                     </div>
                     <input
@@ -282,15 +292,15 @@ export default function AdminSettingsPage() {
                         setForm((prev) => ({ ...prev, [key]: e.target.value }));
                         setNotice('');
                       }}
-                      onBlur={() => handleBlur(key)}
+
                       disabled={!data?.canEdit}
-                      placeholder={meta?.secret ? '••••••••' : ''}
+                      placeholder={meta?.secret ? 'â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢' : ''}
                       className="w-full mt-3 border border-kohl/15 px-3 py-2 bg-white font-ui text-sm"
                     />
                     <p className="font-ui text-xs text-mitti mt-2">
                       {data?.canEdit
                         ? dirty
-                          ? 'Unsaved change. Blur this field to autosave.'
+                          ? 'Unsaved change. Click Save to persist this field.'
                           : 'Saved value loaded.'
                         : 'Read-only. SUPER_ADMIN required for editing.'}
                     </p>
