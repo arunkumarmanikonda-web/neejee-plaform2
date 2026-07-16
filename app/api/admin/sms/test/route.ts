@@ -91,6 +91,27 @@ export async function GET() {
   return NextResponse.json(getHealth());
 }
 
+function explainTemplateFailure(tpl: Awaited<ReturnType<typeof getTemplate>>, smsEvent: SmsEvent) {
+  if (!tpl) {
+    return `No SMS template found for event ${smsEvent}.`;
+  }
+
+  if (!tpl.active) {
+    return `SMS template for event ${smsEvent} is inactive.`;
+  }
+
+  switch (tpl.invalidReason) {
+    case 'missing_template_id':
+      return `SMS template for event ${smsEvent} has no mapped Fast2SMS message ID.`;
+    case 'entity_id_used':
+      return `SMS template for event ${smsEvent} is using entity ID ${tpl.templateId} instead of an approved Fast2SMS message ID.`;
+    case 'not_in_provider_catalog':
+      return `SMS template for event ${smsEvent} is mapped to ${tpl.templateId}, but that ID is not present in the approved Fast2SMS provider catalog.`;
+    default:
+      return `Selected SMS template for event ${smsEvent} is missing, inactive, or not DLT-ready.`;
+  }
+}
+
 export async function POST(req: NextRequest) {
   if (!(await gate())) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -138,7 +159,15 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(
       {
         ok: false,
-        error: 'Selected SMS template is missing, inactive, or not DLT-ready.',
+        error: explainTemplateFailure(tpl, smsEvent),
+        template: tpl
+          ? {
+              event: tpl.event,
+              templateId: tpl.templateId,
+              invalidReason: tpl.invalidReason,
+              providerApproved: tpl.providerApproved,
+            }
+          : null,
       },
       { status: 400 }
     );
@@ -146,10 +175,11 @@ export async function POST(req: NextRequest) {
 
   const vars = normalizeVars(body?.vars);
   const variablesValues = buildVarValues(tpl, vars);
+  const senderId = tpl.providerSenderId || process.env.FAST2SMS_SENDER_ID || '';
 
   const url = new URL('https://www.fast2sms.com/dev/bulkV2');
   url.searchParams.set('route', process.env.FAST2SMS_ROUTE || 'dlt');
-  url.searchParams.set('sender_id', process.env.FAST2SMS_SENDER_ID || '');
+  url.searchParams.set('sender_id', senderId);
   url.searchParams.set('message', tpl.templateId);
   url.searchParams.set('numbers', phone);
   if (variablesValues) {
@@ -177,7 +207,7 @@ export async function POST(req: NextRequest) {
     providerData?.return === 'false' ||
     providerData?.status === 'error' ||
     providerData?.status === 'ERROR' ||
-    providerData?.request_id === undefined && !providerRes.ok;
+    (providerData?.request_id === undefined && !providerRes.ok);
 
   if (!providerRes.ok || providerRejected) {
     return NextResponse.json(
@@ -188,6 +218,12 @@ export async function POST(req: NextRequest) {
           providerData?.error ||
           `Fast2SMS failed (${providerRes.status})`,
         providerResponse: providerData,
+        template: {
+          event: tpl.event,
+          templateId: tpl.templateId,
+          senderId,
+          providerEntityId: tpl.providerEntityId,
+        },
       },
       { status: 502 }
     );
@@ -200,6 +236,12 @@ export async function POST(req: NextRequest) {
     provider: 'Fast2SMS',
     requestId: providerData?.request_id || providerData?.requestId || null,
     message: 'SMS test request accepted.',
+    template: {
+      event: tpl.event,
+      templateId: tpl.templateId,
+      senderId,
+      providerEntityId: tpl.providerEntityId,
+    },
     providerResponse: providerData,
   });
 }
