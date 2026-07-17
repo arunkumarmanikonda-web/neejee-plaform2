@@ -76,7 +76,6 @@ export async function GET() {
     const pendingChangeRequestCount = await prisma.sellerChangeRequest.count({
       where: { status: 'PENDING' },
     });
-
     const sellerRowsRaw = await prisma.seller.findMany({
       where: {
         kycStatus: {
@@ -85,14 +84,36 @@ export async function GET() {
       },
       orderBy: { createdAt: 'desc' },
       take: 12,
-      include: {
+      select: {
+        id: true,
+        slug: true,
+        businessName: true,
+        contactName: true,
+        email: true,
+        phone: true,
+        craft: true,
+        region: true,
+        kycStatus: true,
+        createdAt: true,
+        pan: true,
+        gstin: true,
+        bankAccount: true,
+        ifsc: true,
+        bankName: true,
+        portfolio: true,
+        userId: true,
+        autoKycPassed: true,
         user: {
           select: {
             emailVerified: true,
             phoneVerified: true,
           },
         },
-        products: { select: { id: true } },
+        products: {
+          select: {
+            id: true,
+          },
+        },
       },
     });
 
