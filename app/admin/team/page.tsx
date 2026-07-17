@@ -13,6 +13,7 @@ const ROLES = [
   { value: 'MARKETING_OPERATOR', label: 'Marketing Operator', desc: 'Draft campaigns and submit for approval' },
   { value: 'MARKETING_MANAGER', label: 'Marketing Manager', desc: 'Approve and send campaigns' },
   { value: 'TELECALLER', label: 'Telecaller', desc: 'CRM follow-ups, outreach and abandoned cart recovery' },
+  { value: 'LEGAL', label: 'Legal', desc: 'Agreement review, comment resolution, lock/reopen and closure' },
 ];
 
 const ROLE_COLOR: Record<string, string> = {
@@ -67,7 +68,7 @@ export default function AdminTeamPage() {
     <>
       <div className="flex justify-between items-center">
         <div>
-          <p className="label text-madder">PEOPLE · INTERNAL</p>
+          <p className="label text-madder">PEOPLE Â· INTERNAL</p>
           <h1 className="font-display text-4xl text-kohl mt-2">Team & Roles</h1>
           <p className="font-italic italic text-mitti mt-2">{team.length} staff members</p>
         </div>
@@ -101,9 +102,9 @@ export default function AdminTeamPage() {
           )}
           {team.map(m => (
             <tr key={m.id} className="border-b border-mitti/10 hover:bg-ivory/50">
-              <td className="p-4 font-medium">{m.name || '—'}</td>
+              <td className="p-4 font-medium">{m.name || 'â€”'}</td>
               <td className="p-4 text-monsoon">{m.email}</td>
-              <td className="p-4 text-monsoon text-xs">{m.phone || '—'}</td>
+              <td className="p-4 text-monsoon text-xs">{m.phone || 'â€”'}</td>
               <td className="p-4">
                 <span className={`badge-founder ${ROLE_COLOR[m.role] || 'bg-mitti'}`}>
                   {m.role.replace(/_/g, ' ')}
@@ -232,7 +233,7 @@ function CreateModal({ onClose, onCreated }: any) {
             >
               {ROLES.map(r => (
                 <option key={r.value} value={r.value}>
-                  {r.label} — {r.desc}
+                  {r.label} â€” {r.desc}
                 </option>
               ))}
             </select>

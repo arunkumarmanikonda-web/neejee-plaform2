@@ -25,6 +25,7 @@ const ADMIN_ROLES = new Set([
   'FINANCE_OPERATOR',
   'MARKETING_OPERATOR',
   'MARKETING_MANAGER',
+  'LEGAL',
 ]);
 
 function normalizePurpose(value?: string | null): OtpPurpose {

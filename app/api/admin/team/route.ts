@@ -1,4 +1,4 @@
-// Admin team — list staff users (non-customer roles) + create new staff
+// Admin team â€” list staff users (non-customer roles) + create new staff
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getSession, requireRole, hashPassword } from '@/lib/auth';
@@ -17,6 +17,7 @@ const STAFF_ROLES = [
   'MARKETING_OPERATOR',
   'MARKETING_MANAGER',
   'TELECALLER',
+  'LEGAL',
 ] as const;
 
 type StaffRole = (typeof STAFF_ROLES)[number];
