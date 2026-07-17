@@ -15,5 +15,5 @@ export default async function AgreementStandalonePage({ params }: { params: { id
     redirect('/admin');
   }
 
-  return <AgreementPrintClient sellerId={params.id} />;
+  return <AgreementPrintClient id={params.id} />;
 }
