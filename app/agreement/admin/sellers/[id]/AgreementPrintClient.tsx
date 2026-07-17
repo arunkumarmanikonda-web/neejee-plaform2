@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 
 type AgreementPayload = any;
 
@@ -12,7 +12,7 @@ function safe(value: any) {
 function Row({ label, value }: { label: string; value: any }) {
   return (
     <tr>
-      <td style={{ width: "34%", padding: "6px 8px", verticalAlign: "top", color: "#4b5563", fontWeight: 700 }}>{label}</td>
+      <td style={{ width: "34%", padding: "6px 8px", verticalAlign: "top", color: "#5b5348", fontWeight: 700 }}>{label}</td>
       <td style={{ padding: "6px 8px", verticalAlign: "top" }}>{safe(value)}</td>
     </tr>
   );
@@ -49,37 +49,49 @@ export default function AgreementPrintClient({ id }: { id: string }) {
     };
   }, [id]);
 
+  if (loading) return <div style={{ padding: 24, fontFamily: "Arial, sans-serif" }}>Loading agreement...</div>;
+  if (err) return <div style={{ padding: 24, color: "#991b1b", fontFamily: "Arial, sans-serif" }}>{err}</div>;
+  if (!data) return <div style={{ padding: 24, color: "#991b1b", fontFamily: "Arial, sans-serif" }}>Agreement not found.</div>;
+
   const company = data?.company || {};
   const seller = data?.seller || {};
   const terms = data?.commercialTerms || {};
   const clauses = Array.isArray(data?.clauses) ? data.clauses : [];
+
   const generatedOn = data?.generatedAt
     ? new Date(data.generatedAt).toLocaleDateString("en-IN", { day: "2-digit", month: "long", year: "numeric" })
     : "____________";
 
+  const companyName = company?.legalName || company?.brandName || "Oye Imagine Private Limited";
+  const sellerName = seller?.businessName || seller?.name || "Seller";
   const placeOfExecution = company?.address || "Noida, Uttar Pradesh, India";
 
-  const partyLine = useMemo(() => {
-    const companyName = company?.legalName || company?.brandName || "Oye Imagine Private Limited";
-    const sellerName = seller?.businessName || seller?.name || "Seller";
-    return { companyName, sellerName };
-  }, [company, seller]);
-
-  if (loading) return <div style={{ padding: 24, fontFamily: "Arial, sans-serif" }}>Loading agreement...</div>;
-  if (err) return <div style={{ padding: 24, color: "#991b1b", fontFamily: "Arial, sans-serif" }}>{err}</div>;
-  if (!data) return <div style={{ padding: 24, color: "#991b1b", fontFamily: "Arial, sans-serif" }}>Agreement not found.</div>;
+  const signatureUrl = company?.signatureUrl || "";
+  const logoUrl = company?.logoUrl || "";
 
   return (
     <>
       <style>{`
         * { box-sizing: border-box; }
+
+        :root{
+          --ink:#1c1917;
+          --muted:#6b6257;
+          --line:#d8cfc2;
+          --gold:#b79b6c;
+          --gold-soft:#e8ddca;
+          --paper:#fffdfa;
+          --panel:#faf6ef;
+        }
+
         html, body {
           margin: 0;
           padding: 0;
-          background: #eef2f7;
-          color: #111827;
+          background: #f3efe8;
+          color: var(--ink);
           font-family: "Times New Roman", Georgia, serif;
         }
+
         .toolbar {
           max-width: 210mm;
           margin: 18px auto 0;
@@ -90,18 +102,20 @@ export default function AgreementPrintClient({ id }: { id: string }) {
           padding: 0 12px;
           font-family: Arial, Helvetica, sans-serif;
         }
+
         .toolbar .actions {
           display: flex;
           gap: 10px;
           flex-wrap: wrap;
         }
+
         .btn {
           display: inline-flex;
           align-items: center;
           justify-content: center;
           padding: 10px 14px;
           min-height: 40px;
-          border: 1px solid #cbd5e1;
+          border: 1px solid #d6d3d1;
           border-radius: 8px;
           text-decoration: none;
           background: #fff;
@@ -109,124 +123,321 @@ export default function AgreementPrintClient({ id }: { id: string }) {
           font: 600 14px/1 Arial, Helvetica, sans-serif;
           cursor: pointer;
         }
+
         .btn.primary {
           background: #111827;
           border-color: #111827;
           color: #fff;
         }
+
         .sheet {
+          position: relative;
           width: 210mm;
           min-height: 297mm;
           margin: 16px auto 24px;
-          background: #fff;
-          box-shadow: 0 10px 35px rgba(15,23,42,.12);
-          padding: 18mm 16mm;
+          background: var(--paper);
+          box-shadow: 0 12px 40px rgba(15,23,42,.12);
+          padding: 18mm 16mm 24mm;
+          overflow: hidden;
         }
+
+        .sheet::before {
+          content: "";
+          position: absolute;
+          inset: 8mm;
+          border: 1px solid var(--gold);
+          pointer-events: none;
+        }
+
+        .sheet::after {
+          content: "";
+          position: absolute;
+          inset: 11mm;
+          border: 1px solid var(--line);
+          pointer-events: none;
+        }
+
+        .pageFrame {
+          display: none;
+        }
+
         .title {
           text-align: center;
           margin-bottom: 20px;
+          padding: 0 10mm;
         }
-        .title h1 {
-          margin: 0 0 6px;
-          font-size: 28px;
+
+        .brandTop {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 12px;
+          margin-bottom: 10px;
+        }
+
+        .brandTop img {
+          max-height: 42px;
+          max-width: 120px;
+          object-fit: contain;
+        }
+
+        .brandWord {
+          letter-spacing: 0.28em;
+          font-size: 12px;
+          color: var(--muted);
           text-transform: uppercase;
         }
+
+        .title h1 {
+          margin: 4px 0 6px;
+          font-size: 28px;
+          text-transform: uppercase;
+          letter-spacing: 0.04em;
+        }
+
         .title p {
           margin: 4px 0;
           font-size: 14px;
-          color: #4b5563;
+          color: var(--muted);
         }
+
+        .goldRule {
+          width: 120px;
+          height: 2px;
+          background: linear-gradient(90deg, transparent, var(--gold), transparent);
+          margin: 12px auto 0;
+        }
+
         .section {
+          position: relative;
+          z-index: 1;
           margin-top: 20px;
           page-break-inside: avoid;
         }
+
         .section h2 {
           margin: 0 0 10px;
-          font-size: 17px;
+          font-size: 16px;
           text-transform: uppercase;
-          border-bottom: 1px solid #d1d5db;
+          letter-spacing: 0.06em;
+          border-bottom: 1px solid var(--gold-soft);
           padding-bottom: 6px;
+          color: #2a241c;
         }
+
         .opening, .whereas, .box {
-          border: 1px solid #d1d5db;
+          border: 1px solid var(--line);
           padding: 14px;
           background: #fff;
         }
-        .whereas {
-          background: #f8fafc;
+
+        .whereas, .box.annex {
+          background: var(--panel);
         }
+
         .opening p, .whereas p, .clause p, .annex p {
           margin: 0 0 10px;
           font-size: 14px;
-          line-height: 1.75;
+          line-height: 1.8;
           text-align: justify;
         }
+
         .grid2 {
           display: grid;
           grid-template-columns: 1fr 1fr;
           gap: 14px;
         }
+
         .box h3 {
           margin: 0 0 10px;
-          font-size: 14px;
+          font-size: 13px;
           text-transform: uppercase;
+          letter-spacing: 0.08em;
+          color: var(--muted);
         }
+
         .kv {
           width: 100%;
           border-collapse: collapse;
           table-layout: fixed;
         }
+
         .kv tr:not(:last-child) td {
-          border-bottom: 1px solid #eef2f7;
+          border-bottom: 1px solid #ede7dc;
         }
+
         .clause {
           margin-top: 16px;
           page-break-inside: avoid;
         }
+
         .clause h3 {
           margin: 0 0 8px;
           font-size: 15px;
+          color: #221f1b;
         }
+
         .sigWrap {
           margin-top: 28px;
           display: grid;
           grid-template-columns: 1fr 1fr;
           gap: 24px;
         }
+
         .sigBox {
-          min-height: 110px;
-          border-top: 1px solid #111827;
-          padding-top: 10px;
+          min-height: 170px;
+          border: 1px solid var(--line);
+          background: #fff;
+          padding: 14px 14px 12px;
           font-size: 13px;
           line-height: 1.8;
+          position: relative;
         }
+
+        .sigLabel {
+          text-transform: uppercase;
+          letter-spacing: 0.06em;
+          font-size: 12px;
+          color: var(--muted);
+          margin-bottom: 8px;
+        }
+
+        .signatureImageWrap {
+          height: 64px;
+          display: flex;
+          align-items: flex-end;
+          margin: 4px 0 6px;
+        }
+
+        .signatureImage {
+          max-height: 56px;
+          max-width: 180px;
+          object-fit: contain;
+          display: block;
+        }
+
+        .signatureFallback {
+          font-family: "Brush Script MT", "Segoe Script", cursive;
+          font-size: 28px;
+          color: #40372b;
+          line-height: 1;
+        }
+
+        .signatureLine {
+          margin-top: 8px;
+          border-top: 1px solid #8c8172;
+          padding-top: 8px;
+        }
+
         .small {
           font-size: 12px;
-          color: #4b5563;
+          color: var(--muted);
         }
+
+        .docFooter {
+          margin-top: 28px;
+          border-top: 1px solid var(--gold-soft);
+          padding-top: 10px;
+          display: grid;
+          grid-template-columns: 1.2fr 1fr 1fr;
+          gap: 12px;
+          align-items: start;
+          font-size: 11px;
+          color: var(--muted);
+        }
+
+        .docFooterTitle {
+          font-size: 11px;
+          text-transform: uppercase;
+          letter-spacing: 0.08em;
+          color: #4d4438;
+          margin-bottom: 4px;
+          font-weight: 700;
+        }
+
+        .footerBrand {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          margin-bottom: 6px;
+        }
+
+        .footerBrand img {
+          max-height: 22px;
+          max-width: 80px;
+          object-fit: contain;
+        }
+
+        .footerBrandWord {
+          letter-spacing: 0.22em;
+          text-transform: uppercase;
+          font-size: 10px;
+        }
+
+        .pageNo {
+          text-align: right;
+          font-style: italic;
+        }
+
         @page {
           size: A4;
           margin: 14mm;
         }
+
         @media print {
           html, body {
             background: white !important;
           }
+
           .toolbar {
             display: none !important;
           }
+
           .sheet {
             width: auto;
             min-height: auto;
             margin: 0;
             box-shadow: none;
-            padding: 0;
+            padding: 0 0 18mm 0;
+            background: white;
           }
+
+          .sheet::before,
+          .sheet::after {
+            display: none;
+          }
+
+          .pageFrame {
+            display: block;
+            position: fixed;
+            inset: 8mm;
+            border: 1px solid var(--gold);
+            pointer-events: none;
+          }
+
+          .pageFrame::after {
+            content: "";
+            position: absolute;
+            inset: 3mm;
+            border: 1px solid var(--line);
+          }
+
+          .docFooter {
+            position: fixed;
+            left: 16mm;
+            right: 16mm;
+            bottom: 6mm;
+            margin-top: 0;
+            padding-top: 6px;
+            background: white;
+          }
+
           a {
             color: inherit;
             text-decoration: none;
           }
         }
+
         @media (max-width: 900px) {
           .sheet {
             width: auto;
@@ -234,8 +445,13 @@ export default function AgreementPrintClient({ id }: { id: string }) {
             margin: 0;
             padding: 20px 16px 28px;
           }
-          .grid2, .sigWrap {
+
+          .grid2, .sigWrap, .docFooter {
             grid-template-columns: 1fr;
+          }
+
+          .title {
+            padding: 0;
           }
         }
       `}</style>
@@ -248,10 +464,17 @@ export default function AgreementPrintClient({ id }: { id: string }) {
       </div>
 
       <main className="sheet">
+        <div className="pageFrame" aria-hidden="true"></div>
+
         <div className="title">
+          <div className="brandTop">
+            {logoUrl ? <img src={logoUrl} alt={safe(company?.brandName || "Neejee")} /> : null}
+            <div className="brandWord">{safe(company?.brandName || "Neejee")}</div>
+          </div>
           <h1>{data?.title || "Marketplace Seller Agreement"}</h1>
           <p>{data?.subtitle || "Detailed India-focused marketplace agreement"}</p>
           <p>Generated on {generatedOn}</p>
+          <div className="goldRule"></div>
         </div>
 
         <section className="section">
@@ -262,7 +485,7 @@ export default function AgreementPrintClient({ id }: { id: string }) {
             </p>
             <p style={{ textAlign: "center", fontWeight: 700, margin: "16px 0" }}>BY & BETWEEN</p>
             <p>
-              <strong>{safe(partyLine.companyName)}</strong>, a company incorporated under the laws of India, having its registered /
+              <strong>{safe(companyName)}</strong>, a company incorporated under the laws of India, having its registered /
               principal office at <strong>{safe(company?.address)}</strong>, bearing GSTIN <strong>{safe(company?.gstin)}</strong>,
               PAN <strong>{safe(company?.pan)}</strong>{company?.cinNumber ? <> and CIN <strong>{safe(company?.cinNumber)}</strong></> : null},
               hereinafter referred to as the "<strong>Company</strong>" / "<strong>Marketplace</strong>", which expression shall,
@@ -271,7 +494,7 @@ export default function AgreementPrintClient({ id }: { id: string }) {
             </p>
             <p style={{ textAlign: "center", fontWeight: 700, margin: "16px 0" }}>AND</p>
             <p>
-              <strong>{safe(partyLine.sellerName)}</strong>, having its principal place of business at the seller particulars recorded
+              <strong>{safe(sellerName)}</strong>, having its principal place of business at the seller particulars recorded
               in this Agreement, through its proprietor / partner / authorised signatory, hereinafter referred to as the
               "<strong>Seller</strong>", which expression shall, unless repugnant to the context or meaning thereof, include its
               successors, representatives and permitted assigns.
@@ -394,24 +617,67 @@ export default function AgreementPrintClient({ id }: { id: string }) {
           <h2>Execution</h2>
           <div className="sigWrap">
             <div className="sigBox">
-              <strong>For {safe(company?.legalName || partyLine.companyName)}</strong><br />
-              Authorised Signatory<br />
-              Name: {safe(company?.authorisedSignatory)}<br />
-              Title: {safe(company?.signatoryTitle)}<br />
-              Date: _____________________
+              <div className="sigLabel">For {safe(companyName)}</div>
+              <div className="signatureImageWrap">
+                {signatureUrl ? (
+                  <img className="signatureImage" src={signatureUrl} alt={`${safe(company?.authorisedSignatory)} signature`} />
+                ) : (
+                  <div className="signatureFallback">{safe(company?.authorisedSignatory || "Nidhi")}</div>
+                )}
+              </div>
+              <div className="signatureLine">
+                <strong>{safe(company?.authorisedSignatory)}</strong><br />
+                {safe(company?.signatoryTitle)}
+              </div>
+              <div style={{ marginTop: 8 }}>
+                For and on behalf of <strong>{safe(companyName)}</strong><br />
+                Date: _____________________
+              </div>
             </div>
+
             <div className="sigBox">
-              <strong>For {safe(seller?.businessName || partyLine.sellerName)}</strong><br />
-              Authorised Signatory<br />
-              Name: {safe(seller?.contactName || seller?.businessName)}<br />
-              Title: _____________________<br />
-              Date: _____________________
+              <div className="sigLabel">For {safe(sellerName)}</div>
+              <div className="signatureImageWrap"></div>
+              <div className="signatureLine">
+                <strong>{safe(seller?.contactName || sellerName)}</strong><br />
+                Authorised Signatory / Proprietor / Partner
+              </div>
+              <div style={{ marginTop: 8 }}>
+                For and on behalf of <strong>{safe(sellerName)}</strong><br />
+                Date: _____________________
+              </div>
             </div>
           </div>
+
           <p className="small" style={{ marginTop: 14 }}>
-            This layout is intentionally structured as a print-first legal document for PDF export and execution.
+            This document is formatted as a formal print-first agreement for execution and archival.
           </p>
         </section>
+
+        <footer className="docFooter">
+          <div>
+            <div className="docFooterTitle">Neejee / Oye Imagine</div>
+            <div className="footerBrand">
+              {logoUrl ? <img src={logoUrl} alt={safe(company?.brandName || "Neejee")} /> : null}
+              <div className="footerBrandWord">{safe(company?.brandName || "Neejee")}</div>
+            </div>
+            <div>{safe(company?.legalName || "Oye Imagine Private Limited")}</div>
+            <div>{safe(company?.address)}</div>
+          </div>
+
+          <div>
+            <div className="docFooterTitle">Contact</div>
+            <div>Email: {safe(company?.contactEmail)}</div>
+            <div>Phone: {safe(company?.contactPhone)}</div>
+            <div>GSTIN: {safe(company?.gstin)}</div>
+          </div>
+
+          <div className="pageNo">
+            <div className="docFooterTitle">Marketplace Agreement</div>
+            <div>Generated for internal execution</div>
+            <div>Date: {generatedOn}</div>
+          </div>
+        </footer>
       </main>
     </>
   );
