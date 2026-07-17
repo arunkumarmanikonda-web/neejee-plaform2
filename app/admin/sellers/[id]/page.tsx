@@ -12,6 +12,7 @@ export default function AdminSellerDetail() {
   const id = params?.id as string;
 
   const [seller, setSeller] = useState<any>(null);
+  const [agreement, setAgreement] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState('');
@@ -38,7 +39,7 @@ export default function AdminSellerDetail() {
       const j = await res.json();
       if (!res.ok) throw new Error(j.error || 'Update failed');
       setSeller(j.seller);
-      setMsg('âœ“ Saved');
+      setMsg('Ã¢Å“â€œ Saved');
       setTimeout(() => setMsg(''), 2500);
     } catch (e: any) {
       setErr(e.message);
@@ -47,7 +48,7 @@ export default function AdminSellerDetail() {
     }
   };
 
-  if (loading) return <p className="text-mitti">Loadingâ€¦</p>;
+  if (loading) return <p className="text-mitti">LoadingÃ¢â‚¬Â¦</p>;
   if (!seller) return <p className="text-madder">Seller not found.</p>;
 
   const update = (key: string, value: any) => setSeller({ ...seller, [key]: value });
@@ -58,7 +59,7 @@ export default function AdminSellerDetail() {
         <ArrowLeft className="w-3 h-3" /> ALL SELLERS
       </Link>
       <h1 className="font-display text-4xl text-kohl mt-2">{seller.businessName}</h1>
-      <p className="font-italic italic text-mitti mt-2">{seller.craft} Â· {seller.region}</p>
+      <p className="font-italic italic text-mitti mt-2">{seller.craft} Ã‚Â· {seller.region}</p>
       <div className="madder-divider mt-4"></div>
 
       {msg && <p className="text-neem text-sm mt-4">{msg}</p>}
@@ -70,7 +71,7 @@ export default function AdminSellerDetail() {
           <p className="label text-mitti">CURRENT STATUS</p>
           <p className="font-display text-2xl text-kohl mt-1">{seller.kycStatus.replace(/_/g, ' ')}</p>
           {seller.kycStatus === 'REJECTED' && seller.rejectionNote && (
-            <p className="text-xs text-mitti mt-2 italic max-w-md">Note sent: â€œ{seller.rejectionNote}â€</p>
+            <p className="text-xs text-mitti mt-2 italic max-w-md">Note sent: Ã¢â‚¬Å“{seller.rejectionNote}Ã¢â‚¬Â</p>
           )}
         </div>
         <div className="flex items-center gap-2">
@@ -101,7 +102,7 @@ export default function AdminSellerDetail() {
           <textarea
             value={rejectNote}
             onChange={e => setRejectNote(e.target.value)}
-            placeholder="Optional â€” kept brief and kind"
+            placeholder="Optional Ã¢â‚¬â€ kept brief and kind"
             rows={3}
             className="w-full p-3 bg-ivory border border-mitti/20 text-sm"
           />
@@ -117,7 +118,7 @@ export default function AdminSellerDetail() {
         <div className="lg:col-span-2 space-y-6">
           <section className="bg-beige p-6">
             <p className="label text-madder mb-3">STORY</p>
-            <p className="text-sm text-kohl whitespace-pre-wrap leading-relaxed">{seller.story || 'â€”'}</p>
+            <p className="text-sm text-kohl whitespace-pre-wrap leading-relaxed">{seller.story || 'Ã¢â‚¬â€'}</p>
           </section>
 
           {seller.portfolio && seller.portfolio.length > 0 && (
@@ -263,13 +264,100 @@ export default function AdminSellerDetail() {
               </div>
             )}
           </section>
+
+          <section className="bg-beige p-5 md:col-span-2">
+            <div className="flex items-center justify-between gap-3 mb-3 flex-wrap">
+              <div>
+                <p className="label text-madder">STANDARD SELLER AGREEMENT</p>
+                <p className="text-xs text-mitti mt-1">Company-standard agreement preview with seller-specific commercial terms.</p>
+              </div>
+
+              {agreement?.existingAgreementDocument?.fileUrl ? (
+                <a
+                  href={agreement.existingAgreementDocument.fileUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center gap-1 text-xs text-madder hover:text-kohl"
+                >
+                  Open uploaded agreement <ExternalLink className="w-3.5 h-3.5" />
+                </a>
+              ) : (
+                <span className="text-xs text-mitti">No uploaded agreement yet</span>
+              )}
+            </div>
+
+            {!agreement ? (
+              <div className="border border-dashed border-mitti/30 p-4 text-xs text-mitti">
+                Agreement preview unavailable.
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <div className="grid md:grid-cols-2 gap-4">
+                  <div className="bg-ivory border border-mitti/15 p-4">
+                    <p className="label text-mitti mb-2">COMPANY</p>
+                    <div className="space-y-1 text-xs">
+                      <p className="text-kohl">{agreement.company?.legalName || 'Oye Imagine Private Limited'}</p>
+                      <p className="text-mitti">{agreement.company?.brandName || 'NEEJEE'}</p>
+                      <p className="text-mitti">{agreement.company?.address || '—'}</p>
+                      <p className="text-mitti">GSTIN: {agreement.company?.gstin || '—'}</p>
+                      <p className="text-mitti">PAN: {agreement.company?.pan || '—'}</p>
+                      <p className="text-mitti">Authorised signatory: {agreement.company?.authorisedSignatory || '—'}</p>
+                      <p className="text-mitti">Title: {agreement.company?.signatoryTitle || '—'}</p>
+                    </div>
+
+                    {agreement.company?.signatureUrl ? (
+                      <div className="mt-3">
+                        <p className="label text-mitti mb-2">COMPANY SIGNATURE</p>
+                        <img
+                          src={agreement.company.signatureUrl}
+                          alt="Authorised signature"
+                          className="h-16 w-auto object-contain bg-white border border-mitti/10 p-2"
+                        />
+                      </div>
+                    ) : null}
+                  </div>
+
+                  <div className="bg-ivory border border-mitti/15 p-4">
+                    <p className="label text-mitti mb-2">SELLER + COMMERCIAL TERMS</p>
+                    <div className="space-y-1 text-xs">
+                      <p className="text-kohl">{agreement.seller?.businessName || '—'}</p>
+                      <p className="text-mitti">Contact: {agreement.seller?.contactName || '—'}</p>
+                      <p className="text-mitti">Email: {agreement.seller?.email || '—'}</p>
+                      <p className="text-mitti">Phone: {agreement.seller?.phone || '—'}</p>
+                      <p className="text-mitti">Craft / Region: {[agreement.seller?.craft, agreement.seller?.region].filter(Boolean).join(' · ') || '—'}</p>
+                      <p className="text-mitti">Commission: {agreement.commercialTerms?.commissionPct ?? 20}%</p>
+                      <p className="text-mitti">Payout cycle: {agreement.commercialTerms?.payoutCycle || '—'}</p>
+                      <p className="text-mitti">Neejee Select: {agreement.commercialTerms?.isNeejeeSelect ? 'Yes' : 'No'}</p>
+                      <p className="text-mitti">Quality score: {agreement.commercialTerms?.qualityScore ?? 0}</p>
+                      <p className="text-mitti">Cluster: {agreement.commercialTerms?.cluster || '—'}</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-ivory border border-mitti/15 p-4">
+                  <p className="label text-mitti mb-3">STANDARD CLAUSES</p>
+                  <ol className="list-decimal pl-4 space-y-3 text-xs text-kohl">
+                    {agreement.clauses?.map((clause: any, idx: number) => (
+                      <li key={idx}>
+                        <span className="font-medium">{clause.title}:</span> {clause.text}
+                      </li>
+                    ))}
+                  </ol>
+                </div>
+
+                <div className="bg-ivory border border-dashed border-mitti/20 p-4 text-xs text-mitti">
+                  This is the standard agreement preview for review and alignment. Seller-side digital signing will be implemented in Phase 3.
+                </div>
+              </div>
+            )}
+          </section>
           {seller.payouts && seller.payouts.length > 0 && (
             <section className="bg-beige p-5">
               <p className="label text-madder mb-3">RECENT PAYOUTS</p>
               <ul className="space-y-2 text-xs">
                 {seller.payouts.slice(0, 5).map((p: any) => (
                   <li key={p.id} className="flex justify-between">
-                    <span className="text-kohl">â‚¹{(p.netPayoutPaise/100).toLocaleString('en-IN')}</span>
+                    <span className="text-kohl">Ã¢â€šÂ¹{(p.netPayoutPaise/100).toLocaleString('en-IN')}</span>
                     <span className="text-mitti">{p.status}</span>
                   </li>
                 ))}
@@ -302,7 +390,7 @@ function KvRow({ k, v, mono }: { k: string; v: any; mono?: boolean }) {
   return (
     <div className="flex items-baseline justify-between text-xs py-1.5 border-b border-mitti/10 last:border-0">
       <span className="text-mitti">{k}</span>
-      <span className={`${mono ? 'font-mono' : ''} text-kohl text-right ml-2`}>{v || 'â€”'}</span>
+      <span className={`${mono ? 'font-mono' : ''} text-kohl text-right ml-2`}>{v || 'Ã¢â‚¬â€'}</span>
     </div>
   );
 }
