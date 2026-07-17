@@ -161,7 +161,7 @@ export async function GET(_request: Request, { params }: { params: { id: string 
     const clauses = [
   {
     id: "1",
-    title: "1. Drafting, AI-Assisted Edits, Admin Review and Finalisation Control",
+    title: "Marketplace Seller Agreement",
     heading: "1. Drafting, AI-Assisted Edits, Admin Review and Finalisation Control",
     paragraphs: [
       "This Agreement is generated as a controlled contractual draft for review by Oye Imagine Private Limited. Until the Agreement is expressly finalised by an authorised admin of Oye Imagine, every clause, paragraph, schedule, annexure, recital, commercial term, policy reference, compliance representation, and operational term may be edited, revised, expanded, condensed, reformatted, renumbered, redrafted, or regenerated only by authorised admins of Oye Imagine, whether manually or with the assistance of artificial intelligence tools used under admin supervision.",
@@ -171,7 +171,7 @@ export async function GET(_request: Request, { params }: { params: { id: string 
   },
   {
     id: "2",
-    title: "2. Appointment and Nature of Marketplace Relationship",
+    title: "Marketplace Seller Agreement",
     heading: "2. Appointment and Nature of Marketplace Relationship",
     paragraphs: [
       "The Seller appoints Oye Imagine Private Limited and Oye Imagine accepts such appointment, on a non-exclusive, revocable, and conditional basis, to list, display, promote, facilitate the sale of, collect consideration for, and provide marketplace-related services in respect of the Seller's products through Oye Imagine's digital properties, campaigns, and associated channels, subject always to this Agreement, platform policies, and applicable law.",
@@ -181,7 +181,7 @@ export async function GET(_request: Request, { params }: { params: { id: string 
   },
   {
     id: "3",
-    title: "3. Seller Representations, Authority, KYC and Statutory Compliance",
+    title: "Marketplace Seller Agreement",
     heading: "3. Seller Representations, Authority, KYC and Statutory Compliance",
     paragraphs: [
       "The Seller represents and warrants that it is duly organised, validly existing, and legally competent to enter into this Agreement; that the signatory has full authority to bind the Seller; and that all KYC, registration, ownership, address, tax, bank, and contact information supplied to Oye Imagine is true, complete, current, and not misleading in any respect.",
@@ -191,7 +191,7 @@ export async function GET(_request: Request, { params }: { params: { id: string 
   },
   {
     id: "4",
-    title: "4. Product Legality, Listing Accuracy, Labelling and Mandatory Disclosures",
+    title: "Marketplace Seller Agreement",
     heading: "4. Product Legality, Listing Accuracy, Labelling and Mandatory Disclosures",
     paragraphs: [
       "The Seller shall ensure that each listing, image, product name, specification, material composition, dimensions, quantity, origin statement, care instruction, usage direction, warning, price, discount claim, and every other consumer-facing disclosure is accurate, complete, legally compliant, and fully supported by documentary or operational evidence maintained by the Seller.",
@@ -201,7 +201,7 @@ export async function GET(_request: Request, { params }: { params: { id: string 
   },
   {
     id: "5",
-    title: "5. Quality Standards, Inspection Rights and Product Acceptance",
+    title: "Marketplace Seller Agreement",
     heading: "5. Quality Standards, Inspection Rights and Product Acceptance",
     paragraphs: [
       "The Seller shall supply products that are fit for sale, durable for their intended use, free from material defects, free from unsafe conditions, and consistent in workmanship, finish, functionality, and presentation. Oye Imagine may prescribe additional quality, packaging, photography, or content standards from time to time and the Seller shall comply with such standards within the timelines notified by Oye Imagine.",
@@ -211,7 +211,7 @@ export async function GET(_request: Request, { params }: { params: { id: string 
   },
   {
     id: "6",
-    title: "6. Packaging, Dispatch, Fulfilment, Service Levels and Order Conduct",
+    title: "Marketplace Seller Agreement",
     heading: "6. Packaging, Dispatch, Fulfilment, Service Levels and Order Conduct",
     paragraphs: [
       "The Seller shall pack all products in a secure, transit-worthy, clean, appropriately labelled, and category-appropriate manner so as to minimise breakage, deformation, leakage, soiling, moisture damage, accessory loss, and other avoidable transit or handling failures. Inadequate packaging shall be treated as a Seller-fault defect.",
@@ -221,7 +221,7 @@ export async function GET(_request: Request, { params }: { params: { id: string 
   },
   {
     id: "7",
-    title: "7. Returns, Refunds, Replacements and Reverse Logistics",
+    title: "Marketplace Seller Agreement",
     heading: "7. Returns, Refunds, Replacements and Reverse Logistics",
     paragraphs: [
       "The Seller acknowledges that under applicable consumer and e-commerce standards, customers may be entitled to return, replacement, repair, refund, or other relief where goods are defective, deficient, damaged, counterfeit, unsafe, late beyond promised timelines, materially different from description, or otherwise non-compliant. The Seller shall not refuse legitimate take-back or refund obligations arising from such circumstances.",
@@ -231,7 +231,7 @@ export async function GET(_request: Request, { params }: { params: { id: string 
   },
   {
     id: "8",
-    title: "8. Ratings, Reviews, Complaint Ratio, Quality Score and Performance Enforcement",
+    title: "Marketplace Seller Agreement",
     heading: "8. Ratings, Reviews, Complaint Ratio, Quality Score and Performance Enforcement",
     paragraphs: [
       "The Seller agrees that Oye Imagine may measure and monitor the Seller's performance through ratings, reviews, defect rate, return rate, complaint rate, late dispatch rate, cancellation rate, non-delivery rate, quality score, customer dissatisfaction score, dispute rate, repeat-complaint rate, and other internal or external quality metrics determined by Oye Imagine from time to time.",
@@ -241,7 +241,7 @@ export async function GET(_request: Request, { params }: { params: { id: string 
   },
   {
     id: "9",
-    title: "9. Counterfeit, Restricted, Unsafe, Non-Compliant and Infringing Products",
+    title: "Marketplace Seller Agreement",
     heading: "9. Counterfeit, Restricted, Unsafe, Non-Compliant and Infringing Products",
     paragraphs: [
       "The Seller shall not list, store, advertise, or sell any counterfeit, pirated, stolen, prohibited, unsafe, restricted, recalled, expired, adulterated, deceptively labelled, unlicensed, or otherwise unlawful product through Oye Imagine. The Seller further warrants that all products are genuine and that their sale, packaging, and description do not infringe any trademark, copyright, design, patent, trade dress, publicity, privacy, or other proprietary or personality right.",
@@ -251,7 +251,7 @@ export async function GET(_request: Request, { params }: { params: { id: string 
   },
   {
     id: "10",
-    title: "10. Pricing, Commission, Taxes, TCS, Set-Off, Reserves and Recoveries",
+    title: "Marketplace Seller Agreement",
     heading: "10. Pricing, Commission, Taxes, TCS, Set-Off, Reserves and Recoveries",
     paragraphs: [
       "The commercial terms applicable to the Seller, including commission, payment cycle, incentives, promotions, campaign participation, markdown support, quality-linked consequences, and reserves or holdbacks, shall be as agreed in the relevant commercial schedule, dashboard settings, admin configuration, or other written record maintained by Oye Imagine and may be updated from time to time in accordance with this Agreement.",
@@ -261,7 +261,7 @@ export async function GET(_request: Request, { params }: { params: { id: string 
   },
   {
     id: "11",
-    title: "11. Customer Claims, Product Liability, Recall and Regulatory Cooperation",
+    title: "Marketplace Seller Agreement",
     heading: "11. Customer Claims, Product Liability, Recall and Regulatory Cooperation",
     paragraphs: [
       "The Seller shall bear sole and primary responsibility for all customer injury, defect claims, safety complaints, quality complaints, warranty failures, product-performance failures, misleading-description claims, statutory non-compliance, and product-liability exposure arising from or relating to the Seller's products, packaging, instructions, warnings, or omissions.",
@@ -271,7 +271,7 @@ export async function GET(_request: Request, { params }: { params: { id: string 
   },
   {
     id: "12",
-    title: "12. Intellectual Property, Brand Assets, Marketing and Platform Content",
+    title: "Marketplace Seller Agreement",
     heading: "12. Intellectual Property, Brand Assets, Marketing and Platform Content",
     paragraphs: [
       "The Seller grants Oye Imagine a non-exclusive, worldwide, royalty-free, sublicensable licence during the term of this Agreement to host, reproduce, adapt, resize, display, distribute, translate, and use the Seller's trade names, marks, logos, product images, product videos, specifications, descriptive content, and associated material for listing, promotion, cataloguing, customer support, and marketplace operations.",
@@ -281,7 +281,7 @@ export async function GET(_request: Request, { params }: { params: { id: string 
   },
   {
     id: "13",
-    title: "13. Data Protection, Confidentiality, Restricted Use and Non-Circumvention",
+    title: "Marketplace Seller Agreement",
     heading: "13. Data Protection, Confidentiality, Restricted Use and Non-Circumvention",
     paragraphs: [
       "The Seller shall use customer, transaction, and marketplace data only to the limited extent necessary to fulfil orders, provide lawful after-sales support, comply with tax and regulatory obligations, and meet obligations expressly permitted by Oye Imagine. The Seller shall not use such data for unauthorised marketing, profiling, resale, scraping, contact harvesting, or off-platform solicitation.",
@@ -291,7 +291,7 @@ export async function GET(_request: Request, { params }: { params: { id: string 
   },
   {
     id: "14",
-    title: "14. Audit Rights, Records, Evidence and Information Access",
+    title: "Marketplace Seller Agreement",
     heading: "14. Audit Rights, Records, Evidence and Information Access",
     paragraphs: [
       "The Seller shall maintain accurate and retrievable books, invoices, stock records, batch or lot details where relevant, procurement records, warranty records, tax invoices, compliance certificates, customer-complaint records, return analysis, and all other records reasonably necessary to verify the Seller's compliance with this Agreement and applicable law.",
@@ -301,7 +301,7 @@ export async function GET(_request: Request, { params }: { params: { id: string 
   },
   {
     id: "15",
-    title: "15. Suspension, Delisting, Termination and Post-Term Survival",
+    title: "Marketplace Seller Agreement",
     heading: "15. Suspension, Delisting, Termination and Post-Term Survival",
     paragraphs: [
       "Oye Imagine may, with immediate effect and without liability to the Seller, suspend any listing, SKU, category, campaign, payment, or Seller account, or terminate this Agreement, if it believes that the Seller has breached this Agreement, violated law, supplied defective or unsafe goods, attracted abnormal complaints or returns, submitted false KYC or tax details, manipulated reviews, infringed rights, caused reputational harm, or otherwise created risk for customers or the platform.",
@@ -311,7 +311,7 @@ export async function GET(_request: Request, { params }: { params: { id: string 
   },
   {
     id: "16",
-    title: "16. Indemnity, Limitation of Liability and Dispute Resolution",
+    title: "Marketplace Seller Agreement",
     heading: "16. Indemnity, Limitation of Liability and Dispute Resolution",
     paragraphs: [
       "The Seller shall defend, indemnify, and hold harmless Oye Imagine, its affiliates, directors, officers, employees, agents, service providers, and representatives from and against all claims, complaints, proceedings, losses, damages, costs, penalties, interest, settlements, and expenses, including reasonable legal fees, arising from or relating to the Seller's products, listings, warranties, misrepresentations, regulatory non-compliance, product defects, product-liability claims, tax defaults, infringement claims, review manipulation, breach of law, or breach of this Agreement.",
@@ -322,20 +322,20 @@ export async function GET(_request: Request, { params }: { params: { id: string 
 ];
 
     const annexure = [
-      { label: 'Seller legal name / business name', value: sellerBlock.businessName || 'â€”' },
-      { label: 'Primary contact', value: sellerBlock.contactName || 'â€”' },
-      { label: 'Email', value: sellerBlock.email || 'â€”' },
-      { label: 'Phone', value: sellerBlock.phone || 'â€”' },
-      { label: 'Craft / category', value: compact([sellerBlock.craft, sellerBlock.region]).join(' â€¢ ') || 'â€”' },
+      { label: 'Seller legal name / business name', value: sellerBlock.businessName || 'Ã¢â‚¬â€' },
+      { label: 'Primary contact', value: sellerBlock.contactName || 'Ã¢â‚¬â€' },
+      { label: 'Email', value: sellerBlock.email || 'Ã¢â‚¬â€' },
+      { label: 'Phone', value: sellerBlock.phone || 'Ã¢â‚¬â€' },
+      { label: 'Craft / category', value: compact([sellerBlock.craft, sellerBlock.region]).join(' Ã¢â‚¬Â¢ ') || 'Ã¢â‚¬â€' },
       { label: 'Commission %', value: `${commercialTerms.commissionPct ?? 20}%` },
-      { label: 'Payout cycle', value: safeString(commercialTerms.payoutCycle, 'MONTHLY') || 'â€”' },
+      { label: 'Payout cycle', value: safeString(commercialTerms.payoutCycle, 'MONTHLY') || 'Ã¢â‚¬â€' },
       { label: 'Neejee Select', value: commercialTerms.isNeejeeSelect ? 'Yes' : 'No' },
       { label: 'Quality score', value: String(commercialTerms.qualityScore ?? 0) },
-      { label: 'Years of practice', value: commercialTerms.yearsOfPractice != null ? String(commercialTerms.yearsOfPractice) : 'â€”' },
-      { label: 'Cluster', value: commercialTerms.cluster || 'â€”' },
-      { label: 'PAN', value: sellerBlock.pan || 'â€”' },
-      { label: 'GSTIN', value: sellerBlock.gstin || 'â€”' },
-      { label: 'Bank', value: compact([sellerBlock.bankName, sellerBlock.ifsc, sellerBlock.bankAccountMasked]).join(' â€¢ ') || 'â€”' },
+      { label: 'Years of practice', value: commercialTerms.yearsOfPractice != null ? String(commercialTerms.yearsOfPractice) : 'Ã¢â‚¬â€' },
+      { label: 'Cluster', value: commercialTerms.cluster || 'Ã¢â‚¬â€' },
+      { label: 'PAN', value: sellerBlock.pan || 'Ã¢â‚¬â€' },
+      { label: 'GSTIN', value: sellerBlock.gstin || 'Ã¢â‚¬â€' },
+      { label: 'Bank', value: compact([sellerBlock.bankName, sellerBlock.ifsc, sellerBlock.bankAccountMasked]).join(' Ã¢â‚¬Â¢ ') || 'Ã¢â‚¬â€' },
     ];
 
     return NextResponse.json({
