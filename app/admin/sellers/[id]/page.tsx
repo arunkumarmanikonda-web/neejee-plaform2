@@ -111,6 +111,12 @@ export default function AdminSellerDetail() {
         </div>
 
         <div className="flex items-center gap-2 flex-wrap">
+          <Link
+            href={`/admin/sellers/${seller.id}/agreement-workbench`}
+            className="inline-flex items-center gap-2 bg-kohl text-ivory px-4 py-2 text-xs tracking-widest hover:bg-kohl/90 transition-colors"
+          >
+            AGREEMENT WORKBENCH
+          </Link>
           {seller.kycStatus !== 'APPROVED' && (
             <button
               onClick={() => patch({ kycStatus: 'APPROVED', rejectionNote: null })}

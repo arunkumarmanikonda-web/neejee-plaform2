@@ -159,7 +159,7 @@ export default function SellerDashboard() {
       )}
 
       {/* Inventory CTA */}
-      <section className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <section className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Link href="/seller/inventory/submit"
           className="block bg-ivory border border-mitti/30 p-6 rounded hover:border-kohl transition-colors">
           <Upload className="w-6 h-6 text-banarasi" />
@@ -179,6 +179,12 @@ export default function SellerDashboard() {
           <ShoppingBag className="w-6 h-6 text-banarasi" />
           <h4 className="font-display text-lg text-kohl mt-3">Orders & sales</h4>
           <p className="text-mitti text-xs mt-1">Pack & dispatch when released</p>
+        </Link>
+        <Link href="/seller/agreements"
+          className="block bg-ivory border border-mitti/30 p-6 rounded hover:border-kohl transition-colors">
+          <Sparkles className="w-6 h-6 text-banarasi" />
+          <h4 className="font-display text-lg text-kohl mt-3">Legal agreements</h4>
+          <p className="text-mitti text-xs mt-1">Review drafts, add observations, sign with OTP</p>
         </Link>
       </section>
     </div>
