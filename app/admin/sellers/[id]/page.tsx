@@ -38,7 +38,7 @@ export default function AdminSellerDetail() {
       const j = await res.json();
       if (!res.ok) throw new Error(j.error || 'Update failed');
       setSeller(j.seller);
-      setMsg('✓ Saved');
+      setMsg('âœ“ Saved');
       setTimeout(() => setMsg(''), 2500);
     } catch (e: any) {
       setErr(e.message);
@@ -47,7 +47,7 @@ export default function AdminSellerDetail() {
     }
   };
 
-  if (loading) return <p className="text-mitti">Loading…</p>;
+  if (loading) return <p className="text-mitti">Loadingâ€¦</p>;
   if (!seller) return <p className="text-madder">Seller not found.</p>;
 
   const update = (key: string, value: any) => setSeller({ ...seller, [key]: value });
@@ -58,7 +58,7 @@ export default function AdminSellerDetail() {
         <ArrowLeft className="w-3 h-3" /> ALL SELLERS
       </Link>
       <h1 className="font-display text-4xl text-kohl mt-2">{seller.businessName}</h1>
-      <p className="font-italic italic text-mitti mt-2">{seller.craft} · {seller.region}</p>
+      <p className="font-italic italic text-mitti mt-2">{seller.craft} Â· {seller.region}</p>
       <div className="madder-divider mt-4"></div>
 
       {msg && <p className="text-neem text-sm mt-4">{msg}</p>}
@@ -70,7 +70,7 @@ export default function AdminSellerDetail() {
           <p className="label text-mitti">CURRENT STATUS</p>
           <p className="font-display text-2xl text-kohl mt-1">{seller.kycStatus.replace(/_/g, ' ')}</p>
           {seller.kycStatus === 'REJECTED' && seller.rejectionNote && (
-            <p className="text-xs text-mitti mt-2 italic max-w-md">Note sent: “{seller.rejectionNote}”</p>
+            <p className="text-xs text-mitti mt-2 italic max-w-md">Note sent: â€œ{seller.rejectionNote}â€</p>
           )}
         </div>
         <div className="flex items-center gap-2">
@@ -101,7 +101,7 @@ export default function AdminSellerDetail() {
           <textarea
             value={rejectNote}
             onChange={e => setRejectNote(e.target.value)}
-            placeholder="Optional — kept brief and kind"
+            placeholder="Optional â€” kept brief and kind"
             rows={3}
             className="w-full p-3 bg-ivory border border-mitti/20 text-sm"
           />
@@ -117,7 +117,7 @@ export default function AdminSellerDetail() {
         <div className="lg:col-span-2 space-y-6">
           <section className="bg-beige p-6">
             <p className="label text-madder mb-3">STORY</p>
-            <p className="text-sm text-kohl whitespace-pre-wrap leading-relaxed">{seller.story || '—'}</p>
+            <p className="text-sm text-kohl whitespace-pre-wrap leading-relaxed">{seller.story || 'â€”'}</p>
           </section>
 
           {seller.portfolio && seller.portfolio.length > 0 && (
@@ -206,13 +206,70 @@ export default function AdminSellerDetail() {
             <KvRow k="Cluster" v={seller.cluster} />
           </section>
 
+
+          <section className="bg-beige p-5 md:col-span-2">
+            <div className="flex items-center justify-between gap-3 mb-3 flex-wrap">
+              <div>
+                <p className="label text-madder">APPLICATION DOSSIER</p>
+                <p className="text-xs text-mitti mt-1">Uploaded KYC files, support documents, and seller agreement artifacts.</p>
+              </div>
+            </div>
+
+            {!seller.documents || seller.documents.length === 0 ? (
+              <div className="border border-dashed border-mitti/30 p-4 text-xs text-mitti">
+                No documents uploaded yet.
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {seller.documents.map((doc: any) => {
+                  const href = doc.fileUrl || doc.url || '#';
+                  const docType = String(doc.docType || doc.type || 'OTHER').replace(/_/g, ' ');
+                  const docTitle = doc.title || doc.fileName || doc.name || docType;
+                  const docStatus = doc.status || 'SUBMITTED';
+
+                  return (
+                    <div
+                      key={doc.id}
+                      className="flex items-center justify-between gap-3 border border-mitti/15 bg-ivory p-3"
+                    >
+                      <div className="min-w-0">
+                        <p className="text-sm text-kohl truncate">{docTitle}</p>
+                        <div className="flex items-center gap-2 flex-wrap mt-1">
+                          <span className="text-[11px] uppercase tracking-wider text-mitti">{docType}</span>
+                          <span className="text-[11px] uppercase tracking-wider text-banarasi">{docStatus}</span>
+                          {doc.createdAt && (
+                            <span className="text-[11px] text-mitti">
+                              {new Date(doc.createdAt).toLocaleString('en-IN')}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      {href && href !== '#' ? (
+                        <a
+                          href={href}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="shrink-0 inline-flex items-center gap-1 text-xs text-madder hover:text-kohl"
+                        >
+                          View <ExternalLink className="w-3.5 h-3.5" />
+                        </a>
+                      ) : (
+                        <span className="shrink-0 text-xs text-mitti">No file URL</span>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </section>
           {seller.payouts && seller.payouts.length > 0 && (
             <section className="bg-beige p-5">
               <p className="label text-madder mb-3">RECENT PAYOUTS</p>
               <ul className="space-y-2 text-xs">
                 {seller.payouts.slice(0, 5).map((p: any) => (
                   <li key={p.id} className="flex justify-between">
-                    <span className="text-kohl">₹{(p.netPayoutPaise/100).toLocaleString('en-IN')}</span>
+                    <span className="text-kohl">â‚¹{(p.netPayoutPaise/100).toLocaleString('en-IN')}</span>
                     <span className="text-mitti">{p.status}</span>
                   </li>
                 ))}
@@ -245,7 +302,7 @@ function KvRow({ k, v, mono }: { k: string; v: any; mono?: boolean }) {
   return (
     <div className="flex items-baseline justify-between text-xs py-1.5 border-b border-mitti/10 last:border-0">
       <span className="text-mitti">{k}</span>
-      <span className={`${mono ? 'font-mono' : ''} text-kohl text-right ml-2`}>{v || '—'}</span>
+      <span className={`${mono ? 'font-mono' : ''} text-kohl text-right ml-2`}>{v || 'â€”'}</span>
     </div>
   );
 }
