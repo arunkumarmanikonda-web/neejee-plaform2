@@ -102,7 +102,6 @@ export async function GET() {
         bankName: true,
         portfolio: true,
         userId: true,
-        autoKycPassed: true,
         user: {
           select: {
             emailVerified: true,
