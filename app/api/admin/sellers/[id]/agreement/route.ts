@@ -161,181 +161,224 @@ export async function GET(_request: Request, { params }: { params: { id: string 
     const clauses = [
   {
     id: "1",
-    title: "Marketplace Seller Agreement",
-    heading: "1. Drafting, AI-Assisted Edits, Admin Review and Finalisation Control",
+    title: "1. Parties and Contract Formation",
+    heading: "1. Parties and Contract Formation",
     paragraphs: [
-      "This Agreement is generated as a controlled contractual draft for review by Oye Imagine Private Limited. Until the Agreement is expressly finalised by an authorised admin of Oye Imagine, every clause, paragraph, schedule, annexure, recital, commercial term, policy reference, compliance representation, and operational term may be edited, revised, expanded, condensed, reformatted, renumbered, redrafted, or regenerated only by authorised admins of Oye Imagine, whether manually or with the assistance of artificial intelligence tools used under admin supervision.",
-      "The Seller acknowledges and agrees that it has no unilateral right to edit, approve, freeze, lock, finalise, or override the legal text of this Agreement. Any comments, requests, or negotiated changes proposed by the Seller shall have effect only if reviewed and incorporated by an authorised admin of Oye Imagine before finalisation.",
-      "Once this Agreement is marked or treated by Oye Imagine as finalised, approved, executed, accepted, or otherwise locked for operational use, the legal text shall be treated as frozen and may thereafter be amended only by a written amendment, updated final version, or admin-approved regenerated agreement issued or accepted by an authorised admin of Oye Imagine."
+      "This Marketplace Seller Agreement (\"Agreement\") is made between Oye Imagine Private Limited, a company incorporated under the laws of India and operating the Neejee marketplace platform (\"Oye Imagine\", \"Neejee\", \"Company\", or \"Marketplace\"), and the seller identified in the commercial schedule and seller particulars forming part of this Agreement (\"Seller\").",
+      "This Agreement governs the Seller's onboarding, listing, sale, fulfilment, return handling, customer support obligations, quality obligations, and all other activities undertaken by or through the Seller on the Neejee marketplace.",
+      "This Agreement becomes binding when accepted, approved, digitally acknowledged, operationally activated, or otherwise finalised by an authorised admin of Oye Imagine."
     ]
   },
   {
     id: "2",
-    title: "Marketplace Seller Agreement",
-    heading: "2. Appointment and Nature of Marketplace Relationship",
+    title: "2. Recitals and Whereas",
+    heading: "2. Recitals and Whereas",
     paragraphs: [
-      "The Seller appoints Oye Imagine Private Limited and Oye Imagine accepts such appointment, on a non-exclusive, revocable, and conditional basis, to list, display, promote, facilitate the sale of, collect consideration for, and provide marketplace-related services in respect of the Seller's products through Oye Imagine's digital properties, campaigns, and associated channels, subject always to this Agreement, platform policies, and applicable law.",
-      "Unless expressly agreed otherwise in writing for a specific transaction or business model, Oye Imagine acts as a marketplace or facilitating platform and not as the manufacturer, principal seller, or warrantor of the Seller's products. Responsibility for product quality, merchantability, conformity with listing claims, safety, packaging adequacy, statutory declarations, genuineness, and post-sale liabilities shall remain with the Seller.",
-      "Nothing in this Agreement shall prevent Oye Imagine from onboarding competing sellers, reordering visibility, changing merchandising strategy, prioritising categories, restricting campaigns, or introducing new commercial, quality, or operational standards from time to time."
+      "WHEREAS Oye Imagine Private Limited owns, manages, licenses, operates, or controls the Neejee marketplace and related digital, operational, and promotional infrastructure for facilitating commerce between sellers and customers;",
+      "WHEREAS the Seller represents that it is engaged in the lawful business of manufacturing, sourcing, distributing, branding, marketing, or selling products and wishes to list and sell such products through the Neejee marketplace;",
+      "WHEREAS Oye Imagine is willing to permit the Seller to use the marketplace on a non-exclusive, revocable, conditional, and compliance-based basis, subject to this Agreement, platform policies, applicable law, and quality-control standards;",
+      "NOW, THEREFORE, in consideration of the mutual covenants and promises set out herein, the Parties agree as follows."
     ]
   },
   {
     id: "3",
-    title: "Marketplace Seller Agreement",
-    heading: "3. Seller Representations, Authority, KYC and Statutory Compliance",
+    title: "3. Drafting Control, AI-Assisted Editing and Finalisation Authority",
+    heading: "3. Drafting Control, AI-Assisted Editing and Finalisation Authority",
     paragraphs: [
-      "The Seller represents and warrants that it is duly organised, validly existing, and legally competent to enter into this Agreement; that the signatory has full authority to bind the Seller; and that all KYC, registration, ownership, address, tax, bank, and contact information supplied to Oye Imagine is true, complete, current, and not misleading in any respect.",
-      "The Seller shall maintain at all times all registrations, approvals, declarations, licences, permits, and tax credentials necessary for the lawful manufacture, storage, advertisement, listing, offer for sale, and sale of its products, including GST registration where applicable, PAN, bank validation details, and all category-specific approvals required by Indian law.",
-      "Any false declaration, concealment of material information, expired registration, mismatch in tax or bank identity, or refusal to furnish compliance documents upon request shall constitute a material breach and shall entitle Oye Imagine to suspend listings, withhold payouts, block orders, cancel participation in campaigns, or terminate the Seller account."
+      "Until finalisation by an authorised admin of Oye Imagine, every clause, recital, definition, paragraph, annexure, schedule, commercial term, operational term, and compliance statement in this Agreement may be edited, revised, restructured, reformatted, expanded, condensed, redrafted, or regenerated only by authorised admins of Oye Imagine, whether manually or with the assistance of artificial intelligence tools used under such admin supervision.",
+      "The Seller shall have no unilateral right to finalise, freeze, lock, edit, override, or treat the legal text of this Agreement as binding in any particular form unless and until such form is approved by an authorised admin of Oye Imagine.",
+      "After finalisation, this Agreement may be amended only through a written amendment, updated approved version, or regenerated replacement agreement expressly approved by an authorised admin of Oye Imagine."
     ]
   },
   {
     id: "4",
-    title: "Marketplace Seller Agreement",
-    heading: "4. Product Legality, Listing Accuracy, Labelling and Mandatory Disclosures",
+    title: "4. Definitions and Interpretation",
+    heading: "4. Definitions and Interpretation",
     paragraphs: [
-      "The Seller shall ensure that each listing, image, product name, specification, material composition, dimensions, quantity, origin statement, care instruction, usage direction, warning, price, discount claim, and every other consumer-facing disclosure is accurate, complete, legally compliant, and fully supported by documentary or operational evidence maintained by the Seller.",
-      "For packaged goods and other regulated goods, the Seller shall ensure compliance with all applicable labelling and declaration obligations, including Legal Metrology and packaged-commodity requirements, mandatory declarations, MRP and quantity disclosures, manufacturer or packer details, and any other product-specific consumer information required to lawfully sell through e-commerce channels.",
-      "Any discrepancy between the listing and the delivered product, including wrong material, wrong colour, wrong dimension, wrong count, missing accessory, misleading image, false premium claim, false handmade claim, wrong care instruction, undeclared defect, or any other misdescription, shall be treated as a Seller-fault event and Oye Imagine may issue a refund, replacement, return approval, listing block, recovery debit, or other corrective action at the Seller's cost."
+      "\"Applicable Law\" means all laws, rules, regulations, circulars, notifications, orders, standards, advisories, and judicial or regulatory requirements applicable to the Parties, the products, the marketplace, or the transactions contemplated under this Agreement.",
+      "\"Customer Complaint\" includes any complaint, grievance, chargeback, dispute, return request, refund request, replacement request, product safety concern, quality concern, authenticity concern, regulatory escalation, or negative customer claim relating to a product or transaction.",
+      "\"Seller-Fault Event\" includes any case involving defective goods, damaged goods due to inadequate packaging, wrong item, missing item, material mismatch, false claim, listing misdescription, counterfeit suspicion, safety issue, non-compliance, avoidable delay, avoidable cancellation, or any other event attributable in whole or in part to the Seller.",
+      "\"Marketplace Policies\" means all current and future seller rules, quality policies, returns policies, packaging norms, restricted product rules, payout rules, complaint-handling protocols, and admin or platform standards issued by Oye Imagine from time to time.",
+      "References to the singular include the plural and vice versa; headings are for convenience and do not limit interpretation; and where any schedule or annexure conflicts with the main body, Oye Imagine's final approved version shall prevail unless expressly stated otherwise."
     ]
   },
   {
     id: "5",
-    title: "Marketplace Seller Agreement",
-    heading: "5. Quality Standards, Inspection Rights and Product Acceptance",
+    title: "5. Appointment and Nature of Relationship",
+    heading: "5. Appointment and Nature of Relationship",
     paragraphs: [
-      "The Seller shall supply products that are fit for sale, durable for their intended use, free from material defects, free from unsafe conditions, and consistent in workmanship, finish, functionality, and presentation. Oye Imagine may prescribe additional quality, packaging, photography, or content standards from time to time and the Seller shall comply with such standards within the timelines notified by Oye Imagine.",
-      "Oye Imagine shall have the right, at any time and without prior notice where urgency so requires, to conduct sampling, image review, catalogue review, mystery purchase, batch review, document verification, complaint-based inspection, or post-return forensic review in relation to any product or SKU listed by the Seller.",
-      "Where Oye Imagine determines, in its reasonable discretion, that a product does not meet required quality standards or presents reputational, legal, customer-experience, or safety risk, Oye Imagine may reject, delist, quarantine, suspend, or permanently block the affected SKU or the Seller account, require corrective action plans, or impose enhanced monitoring before allowing continued sale."
+      "The Seller appoints Oye Imagine, and Oye Imagine accepts such appointment, to provide marketplace facilitation, listing, discovery, promotion, payment collection support, order-routing, and related services in respect of the Seller's products.",
+      "Unless expressly agreed otherwise in writing for a specific business model, Oye Imagine acts as a marketplace or facilitating platform and not as the manufacturer or principal seller of the Seller's products.",
+      "Responsibility for product quality, conformity, legality, authenticity, packaging sufficiency, statutory declarations, and seller-side after-sales liabilities shall remain with the Seller."
     ]
   },
   {
     id: "6",
-    title: "Marketplace Seller Agreement",
-    heading: "6. Packaging, Dispatch, Fulfilment, Service Levels and Order Conduct",
+    title: "6. Seller Representations, KYC and Eligibility",
+    heading: "6. Seller Representations, KYC and Eligibility",
     paragraphs: [
-      "The Seller shall pack all products in a secure, transit-worthy, clean, appropriately labelled, and category-appropriate manner so as to minimise breakage, deformation, leakage, soiling, moisture damage, accessory loss, and other avoidable transit or handling failures. Inadequate packaging shall be treated as a Seller-fault defect.",
-      "The Seller shall dispatch accepted orders within the turnaround times prescribed by Oye Imagine and shall not mark orders as shipped, ready, or fulfilled unless such status is truthful and supported by actual operational readiness. Repeated late dispatch, unserviceability, false shipment status, or avoidable cancellations shall constitute operational breach.",
-      "Oye Imagine may impose service-level thresholds, including order acceptance rate, dispatch SLA, cancellation rate, fill rate, delivery success rate, packaging failure rate, and response-time standards, and may use such thresholds for ranking, campaign eligibility, reserve-setting, payout timing, and disciplinary action."
+      "The Seller represents and warrants that it is duly organised, validly existing, authorised to enter into this Agreement, and fully empowered to sell the products listed through the marketplace.",
+      "The Seller further represents that all KYC, tax, bank, ownership, signatory, address, and identity details submitted to Oye Imagine are true, complete, current, and not misleading.",
+      "Any false declaration, document mismatch, concealed beneficial ownership, invalid banking data, expired compliance, or other material inaccuracy shall constitute a material breach."
     ]
   },
   {
     id: "7",
-    title: "Marketplace Seller Agreement",
-    heading: "7. Returns, Refunds, Replacements and Reverse Logistics",
+    title: "7. Product Legality, Listing Accuracy and Mandatory Disclosures",
+    heading: "7. Product Legality, Listing Accuracy and Mandatory Disclosures",
     paragraphs: [
-      "The Seller acknowledges that under applicable consumer and e-commerce standards, customers may be entitled to return, replacement, repair, refund, or other relief where goods are defective, deficient, damaged, counterfeit, unsafe, late beyond promised timelines, materially different from description, or otherwise non-compliant. The Seller shall not refuse legitimate take-back or refund obligations arising from such circumstances.",
-      "Oye Imagine may, acting in its reasonable discretion and subject to applicable law, decide customer-facing outcomes including return approval, refund issuance, replacement approval, partial refund, goodwill resolution, or complaint closure, and may do so before or after obtaining the Seller's input where operational urgency, customer protection, or legal compliance so requires.",
-      "Where a return, refund, replacement, or complaint is attributable in whole or in part to Seller fault, Oye Imagine may recover from the Seller the refund amount, reverse logistics cost, forward logistics cost, packaging loss, payment processing cost where contractually permissible, complaint handling cost, promotional subsidy reversal, and any other direct loss reasonably linked to the incident."
+      "The Seller shall ensure that every product listed through the marketplace is lawful to sell, properly sourced, accurately described, and compliant with all applicable laws and category-specific norms.",
+      "The Seller shall be solely responsible for listing accuracy, including title, description, images, composition, dimensions, quantity, country of origin where applicable, warnings, care instructions, claims, features, and any consumer-facing or regulator-facing statement.",
+      "The Seller shall ensure all mandatory declarations required under applicable packaged-commodity, labelling, consumer-protection, and e-commerce laws are correctly made and kept current."
     ]
   },
   {
     id: "8",
-    title: "Marketplace Seller Agreement",
-    heading: "8. Ratings, Reviews, Complaint Ratio, Quality Score and Performance Enforcement",
+    title: "8. Quality Standards, Inspection and Acceptance Rights",
+    heading: "8. Quality Standards, Inspection and Acceptance Rights",
     paragraphs: [
-      "The Seller agrees that Oye Imagine may measure and monitor the Seller's performance through ratings, reviews, defect rate, return rate, complaint rate, late dispatch rate, cancellation rate, non-delivery rate, quality score, customer dissatisfaction score, dispute rate, repeat-complaint rate, and other internal or external quality metrics determined by Oye Imagine from time to time.",
-      "If the Seller's performance falls below platform thresholds or trend lines prescribed by Oye Imagine, whether across the entire account or any particular category, cluster, or SKU set, Oye Imagine may issue warnings, require corrective action, reduce visibility, suspend participation in campaigns, hold reserves, delay payouts, disable affected listings, impose enhanced quality review, or suspend or terminate the Seller account.",
-      "The Seller shall not directly or indirectly post, solicit, procure, manipulate, suppress, incentivise, fabricate, or distort consumer reviews, ratings, testimonials, or complaint outcomes. Any such conduct, or any attempt to interfere with the integrity of marketplace feedback systems, shall constitute material breach and may trigger immediate suspension and indemnity obligations."
+      "The Seller shall supply products that are fit for sale, merchantable to the extent applicable, properly finished, reasonably durable for intended use, and free from material defect, unsafe condition, contamination, damage, and avoidable inconsistency.",
+      "Oye Imagine may prescribe quality-control standards, sampling standards, packaging standards, content standards, and category-specific acceptance criteria from time to time.",
+      "Oye Imagine may conduct sampling, mystery purchase, content review, return analysis, complaint-based inspection, and documentary verification at any time, and may reject, suspend, delist, quarantine, or block products or seller accounts that fail quality or compliance expectations."
     ]
   },
   {
     id: "9",
-    title: "Marketplace Seller Agreement",
-    heading: "9. Counterfeit, Restricted, Unsafe, Non-Compliant and Infringing Products",
+    title: "9. Packaging, Fulfilment, Dispatch and Operational Service Levels",
+    heading: "9. Packaging, Fulfilment, Dispatch and Operational Service Levels",
     paragraphs: [
-      "The Seller shall not list, store, advertise, or sell any counterfeit, pirated, stolen, prohibited, unsafe, restricted, recalled, expired, adulterated, deceptively labelled, unlicensed, or otherwise unlawful product through Oye Imagine. The Seller further warrants that all products are genuine and that their sale, packaging, and description do not infringe any trademark, copyright, design, patent, trade dress, publicity, privacy, or other proprietary or personality right.",
-      "Upon receiving any complaint, notice, suspicion, market intelligence, customer escalation, regulator query, or internal red flag concerning authenticity, safety, legality, infringement, or restricted-product status, Oye Imagine may immediately delist, block, suspend, quarantine, investigate, or disclose relevant information to competent authorities or affected customers, without prior notice where urgency so requires.",
-      "The Seller shall, upon demand, promptly furnish purchase invoices, authorisation letters, test reports, batch records, product origin records, brand-use permissions, and any other evidence requested by Oye Imagine to verify legality, authenticity, and compliance. Failure to furnish such material shall itself be grounds for adverse action."
+      "The Seller shall pack all products in a safe, clean, secure, transit-worthy, and category-appropriate manner sufficient to minimise damage, leakage, breakage, deformation, accessory loss, and avoidable customer dissatisfaction.",
+      "The Seller shall dispatch accepted orders within prescribed service levels and shall not falsely mark orders as ready, shipped, or fulfilled.",
+      "Repeated late dispatch, avoidable cancellations, packaging failures, false operational status, or repeated operational non-performance shall entitle Oye Imagine to reduce visibility, hold payouts, remove SKUs, or suspend the Seller."
     ]
   },
   {
     id: "10",
-    title: "Marketplace Seller Agreement",
-    heading: "10. Pricing, Commission, Taxes, TCS, Set-Off, Reserves and Recoveries",
+    title: "10. Returns, Refunds, Replacements and Reverse Logistics",
+    heading: "10. Returns, Refunds, Replacements and Reverse Logistics",
     paragraphs: [
-      "The commercial terms applicable to the Seller, including commission, payment cycle, incentives, promotions, campaign participation, markdown support, quality-linked consequences, and reserves or holdbacks, shall be as agreed in the relevant commercial schedule, dashboard settings, admin configuration, or other written record maintained by Oye Imagine and may be updated from time to time in accordance with this Agreement.",
-      "The Seller shall be solely responsible for correct tax classification, invoice accuracy, GST compliance, and statutory reporting on its supplies. Oye Imagine may deduct or collect taxes, tax at source, or tax collection at source where required by applicable law, including GST TCS mechanics applicable to e-commerce operators, and may make reconciliations for returns, reversals, and debit adjustments in accordance with law and platform records.",
-      "Oye Imagine may at any time set off, debit, retain, reverse, net, or otherwise recover any amount due from the Seller against current or future payouts, reserves, promotional receivables, reimbursements, or any other sums otherwise payable to the Seller, including refunds, claims, damages, indemnity amounts, penalties, excess payments, tax mismatches, chargebacks, or losses arising from Seller breach."
+      "Where products are defective, damaged, counterfeit, unsafe, materially misdescribed, delayed beyond promised timelines, or otherwise non-compliant, the Seller shall honour all legitimate return, replacement, refund, and take-back obligations arising under law, platform policy, or customer resolution standards.",
+      "Oye Imagine may decide the customer-facing remedy, including return approval, refund, replacement, or other closure, before or after consulting the Seller where operational urgency, customer trust, legal compliance, or brand protection so requires.",
+      "In every Seller-Fault Event, Oye Imagine may recover from the Seller the refund amount, forward shipping cost, reverse logistics cost, packaging loss, complaint handling cost, promotional subsidy reversal, and other reasonably attributable losses."
     ]
   },
   {
     id: "11",
-    title: "Marketplace Seller Agreement",
-    heading: "11. Customer Claims, Product Liability, Recall and Regulatory Cooperation",
+    title: "11. Ratings, Reviews, Complaint Thresholds and Quality Score",
+    heading: "11. Ratings, Reviews, Complaint Thresholds and Quality Score",
     paragraphs: [
-      "The Seller shall bear sole and primary responsibility for all customer injury, defect claims, safety complaints, quality complaints, warranty failures, product-performance failures, misleading-description claims, statutory non-compliance, and product-liability exposure arising from or relating to the Seller's products, packaging, instructions, warnings, or omissions.",
-      "If any product listed by the Seller is or may be defective, unsafe, hazardous, non-compliant, or liable to attract a recall, stop-sale, takedown, warning, public notice, or regulatory action, the Seller shall immediately notify Oye Imagine in writing with full particulars and shall cooperate fully in any investigation, recall, customer communication, refund programme, replacement programme, withdrawal, or regulator response.",
-      "Oye Imagine may, where it considers necessary for legal compliance, customer safety, or brand protection, suspend sales, block payouts, contact affected customers, process refunds, issue warnings, demand corrective action, or cooperate with regulators, and all reasonable costs and liabilities arising from such steps to the extent attributable to the Seller or its products shall be borne by the Seller."
+      "Oye Imagine may measure the Seller's performance using ratings, reviews, complaint ratio, defect ratio, return ratio, cancellation ratio, dispatch performance, dispute rate, customer dissatisfaction trends, and quality score or similar internal metrics.",
+      "If the Seller falls below thresholds set by Oye Imagine, whether on a rolling basis or in any review window, Oye Imagine may issue warnings, require corrective action, reduce visibility, withhold reserves, disable affected listings, remove campaign participation, suspend the account, or terminate this Agreement.",
+      "The Seller shall not manipulate, procure, suppress, fabricate, distort, incentivise, or interfere with ratings, reviews, testimonials, or complaint outcomes."
     ]
   },
   {
     id: "12",
-    title: "Marketplace Seller Agreement",
-    heading: "12. Intellectual Property, Brand Assets, Marketing and Platform Content",
+    title: "12. Counterfeit, Restricted, Infringing or Unsafe Products",
+    heading: "12. Counterfeit, Restricted, Infringing or Unsafe Products",
     paragraphs: [
-      "The Seller grants Oye Imagine a non-exclusive, worldwide, royalty-free, sublicensable licence during the term of this Agreement to host, reproduce, adapt, resize, display, distribute, translate, and use the Seller's trade names, marks, logos, product images, product videos, specifications, descriptive content, and associated material for listing, promotion, cataloguing, customer support, and marketplace operations.",
-      "The Seller warrants that it has all rights necessary to grant the foregoing licence and that the use of such content by Oye Imagine in accordance with this Agreement shall not infringe any third-party right. Oye Imagine may edit format, placement, layout, image treatment, keywording, and merchandising presentation for operational and marketing purposes, provided that such edits do not knowingly create false material claims.",
-      "Oye Imagine may reject or remove content that it considers low-quality, misleading, unlawful, brand-damaging, infringing, or non-compliant with its marketplace standards."
+      "The Seller shall not list or sell counterfeit, pirated, prohibited, recalled, expired, adulterated, unsafe, restricted, stolen, or infringing products on the marketplace.",
+      "Oye Imagine may immediately delist, suspend, disclose information, block payouts, contact affected customers, or cooperate with authorities if it suspects authenticity issues, safety concerns, legal restrictions, or intellectual-property infringement.",
+      "The Seller shall promptly provide invoices, authorisations, certificates, test reports, batch records, and source records requested by Oye Imagine."
     ]
   },
   {
     id: "13",
-    title: "Marketplace Seller Agreement",
-    heading: "13. Data Protection, Confidentiality, Restricted Use and Non-Circumvention",
+    title: "13. Commercial Terms, Commission, Taxes, Set-Off and Recoveries",
+    heading: "13. Commercial Terms, Commission, Taxes, Set-Off and Recoveries",
     paragraphs: [
-      "The Seller shall use customer, transaction, and marketplace data only to the limited extent necessary to fulfil orders, provide lawful after-sales support, comply with tax and regulatory obligations, and meet obligations expressly permitted by Oye Imagine. The Seller shall not use such data for unauthorised marketing, profiling, resale, scraping, contact harvesting, or off-platform solicitation.",
-      "All non-public commercial, technical, operational, policy, pricing, complaint, and platform-performance information disclosed by Oye Imagine or derived from the Seller's use of the platform shall be treated as confidential and shall not be disclosed except to personnel or advisors with a genuine need to know and who are bound by confidentiality obligations no less protective than those contained herein.",
-      "The Seller shall not circumvent the marketplace relationship by inducing customers, vendors, service providers, or employees introduced through Oye Imagine to transact outside the platform in a manner intended to defeat commissions, platform controls, quality standards, or customer-protection mechanisms."
+      "The Seller's commercial terms, including commission, payout cycle, reserve, holdback, campaign participation, incentives, and category-specific adjustments, shall be governed by the applicable commercial schedule or admin-approved configuration.",
+      "The Seller shall remain responsible for tax classification, GST compliance, and invoice accuracy. Oye Imagine may apply tax deductions, TCS, reversals, and reconciliations to the extent required by applicable law or platform settlement logic.",
+      "Oye Imagine may set off and recover any amount due from the Seller against any current or future payout, reserve, adjustment, subsidy, reimbursement, or other sum payable to the Seller."
     ]
   },
   {
     id: "14",
-    title: "Marketplace Seller Agreement",
-    heading: "14. Audit Rights, Records, Evidence and Information Access",
+    title: "14. Product Liability, Recall, Customer Safety and Regulatory Cooperation",
+    heading: "14. Product Liability, Recall, Customer Safety and Regulatory Cooperation",
     paragraphs: [
-      "The Seller shall maintain accurate and retrievable books, invoices, stock records, batch or lot details where relevant, procurement records, warranty records, tax invoices, compliance certificates, customer-complaint records, return analysis, and all other records reasonably necessary to verify the Seller's compliance with this Agreement and applicable law.",
-      "Upon request by Oye Imagine, the Seller shall promptly furnish such records, explanations, samples, photographs, test results, and other evidence as Oye Imagine may reasonably require for quality verification, tax reconciliation, product-authenticity review, customer dispute handling, regulatory response, fraud review, or enforcement of this Agreement.",
-      "If the Seller fails to maintain or produce adequate records, Oye Imagine may draw reasonable adverse inferences, restrict listings, hold payouts, reverse credits, or take other protective action pending satisfactory verification."
+      "The Seller shall bear sole and primary responsibility for defect claims, warranty failures, product-performance issues, safety incidents, misleading-description claims, and product-liability exposure arising from the Seller's products.",
+      "If any product may be defective, unsafe, hazardous, recalled, or non-compliant, the Seller shall immediately notify Oye Imagine and cooperate in any stop-sale, withdrawal, recall, customer communication, replacement programme, refund programme, or regulator response.",
+      "All reasonable costs and liabilities arising from a Seller-attributable safety, defect, or recall event shall be borne by the Seller."
     ]
   },
   {
     id: "15",
-    title: "Marketplace Seller Agreement",
-    heading: "15. Suspension, Delisting, Termination and Post-Term Survival",
+    title: "15. Intellectual Property, Content Licence and Marketplace Use",
+    heading: "15. Intellectual Property, Content Licence and Marketplace Use",
     paragraphs: [
-      "Oye Imagine may, with immediate effect and without liability to the Seller, suspend any listing, SKU, category, campaign, payment, or Seller account, or terminate this Agreement, if it believes that the Seller has breached this Agreement, violated law, supplied defective or unsafe goods, attracted abnormal complaints or returns, submitted false KYC or tax details, manipulated reviews, infringed rights, caused reputational harm, or otherwise created risk for customers or the platform.",
-      "The Seller may cease use of the platform subject to completing all pending obligations, including fulfilment of accepted orders, resolution of customer complaints, return processing, refund liabilities, tax reconciliations, and settlement of all dues to Oye Imagine.",
-      "Termination, suspension, or delisting shall not affect any accrued rights, set-off rights, audit rights, confidentiality obligations, indemnities, return liabilities, product-liability obligations, recovery rights, survival clauses, or any other provision intended by its nature to survive."
+      "The Seller grants Oye Imagine a non-exclusive, royalty-free licence during the term to use the Seller's product images, descriptions, logos, marks, videos, and content for listing, promotion, cataloguing, merchandising, and support purposes.",
+      "The Seller warrants that it has all rights necessary to provide such material and that the use of such material by Oye Imagine under this Agreement shall not infringe third-party rights.",
+      "Oye Imagine may edit display format, layout, image treatment, and merchandising presentation for marketplace operations, provided it does not knowingly create a false material claim."
     ]
   },
   {
     id: "16",
-    title: "Marketplace Seller Agreement",
-    heading: "16. Indemnity, Limitation of Liability and Dispute Resolution",
+    title: "16. Confidentiality, Data Use and Non-Circumvention",
+    heading: "16. Confidentiality, Data Use and Non-Circumvention",
     paragraphs: [
-      "The Seller shall defend, indemnify, and hold harmless Oye Imagine, its affiliates, directors, officers, employees, agents, service providers, and representatives from and against all claims, complaints, proceedings, losses, damages, costs, penalties, interest, settlements, and expenses, including reasonable legal fees, arising from or relating to the Seller's products, listings, warranties, misrepresentations, regulatory non-compliance, product defects, product-liability claims, tax defaults, infringement claims, review manipulation, breach of law, or breach of this Agreement.",
-      "To the maximum extent permissible under applicable law, Oye Imagine shall not be liable to the Seller for indirect, incidental, consequential, special, punitive, or loss-of-profit damages arising from or relating to this Agreement, platform use, ranking changes, campaign exclusions, suspension actions, or customer-resolution decisions undertaken in good faith for platform protection, customer safety, or legal compliance.",
-      "This Agreement shall be governed by the laws of India. Subject to any arbitration or dispute-resolution mechanism separately incorporated by Oye Imagine, courts at the location specified by Oye Imagine in the final agreement version shall have jurisdiction, and Oye Imagine shall additionally be entitled to seek urgent injunctive or interim relief for protection of confidential information, intellectual property, platform integrity, recovery rights, or misuse of marketplace systems."
+      "The Seller shall use customer and marketplace data only for lawful fulfilment, after-sales service, tax compliance, and obligations expressly permitted by Oye Imagine.",
+      "The Seller shall not scrape, harvest, remarket to, solicit, divert, or independently exploit marketplace-derived customer relationships in a manner intended to circumvent platform controls or commercial arrangements.",
+      "All non-public commercial, technical, operational, and policy information of Oye Imagine shall be treated as confidential."
+    ]
+  },
+  {
+    id: "17",
+    title: "17. Audit Rights, Evidence Preservation and Record Maintenance",
+    heading: "17. Audit Rights, Evidence Preservation and Record Maintenance",
+    paragraphs: [
+      "The Seller shall maintain accurate books, invoices, stock records, compliance records, complaint records, batch records where applicable, return analysis, and support evidence reasonably necessary to verify compliance with this Agreement.",
+      "Upon request, the Seller shall promptly furnish records, samples, invoices, photographs, test reports, certificates, and explanations required by Oye Imagine.",
+      "Failure to maintain or furnish such records may result in adverse inference, payout hold, listing restrictions, or other protective action by Oye Imagine."
+    ]
+  },
+  {
+    id: "18",
+    title: "18. Suspension, Delisting and Termination",
+    heading: "18. Suspension, Delisting and Termination",
+    paragraphs: [
+      "Oye Imagine may immediately suspend or terminate listings, categories, campaigns, payouts, or the Seller account if the Seller breaches this Agreement, violates law, triggers abnormal complaints or returns, manipulates reviews, provides false KYC, infringes rights, or creates customer, legal, or reputational risk.",
+      "The Seller may cease marketplace use only after satisfying all pending obligations, including order completion, returns handling, refund liabilities, tax reconciliation, and payment of all dues.",
+      "Suspension or termination shall not affect accrued rights, indemnities, recovery rights, confidentiality obligations, or survival clauses."
+    ]
+  },
+  {
+    id: "19",
+    title: "19. Non-Solicit, Non-Circumvention and Non-Compete",
+    heading: "19. Non-Solicit, Non-Circumvention and Non-Compete",
+    paragraphs: [
+      "During the term of this Agreement, the Seller shall not directly or indirectly use the marketplace relationship to bypass Oye Imagine for the purpose of diverting marketplace customers, defeating commissions, undermining platform controls, or moving protected marketplace transactions off-platform.",
+      "The Seller shall not, during the term and for any validly enforceable period permitted by applicable law, solicit or induce customers, service providers, or personnel introduced through Oye Imagine in a manner harmful to Oye Imagine's legitimate business interests, confidential information, goodwill, or marketplace integrity.",
+      "Any non-compete or restraint language in this Agreement shall be interpreted only to the maximum extent enforceable under applicable Indian law, and where any portion is held unenforceable, the surviving protections on confidentiality, non-solicit, non-circumvention, misuse restriction, and platform-protection covenants shall continue to apply."
+    ]
+  },
+  {
+    id: "20",
+    title: "20. Indemnity, Limitation of Liability and Jurisdiction",
+    heading: "20. Indemnity, Limitation of Liability and Jurisdiction",
+    paragraphs: [
+      "The Seller shall defend, indemnify, and hold harmless Oye Imagine, its affiliates, directors, officers, employees, agents, and service providers from and against all claims, complaints, proceedings, losses, damages, costs, penalties, settlements, and expenses arising from the Seller's products, listings, conduct, breach, misrepresentation, non-compliance, defects, returns, infringement, tax defaults, or product-liability events.",
+      "To the maximum extent permitted by law, Oye Imagine shall not be liable for indirect, incidental, special, punitive, consequential, or loss-of-profit damages arising from platform use, visibility decisions, suspensions, complaint resolutions, or lawful enforcement actions taken in good faith.",
+      "This Agreement shall be governed by the laws of India, and subject to any arbitration mechanism separately specified by Oye Imagine in the final approved version, the courts at Noida, Uttar Pradesh shall have exclusive jurisdiction, provided that Oye Imagine may seek interim or injunctive relief before any competent court as necessary to protect confidential information, recovery rights, platform integrity, or intellectual property."
     ]
   }
 ];
 
     const annexure = [
-      { label: 'Seller legal name / business name', value: sellerBlock.businessName || 'Ã¢â‚¬â€' },
-      { label: 'Primary contact', value: sellerBlock.contactName || 'Ã¢â‚¬â€' },
-      { label: 'Email', value: sellerBlock.email || 'Ã¢â‚¬â€' },
-      { label: 'Phone', value: sellerBlock.phone || 'Ã¢â‚¬â€' },
-      { label: 'Craft / category', value: compact([sellerBlock.craft, sellerBlock.region]).join(' Ã¢â‚¬Â¢ ') || 'Ã¢â‚¬â€' },
+      { label: 'Seller legal name / business name', value: sellerBlock.businessName || 'ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â' },
+      { label: 'Primary contact', value: sellerBlock.contactName || 'ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â' },
+      { label: 'Email', value: sellerBlock.email || 'ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â' },
+      { label: 'Phone', value: sellerBlock.phone || 'ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â' },
+      { label: 'Craft / category', value: compact([sellerBlock.craft, sellerBlock.region]).join(' ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ ') || 'ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â' },
       { label: 'Commission %', value: `${commercialTerms.commissionPct ?? 20}%` },
-      { label: 'Payout cycle', value: safeString(commercialTerms.payoutCycle, 'MONTHLY') || 'Ã¢â‚¬â€' },
+      { label: 'Payout cycle', value: safeString(commercialTerms.payoutCycle, 'MONTHLY') || 'ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â' },
       { label: 'Neejee Select', value: commercialTerms.isNeejeeSelect ? 'Yes' : 'No' },
       { label: 'Quality score', value: String(commercialTerms.qualityScore ?? 0) },
-      { label: 'Years of practice', value: commercialTerms.yearsOfPractice != null ? String(commercialTerms.yearsOfPractice) : 'Ã¢â‚¬â€' },
-      { label: 'Cluster', value: commercialTerms.cluster || 'Ã¢â‚¬â€' },
-      { label: 'PAN', value: sellerBlock.pan || 'Ã¢â‚¬â€' },
-      { label: 'GSTIN', value: sellerBlock.gstin || 'Ã¢â‚¬â€' },
-      { label: 'Bank', value: compact([sellerBlock.bankName, sellerBlock.ifsc, sellerBlock.bankAccountMasked]).join(' Ã¢â‚¬Â¢ ') || 'Ã¢â‚¬â€' },
+      { label: 'Years of practice', value: commercialTerms.yearsOfPractice != null ? String(commercialTerms.yearsOfPractice) : 'ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â' },
+      { label: 'Cluster', value: commercialTerms.cluster || 'ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â' },
+      { label: 'PAN', value: sellerBlock.pan || 'ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â' },
+      { label: 'GSTIN', value: sellerBlock.gstin || 'ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â' },
+      { label: 'Bank', value: compact([sellerBlock.bankName, sellerBlock.ifsc, sellerBlock.bankAccountMasked]).join(' ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ ') || 'ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â' },
     ];
 
     return NextResponse.json({

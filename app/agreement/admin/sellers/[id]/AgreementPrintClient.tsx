@@ -1,305 +1,444 @@
-'use client';
+"use client";
 
-import { useEffect, useState } from 'react';
-import Link from 'next/link';
-import { ArrowLeft, ExternalLink, Printer } from 'lucide-react';
+import Link from "next/link";
+import { useEffect, useMemo, useState } from "react";
 
-export default function AgreementPrintClient({ sellerId }: { sellerId: string }) {
-  const [agreement, setAgreement] = useState<any>(null);
+type Clause = {
+  id: string;
+  title?: string;
+  heading?: string;
+  paragraphs?: string[];
+};
+
+type AgreementData = {
+  generatedAt?: string;
+  title?: string;
+  subtitle?: string;
+  company?: Record<string, any>;
+  seller?: Record<string, any>;
+  commercialTerms?: Record<string, any>;
+  clauses?: Clause[];
+  existingDocument?: { url?: string; name?: string } | null;
+};
+
+function row(label: string, value: any) {
+  const safe =
+    value === null || value === undefined || value === "" ? "—" : String(value);
+  return { label, value: safe };
+}
+
+export default function AgreementPrintClient({ id }: { id: string }) {
+  const [data, setData] = useState<AgreementData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [err, setErr] = useState('');
+  const [err, setErr] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!sellerId) return;
-    setLoading(true);
-    setErr('');
+    let alive = true;
+    (async () => {
+      try {
+        setLoading(true);
+        const res = await fetch(`/api/admin/sellers/${id}/agreement`, {
+          cache: "no-store",
+        });
+        if (!res.ok) throw new Error(`Failed to load agreement (${res.status})`);
+        const json = await res.json();
+        if (alive) setData(json);
+      } catch (e: any) {
+        if (alive) setErr(e?.message || "Failed to load agreement");
+      } finally {
+        if (alive) setLoading(false);
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [id]);
 
-    fetch(`/api/admin/sellers/${sellerId}/agreement`, { cache: 'no-store' })
-      .then(async res => {
-        const data = await res.json();
-        if (!res.ok) throw new Error(data?.error || 'Failed to load agreement');
-        setAgreement(data?.agreement || null);
-      })
-      .catch((e: any) => setErr(e?.message || 'Failed to load agreement'))
-      .finally(() => setLoading(false));
-  }, [sellerId]);
+  const companyRows = useMemo(() => {
+    const c = data?.company || {};
+    return [
+      row("Legal Name", c.legalName || c.brandName),
+      row("Brand", c.brandName),
+      row("Address", c.address),
+      row("GSTIN", c.gstin),
+      row("PAN", c.pan),
+      row("CIN", c.cinNumber || c.cin),
+      row("Email", c.email),
+      row("Phone", c.phone),
+    ];
+  }, [data]);
 
-  if (loading) return <div className="px-8 py-10 text-sm text-stone-600">Loading agreement...</div>;
-  if (err) return <div className="px-8 py-10 text-sm text-red-700">{err}</div>;
-  if (!agreement) return <div className="px-8 py-10 text-sm text-red-700">Agreement not found.</div>;
+  const sellerRows = useMemo(() => {
+    const s = data?.seller || {};
+    return [
+      row("Seller Name", s.businessName || s.name),
+      row("Contact Name", s.contactName),
+      row("Email", s.email),
+      row("Phone", s.phone),
+      row("Craft / Region", [s.craft, s.region].filter(Boolean).join(" • ")),
+      row("PAN", s.pan),
+      row("GSTIN", s.gstin),
+      row("Bank Name", s.bankName),
+      row("Bank Account", s.bankAccount),
+      row("IFSC", s.ifsc),
+    ];
+  }, [data]);
 
-  const company = agreement.company || {};
-  const seller = agreement.seller || {};
-  const terms = agreement.commercialTerms || {};
-  const execution = agreement.execution || {};
+  const commercialRows = useMemo(() => {
+    const t = data?.commercialTerms || {};
+    return [
+      row("Commission %", t.commissionPct),
+      row("Payout Cycle", t.payoutCycle),
+      row("Neejee Select", t.isNeejeeSelect),
+      row("Quality Score", t.qualityScore),
+      row("Years of Practice", t.yearsOfPractice),
+      row("Cluster", t.cluster),
+    ];
+  }, [data]);
+
+  if (loading) {
+    return <div style={{ padding: 24 }}>Loading agreement…</div>;
+  }
+
+  if (err || !data) {
+    return (
+      <div style={{ padding: 24 }}>
+        <p style={{ color: "#991b1b", marginBottom: 12 }}>
+          {err || "Failed to load agreement"}
+        </p>
+        <Link href={`/admin/sellers/${id}`}>Back to seller</Link>
+      </div>
+    );
+  }
 
   return (
-    <div className="min-h-screen bg-[#f5f1ea] text-[#1d1916] agreement-root">
-      <style jsx global>{`
-        @page {
-          size: A4 portrait;
-          margin: 14mm 12mm 16mm 12mm;
+    <>
+      <style>{`
+        :root{
+          --page-width: 210mm;
+          --text: #111827;
+          --muted: #4b5563;
+          --line: #d1d5db;
+          --soft: #f8fafc;
+        }
+        *{box-sizing:border-box}
+        html,body{
+          margin:0;
+          padding:0;
+          background:#eef2f7;
+          color:var(--text);
+          font-family: "Times New Roman", Georgia, serif;
+        }
+        .toolbar{
+          max-width: var(--page-width);
+          margin: 20px auto 0;
+          display:flex;
+          gap:12px;
+          align-items:center;
+          justify-content:space-between;
+          padding:0 12px;
+          font-family: Arial, Helvetica, sans-serif;
+        }
+        .toolbar .actions{
+          display:flex; gap:10px; flex-wrap:wrap;
+        }
+        .btn{
+          display:inline-flex;
+          align-items:center;
+          justify-content:center;
+          min-height:40px;
+          padding:10px 14px;
+          border-radius:8px;
+          border:1px solid #cbd5e1;
+          background:white;
+          color:#111827;
+          text-decoration:none;
+          font: 600 14px/1 Arial, Helvetica, sans-serif;
+          cursor:pointer;
+        }
+        .btn.primary{
+          background:#111827;
+          color:white;
+          border-color:#111827;
+        }
+        .sheet{
+          width: var(--page-width);
+          min-height: 297mm;
+          margin: 16px auto 24px;
+          background: white;
+          box-shadow: 0 10px 35px rgba(15,23,42,.12);
+          padding: 18mm 16mm 18mm 16mm;
+        }
+        .doc-title{
+          text-align:center;
+          margin-bottom:18px;
+        }
+        .doc-title h1{
+          margin:0 0 8px;
+          font-size:28px;
+          letter-spacing:.4px;
+          text-transform:uppercase;
+        }
+        .doc-title .sub{
+          margin:0 0 8px;
+          color:var(--muted);
+          font-size:14px;
+        }
+        .doc-title .gen{
+          margin:0;
+          color:var(--muted);
+          font-size:12px;
+        }
+        .section{
+          margin-top:18px;
+          page-break-inside:avoid;
+        }
+        .section-title{
+          margin:0 0 10px;
+          font-size:17px;
+          font-weight:700;
+          text-transform:uppercase;
+          border-bottom:1px solid var(--line);
+          padding-bottom:6px;
+        }
+        .party-grid,.commercial-grid{
+          display:grid;
+          grid-template-columns:1fr 1fr;
+          gap:14px;
+        }
+        .box{
+          border:1px solid var(--line);
+          padding:12px;
+          background:#fff;
+        }
+        .box h3{
+          margin:0 0 10px;
+          font-size:14px;
+          text-transform:uppercase;
+          letter-spacing:.4px;
+        }
+        .kv{
+          width:100%;
+          border-collapse:collapse;
+          table-layout:fixed;
+        }
+        .kv td{
+          padding:6px 4px;
+          vertical-align:top;
+          border-bottom:1px solid #eef2f7;
+          font-size:13px;
+        }
+        .kv td:first-child{
+          width:34%;
+          color:var(--muted);
+          font-weight:700;
+        }
+        .whereas{
+          border:1px solid var(--line);
+          padding:14px;
+          background:var(--soft);
+          font-size:14px;
+          line-height:1.7;
+          text-align:justify;
+        }
+        .clause{
+          margin-top:16px;
+          page-break-inside:avoid;
+        }
+        .clause h3{
+          margin:0 0 8px;
+          font-size:15px;
+          font-weight:700;
+        }
+        .clause p{
+          margin:0 0 10px;
+          font-size:14px;
+          line-height:1.75;
+          text-align:justify;
+        }
+        .signature-wrap{
+          margin-top:32px;
+          display:grid;
+          grid-template-columns:1fr 1fr;
+          gap:24px;
+        }
+        .sig-box{
+          min-height:110px;
+          border-top:1px solid #111827;
+          padding-top:10px;
+          font-size:13px;
+        }
+        .annex-note{
+          margin-top:18px;
+          font-size:12px;
+          color:var(--muted);
+          text-align:justify;
         }
 
-        @media print {
-          html, body {
-            background: #ffffff !important;
-            -webkit-print-color-adjust: exact;
-            print-color-adjust: exact;
-          }
+        @page{
+          size:A4;
+          margin:14mm;
+        }
 
-          .print-toolbar {
-            display: none !important;
+        @media print{
+          html,body{
+            background:white !important;
           }
-
-          .agreement-shell {
-            max-width: none !important;
-            padding: 0 !important;
+          .toolbar{
+            display:none !important;
           }
-
-          .agreement-card {
-            border: none !important;
-            box-shadow: none !important;
-            margin: 0 !important;
+          .sheet{
+            width:auto;
+            min-height:auto;
+            margin:0;
+            box-shadow:none;
+            padding:0;
           }
-
-          .page-break {
-            break-before: page;
-            page-break-before: always;
+          a{
+            color:inherit;
+            text-decoration:none;
           }
+        }
 
-          .avoid-break {
-            break-inside: avoid;
-            page-break-inside: avoid;
+        @media (max-width: 900px){
+          .sheet{
+            width:auto;
+            min-height:auto;
+            margin:0;
+            padding:20px 16px 28px;
           }
-
-          a {
-            color: inherit !important;
-            text-decoration: none !important;
+          .party-grid,.commercial-grid,.signature-wrap{
+            grid-template-columns:1fr;
           }
         }
       `}</style>
 
-      <div className="print-toolbar max-w-5xl mx-auto px-4 py-4">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-2 flex-wrap">
-            <Link
-              href={`/admin/sellers/${sellerId}`}
-              className="inline-flex items-center gap-1 px-3 py-2 border border-stone-300 bg-white text-xs tracking-wider hover:bg-stone-50"
-            >
-              <ArrowLeft className="w-3.5 h-3.5" /> BACK TO REVIEW
-            </Link>
-
-            <button
-              onClick={() => window.print()}
-              className="inline-flex items-center gap-1 px-3 py-2 bg-[#1d1916] text-white text-xs tracking-wider hover:opacity-90"
-            >
-              <Printer className="w-3.5 h-3.5" /> PRINT / SAVE PDF
-            </button>
-          </div>
-
-          {agreement.existingAgreementDocument?.fileUrl ? (
+      <div className="toolbar">
+        <div>
+          <Link href={`/admin/sellers/${id}`} className="btn">Back to seller</Link>
+        </div>
+        <div className="actions">
+          {data?.existingDocument?.url ? (
             <a
-              href={agreement.existingAgreementDocument.fileUrl}
+              href={data.existingDocument.url}
               target="_blank"
               rel="noreferrer"
-              className="inline-flex items-center gap-1 text-xs text-[#7a4031] hover:text-[#1d1916]"
+              className="btn"
             >
-              Open uploaded agreement <ExternalLink className="w-3.5 h-3.5" />
+              Existing attachment
             </a>
           ) : null}
+          <button className="btn primary" onClick={() => window.print()}>
+            Save / Print PDF
+          </button>
         </div>
       </div>
 
-      <div className="agreement-shell max-w-5xl mx-auto px-4 pb-10">
-        <div className="agreement-card bg-white border border-stone-300 shadow-sm">
-          <div className="border-b border-stone-300 px-8 py-8">
-            <div className="flex items-start justify-between gap-6 avoid-break">
-              <div className="flex-1">
-                <p className="text-[11px] uppercase tracking-[0.35em] text-stone-500">
-                  {company.brandName || 'NEEJEE'}
-                </p>
-                <h1 className="mt-2 text-3xl font-semibold text-stone-900">
-                  {agreement.title || 'Marketplace Seller Agreement'}
-                </h1>
-                <p className="mt-2 text-sm text-stone-600">
-                  {agreement.subtitle || 'Standard agreement with seller-specific commercial schedule'}
-                </p>
-                <p className="mt-3 text-[11px] text-stone-500">
-                  Generated on{' '}
-                  {agreement.generatedAt ? new Date(agreement.generatedAt).toLocaleString('en-IN') : '—'}
-                </p>
-              </div>
+      <main className="sheet">
+        <header className="doc-title">
+          <h1>{data.title || "Marketplace Seller Agreement"}</h1>
+          <p className="sub">
+            {data.subtitle || "Detailed India-focused marketplace agreement"}
+          </p>
+          <p className="gen">
+            Generated on {data.generatedAt ? new Date(data.generatedAt).toLocaleString() : "—"}
+          </p>
+        </header>
 
-              {company.logoUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={company.logoUrl}
-                  alt="Company logo"
-                  className="h-16 w-auto object-contain"
-                />
-              ) : null}
+        <section className="section">
+          <h2 className="section-title">Parties</h2>
+          <div className="party-grid">
+            <div className="box">
+              <h3>Company</h3>
+              <table className="kv">
+                <tbody>
+                  {companyRows.map((r) => (
+                    <tr key={r.label}>
+                      <td>{r.label}</td>
+                      <td>{r.value}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
-
-            <div className="mt-6 grid md:grid-cols-2 gap-6 text-sm">
-              <div className="avoid-break">
-                <p className="text-[11px] uppercase tracking-[0.2em] text-stone-500 mb-2">Company</p>
-                <p className="font-semibold">{company.legalName || 'Oye Imagine Private Limited'}</p>
-                <p className="mt-1 text-stone-600">{company.address || '—'}</p>
-                <p className="mt-1 text-stone-600">GSTIN: {company.gstin || '—'}</p>
-                <p className="text-stone-600">PAN: {company.pan || '—'}</p>
-                {company.cinNumber ? <p className="text-stone-600">CIN: {company.cinNumber}</p> : null}
-                {company.msmeNumber ? <p className="text-stone-600">MSME/Udyam: {company.msmeNumber}</p> : null}
-                {company.contactEmail ? <p className="text-stone-600">Email: {company.contactEmail}</p> : null}
-                {company.contactPhone ? <p className="text-stone-600">Phone: {company.contactPhone}</p> : null}
-              </div>
-
-              <div className="avoid-break">
-                <p className="text-[11px] uppercase tracking-[0.2em] text-stone-500 mb-2">Seller</p>
-                <p className="font-semibold">{seller.businessName || '—'}</p>
-                <p className="mt-1 text-stone-600">Contact: {seller.contactName || '—'}</p>
-                <p className="text-stone-600">Email: {seller.email || '—'}</p>
-                <p className="text-stone-600">Phone: {seller.phone || '—'}</p>
-                <p className="text-stone-600">
-                  Craft / Region: {[seller.craft, seller.region].filter(Boolean).join(' • ') || '—'}
-                </p>
-                <p className="text-stone-600">PAN: {seller.pan || '—'}</p>
-                <p className="text-stone-600">GSTIN: {seller.gstin || '—'}</p>
-                <p className="text-stone-600">
-                  Bank: {[seller.bankName, seller.ifsc, seller.bankAccountMasked].filter(Boolean).join(' • ') || '—'}
-                </p>
-              </div>
+            <div className="box">
+              <h3>Seller</h3>
+              <table className="kv">
+                <tbody>
+                  {sellerRows.map((r) => (
+                    <tr key={r.label}>
+                      <td>{r.label}</td>
+                      <td>{r.value}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           </div>
+        </section>
 
-          <div className="px-8 py-8 space-y-8">
-            <section className="avoid-break">
-              <p className="text-[11px] uppercase tracking-[0.25em] text-stone-500 mb-3">Recitals</p>
-              <div className="space-y-3 text-[14px] leading-7 text-stone-800">
-                {agreement.recitals?.map((item: string, idx: number) => (
-                  <p key={idx}>{item}</p>
+        <section className="section">
+          <h2 className="section-title">Commercial Schedule</h2>
+          <div className="box">
+            <table className="kv">
+              <tbody>
+                {commercialRows.map((r) => (
+                  <tr key={r.label}>
+                    <td>{r.label}</td>
+                    <td>{r.value}</td>
+                  </tr>
                 ))}
-              </div>
-            </section>
-
-            <section className="avoid-break">
-              <p className="text-[11px] uppercase tracking-[0.25em] text-stone-500 mb-3">
-                Commercial Schedule
-              </p>
-              <div className="grid md:grid-cols-2 gap-x-8 gap-y-3 border border-stone-200 p-5">
-                <Term label="Commission %" value={`${terms.commissionPct ?? 20}%`} />
-                <Term label="Payout cycle" value={terms.payoutCycle || 'MONTHLY'} />
-                <Term label="Neejee Select" value={terms.isNeejeeSelect ? 'Yes' : 'No'} />
-                <Term label="Quality score" value={String(terms.qualityScore ?? 0)} />
-                <Term
-                  label="Years of practice"
-                  value={terms.yearsOfPractice != null ? String(terms.yearsOfPractice) : '—'}
-                />
-                <Term label="Cluster" value={terms.cluster || '—'} />
-                <Term
-                  label="Banking details"
-                  value={[seller.bankName, seller.ifsc, seller.bankAccountMasked].filter(Boolean).join(' • ') || '—'}
-                />
-                <Term label="Template version" value={agreement.templateVersion || '—'} />
-              </div>
-            </section>
-
-            <section className="page-break">
-              <p className="text-[11px] uppercase tracking-[0.25em] text-stone-500 mb-4">
-                Standard Clauses
-              </p>
-              <div className="space-y-6">
-                {agreement.clauses?.map((clause: any) => (
-                  <div key={clause.no || clause.title} className="avoid-break">
-                    <h3 className="text-[15px] font-semibold text-stone-900">
-                      {clause.no}. {clause.title}
-                    </h3>
-                    <p className="mt-2 text-[14px] leading-7 text-stone-800 text-justify">
-                      {clause.text}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            </section>
-
-            <section className="page-break">
-              <p className="text-[11px] uppercase tracking-[0.25em] text-stone-500 mb-3">
-                Annexure A — Seller-Specific Particulars
-              </p>
-              <div className="border border-stone-200 divide-y divide-stone-100">
-                {agreement.annexure?.map((item: any) => (
-                  <div key={item.label} className="grid grid-cols-2 gap-4 px-5 py-3 text-sm">
-                    <div className="text-stone-600">{item.label}</div>
-                    <div className="text-right text-stone-900">{item.value || '—'}</div>
-                  </div>
-                ))}
-              </div>
-            </section>
-
-            <section className="page-break">
-              <p className="text-[11px] uppercase tracking-[0.25em] text-stone-500 mb-3">Execution</p>
-              <div className="grid md:grid-cols-2 gap-10">
-                <div className="border border-stone-200 p-5 min-h-[250px] avoid-break">
-                  <p className="text-sm font-semibold">For {company.legalName || 'Oye Imagine Private Limited'}</p>
-
-                  <div className="h-20 mt-6 flex items-end">
-                    {execution.companySignatureUrl ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={execution.companySignatureUrl}
-                        alt="Company signature"
-                        className="max-h-16 w-auto object-contain"
-                      />
-                    ) : (
-                      <span className="text-xs text-stone-500">Authorised signature image not uploaded</span>
-                    )}
-                  </div>
-
-                  <div className="mt-4 text-sm leading-7">
-                    <p><span className="text-stone-500">Name:</span> {execution.companySignatoryName || 'Authorised Signatory'}</p>
-                    <p><span className="text-stone-500">Title:</span> {execution.companySignatoryTitle || 'Authorised Signatory'}</p>
-                    <p><span className="text-stone-500">Place:</span> {execution.placeOfExecution || 'India'}</p>
-                  </div>
-                </div>
-
-                <div className="border border-stone-200 p-5 min-h-[250px] avoid-break">
-                  <p className="text-sm font-semibold">Accepted by Seller</p>
-
-                  <div className="h-20 mt-6 flex items-end">
-                    <span className="text-xs text-stone-500">
-                      Digital seller signature workflow to be added in Phase 3
-                    </span>
-                  </div>
-
-                  <div className="mt-4 text-sm leading-7">
-                    <p><span className="text-stone-500">Name:</span> {seller.contactName || seller.businessName || '—'}</p>
-                    <p><span className="text-stone-500">Business:</span> {seller.businessName || '—'}</p>
-                    <p><span className="text-stone-500">Email:</span> {seller.email || '—'}</p>
-                    <p><span className="text-stone-500">Phone:</span> {seller.phone || '—'}</p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="mt-6 border border-dashed border-stone-300 p-4 text-xs text-stone-600">
-                {execution.executionNote || 'Seller-side digital execution remains pending.'}
-              </div>
-            </section>
+              </tbody>
+            </table>
           </div>
+        </section>
 
-          <div className="border-t border-stone-300 px-8 py-4 text-[11px] text-stone-500">
-            {company.brandName || 'NEEJEE'} • Marketplace Seller Agreement • Template {agreement.templateVersion || '—'}
+        <section className="section">
+          <h2 className="section-title">Recitals / Whereas</h2>
+          <div className="whereas">
+            <p><strong>THIS MARKETPLACE SELLER AGREEMENT</strong> is entered into by and between <strong>{String((data.company?.legalName || data.company?.brandName || "Oye Imagine Private Limited"))}</strong> and <strong>{String((data.seller?.businessName || data.seller?.name || "Seller"))}</strong>.</p>
+            <p>WHEREAS the Company operates the Neejee marketplace and associated commerce infrastructure;</p>
+            <p>WHEREAS the Seller desires to list and sell products through such marketplace;</p>
+            <p>WHEREAS the Parties wish to record the terms on which the Seller may access and use the marketplace;</p>
+            <p>NOW THEREFORE, the Parties agree to be bound by the terms and conditions set out below.</p>
           </div>
-        </div>
-      </div>
-    </div>
-  );
-}
+        </section>
 
-function Term({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex items-start justify-between gap-4 text-sm">
-      <span className="text-stone-600">{label}</span>
-      <span className="text-right text-stone-900">{value || '—'}</span>
-    </div>
+        <section className="section">
+          <h2 className="section-title">Definitions and Clauses</h2>
+          {(data.clauses || []).map((clause) => (
+            <article className="clause" key={clause.id}>
+              <h3>{clause.heading || clause.title || `Clause ${clause.id}`}</h3>
+              {(clause.paragraphs || []).map((p, idx) => (
+                <p key={idx}>{p}</p>
+              ))}
+            </article>
+          ))}
+        </section>
+
+        <section className="section">
+          <h2 className="section-title">Execution</h2>
+          <div className="signature-wrap">
+            <div className="sig-box">
+              <strong>For Oye Imagine Private Limited</strong><br />
+              Authorised Signatory<br />
+              Name: ____________________<br />
+              Title: _____________________<br />
+              Date: _____________________
+            </div>
+            <div className="sig-box">
+              <strong>For the Seller</strong><br />
+              Authorised Signatory<br />
+              Name: ____________________<br />
+              Title: _____________________<br />
+              Date: _____________________
+            </div>
+          </div>
+          <p className="annex-note">
+            This print layout is intentionally formatted as a clean legal document for PDF export and execution use.
+          </p>
+        </section>
+      </main>
+    </>
   );
 }
