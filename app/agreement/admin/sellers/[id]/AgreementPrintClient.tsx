@@ -3,374 +3,349 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 
-type Clause = {
-  id: string;
-  title?: string;
-  heading?: string;
-  paragraphs?: string[];
-};
+type AgreementPayload = any;
 
-type AgreementData = {
-  generatedAt?: string;
-  title?: string;
-  subtitle?: string;
-  company?: Record<string, any>;
-  seller?: Record<string, any>;
-  commercialTerms?: Record<string, any>;
-  clauses?: Clause[];
-  existingDocument?: { url?: string; name?: string } | null;
-};
+function safe(value: any) {
+  return value === null || value === undefined || value === "" ? "—" : String(value);
+}
 
-function row(label: string, value: any) {
-  const safe =
-    value === null || value === undefined || value === "" ? "—" : String(value);
-  return { label, value: safe };
+function Row({ label, value }: { label: string; value: any }) {
+  return (
+    <tr>
+      <td style={{ width: "34%", padding: "6px 8px", verticalAlign: "top", color: "#4b5563", fontWeight: 700 }}>{label}</td>
+      <td style={{ padding: "6px 8px", verticalAlign: "top" }}>{safe(value)}</td>
+    </tr>
+  );
 }
 
 export default function AgreementPrintClient({ id }: { id: string }) {
-  const [data, setData] = useState<AgreementData | null>(null);
+  const [data, setData] = useState<AgreementPayload | null>(null);
   const [loading, setLoading] = useState(true);
-  const [err, setErr] = useState<string | null>(null);
+  const [err, setErr] = useState("");
 
   useEffect(() => {
     let alive = true;
+
     (async () => {
       try {
         setLoading(true);
-        const res = await fetch(`/api/admin/sellers/${id}/agreement`, {
-          cache: "no-store",
-        });
-        if (!res.ok) throw new Error(`Failed to load agreement (${res.status})`);
+        setErr("");
+
+        const res = await fetch(`/api/admin/sellers/${id}/agreement`, { cache: "no-store" });
         const json = await res.json();
-        if (alive) setData(json);
+        if (!res.ok) throw new Error(json?.error || `Failed to load agreement (${res.status})`);
+
+        const agreement = json?.agreement ?? json;
+        if (alive) setData(agreement);
       } catch (e: any) {
         if (alive) setErr(e?.message || "Failed to load agreement");
       } finally {
         if (alive) setLoading(false);
       }
     })();
+
     return () => {
       alive = false;
     };
   }, [id]);
 
-  const companyRows = useMemo(() => {
-    const c = data?.company || {};
-    return [
-      row("Legal Name", c.legalName || c.brandName),
-      row("Brand", c.brandName),
-      row("Address", c.address),
-      row("GSTIN", c.gstin),
-      row("PAN", c.pan),
-      row("CIN", c.cinNumber || c.cin),
-      row("Email", c.email),
-      row("Phone", c.phone),
-    ];
-  }, [data]);
+  const company = data?.company || {};
+  const seller = data?.seller || {};
+  const terms = data?.commercialTerms || {};
+  const clauses = Array.isArray(data?.clauses) ? data.clauses : [];
+  const generatedOn = data?.generatedAt
+    ? new Date(data.generatedAt).toLocaleDateString("en-IN", { day: "2-digit", month: "long", year: "numeric" })
+    : "____________";
 
-  const sellerRows = useMemo(() => {
-    const s = data?.seller || {};
-    return [
-      row("Seller Name", s.businessName || s.name),
-      row("Contact Name", s.contactName),
-      row("Email", s.email),
-      row("Phone", s.phone),
-      row("Craft / Region", [s.craft, s.region].filter(Boolean).join(" • ")),
-      row("PAN", s.pan),
-      row("GSTIN", s.gstin),
-      row("Bank Name", s.bankName),
-      row("Bank Account", s.bankAccount),
-      row("IFSC", s.ifsc),
-    ];
-  }, [data]);
+  const placeOfExecution = company?.address || "Noida, Uttar Pradesh, India";
 
-  const commercialRows = useMemo(() => {
-    const t = data?.commercialTerms || {};
-    return [
-      row("Commission %", t.commissionPct),
-      row("Payout Cycle", t.payoutCycle),
-      row("Neejee Select", t.isNeejeeSelect),
-      row("Quality Score", t.qualityScore),
-      row("Years of Practice", t.yearsOfPractice),
-      row("Cluster", t.cluster),
-    ];
-  }, [data]);
+  const partyLine = useMemo(() => {
+    const companyName = company?.legalName || company?.brandName || "Oye Imagine Private Limited";
+    const sellerName = seller?.businessName || seller?.name || "Seller";
+    return { companyName, sellerName };
+  }, [company, seller]);
 
-  if (loading) {
-    return <div style={{ padding: 24 }}>Loading agreement…</div>;
-  }
-
-  if (err || !data) {
-    return (
-      <div style={{ padding: 24 }}>
-        <p style={{ color: "#991b1b", marginBottom: 12 }}>
-          {err || "Failed to load agreement"}
-        </p>
-        <Link href={`/admin/sellers/${id}`}>Back to seller</Link>
-      </div>
-    );
-  }
+  if (loading) return <div style={{ padding: 24, fontFamily: "Arial, sans-serif" }}>Loading agreement...</div>;
+  if (err) return <div style={{ padding: 24, color: "#991b1b", fontFamily: "Arial, sans-serif" }}>{err}</div>;
+  if (!data) return <div style={{ padding: 24, color: "#991b1b", fontFamily: "Arial, sans-serif" }}>Agreement not found.</div>;
 
   return (
     <>
       <style>{`
-        :root{
-          --page-width: 210mm;
-          --text: #111827;
-          --muted: #4b5563;
-          --line: #d1d5db;
-          --soft: #f8fafc;
-        }
-        *{box-sizing:border-box}
-        html,body{
-          margin:0;
-          padding:0;
-          background:#eef2f7;
-          color:var(--text);
+        * { box-sizing: border-box; }
+        html, body {
+          margin: 0;
+          padding: 0;
+          background: #eef2f7;
+          color: #111827;
           font-family: "Times New Roman", Georgia, serif;
         }
-        .toolbar{
-          max-width: var(--page-width);
-          margin: 20px auto 0;
-          display:flex;
-          gap:12px;
-          align-items:center;
-          justify-content:space-between;
-          padding:0 12px;
+        .toolbar {
+          max-width: 210mm;
+          margin: 18px auto 0;
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          gap: 12px;
+          padding: 0 12px;
           font-family: Arial, Helvetica, sans-serif;
         }
-        .toolbar .actions{
-          display:flex; gap:10px; flex-wrap:wrap;
+        .toolbar .actions {
+          display: flex;
+          gap: 10px;
+          flex-wrap: wrap;
         }
-        .btn{
-          display:inline-flex;
-          align-items:center;
-          justify-content:center;
-          min-height:40px;
-          padding:10px 14px;
-          border-radius:8px;
-          border:1px solid #cbd5e1;
-          background:white;
-          color:#111827;
-          text-decoration:none;
+        .btn {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          padding: 10px 14px;
+          min-height: 40px;
+          border: 1px solid #cbd5e1;
+          border-radius: 8px;
+          text-decoration: none;
+          background: #fff;
+          color: #111827;
           font: 600 14px/1 Arial, Helvetica, sans-serif;
-          cursor:pointer;
+          cursor: pointer;
         }
-        .btn.primary{
-          background:#111827;
-          color:white;
-          border-color:#111827;
+        .btn.primary {
+          background: #111827;
+          border-color: #111827;
+          color: #fff;
         }
-        .sheet{
-          width: var(--page-width);
+        .sheet {
+          width: 210mm;
           min-height: 297mm;
           margin: 16px auto 24px;
-          background: white;
+          background: #fff;
           box-shadow: 0 10px 35px rgba(15,23,42,.12);
-          padding: 18mm 16mm 18mm 16mm;
+          padding: 18mm 16mm;
         }
-        .doc-title{
-          text-align:center;
-          margin-bottom:18px;
+        .title {
+          text-align: center;
+          margin-bottom: 20px;
         }
-        .doc-title h1{
-          margin:0 0 8px;
-          font-size:28px;
-          letter-spacing:.4px;
-          text-transform:uppercase;
+        .title h1 {
+          margin: 0 0 6px;
+          font-size: 28px;
+          text-transform: uppercase;
         }
-        .doc-title .sub{
-          margin:0 0 8px;
-          color:var(--muted);
-          font-size:14px;
+        .title p {
+          margin: 4px 0;
+          font-size: 14px;
+          color: #4b5563;
         }
-        .doc-title .gen{
-          margin:0;
-          color:var(--muted);
-          font-size:12px;
+        .section {
+          margin-top: 20px;
+          page-break-inside: avoid;
         }
-        .section{
-          margin-top:18px;
-          page-break-inside:avoid;
+        .section h2 {
+          margin: 0 0 10px;
+          font-size: 17px;
+          text-transform: uppercase;
+          border-bottom: 1px solid #d1d5db;
+          padding-bottom: 6px;
         }
-        .section-title{
-          margin:0 0 10px;
-          font-size:17px;
-          font-weight:700;
-          text-transform:uppercase;
-          border-bottom:1px solid var(--line);
-          padding-bottom:6px;
+        .opening, .whereas, .box {
+          border: 1px solid #d1d5db;
+          padding: 14px;
+          background: #fff;
         }
-        .party-grid,.commercial-grid{
-          display:grid;
-          grid-template-columns:1fr 1fr;
-          gap:14px;
+        .whereas {
+          background: #f8fafc;
         }
-        .box{
-          border:1px solid var(--line);
-          padding:12px;
-          background:#fff;
+        .opening p, .whereas p, .clause p, .annex p {
+          margin: 0 0 10px;
+          font-size: 14px;
+          line-height: 1.75;
+          text-align: justify;
         }
-        .box h3{
-          margin:0 0 10px;
-          font-size:14px;
-          text-transform:uppercase;
-          letter-spacing:.4px;
+        .grid2 {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 14px;
         }
-        .kv{
-          width:100%;
-          border-collapse:collapse;
-          table-layout:fixed;
+        .box h3 {
+          margin: 0 0 10px;
+          font-size: 14px;
+          text-transform: uppercase;
         }
-        .kv td{
-          padding:6px 4px;
-          vertical-align:top;
-          border-bottom:1px solid #eef2f7;
-          font-size:13px;
+        .kv {
+          width: 100%;
+          border-collapse: collapse;
+          table-layout: fixed;
         }
-        .kv td:first-child{
-          width:34%;
-          color:var(--muted);
-          font-weight:700;
+        .kv tr:not(:last-child) td {
+          border-bottom: 1px solid #eef2f7;
         }
-        .whereas{
-          border:1px solid var(--line);
-          padding:14px;
-          background:var(--soft);
-          font-size:14px;
-          line-height:1.7;
-          text-align:justify;
+        .clause {
+          margin-top: 16px;
+          page-break-inside: avoid;
         }
-        .clause{
-          margin-top:16px;
-          page-break-inside:avoid;
+        .clause h3 {
+          margin: 0 0 8px;
+          font-size: 15px;
         }
-        .clause h3{
-          margin:0 0 8px;
-          font-size:15px;
-          font-weight:700;
+        .sigWrap {
+          margin-top: 28px;
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 24px;
         }
-        .clause p{
-          margin:0 0 10px;
-          font-size:14px;
-          line-height:1.75;
-          text-align:justify;
+        .sigBox {
+          min-height: 110px;
+          border-top: 1px solid #111827;
+          padding-top: 10px;
+          font-size: 13px;
+          line-height: 1.8;
         }
-        .signature-wrap{
-          margin-top:32px;
-          display:grid;
-          grid-template-columns:1fr 1fr;
-          gap:24px;
+        .small {
+          font-size: 12px;
+          color: #4b5563;
         }
-        .sig-box{
-          min-height:110px;
-          border-top:1px solid #111827;
-          padding-top:10px;
-          font-size:13px;
+        @page {
+          size: A4;
+          margin: 14mm;
         }
-        .annex-note{
-          margin-top:18px;
-          font-size:12px;
-          color:var(--muted);
-          text-align:justify;
-        }
-
-        @page{
-          size:A4;
-          margin:14mm;
-        }
-
-        @media print{
-          html,body{
-            background:white !important;
+        @media print {
+          html, body {
+            background: white !important;
           }
-          .toolbar{
-            display:none !important;
+          .toolbar {
+            display: none !important;
           }
-          .sheet{
-            width:auto;
-            min-height:auto;
-            margin:0;
-            box-shadow:none;
-            padding:0;
+          .sheet {
+            width: auto;
+            min-height: auto;
+            margin: 0;
+            box-shadow: none;
+            padding: 0;
           }
-          a{
-            color:inherit;
-            text-decoration:none;
+          a {
+            color: inherit;
+            text-decoration: none;
           }
         }
-
-        @media (max-width: 900px){
-          .sheet{
-            width:auto;
-            min-height:auto;
-            margin:0;
-            padding:20px 16px 28px;
+        @media (max-width: 900px) {
+          .sheet {
+            width: auto;
+            min-height: auto;
+            margin: 0;
+            padding: 20px 16px 28px;
           }
-          .party-grid,.commercial-grid,.signature-wrap{
-            grid-template-columns:1fr;
+          .grid2, .sigWrap {
+            grid-template-columns: 1fr;
           }
         }
       `}</style>
 
       <div className="toolbar">
-        <div>
-          <Link href={`/admin/sellers/${id}`} className="btn">Back to seller</Link>
-        </div>
+        <Link href={`/admin/sellers/${id}`} className="btn">Back to seller</Link>
         <div className="actions">
-          {data?.existingDocument?.url ? (
-            <a
-              href={data.existingDocument.url}
-              target="_blank"
-              rel="noreferrer"
-              className="btn"
-            >
-              Existing attachment
-            </a>
-          ) : null}
-          <button className="btn primary" onClick={() => window.print()}>
-            Save / Print PDF
-          </button>
+          <button className="btn primary" onClick={() => window.print()}>Save / Print PDF</button>
         </div>
       </div>
 
       <main className="sheet">
-        <header className="doc-title">
-          <h1>{data.title || "Marketplace Seller Agreement"}</h1>
-          <p className="sub">
-            {data.subtitle || "Detailed India-focused marketplace agreement"}
-          </p>
-          <p className="gen">
-            Generated on {data.generatedAt ? new Date(data.generatedAt).toLocaleString() : "—"}
-          </p>
-        </header>
+        <div className="title">
+          <h1>{data?.title || "Marketplace Seller Agreement"}</h1>
+          <p>{data?.subtitle || "Detailed India-focused marketplace agreement"}</p>
+          <p>Generated on {generatedOn}</p>
+        </div>
 
         <section className="section">
-          <h2 className="section-title">Parties</h2>
-          <div className="party-grid">
+          <div className="opening">
+            <p>
+              <strong>THIS MARKETPLACE SELLER AGREEMENT</strong> ("Agreement") is made at <strong>{safe(placeOfExecution)}</strong>
+              {" "}on this <strong>{generatedOn}</strong>.
+            </p>
+            <p style={{ textAlign: "center", fontWeight: 700, margin: "16px 0" }}>BY & BETWEEN</p>
+            <p>
+              <strong>{safe(partyLine.companyName)}</strong>, a company incorporated under the laws of India, having its registered /
+              principal office at <strong>{safe(company?.address)}</strong>, bearing GSTIN <strong>{safe(company?.gstin)}</strong>,
+              PAN <strong>{safe(company?.pan)}</strong>{company?.cinNumber ? <> and CIN <strong>{safe(company?.cinNumber)}</strong></> : null},
+              hereinafter referred to as the "<strong>Company</strong>" / "<strong>Marketplace</strong>", which expression shall,
+              unless repugnant to the context or meaning thereof, include its successors and permitted assigns, acting through its
+              authorised signatory.
+            </p>
+            <p style={{ textAlign: "center", fontWeight: 700, margin: "16px 0" }}>AND</p>
+            <p>
+              <strong>{safe(partyLine.sellerName)}</strong>, having its principal place of business at the seller particulars recorded
+              in this Agreement, through its proprietor / partner / authorised signatory, hereinafter referred to as the
+              "<strong>Seller</strong>", which expression shall, unless repugnant to the context or meaning thereof, include its
+              successors, representatives and permitted assigns.
+            </p>
+            <p>
+              The Company and the Seller are hereinafter collectively referred to as the "<strong>Parties</strong>" and individually
+              as a "<strong>Party</strong>".
+            </p>
+          </div>
+        </section>
+
+        <section className="section">
+          <h2>Whereas</h2>
+          <div className="whereas">
+            <p>
+              A. The Company operates the Neejee marketplace and associated digital, operational, payment, catalogue, marketing and
+              fulfilment-support infrastructure for enabling commerce between approved sellers and customers across India.
+            </p>
+            <p>
+              B. The Seller has represented that it is lawfully engaged in the business of manufacturing, sourcing, branding,
+              distributing and/or selling products and has requested onboarding on the Neejee marketplace for the purpose of listing
+              and selling such products.
+            </p>
+            <p>
+              C. The Seller has represented that it possesses or shall possess all registrations, licences, permissions, tax
+              registrations, declarations, product approvals, labelling compliance and internal controls necessary for lawful sale
+              of its products and performance of its obligations under this Agreement.
+            </p>
+            <p>
+              D. Relying upon the Seller's representations, warranties and undertakings, the Company has agreed to permit the Seller
+              to access and use the marketplace on a non-exclusive, revocable and compliance-based basis subject to this Agreement,
+              platform policies and applicable Indian law.
+            </p>
+            <p>
+              <strong>NOW, THEREFORE, THIS AGREEMENT WITNESSETH AND IT IS HEREBY AGREED BY AND BETWEEN THE PARTIES AS FOLLOWS:</strong>
+            </p>
+          </div>
+        </section>
+
+        <section className="section">
+          <h2>Parties and Recorded Particulars</h2>
+          <div className="grid2">
             <div className="box">
               <h3>Company</h3>
               <table className="kv">
                 <tbody>
-                  {companyRows.map((r) => (
-                    <tr key={r.label}>
-                      <td>{r.label}</td>
-                      <td>{r.value}</td>
-                    </tr>
-                  ))}
+                  <Row label="Legal Name" value={company?.legalName || company?.brandName} />
+                  <Row label="Brand" value={company?.brandName} />
+                  <Row label="Address" value={company?.address} />
+                  <Row label="GSTIN" value={company?.gstin} />
+                  <Row label="PAN" value={company?.pan} />
+                  <Row label="CIN" value={company?.cinNumber} />
+                  <Row label="Email" value={company?.contactEmail} />
+                  <Row label="Phone" value={company?.contactPhone} />
+                  <Row label="Authorised Signatory" value={company?.authorisedSignatory} />
+                  <Row label="Title" value={company?.signatoryTitle} />
                 </tbody>
               </table>
             </div>
+
             <div className="box">
               <h3>Seller</h3>
               <table className="kv">
                 <tbody>
-                  {sellerRows.map((r) => (
-                    <tr key={r.label}>
-                      <td>{r.label}</td>
-                      <td>{r.value}</td>
-                    </tr>
-                  ))}
+                  <Row label="Seller Name" value={seller?.businessName} />
+                  <Row label="Contact Name" value={seller?.contactName} />
+                  <Row label="Email" value={seller?.email} />
+                  <Row label="Phone" value={seller?.phone} />
+                  <Row label="Craft / Region" value={[seller?.craft, seller?.region].filter(Boolean).join(" • ")} />
+                  <Row label="PAN" value={seller?.pan} />
+                  <Row label="GSTIN" value={seller?.gstin} />
+                  <Row label="Bank Name" value={seller?.bankName} />
+                  <Row label="Bank Account" value={seller?.bankAccountMasked || seller?.bankAccount} />
+                  <Row label="IFSC" value={seller?.ifsc} />
                 </tbody>
               </table>
             </div>
@@ -378,64 +353,63 @@ export default function AgreementPrintClient({ id }: { id: string }) {
         </section>
 
         <section className="section">
-          <h2 className="section-title">Commercial Schedule</h2>
-          <div className="box">
+          <h2>Commercial Schedule</h2>
+          <div className="box annex">
             <table className="kv">
               <tbody>
-                {commercialRows.map((r) => (
-                  <tr key={r.label}>
-                    <td>{r.label}</td>
-                    <td>{r.value}</td>
-                  </tr>
-                ))}
+                <Row label="Commission %" value={terms?.commissionPct} />
+                <Row label="Payout Cycle" value={terms?.payoutCycle} />
+                <Row label="Neejee Select" value={terms?.isNeejeeSelect ? "Yes" : "No"} />
+                <Row label="Quality Score" value={terms?.qualityScore} />
+                <Row label="Years of Practice" value={terms?.yearsOfPractice} />
+                <Row label="Cluster" value={terms?.cluster} />
               </tbody>
             </table>
           </div>
         </section>
 
         <section className="section">
-          <h2 className="section-title">Recitals / Whereas</h2>
-          <div className="whereas">
-            <p><strong>THIS MARKETPLACE SELLER AGREEMENT</strong> is entered into by and between <strong>{String((data.company?.legalName || data.company?.brandName || "Oye Imagine Private Limited"))}</strong> and <strong>{String((data.seller?.businessName || data.seller?.name || "Seller"))}</strong>.</p>
-            <p>WHEREAS the Company operates the Neejee marketplace and associated commerce infrastructure;</p>
-            <p>WHEREAS the Seller desires to list and sell products through such marketplace;</p>
-            <p>WHEREAS the Parties wish to record the terms on which the Seller may access and use the marketplace;</p>
-            <p>NOW THEREFORE, the Parties agree to be bound by the terms and conditions set out below.</p>
-          </div>
+          <h2>Terms and Conditions</h2>
+          {clauses.length === 0 ? (
+            <div className="box">
+              <p>No clauses returned by API.</p>
+            </div>
+          ) : (
+            clauses.map((clause: any, idx: number) => (
+              <article className="clause" key={clause?.id || idx}>
+                <h3>{safe(clause?.heading || clause?.title || `Clause ${idx + 1}`)}</h3>
+                {Array.isArray(clause?.paragraphs) && clause.paragraphs.length > 0 ? (
+                  clause.paragraphs.map((p: string, pIdx: number) => <p key={pIdx}>{p}</p>)
+                ) : clause?.text ? (
+                  <p>{clause.text}</p>
+                ) : (
+                  <p>—</p>
+                )}
+              </article>
+            ))
+          )}
         </section>
 
         <section className="section">
-          <h2 className="section-title">Definitions and Clauses</h2>
-          {(data.clauses || []).map((clause) => (
-            <article className="clause" key={clause.id}>
-              <h3>{clause.heading || clause.title || `Clause ${clause.id}`}</h3>
-              {(clause.paragraphs || []).map((p, idx) => (
-                <p key={idx}>{p}</p>
-              ))}
-            </article>
-          ))}
-        </section>
-
-        <section className="section">
-          <h2 className="section-title">Execution</h2>
-          <div className="signature-wrap">
-            <div className="sig-box">
-              <strong>For Oye Imagine Private Limited</strong><br />
+          <h2>Execution</h2>
+          <div className="sigWrap">
+            <div className="sigBox">
+              <strong>For {safe(company?.legalName || partyLine.companyName)}</strong><br />
               Authorised Signatory<br />
-              Name: ____________________<br />
-              Title: _____________________<br />
+              Name: {safe(company?.authorisedSignatory)}<br />
+              Title: {safe(company?.signatoryTitle)}<br />
               Date: _____________________
             </div>
-            <div className="sig-box">
-              <strong>For the Seller</strong><br />
+            <div className="sigBox">
+              <strong>For {safe(seller?.businessName || partyLine.sellerName)}</strong><br />
               Authorised Signatory<br />
-              Name: ____________________<br />
+              Name: {safe(seller?.contactName || seller?.businessName)}<br />
               Title: _____________________<br />
               Date: _____________________
             </div>
           </div>
-          <p className="annex-note">
-            This print layout is intentionally formatted as a clean legal document for PDF export and execution use.
+          <p className="small" style={{ marginTop: 14 }}>
+            This layout is intentionally structured as a print-first legal document for PDF export and execution.
           </p>
         </section>
       </main>

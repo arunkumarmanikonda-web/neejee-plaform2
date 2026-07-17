@@ -94,7 +94,7 @@ export default function AdminSellerDetail() {
 
       <h1 className="font-display text-4xl text-kohl mt-2">{seller.businessName || 'Seller'}</h1>
       <p className="font-italic italic text-mitti mt-2">
-        {[seller.craft, seller.region].filter(Boolean).join(' • ') || 'Application review'}
+        {[seller.craft, seller.region].filter(Boolean).join(' â€¢ ') || 'Application review'}
       </p>
       <div className="madder-divider mt-4"></div>
 
@@ -186,7 +186,7 @@ export default function AdminSellerDetail() {
         <div className="lg:col-span-2 space-y-6">
           <section className="bg-beige p-6">
             <p className="label text-madder mb-3">STORY</p>
-            <p className="text-sm text-kohl whitespace-pre-wrap leading-relaxed">{seller.story || '—'}</p>
+            <p className="text-sm text-kohl whitespace-pre-wrap leading-relaxed">{seller.story || 'â€”'}</p>
           </section>
 
           {seller.portfolio && seller.portfolio.length > 0 ? (
@@ -268,9 +268,9 @@ export default function AdminSellerDetail() {
         <div className="space-y-4">
           <section className="bg-beige p-5">
             <p className="label text-madder mb-3">CONTACT</p>
-            <p className="text-sm text-kohl">{seller.contactName || '—'}</p>
-            <p className="text-xs text-mitti mt-1">{seller.email || '—'}</p>
-            <p className="text-xs text-mitti">{seller.phone || '—'}</p>
+            <p className="text-sm text-kohl">{seller.contactName || 'â€”'}</p>
+            <p className="text-xs text-mitti mt-1">{seller.email || 'â€”'}</p>
+            <p className="text-xs text-mitti">{seller.phone || 'â€”'}</p>
             {seller.user ? (
               <p className="text-[10px] tracking-wider mt-3">
                 User role: <span className="text-madder">{seller.user.role}</span>
@@ -353,7 +353,7 @@ export default function AdminSellerDetail() {
 
             <div className="flex flex-wrap gap-2 mb-4">
               <Link
-                href={`/admin/sellers/${id}/agreement`}
+                href={`/agreement/admin/sellers/${id}`}
                 target="_blank"
                 className="inline-flex items-center gap-1 px-3 py-2 bg-kohl text-ivory text-xs tracking-wider hover:opacity-90"
               >
@@ -384,11 +384,11 @@ export default function AdminSellerDetail() {
                     <div className="space-y-1 text-xs">
                       <p className="text-kohl">{agreement.company?.legalName || 'Oye Imagine Private Limited'}</p>
                       <p className="text-mitti">{agreement.company?.brandName || 'NEEJEE'}</p>
-                      <p className="text-mitti">{agreement.company?.address || '—'}</p>
-                      <p className="text-mitti">GSTIN: {agreement.company?.gstin || '—'}</p>
-                      <p className="text-mitti">PAN: {agreement.company?.pan || '—'}</p>
-                      <p className="text-mitti">Authorised signatory: {agreement.company?.authorisedSignatory || '—'}</p>
-                      <p className="text-mitti">Title: {agreement.company?.signatoryTitle || '—'}</p>
+                      <p className="text-mitti">{agreement.company?.address || 'â€”'}</p>
+                      <p className="text-mitti">GSTIN: {agreement.company?.gstin || 'â€”'}</p>
+                      <p className="text-mitti">PAN: {agreement.company?.pan || 'â€”'}</p>
+                      <p className="text-mitti">Authorised signatory: {agreement.company?.authorisedSignatory || 'â€”'}</p>
+                      <p className="text-mitti">Title: {agreement.company?.signatoryTitle || 'â€”'}</p>
                     </div>
 
                     {agreement.company?.signatureUrl ? (
@@ -407,16 +407,16 @@ export default function AdminSellerDetail() {
                   <div className="bg-ivory border border-mitti/15 p-4">
                     <p className="label text-mitti mb-2">SELLER + COMMERCIAL TERMS</p>
                     <div className="space-y-1 text-xs">
-                      <p className="text-kohl">{agreement.seller?.businessName || '—'}</p>
-                      <p className="text-mitti">Contact: {agreement.seller?.contactName || '—'}</p>
-                      <p className="text-mitti">Email: {agreement.seller?.email || '—'}</p>
-                      <p className="text-mitti">Phone: {agreement.seller?.phone || '—'}</p>
-                      <p className="text-mitti">Craft / Region: {[agreement.seller?.craft, agreement.seller?.region].filter(Boolean).join(' • ') || '—'}</p>
+                      <p className="text-kohl">{agreement.seller?.businessName || 'â€”'}</p>
+                      <p className="text-mitti">Contact: {agreement.seller?.contactName || 'â€”'}</p>
+                      <p className="text-mitti">Email: {agreement.seller?.email || 'â€”'}</p>
+                      <p className="text-mitti">Phone: {agreement.seller?.phone || 'â€”'}</p>
+                      <p className="text-mitti">Craft / Region: {[agreement.seller?.craft, agreement.seller?.region].filter(Boolean).join(' â€¢ ') || 'â€”'}</p>
                       <p className="text-mitti">Commission: {agreement.commercialTerms?.commissionPct ?? 20}%</p>
-                      <p className="text-mitti">Payout cycle: {agreement.commercialTerms?.payoutCycle || '—'}</p>
+                      <p className="text-mitti">Payout cycle: {agreement.commercialTerms?.payoutCycle || 'â€”'}</p>
                       <p className="text-mitti">Neejee Select: {agreement.commercialTerms?.isNeejeeSelect ? 'Yes' : 'No'}</p>
                       <p className="text-mitti">Quality score: {agreement.commercialTerms?.qualityScore ?? 0}</p>
-                      <p className="text-mitti">Cluster: {agreement.commercialTerms?.cluster || '—'}</p>
+                      <p className="text-mitti">Cluster: {agreement.commercialTerms?.cluster || 'â€”'}</p>
                     </div>
                   </div>
                 </div>
@@ -438,7 +438,7 @@ export default function AdminSellerDetail() {
                     {agreement.annexure?.map((item: any) => (
                       <div key={item.label} className="flex items-start justify-between gap-3 text-xs border-b border-mitti/10 pb-2 last:border-0">
                         <span className="text-mitti">{item.label}</span>
-                        <span className="text-kohl text-right">{item.value || '—'}</span>
+                        <span className="text-kohl text-right">{item.value || 'â€”'}</span>
                       </div>
                     ))}
                   </div>
@@ -502,7 +502,7 @@ function KvRow({ k, v, mono }: { k: string; v: any; mono?: boolean }) {
   return (
     <div className="flex items-baseline justify-between text-xs py-1.5 border-b border-mitti/10 last:border-0">
       <span className="text-mitti">{k}</span>
-      <span className={`${mono ? 'font-mono' : ''} text-kohl text-right ml-2`}>{v || '—'}</span>
+      <span className={`${mono ? 'font-mono' : ''} text-kohl text-right ml-2`}>{v || 'â€”'}</span>
     </div>
   );
 }
