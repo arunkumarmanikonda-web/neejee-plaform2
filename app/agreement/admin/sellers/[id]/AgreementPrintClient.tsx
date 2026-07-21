@@ -362,24 +362,8 @@ export default function AgreementPrintClient({ id }: { id: string }) {
           font-weight: 700;
         }
 
-        .footerBrand {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          margin-bottom: 6px;
-        }
 
-        .footerBrand img {
-          max-height: 22px;
-          max-width: 80px;
-          object-fit: contain;
-        }
 
-        .footerBrandWord {
-          letter-spacing: 0.22em;
-          text-transform: uppercase;
-          font-size: 10px;
-        }
 
         .pageNo {
           text-align: right;
@@ -669,15 +653,6 @@ export default function AgreementPrintClient({ id }: { id: string }) {
         <footer className="docFooter">
           <div>
             <div className="docFooterTitle">Company</div>
-            <div className="footerBrand">
-              {logoUrl ? (
-                <img
-                  src={logoUrl}
-                  alt={safe(company?.brandName || "Neejee")}
-                  style={{ maxHeight: 34, maxWidth: 140, width: "auto", height: "auto", display: "block" }}
-                />
-              ) : null}
-            </div>
             <div>{safe(company?.legalName || "Oye Imagine Private Limited")}</div>
             <div>{safe(company?.address)}</div>
           </div>
