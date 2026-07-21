@@ -6,7 +6,7 @@ import { useEffect, useState } from "react";
 type AgreementPayload = any;
 
 function safe(value: any) {
-  return value === null || value === undefined || value === "" ? "—" : String(value);
+  return value === null || value === undefined || value === "" ? "Ã¢â‚¬â€" : String(value);
 }
 
 function Row({ label, value }: { label: string; value: any }) {
@@ -59,21 +59,46 @@ export default function AgreementPrintClient({ id }: { id: string }) {
   const clauses = Array.isArray(data?.clauses) ? data.clauses : [];
 
   const executionDateRaw = data?.executionDate || data?.agreementDate || data?.lockedAt || data?.generatedAt || null;
-  const executionDate = executionDateRaw
-    ? new Date(executionDateRaw).toLocaleDateString("en-IN", { day: "2-digit", month: "long", year: "numeric" })
-    : "____________";
+  const exportDate = executionDateRaw ? new Date(executionDateRaw) : new Date();
+  const executionDate = exportDate.toLocaleDateString("en-IN", { day: "2-digit", month: "long", year: "numeric" });
 
   const companyName = company?.legalName || company?.brandName || "Oye Imagine Private Limited";
   const sellerName = seller?.businessName || seller?.name || "Seller";
+  const sellerId = seller?.id || seller?.sellerId || id;
   const placeOfExecution = company?.address || "Noida, Uttar Pradesh, India";
 
+  const logoUrl = String(company?.logoUrl || "");
   const legalNameText = String(company?.legalName || "");
   const brandNameText = String(company?.brandName || "");
   const isOyeImagineEntity = /oye imagine/i.test(`${legalNameText} ${brandNameText}`);
   const signatoryName = String(
-    company?.authorisedSignatory || (isOyeImagineEntity ? "Nidhi" : "Authorised Signatory")
+    company?.authorisedSignatory || company?.signatoryName || (isOyeImagineEntity ? "Nidhi" : "Authorised Signatory")
   );
-  const signatureUrl = isOyeImagineEntity ? String(company?.signatureUrl || "") : "";
+  const signatoryTitle = String(company?.signatoryTitle || "Authorised Signatory");
+  const signatureUrl = String(company?.signatureUrl || "");
+
+  function safeFilePart(value: any) {
+    return (
+      String(value || "seller")
+        .replace(/[\\/:*?"<>|]+/g, " ")
+        .replace(/\s+/g, "_")
+        .replace(/_+/g, "_")
+        .replace(/^_+|_+$/g, "") || "seller"
+    );
+  }
+
+  const exportBaseName = `${safeFilePart(sellerName)}_${safeFilePart(sellerId)}_${exportDate
+    .toLocaleDateString("en-IN", { month: "long" })
+    .replace(/\s+/g, "_")}_${exportDate.getFullYear()}`;
+
+  const handlePrint = () => {
+    const previousTitle = document.title;
+    document.title = exportBaseName;
+    window.print();
+    window.setTimeout(() => {
+      document.title = previousTitle;
+    }, 1000);
+  };
 
   return (
     <>
@@ -173,8 +198,27 @@ export default function AgreementPrintClient({ id }: { id: string }) {
           padding: 0 10mm;
         }
 
+        .brandTop {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 12px;
+          margin-bottom: 10px;
+        }
 
+        .brandTop img {
+          max-height: 48px;
+          max-width: 140px;
+          object-fit: contain;
+          display: block;
+        }
 
+        .brandWord {
+          letter-spacing: 0.18em;
+          font-size: 12px;
+          color: var(--muted);
+          text-transform: uppercase;
+        }
 
         .title h1 {
           margin: 4px 0 6px;
@@ -431,7 +475,7 @@ export default function AgreementPrintClient({ id }: { id: string }) {
       <div className="toolbar">
         <Link href={`/admin/sellers/${id}`} className="btn">Back to seller</Link>
         <div className="actions">
-          <button className="btn primary" onClick={() => window.print()}>Save / Print PDF</button>
+          <button className="btn primary" onClick={handlePrint}>Save / Print PDF</button>
         </div>
       </div>
 
@@ -439,17 +483,22 @@ export default function AgreementPrintClient({ id }: { id: string }) {
         <div className="pageFrame" aria-hidden="true"></div>
 
         <div className="title">
+          {(logoUrl || company?.brandName) ? (
+            <div className="brandTop">
+              {logoUrl ? <img src={logoUrl} alt={safe(company?.brandName || companyName)} /> : null}
+              <div className="brandWord">{safe(company?.brandName || companyName)}</div>
+            </div>
+          ) : null}
           <h1>{data?.title || "Marketplace Seller Agreement"}</h1>
-          <p>{data?.subtitle || "Detailed India-focused marketplace agreement"}</p>
-
+          <p>{data?.subtitle || "Standard company agreement with seller-specific commercial terms"}</p>
+          <p>Execution Date: {executionDate}</p>
           <div className="goldRule"></div>
         </div>
 
         <section className="section">
           <div className="opening">
             <p>
-              <strong>THIS MARKETPLACE SELLER AGREEMENT</strong> ("Agreement") is made at <strong>{safe(placeOfExecution)}</strong>.
-              
+              <strong>THIS MARKETPLACE SELLER AGREEMENT</strong> ("Agreement") is made at <strong>{safe(placeOfExecution)}</strong> on this <strong>{executionDate}</strong>.
             </p>
             <p style={{ textAlign: "center", fontWeight: 700, margin: "16px 0" }}>BY & BETWEEN</p>
             <p>
@@ -517,8 +566,8 @@ export default function AgreementPrintClient({ id }: { id: string }) {
                   <Row label="CIN" value={company?.cinNumber} />
                   <Row label="Email" value={company?.contactEmail} />
                   <Row label="Phone" value={company?.contactPhone} />
-                  <Row label="Authorised Signatory" value={company?.authorisedSignatory} />
-                  <Row label="Title" value={company?.signatoryTitle} />
+                  <Row label="Authorised Signatory" value={signatoryName} />
+                  <Row label="Title" value={signatoryTitle} />
                 </tbody>
               </table>
             </div>
@@ -531,7 +580,7 @@ export default function AgreementPrintClient({ id }: { id: string }) {
                   <Row label="Contact Name" value={seller?.contactName} />
                   <Row label="Email" value={seller?.email} />
                   <Row label="Phone" value={seller?.phone} />
-                  <Row label="Craft / Region" value={[seller?.craft, seller?.region].filter(Boolean).join(" • ")} />
+                  <Row label="Craft / Region" value={[seller?.craft, seller?.region].filter(Boolean).join(" Ã¢â‚¬Â¢ ")} />
                   <Row label="PAN" value={seller?.pan} />
                   <Row label="GSTIN" value={seller?.gstin} />
                   <Row label="Bank Name" value={seller?.bankName} />
@@ -574,7 +623,7 @@ export default function AgreementPrintClient({ id }: { id: string }) {
                 ) : clause?.text ? (
                   <p>{clause.text}</p>
                 ) : (
-                  <p>—</p>
+                  <p>Ã¢â‚¬â€</p>
                 )}
               </article>
             ))
@@ -595,11 +644,11 @@ export default function AgreementPrintClient({ id }: { id: string }) {
               </div>
               <div className="signatureLine">
                 <strong>{safe(signatoryName)}</strong><br />
-                {safe(company?.signatoryTitle || "Authorised Signatory")}
+                {safe(signatoryTitle)}
               </div>
               <div style={{ marginTop: 8 }}>
                 For and on behalf of <strong>{safe(companyName)}</strong><br />
-                Date: _____________________
+                Date: {executionDate}
               </div>
             </div>
 
@@ -612,7 +661,7 @@ export default function AgreementPrintClient({ id }: { id: string }) {
               </div>
               <div style={{ marginTop: 8 }}>
                 For and on behalf of <strong>{safe(sellerName)}</strong><br />
-                Date: _____________________
+                Date: {executionDate}
               </div>
             </div>
           </div>
@@ -638,8 +687,8 @@ export default function AgreementPrintClient({ id }: { id: string }) {
 
           <div className="pageNo">
             <div className="docFooterTitle">Marketplace Agreement</div>
-            <div>Generated for internal execution</div>
-
+            <div>Seller ID: {safe(sellerId)}</div>
+            <div>Execution Date: {executionDate}</div>
           </div>
         </footer>
       </main>
