@@ -1,4 +1,4 @@
-﻿import Link from 'next/link';
+import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import type { LucideIcon } from 'lucide-react';
 import {
@@ -184,10 +184,17 @@ const NAV_GROUPS: NavGroup[] = [
     ],
   },
   {
+    label: 'LEGAL',
+    items: [
+      { href: '/admin/legal-entity', label: 'Legal Entity', icon: Building2 },
+      { href: '/admin/legal-signatories', label: 'Legal Signatories', icon: UserCog },
+      { href: '/admin/sellers', label: 'Seller Agreements', icon: FileText },
+    ],
+  },
+  {
     label: 'ADMIN',
     items: [
       { href: '/admin/team', label: 'Team & Roles', icon: UserCog },
-      { href: '/admin/legal-entity', label: 'Legal Entity', icon: Building2 },
       { href: '/admin/notifications', label: 'Notification Logs', icon: Bell },
       { href: '/admin/settings/sms', label: 'SMS & OTP', icon: MessageSquare },
       { href: '/admin/profile', label: 'My Profile', icon: User },
