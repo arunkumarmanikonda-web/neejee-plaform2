@@ -448,7 +448,7 @@ export default function AgreementPrintClient({ id }: { id: string }) {
         <section className="section">
           <div className="opening">
             <p>
-              <strong>THIS MARKETPLACE SELLER AGREEMENT</strong> ("Agreement") is made at <strong>{safe(placeOfExecution)}</strong>...
+              <strong>THIS MARKETPLACE SELLER AGREEMENT</strong> ("Agreement") is made at <strong>{safe(placeOfExecution)}</strong>....
               
             </p>
             <p style={{ textAlign: "center", fontWeight: 700, margin: "16px 0" }}>BY & BETWEEN</p>
@@ -599,7 +599,7 @@ export default function AgreementPrintClient({ id }: { id: string }) {
               </div>
               <div style={{ marginTop: 8 }}>
                 For and on behalf of <strong>{safe(companyName)}</strong><br />
-                Date: {executionDate}
+                Date: _____________________
               </div>
             </div>
 
@@ -612,7 +612,7 @@ export default function AgreementPrintClient({ id }: { id: string }) {
               </div>
               <div style={{ marginTop: 8 }}>
                 For and on behalf of <strong>{safe(sellerName)}</strong><br />
-                Date: {executionDate}
+                Date: _____________________
               </div>
             </div>
           </div>
@@ -639,7 +639,7 @@ export default function AgreementPrintClient({ id }: { id: string }) {
           <div className="pageNo">
             <div className="docFooterTitle">Marketplace Agreement</div>
             <div>Generated for internal execution</div>
-            <div>Execution Date: {executionDate}</div>
+
           </div>
         </footer>
       </main>
