@@ -58,8 +58,9 @@ export default function AgreementPrintClient({ id }: { id: string }) {
   const terms = data?.commercialTerms || {};
   const clauses = Array.isArray(data?.clauses) ? data.clauses : [];
 
-  const generatedOn = data?.generatedAt
-    ? new Date(data.generatedAt).toLocaleDateString("en-IN", { day: "2-digit", month: "long", year: "numeric" })
+  const executionDateRaw = data?.executionDate || data?.agreementDate || data?.lockedAt || data?.generatedAt || null;
+  const executionDate = executionDateRaw
+    ? new Date(executionDateRaw).toLocaleDateString("en-IN", { day: "2-digit", month: "long", year: "numeric" })
     : "____________";
 
   const companyName = company?.legalName || company?.brandName || "Oye Imagine Private Limited";
@@ -474,12 +475,19 @@ export default function AgreementPrintClient({ id }: { id: string }) {
 
         <div className="title">
           <div className="brandTop">
-            {logoUrl ? <img src={logoUrl} alt={safe(company?.brandName || "Neejee")} /> : null}
-            <div className="brandWord">{safe(company?.brandName || "Neejee")}</div>
+            {logoUrl ? (
+              <img
+                src={logoUrl}
+                alt={safe(company?.brandName || "Neejee")}
+                style={{ maxHeight: 64, maxWidth: 240, width: "auto", height: "auto" }}
+              />
+            ) : (
+              <div className="brandWord">{safe(company?.brandName || "Neejee")}</div>
+            )}
           </div>
           <h1>{data?.title || "Marketplace Seller Agreement"}</h1>
           <p>{data?.subtitle || "Detailed India-focused marketplace agreement"}</p>
-          <p>Generated on {generatedOn}</p>
+          <p>Execution date: {executionDate}</p>
           <div className="goldRule"></div>
         </div>
 
@@ -487,7 +495,7 @@ export default function AgreementPrintClient({ id }: { id: string }) {
           <div className="opening">
             <p>
               <strong>THIS MARKETPLACE SELLER AGREEMENT</strong> ("Agreement") is made at <strong>{safe(placeOfExecution)}</strong>
-              {" "}on this <strong>{generatedOn}</strong>.
+              {" "}on this <strong>{executionDate}</strong>.
             </p>
             <p style={{ textAlign: "center", fontWeight: 700, margin: "16px 0" }}>BY & BETWEEN</p>
             <p>
@@ -637,7 +645,7 @@ export default function AgreementPrintClient({ id }: { id: string }) {
               </div>
               <div style={{ marginTop: 8 }}>
                 For and on behalf of <strong>{safe(companyName)}</strong><br />
-                Date: _____________________
+                Date: {executionDate}
               </div>
             </div>
 
@@ -650,7 +658,7 @@ export default function AgreementPrintClient({ id }: { id: string }) {
               </div>
               <div style={{ marginTop: 8 }}>
                 For and on behalf of <strong>{safe(sellerName)}</strong><br />
-                Date: _____________________
+                Date: {executionDate}
               </div>
             </div>
           </div>
@@ -662,10 +670,13 @@ export default function AgreementPrintClient({ id }: { id: string }) {
 
         <footer className="docFooter">
           <div>
-            <div className="docFooterTitle">Neejee / Oye Imagine</div>
+            <div className="docFooterTitle">Company</div>
             <div className="footerBrand">
-              {logoUrl ? <img src={logoUrl} alt={safe(company?.brandName || "Neejee")} /> : null}
-              <div className="footerBrandWord">{safe(company?.brandName || "Neejee")}</div>
+              {logoUrl ? (
+                <img src={logoUrl} alt={safe(company?.brandName || "Neejee")} />
+              ) : (
+                <div className="footerBrandWord">{safe(company?.brandName || "Neejee")}</div>
+              )}
             </div>
             <div>{safe(company?.legalName || "Oye Imagine Private Limited")}</div>
             <div>{safe(company?.address)}</div>
@@ -681,7 +692,7 @@ export default function AgreementPrintClient({ id }: { id: string }) {
           <div className="pageNo">
             <div className="docFooterTitle">Marketplace Agreement</div>
             <div>Generated for internal execution</div>
-            <div>Date: {generatedOn}</div>
+            <div>Execution Date: {executionDate}</div>
           </div>
         </footer>
       </main>
