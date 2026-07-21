@@ -6,7 +6,7 @@ import { useEffect, useState } from "react";
 type AgreementPayload = any;
 
 function safe(value: any) {
-  return value === null || value === undefined || value === "" ? "—" : String(value);
+  return value === null || value === undefined || value === "" ? "â€”" : String(value);
 }
 
 function Row({ label, value }: { label: string; value: any }) {
@@ -18,7 +18,13 @@ function Row({ label, value }: { label: string; value: any }) {
   );
 }
 
-export default function AgreementPrintClient({ id }: { id: string }) {
+export default function AgreementPrintClient({
+  id,
+  dataUrl,
+}: {
+  id: string;
+  dataUrl?: string;
+}) {
   const [data, setData] = useState<AgreementPayload | null>(null);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
@@ -31,7 +37,7 @@ export default function AgreementPrintClient({ id }: { id: string }) {
         setLoading(true);
         setErr("");
 
-        const res = await fetch(`/api/admin/sellers/${id}/agreement`, { cache: "no-store" });
+        const res = await fetch(dataUrl || `/api/admin/sellers/${id}/agreement`, { cache: "no-store" });
         const json = await res.json();
         if (!res.ok) throw new Error(json?.error || `Failed to load agreement (${res.status})`);
 
@@ -580,7 +586,7 @@ export default function AgreementPrintClient({ id }: { id: string }) {
                   <Row label="Contact Name" value={seller?.contactName} />
                   <Row label="Email" value={seller?.email} />
                   <Row label="Phone" value={seller?.phone} />
-                  <Row label="Craft / Region" value={[seller?.craft, seller?.region].filter(Boolean).join(" • ")} />
+                  <Row label="Craft / Region" value={[seller?.craft, seller?.region].filter(Boolean).join(" â€¢ ")} />
                   <Row label="PAN" value={seller?.pan} />
                   <Row label="GSTIN" value={seller?.gstin} />
                   <Row label="Bank Name" value={seller?.bankName} />
@@ -623,7 +629,7 @@ export default function AgreementPrintClient({ id }: { id: string }) {
                 ) : clause?.text ? (
                   <p>{clause.text}</p>
                 ) : (
-                  <p>—</p>
+                  <p>â€”</p>
                 )}
               </article>
             ))

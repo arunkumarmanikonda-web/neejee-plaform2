@@ -27,10 +27,20 @@ function maskBankAccount(v: any) {
   return tail ? `XXXX${tail}` : '';
 }
 
-export async function GET(_request: Request, { params }: { params: { id: string } }) {
-  const user = await getSession();
-  if (!requireRole(user, ['ADMIN', 'SUPER_ADMIN', 'QC_TEAM', 'CONTENT_EDITOR'])) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+export async function GET(request: Request, { params }: { params: { id: string } }) {
+  const url = new URL(request.url);
+  const token = url.searchParams.get('token') || '';
+  const expectedPublicToken = process.env.AGREEMENT_PUBLIC_TOKEN || '';
+  const hasValidPublicToken =
+    !!expectedPublicToken &&
+    !!token &&
+    token === expectedPublicToken;
+
+  if (!hasValidPublicToken) {
+    const user = await getSession();
+    if (!requireRole(user, ['ADMIN', 'SUPER_ADMIN', 'QC_TEAM', 'CONTENT_EDITOR'])) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
   }
 
   try {
@@ -365,20 +375,20 @@ export async function GET(_request: Request, { params }: { params: { id: string 
 ];
 
     const annexure = [
-      { label: 'Seller legal name / business name', value: sellerBlock.businessName || 'ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â' },
-      { label: 'Primary contact', value: sellerBlock.contactName || 'ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â' },
-      { label: 'Email', value: sellerBlock.email || 'ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â' },
-      { label: 'Phone', value: sellerBlock.phone || 'ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â' },
-      { label: 'Craft / category', value: compact([sellerBlock.craft, sellerBlock.region]).join(' ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ ') || 'ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â' },
+      { label: 'Seller legal name / business name', value: sellerBlock.businessName || 'ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â' },
+      { label: 'Primary contact', value: sellerBlock.contactName || 'ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â' },
+      { label: 'Email', value: sellerBlock.email || 'ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â' },
+      { label: 'Phone', value: sellerBlock.phone || 'ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â' },
+      { label: 'Craft / category', value: compact([sellerBlock.craft, sellerBlock.region]).join(' ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ ') || 'ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â' },
       { label: 'Commission %', value: `${commercialTerms.commissionPct ?? 20}%` },
-      { label: 'Payout cycle', value: safeString(commercialTerms.payoutCycle, 'MONTHLY') || 'ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â' },
+      { label: 'Payout cycle', value: safeString(commercialTerms.payoutCycle, 'MONTHLY') || 'ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â' },
       { label: 'Neejee Select', value: commercialTerms.isNeejeeSelect ? 'Yes' : 'No' },
       { label: 'Quality score', value: String(commercialTerms.qualityScore ?? 0) },
-      { label: 'Years of practice', value: commercialTerms.yearsOfPractice != null ? String(commercialTerms.yearsOfPractice) : 'ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â' },
-      { label: 'Cluster', value: commercialTerms.cluster || 'ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â' },
-      { label: 'PAN', value: sellerBlock.pan || 'ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â' },
-      { label: 'GSTIN', value: sellerBlock.gstin || 'ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â' },
-      { label: 'Bank', value: compact([sellerBlock.bankName, sellerBlock.ifsc, sellerBlock.bankAccountMasked]).join(' ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ ') || 'ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â' },
+      { label: 'Years of practice', value: commercialTerms.yearsOfPractice != null ? String(commercialTerms.yearsOfPractice) : 'ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â' },
+      { label: 'Cluster', value: commercialTerms.cluster || 'ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â' },
+      { label: 'PAN', value: sellerBlock.pan || 'ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â' },
+      { label: 'GSTIN', value: sellerBlock.gstin || 'ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â' },
+      { label: 'Bank', value: compact([sellerBlock.bankName, sellerBlock.ifsc, sellerBlock.bankAccountMasked]).join(' ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ ') || 'ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â' },
     ];
 
     return NextResponse.json({
