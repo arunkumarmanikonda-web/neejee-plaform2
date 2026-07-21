@@ -178,8 +178,8 @@ export default function AgreementPrintClient({ id }: { id: string }) {
           display: flex;
           align-items: center;
           justify-content: center;
-          gap: 12px;
-          margin-bottom: 10px;
+          gap: 0;
+          margin-bottom: 14px;
         }
 
         .brandTop img {
@@ -479,11 +479,9 @@ export default function AgreementPrintClient({ id }: { id: string }) {
               <img
                 src={logoUrl}
                 alt={safe(company?.brandName || "Neejee")}
-                style={{ maxHeight: 64, maxWidth: 240, width: "auto", height: "auto" }}
+                style={{ maxHeight: 72, maxWidth: 280, width: "auto", height: "auto", display: "block" }}
               />
-            ) : (
-              <div className="brandWord">{safe(company?.brandName || "Neejee")}</div>
-            )}
+            ) : null}
           </div>
           <h1>{data?.title || "Marketplace Seller Agreement"}</h1>
           <p>{data?.subtitle || "Detailed India-focused marketplace agreement"}</p>
@@ -673,10 +671,12 @@ export default function AgreementPrintClient({ id }: { id: string }) {
             <div className="docFooterTitle">Company</div>
             <div className="footerBrand">
               {logoUrl ? (
-                <img src={logoUrl} alt={safe(company?.brandName || "Neejee")} />
-              ) : (
-                <div className="footerBrandWord">{safe(company?.brandName || "Neejee")}</div>
-              )}
+                <img
+                  src={logoUrl}
+                  alt={safe(company?.brandName || "Neejee")}
+                  style={{ maxHeight: 34, maxWidth: 140, width: "auto", height: "auto", display: "block" }}
+                />
+              ) : null}
             </div>
             <div>{safe(company?.legalName || "Oye Imagine Private Limited")}</div>
             <div>{safe(company?.address)}</div>
