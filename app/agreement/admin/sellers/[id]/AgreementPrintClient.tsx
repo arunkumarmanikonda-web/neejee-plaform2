@@ -74,7 +74,6 @@ export default function AgreementPrintClient({ id }: { id: string }) {
     company?.authorisedSignatory || (isOyeImagineEntity ? "Nidhi" : "Authorised Signatory")
   );
   const signatureUrl = isOyeImagineEntity ? String(company?.signatureUrl || "") : "";
-  const logoUrl = company?.logoUrl || "";
 
   return (
     <>
@@ -174,26 +173,8 @@ export default function AgreementPrintClient({ id }: { id: string }) {
           padding: 0 10mm;
         }
 
-        .brandTop {
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          gap: 0;
-          margin-bottom: 14px;
-        }
 
-        .brandTop img {
-          max-height: 42px;
-          max-width: 120px;
-          object-fit: contain;
-        }
 
-        .brandWord {
-          letter-spacing: 0.28em;
-          font-size: 12px;
-          color: var(--muted);
-          text-transform: uppercase;
-        }
 
         .title h1 {
           margin: 4px 0 6px;
@@ -458,15 +439,6 @@ export default function AgreementPrintClient({ id }: { id: string }) {
         <div className="pageFrame" aria-hidden="true"></div>
 
         <div className="title">
-          <div className="brandTop">
-            {logoUrl ? (
-              <img
-                src={logoUrl}
-                alt={safe(company?.brandName || "Neejee")}
-                style={{ maxHeight: 72, maxWidth: 280, width: "auto", height: "auto", display: "block" }}
-              />
-            ) : null}
-          </div>
           <h1>{data?.title || "Marketplace Seller Agreement"}</h1>
           <p>{data?.subtitle || "Detailed India-focused marketplace agreement"}</p>
           <p>Execution date: {executionDate}</p>
@@ -476,7 +448,7 @@ export default function AgreementPrintClient({ id }: { id: string }) {
         <section className="section">
           <div className="opening">
             <p>
-              <strong>THIS MARKETPLACE SELLER AGREEMENT</strong> ("Agreement") is made at <strong>{safe(placeOfExecution)}</strong>
+              <strong>THIS MARKETPLACE SELLER AGREEMENT</strong> ("Agreement") is made at <strong>{safe(placeOfExecution)}</strong>.
               {" "}on this <strong>{executionDate}</strong>.
             </p>
             <p style={{ textAlign: "center", fontWeight: 700, margin: "16px 0" }}>BY & BETWEEN</p>
