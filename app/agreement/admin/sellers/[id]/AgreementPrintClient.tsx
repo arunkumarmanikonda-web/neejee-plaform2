@@ -448,7 +448,7 @@ export default function AgreementPrintClient({ id }: { id: string }) {
         <section className="section">
           <div className="opening">
             <p>
-              <strong>THIS MARKETPLACE SELLER AGREEMENT</strong> ("Agreement") is made at <strong>{safe(placeOfExecution)}</strong>....
+              <strong>THIS MARKETPLACE SELLER AGREEMENT</strong> ("Agreement") is made at <strong>{safe(placeOfExecution)}</strong>.
               
             </p>
             <p style={{ textAlign: "center", fontWeight: 700, margin: "16px 0" }}>BY & BETWEEN</p>
@@ -646,3 +646,4 @@ export default function AgreementPrintClient({ id }: { id: string }) {
     </>
   );
 }
+
