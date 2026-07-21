@@ -6,7 +6,7 @@ import { useEffect, useState } from "react";
 type AgreementPayload = any;
 
 function safe(value: any) {
-  return value === null || value === undefined || value === "" ? "â€”" : String(value);
+  return value === null || value === undefined || value === "" ? "Ã¢â‚¬â€" : String(value);
 }
 
 function Row({ label, value }: { label: string; value: any }) {
@@ -208,22 +208,24 @@ export default function AgreementPrintClient({
           display: flex;
           align-items: center;
           justify-content: center;
-          gap: 12px;
           margin-bottom: 10px;
         }
 
         .brandTop img {
-          max-height: 48px;
-          max-width: 140px;
-          object-fit: contain;
           display: block;
+          max-height: 44px;
+          max-width: 180px;
+          width: auto;
+          height: auto;
+          object-fit: contain;
         }
 
         .brandWord {
+          font-size: 24px;
+          font-weight: 800;
           letter-spacing: 0.18em;
-          font-size: 12px;
-          color: var(--muted);
           text-transform: uppercase;
+          color: var(--ink);
         }
 
         .title h1 {
@@ -407,6 +409,33 @@ export default function AgreementPrintClient({
         }
 
         @media print {
+          .grid2 {
+            display: block !important;
+          }
+
+          .grid2 > * + * {
+            margin-top: 12px !important;
+          }
+
+          .box {
+            break-inside: avoid;
+            page-break-inside: avoid;
+            border: 1px solid #d8cfc2;
+            border-radius: 10px;
+            padding: 12px;
+            background: #fff;
+          }
+
+          .kv {
+            width: 100%;
+            border-collapse: collapse;
+            table-layout: fixed;
+          }
+
+          .kv td {
+            border-bottom: 1px solid #ede7dc;
+          }
+
           html, body {
             background: white !important;
           }
@@ -425,24 +454,17 @@ export default function AgreementPrintClient({
           }
 
           .sheet::before,
-          .sheet::after {
-            display: none;
-          }
+        .sheet::after {
+          display: none;
+        }
 
           .pageFrame {
-            display: block;
-            position: fixed;
-            inset: 8mm;
-            border: 1px solid var(--gold);
-            pointer-events: none;
-          }
+          display: none;
+        }
 
           .pageFrame::after {
-            content: "";
-            position: absolute;
-            inset: 3mm;
-            border: 1px solid var(--line);
-          }
+          display: none;
+        }
 
           .docFooter {
             position: fixed;
@@ -491,8 +513,11 @@ export default function AgreementPrintClient({
         <div className="title">
           {(logoUrl || company?.brandName) ? (
             <div className="brandTop">
-              {logoUrl ? <img src={logoUrl} alt={safe(company?.brandName || companyName)} /> : null}
-              <div className="brandWord">{safe(company?.brandName || companyName)}</div>
+              {logoUrl ? (
+                <img src={logoUrl} alt={safe(company?.brandName || companyName)} />
+              ) : (
+                <div className="brandWord">{safe(company?.brandName || companyName)}</div>
+              )}
             </div>
           ) : null}
           <h1>{data?.title || "Marketplace Seller Agreement"}</h1>
@@ -586,7 +611,7 @@ export default function AgreementPrintClient({
                   <Row label="Contact Name" value={seller?.contactName} />
                   <Row label="Email" value={seller?.email} />
                   <Row label="Phone" value={seller?.phone} />
-                  <Row label="Craft / Region" value={[seller?.craft, seller?.region].filter(Boolean).join(" â€¢ ")} />
+                  <Row label="Craft / Region" value={[seller?.craft, seller?.region].filter(Boolean).join(" Ã¢â‚¬Â¢ ")} />
                   <Row label="PAN" value={seller?.pan} />
                   <Row label="GSTIN" value={seller?.gstin} />
                   <Row label="Bank Name" value={seller?.bankName} />
@@ -629,7 +654,7 @@ export default function AgreementPrintClient({
                 ) : clause?.text ? (
                   <p>{clause.text}</p>
                 ) : (
-                  <p>â€”</p>
+                  <p>Ã¢â‚¬â€</p>
                 )}
               </article>
             ))
