@@ -6,7 +6,7 @@ import { useEffect, useState } from "react";
 type AgreementPayload = any;
 
 function safe(value: any) {
-  return value === null || value === undefined || value === "" ? "—" : String(value);
+  return value === null || value === undefined || value === "" ? "â€”" : String(value);
 }
 
 function Row({ label, value }: { label: string; value: any }) {
@@ -93,18 +93,28 @@ export default function AgreementPrintClient({
     );
   }
 
-  const exportBaseName = `${safeFilePart(sellerName)}_${safeFilePart(sellerId)}_${exportDate
-    .toLocaleDateString("en-IN", { month: "long" })
-    .replace(/\s+/g, "_")}_${exportDate.getFullYear()}`;
+  const exportBaseName = "NEEJEE · Found. Personal_";
 
   const handlePrint = () => {
-    const previousTitle = document.title;
-    document.title = exportBaseName;
-    window.print();
-    window.setTimeout(() => {
-      document.title = previousTitle;
-    }, 1000);
+  const previousTitle = document.title;
+  const titleEl = document.querySelector("title");
+  const previousTitleTag = titleEl?.textContent ?? previousTitle;
+  const nextTitle = exportBaseName;
+
+  const restoreTitle = () => {
+    document.title = previousTitle;
+    if (titleEl) titleEl.textContent = previousTitleTag;
+    window.removeEventListener("afterprint", restoreTitle);
   };
+
+  document.title = nextTitle;
+  if (titleEl) titleEl.textContent = nextTitle;
+  window.addEventListener("afterprint", restoreTitle, { once: true });
+
+  window.setTimeout(() => {
+    window.print();
+  }, 150);
+};
 
   return (
     <>
@@ -431,11 +441,13 @@ export default function AgreementPrintClient({
           }
 
           .grid2 {
-            display: block !important;
+            display: grid !important;
+            grid-template-columns: 1fr 1fr !important;
+            gap: 14px !important;
           }
 
           .grid2 > * + * {
-            margin-top: 12px !important;
+            margin-top: 0 !important;
           }
 
           .box {
@@ -488,6 +500,18 @@ export default function AgreementPrintClient({
         }
 
           .docFooter {
+          margin-top: 28px;
+          border-top: 1px solid var(--gold-soft);
+          padding-top: 10px;
+          display: grid;
+          grid-template-columns: 1.2fr 1fr 1fr;
+          gap: 12px;
+          align-items: start;
+          font-size: 11px;
+          color: var(--muted);
+        }
+
+          .docFooter {
             display: none !important;
           }
 
@@ -506,8 +530,16 @@ export default function AgreementPrintClient({
           }
 
           .grid2, .sigWrap, .docFooter {
-            grid-template-columns: 1fr;
-          }
+          margin-top: 28px;
+          border-top: 1px solid var(--gold-soft);
+          padding-top: 10px;
+          display: grid;
+          grid-template-columns: 1.2fr 1fr 1fr;
+          gap: 12px;
+          align-items: start;
+          font-size: 11px;
+          color: var(--muted);
+        }
 
           .title {
             padding: 0;
@@ -626,7 +658,7 @@ export default function AgreementPrintClient({
                   <Row label="Contact Name" value={seller?.contactName} />
                   <Row label="Email" value={seller?.email} />
                   <Row label="Phone" value={seller?.phone} />
-                  <Row label="Craft / Region" value={[seller?.craft, seller?.region].filter(Boolean).join(" • ")} />
+                  <Row label="Craft / Region" value={[seller?.craft, seller?.region].filter(Boolean).join(" â€¢ ")} />
                   <Row label="PAN" value={seller?.pan} />
                   <Row label="GSTIN" value={seller?.gstin} />
                   <Row label="Bank Name" value={seller?.bankName} />
@@ -669,7 +701,7 @@ export default function AgreementPrintClient({
                 ) : clause?.text ? (
                   <p>{clause.text}</p>
                 ) : (
-                  <p>—</p>
+                  <p>â€”</p>
                 )}
               </article>
             ))
