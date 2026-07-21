@@ -66,7 +66,13 @@ export default function AgreementPrintClient({ id }: { id: string }) {
   const sellerName = seller?.businessName || seller?.name || "Seller";
   const placeOfExecution = company?.address || "Noida, Uttar Pradesh, India";
 
-  const signatureUrl = company?.signatureUrl || "";
+  const legalNameText = String(company?.legalName || "");
+  const brandNameText = String(company?.brandName || "");
+  const isOyeImagineEntity = /oye imagine/i.test(`${legalNameText} ${brandNameText}`);
+  const signatoryName = String(
+    company?.authorisedSignatory || (isOyeImagineEntity ? "Nidhi" : "Authorised Signatory")
+  );
+  const signatureUrl = isOyeImagineEntity ? String(company?.signatureUrl || "") : "";
   const logoUrl = company?.logoUrl || "";
 
   return (
@@ -620,14 +626,14 @@ export default function AgreementPrintClient({ id }: { id: string }) {
               <div className="sigLabel">For {safe(companyName)}</div>
               <div className="signatureImageWrap">
                 {signatureUrl ? (
-                  <img className="signatureImage" src={signatureUrl} alt={`${safe(company?.authorisedSignatory)} signature`} />
+                  <img className="signatureImage" src={signatureUrl} alt={`${safe(signatoryName)} signature`} />
                 ) : (
-                  <div className="signatureFallback">{safe(company?.authorisedSignatory || "Nidhi")}</div>
+                  <div className="signatureFallback">{safe(signatoryName)}</div>
                 )}
               </div>
               <div className="signatureLine">
-                <strong>{safe(company?.authorisedSignatory)}</strong><br />
-                {safe(company?.signatoryTitle)}
+                <strong>{safe(signatoryName)}</strong><br />
+                {safe(company?.signatoryTitle || "Authorised Signatory")}
               </div>
               <div style={{ marginTop: 8 }}>
                 For and on behalf of <strong>{safe(companyName)}</strong><br />
