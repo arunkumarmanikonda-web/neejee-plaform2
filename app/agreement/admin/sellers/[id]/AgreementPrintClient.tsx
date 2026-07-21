@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
@@ -409,6 +409,27 @@ export default function AgreementPrintClient({
         }
 
         @media print {
+          h1, h2, h3 {
+            break-after: avoid-page;
+            page-break-after: avoid;
+          }
+
+          .section,
+          .clause,
+          .sigWrap,
+          .box,
+          table,
+          tr {
+            break-inside: avoid;
+            page-break-inside: avoid;
+          }
+
+          p,
+          li {
+            orphans: 3;
+            widows: 3;
+          }
+
           .grid2 {
             display: block !important;
           }
@@ -467,13 +488,7 @@ export default function AgreementPrintClient({
         }
 
           .docFooter {
-            position: fixed;
-            left: 16mm;
-            right: 16mm;
-            bottom: 6mm;
-            margin-top: 0;
-            padding-top: 6px;
-            background: white;
+            display: none !important;
           }
 
           a {
