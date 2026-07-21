@@ -441,15 +441,15 @@ export default function AgreementPrintClient({ id }: { id: string }) {
         <div className="title">
           <h1>{data?.title || "Marketplace Seller Agreement"}</h1>
           <p>{data?.subtitle || "Detailed India-focused marketplace agreement"}</p>
-          <p>Execution date: {executionDate}</p>
+
           <div className="goldRule"></div>
         </div>
 
         <section className="section">
           <div className="opening">
             <p>
-              <strong>THIS MARKETPLACE SELLER AGREEMENT</strong> ("Agreement") is made at <strong>{safe(placeOfExecution)}</strong>.
-              {" "}on this <strong>{executionDate}</strong>.
+              <strong>THIS MARKETPLACE SELLER AGREEMENT</strong> ("Agreement") is made at <strong>{safe(placeOfExecution)}</strong>..
+              
             </p>
             <p style={{ textAlign: "center", fontWeight: 700, margin: "16px 0" }}>BY & BETWEEN</p>
             <p>
