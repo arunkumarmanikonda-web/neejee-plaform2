@@ -6,7 +6,7 @@ import { useEffect, useState } from "react";
 type AgreementPayload = any;
 
 function safe(value: any) {
-  return value === null || value === undefined || value === "" ? "Ã¢â‚¬â€" : String(value);
+  return value === null || value === undefined || value === "" ? "—" : String(value);
 }
 
 function Row({ label, value }: { label: string; value: any }) {
@@ -580,7 +580,7 @@ export default function AgreementPrintClient({ id }: { id: string }) {
                   <Row label="Contact Name" value={seller?.contactName} />
                   <Row label="Email" value={seller?.email} />
                   <Row label="Phone" value={seller?.phone} />
-                  <Row label="Craft / Region" value={[seller?.craft, seller?.region].filter(Boolean).join(" Ã¢â‚¬Â¢ ")} />
+                  <Row label="Craft / Region" value={[seller?.craft, seller?.region].filter(Boolean).join(" • ")} />
                   <Row label="PAN" value={seller?.pan} />
                   <Row label="GSTIN" value={seller?.gstin} />
                   <Row label="Bank Name" value={seller?.bankName} />
@@ -623,7 +623,7 @@ export default function AgreementPrintClient({ id }: { id: string }) {
                 ) : clause?.text ? (
                   <p>{clause.text}</p>
                 ) : (
-                  <p>Ã¢â‚¬â€</p>
+                  <p>—</p>
                 )}
               </article>
             ))
