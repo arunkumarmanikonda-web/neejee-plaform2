@@ -118,8 +118,8 @@ function SingleProductForm({ onDone }: { onDone: (msg: string) => void }) {
           <Input label="SKU" value={form.sku} onChange={v => setForm({ ...form, sku: v })} placeholder="optional" />
         </FieldRow>
         <FieldRow>
-          <Input label="MRP (₹) *" type="number" value={form.mrp} onChange={v => setForm({ ...form, mrp: v })} />
-          <Input label="SELLING PRICE (₹) *" type="number" value={form.sellingPrice} onChange={v => setForm({ ...form, sellingPrice: v })} />
+          <Input label="MRP (INR) *" type="number" value={form.mrp} onChange={v => setForm({ ...form, mrp: v })} />
+          <Input label="SELLING PRICE (INR) *" type="number" value={form.sellingPrice} onChange={v => setForm({ ...form, sellingPrice: v })} />
         </FieldRow>
         <FieldRow>
           <Input label="POETIC LINE" value={form.poeticLine} onChange={v => setForm({ ...form, poeticLine: v })} placeholder="A whisper of monsoon" />
@@ -172,12 +172,12 @@ function SingleProductForm({ onDone }: { onDone: (msg: string) => void }) {
             <div key={i} className="relative">
               <img src={url} alt="" className="w-full aspect-square object-cover rounded border border-mitti/20" />
               <button onClick={() => rmImage(i)}
-                className="absolute top-1 right-1 bg-kohl text-ivory text-xs w-6 h-6 rounded-full">×</button>
+                className="absolute top-1 right-1 bg-kohl text-ivory text-xs w-6 h-6 rounded-full">x</button>
               {i === 0 && <span className="absolute bottom-1 left-1 bg-banarasi text-kohl text-[9px] tracking-widest px-1.5 py-0.5">HERO</span>}
             </div>
           ))}
           <SingleImageInput value="" onChange={addImage} folder="sellers/products"
-            label="ADD IMAGE" recommendedSize="1200 × 1500 px" recommendedAspect="4:5 portrait" />
+            label="ADD IMAGE" recommendedSize="1200 x 1500 px" recommendedAspect="4:5 portrait" />
         </div>
       </Group>
 
@@ -186,7 +186,7 @@ function SingleProductForm({ onDone }: { onDone: (msg: string) => void }) {
       <button onClick={submit} disabled={saving}
         className="bg-kohl text-ivory px-6 py-3 font-ui text-xs tracking-widest flex items-center gap-2 disabled:opacity-50">
         {saving ? <Loader2 className="w-3 h-3 animate-spin" /> : <Upload className="w-3 h-3" />}
-        {saving ? 'SUBMITTING…' : 'SUBMIT FOR REVIEW'}
+        {saving ? 'SUBMITTING...' : 'SUBMIT FOR REVIEW'}
       </button>
     </div>
   );
@@ -204,7 +204,7 @@ function BulkUploadForm({ onDone }: { onDone: (msg: string) => void }) {
     const fd = new FormData();
     fd.append('file', file);
     fd.append('folder', 'sellers/bulk-uploads');
-    const r = await fetch('/api/admin/upload', { method: 'POST', body: fd });
+    const r = await fetch('/api/seller/upload', { method: 'POST', body: fd });
     const j = await r.json();
     if (!r.ok) { setErr(j.error); return; }
     const f0 = j.files?.[0] || j;
@@ -246,8 +246,7 @@ function BulkUploadForm({ onDone }: { onDone: (msg: string) => void }) {
           Upload an Excel/CSV with one product per row. Include columns: name, sku, mrp, sellingPrice, description, material, images (comma-separated URLs).
         </p>
         <a href="/seller-bulk-template.xlsx" download
-          className="text-banarasi text-xs hover:underline mt-2 inline-block">
-          📥 Download template
+          Download template
         </a>
       </div>
 
@@ -270,7 +269,7 @@ function BulkUploadForm({ onDone }: { onDone: (msg: string) => void }) {
       </label>
 
       <div>
-        <p className="label text-banarasi mb-1">QUICK SUMMARY <span className="text-mitti font-normal">— optional</span></p>
+        <p className="label text-banarasi mb-1">QUICK SUMMARY <span className="text-mitti font-normal">- optional</span></p>
         <input value={rowSummary} onChange={e => setRowSummary(e.target.value)}
           placeholder="e.g. 32 new Banarasi sarees from June collection"
           className="w-full border border-mitti/30 px-3 py-2 font-ui text-sm bg-ivory" />
@@ -281,7 +280,7 @@ function BulkUploadForm({ onDone }: { onDone: (msg: string) => void }) {
       <button onClick={submit} disabled={saving || !fileUrl}
         className="bg-kohl text-ivory px-6 py-3 font-ui text-xs tracking-widest flex items-center gap-2 disabled:opacity-50">
         {saving ? <Loader2 className="w-3 h-3 animate-spin" /> : <Upload className="w-3 h-3" />}
-        {saving ? 'SUBMITTING…' : 'SUBMIT BULK FILE'}
+        {saving ? 'SUBMITTING...' : 'SUBMIT BULK FILE'}
       </button>
     </div>
   );

@@ -7,12 +7,24 @@ import { prisma } from '@/lib/prisma';
 import { getSession } from '@/lib/auth';
 import { requireSellerContext, canEditInventory } from '@/lib/seller-auth-helpers';
 import { prismaErrorToHttp } from '@/lib/prisma-errors';
+import { getSellerAgreementUploadGate } from '@/lib/agreement-upload-guard';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
 const ALLOWED_TYPES = new Set([
-  'NEW_PRODUCT', 'EDIT_EXISTING', 'PRICE_UPDATE', 'INVENTORY_UPDATE', 'TAKEDOWN_REQUEST',
+  'NEW_PRODUCT',
+  'EDIT_EXISTING',
+  'PRICE_UPDATE',
+  'INVENTORY_UPDATE',
+  'TAKEDOWN_REQUEST',
+]);
+
+const WRITE_BLOCKED_TYPES = new Set([
+  'NEW_PRODUCT',
+  'EDIT_EXISTING',
+  'PRICE_UPDATE',
+  'INVENTORY_UPDATE',
 ]);
 
 export async function GET(req: Request) {
@@ -45,24 +57,50 @@ export async function POST(req: Request) {
   const gate = await requireSellerContext(session);
   if (!gate.ok) return NextResponse.json({ error: gate.error }, { status: gate.status });
   if (!canEditInventory(gate.ctx)) {
-    return NextResponse.json({ error: 'You do not have inventory access for this studio' }, { status: 403 });
+    return NextResponse.json(
+      { error: 'You do not have inventory access for this studio' },
+      { status: 403 }
+    );
   }
 
   try {
     const body = await req.json();
     const { submissionType, proposedData, productId, sourceFileUrl, sourceFileName } = body;
+
     if (!submissionType || !ALLOWED_TYPES.has(submissionType)) {
-      return NextResponse.json({ error: `submissionType required: one of ${Array.from(ALLOWED_TYPES).join(', ')}` }, { status: 400 });
+      return NextResponse.json(
+        { error: `submissionType required: one of ${Array.from(ALLOWED_TYPES).join(', ')}` },
+        { status: 400 }
+      );
     }
+
     if (!proposedData || typeof proposedData !== 'object') {
       return NextResponse.json({ error: 'proposedData is required' }, { status: 400 });
     }
-    if ((submissionType === 'EDIT_EXISTING' || submissionType === 'PRICE_UPDATE' ||
-         submissionType === 'INVENTORY_UPDATE' || submissionType === 'TAKEDOWN_REQUEST') && !productId) {
-      return NextResponse.json({ error: 'productId required for this submission type' }, { status: 400 });
+
+    if (
+      (submissionType === 'EDIT_EXISTING' ||
+        submissionType === 'PRICE_UPDATE' ||
+        submissionType === 'INVENTORY_UPDATE' ||
+        submissionType === 'TAKEDOWN_REQUEST') &&
+      !productId
+    ) {
+      return NextResponse.json(
+        { error: 'productId required for this submission type' },
+        { status: 400 }
+      );
     }
 
-    // If productId provided, verify it belongs to this seller
+    if (WRITE_BLOCKED_TYPES.has(submissionType)) {
+      const agreementGate = await getSellerAgreementUploadGate(gate.ctx.seller.id);
+      if (agreementGate.blocked) {
+        return NextResponse.json(
+          { error: agreementGate.message, code: agreementGate.code, agreementGate },
+          { status: 423 }
+        );
+      }
+    }
+
     if (productId) {
       const product = await prisma.product.findUnique({
         where: { id: productId },
@@ -70,7 +108,10 @@ export async function POST(req: Request) {
       });
       if (!product) return NextResponse.json({ error: 'Product not found' }, { status: 404 });
       if (product.sellerId !== gate.ctx.seller.id) {
-        return NextResponse.json({ error: 'This product belongs to a different studio' }, { status: 403 });
+        return NextResponse.json(
+          { error: 'This product belongs to a different studio' },
+          { status: 403 }
+        );
       }
     }
 
@@ -87,18 +128,18 @@ export async function POST(req: Request) {
       },
     });
 
-    // Audit log
-    await prisma.sellerAuditLog.create({
-      data: {
-        sellerId: gate.ctx.seller.id,
-        actorUserId: session!.id,
-        actorRole: gate.ctx.actorRole,
-        action: 'INVENTORY_SUBMITTED',
-        details: { submissionId: sub.id, submissionType, productId } as any,
-      },
-    }).catch(() => {});
+    await prisma.sellerAuditLog
+      .create({
+        data: {
+          sellerId: gate.ctx.seller.id,
+          actorUserId: session!.id,
+          actorRole: gate.ctx.actorRole,
+          action: 'INVENTORY_SUBMITTED',
+          details: { submissionId: sub.id, submissionType, productId } as any,
+        },
+      })
+      .catch(() => {});
 
-    // Notify admins
     try {
       const { notify } = await import('@/lib/notifications');
       notify({
@@ -111,7 +152,7 @@ export async function POST(req: Request) {
         },
         context: { type: 'SELLER_INVENTORY', id: sub.id },
       }).catch(() => {});
-    } catch { /* */ }
+    } catch {}
 
     return NextResponse.json({ submission: sub }, { status: 201 });
   } catch (err: any) {

@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireApprovedSeller } from '@/lib/seller-context';
 import { slugify } from '@/lib/utils';
+import { getSellerAgreementUploadGate } from '@/lib/agreement-upload-guard';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -45,14 +46,38 @@ export async function POST(request: Request) {
   if (!ctx.ok) return NextResponse.json({ error: ctx.error }, { status: ctx.status });
   if (!ctx.seller) return NextResponse.json({ error: 'No seller record' }, { status: 404 });
 
+  const agreementGate = await getSellerAgreementUploadGate(ctx.seller.id);
+  if (agreementGate.blocked) {
+    return NextResponse.json(
+      { error: agreementGate.message, code: agreementGate.code, agreementGate },
+      { status: 423 }
+    );
+  }
+
   try {
     const body = await request.json();
-    const { name, categoryId, mrp, sellingPrice, sku, craft, region, material, technique, occasion, description, images = [] } = body;
+    const {
+      name,
+      categoryId,
+      mrp,
+      sellingPrice,
+      sku,
+      craft,
+      region,
+      material,
+      technique,
+      occasion,
+      description,
+      images = [],
+    } = body;
+
     if (!name || !categoryId || !mrp || !sellingPrice) {
-      return NextResponse.json({ error: 'name, categoryId, mrp, sellingPrice required' }, { status: 400 });
+      return NextResponse.json(
+        { error: 'name, categoryId, mrp, sellingPrice required' },
+        { status: 400 }
+      );
     }
 
-    // Generate unique slug + SKU
     const baseSlug = slugify(name);
     let slug = baseSlug;
     for (let n = 2; n < 30; n++) {
@@ -60,7 +85,12 @@ export async function POST(request: Request) {
       if (!clash) break;
       slug = `${baseSlug}-${n}`;
     }
-    const finalSku = sku || `NEE-${(ctx.seller.slug || 'STUDIO').toUpperCase().slice(0, 6)}-${Date.now().toString().slice(-6)}`;
+
+    const finalSku =
+      sku ||
+      `NEE-${(ctx.seller.slug || 'STUDIO').toUpperCase().slice(0, 6)}-${Date.now()
+        .toString()
+        .slice(-6)}`;
 
     const product = await prisma.product.create({
       data: {
@@ -78,7 +108,7 @@ export async function POST(request: Request) {
         mrp: parseInt(mrp),
         sellingPrice: parseInt(sellingPrice),
         images: Array.isArray(images) ? images : [],
-        status: 'PENDING_QC', // All seller-submitted products start in QC queue
+        status: 'PENDING_QC',
         artisanName: ctx.seller.contactName,
       },
     });
