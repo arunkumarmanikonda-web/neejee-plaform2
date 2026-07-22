@@ -6,7 +6,7 @@ import { useEffect, useState } from "react";
 type AgreementPayload = any;
 
 function safe(value: any) {
-  return value === null || value === undefined || value === "" ? "â€”" : String(value);
+  return value === null || value === undefined || value === "" ? "—" : String(value);
 }
 
 function Row({ label, value }: { label: string; value: any }) {
@@ -529,17 +529,11 @@ export default function AgreementPrintClient({
             padding: 20px 16px 28px;
           }
 
-          .grid2, .sigWrap, .docFooter {
-          margin-top: 28px;
-          border-top: 1px solid var(--gold-soft);
-          padding-top: 10px;
-          display: grid;
-          grid-template-columns: 1.2fr 1fr 1fr;
-          gap: 12px;
-          align-items: start;
-          font-size: 11px;
-          color: var(--muted);
-        }
+          .grid2,
+          .sigWrap,
+          .docFooter {
+            grid-template-columns: 1fr;
+          }
 
           .title {
             padding: 0;
@@ -658,7 +652,7 @@ export default function AgreementPrintClient({
                   <Row label="Contact Name" value={seller?.contactName} />
                   <Row label="Email" value={seller?.email} />
                   <Row label="Phone" value={seller?.phone} />
-                  <Row label="Craft / Region" value={[seller?.craft, seller?.region].filter(Boolean).join(" â€¢ ")} />
+                  <Row label="Craft / Region" value={[seller?.craft, seller?.region].filter(Boolean).join(" • ")} />
                   <Row label="PAN" value={seller?.pan} />
                   <Row label="GSTIN" value={seller?.gstin} />
                   <Row label="Bank Name" value={seller?.bankName} />
@@ -701,7 +695,7 @@ export default function AgreementPrintClient({
                 ) : clause?.text ? (
                   <p>{clause.text}</p>
                 ) : (
-                  <p>â€”</p>
+                  <p>—</p>
                 )}
               </article>
             ))
@@ -773,4 +767,3 @@ export default function AgreementPrintClient({
     </>
   );
 }
-
