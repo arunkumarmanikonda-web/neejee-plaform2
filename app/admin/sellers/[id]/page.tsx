@@ -268,9 +268,9 @@ export default function AdminSellerDetail() {
         <div className="space-y-4">
           <section className="bg-beige p-5">
             <p className="label text-madder mb-3">CONTACT</p>
-            <p className="text-sm text-kohl">{seller.contactName || 'ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â'}</p>
-            <p className="text-xs text-mitti mt-1">{seller.email || 'ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â'}</p>
-            <p className="text-xs text-mitti">{seller.phone || 'ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â'}</p>
+            <p className="text-sm text-kohl">{seller.contactName || 'ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â'}</p>
+            <p className="text-xs text-mitti mt-1">{seller.email || 'ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â'}</p>
+            <p className="text-xs text-mitti">{seller.phone || 'ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â'}</p>
             {seller.user ? (
               <p className="text-[10px] tracking-wider mt-3">
                 User role: <span className="text-madder">{seller.user.role}</span>
@@ -351,6 +351,13 @@ export default function AdminSellerDetail() {
               </div>
             </div>
 
+              <Link
+                href={`/admin/sellers/${id}/agreement-workbench`}
+                className="inline-flex items-center gap-1 px-3 py-2 bg-madder text-ivory text-xs tracking-wider hover:opacity-90"
+              >
+                EDIT LEGAL AGREEMENT
+              </Link>
+
             <div className="flex flex-wrap gap-2 mb-4">
               <Link
                 href={`/agreement/admin/sellers/${id}`}
@@ -384,11 +391,11 @@ export default function AdminSellerDetail() {
                     <div className="space-y-1 text-xs">
                       <p className="text-kohl">{agreement.company?.legalName || 'Oye Imagine Private Limited'}</p>
                       <p className="text-mitti">{agreement.company?.brandName || 'NEEJEE'}</p>
-                      <p className="text-mitti">{agreement.company?.address || 'ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â'}</p>
-                      <p className="text-mitti">GSTIN: {agreement.company?.gstin || 'ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â'}</p>
-                      <p className="text-mitti">PAN: {agreement.company?.pan || 'ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â'}</p>
-                      <p className="text-mitti">Authorised signatory: {agreement.company?.authorisedSignatory || 'ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â'}</p>
-                      <p className="text-mitti">Title: {agreement.company?.signatoryTitle || 'ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â'}</p>
+                      <p className="text-mitti">{agreement.company?.address || 'ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â'}</p>
+                      <p className="text-mitti">GSTIN: {agreement.company?.gstin || 'ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â'}</p>
+                      <p className="text-mitti">PAN: {agreement.company?.pan || 'ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â'}</p>
+                      <p className="text-mitti">Authorised signatory: {agreement.company?.authorisedSignatory || 'ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â'}</p>
+                      <p className="text-mitti">Title: {agreement.company?.signatoryTitle || 'ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â'}</p>
                     </div>
 
                     {agreement.company?.signatureUrl ? (
@@ -407,16 +414,16 @@ export default function AdminSellerDetail() {
                   <div className="bg-ivory border border-mitti/15 p-4">
                     <p className="label text-mitti mb-2">SELLER + COMMERCIAL TERMS</p>
                     <div className="space-y-1 text-xs">
-                      <p className="text-kohl">{agreement.seller?.businessName || 'ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â'}</p>
-                      <p className="text-mitti">Contact: {agreement.seller?.contactName || 'ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â'}</p>
-                      <p className="text-mitti">Email: {agreement.seller?.email || 'ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â'}</p>
-                      <p className="text-mitti">Phone: {agreement.seller?.phone || 'ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â'}</p>
+                      <p className="text-kohl">{agreement.seller?.businessName || 'ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â'}</p>
+                      <p className="text-mitti">Contact: {agreement.seller?.contactName || 'ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â'}</p>
+                      <p className="text-mitti">Email: {agreement.seller?.email || 'ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â'}</p>
+                      <p className="text-mitti">Phone: {agreement.seller?.phone || 'ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â'}</p>
                       <p className="text-mitti">Craft / Region: {[agreement.seller?.craft, agreement.seller?.region].filter(Boolean).join(` ${String.fromCharCode(0x2022)} `) || String.fromCharCode(0x2014)}</p>
                       <p className="text-mitti">Commission: {agreement.commercialTerms?.commissionPct ?? 20}%</p>
-                      <p className="text-mitti">Payout cycle: {agreement.commercialTerms?.payoutCycle || 'ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â'}</p>
+                      <p className="text-mitti">Payout cycle: {agreement.commercialTerms?.payoutCycle || 'ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â'}</p>
                       <p className="text-mitti">Neejee Select: {agreement.commercialTerms?.isNeejeeSelect ? 'Yes' : 'No'}</p>
                       <p className="text-mitti">Quality score: {agreement.commercialTerms?.qualityScore ?? 0}</p>
-                      <p className="text-mitti">Cluster: {agreement.commercialTerms?.cluster || 'ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â'}</p>
+                      <p className="text-mitti">Cluster: {agreement.commercialTerms?.cluster || 'ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â'}</p>
                     </div>
                   </div>
                 </div>
@@ -444,8 +451,10 @@ export default function AdminSellerDetail() {
                   </div>
                 </div>
 
-                <div className="bg-ivory border border-dashed border-mitti/20 p-4 text-xs text-mitti">
-                  Printable agreement page is live. Seller-side digital signing remains pending for Phase 3.
+                <div className="bg-ivory border border-dashed border-mitti/20 p-4 text-xs text-mitti space-y-1">
+                  <p>Printable agreement page is live.</p>
+                  <p>Legal editing is available in Agreement Workbench.</p>
+                  <p>Seller-side digital signing (Aadhaar / eSign) is not active yet and remains pending for Phase 3.</p>
                 </div>
               </div>
             )}
