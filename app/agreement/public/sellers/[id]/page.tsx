@@ -1,4 +1,3 @@
-import { notFound } from 'next/navigation';
 import AgreementPrintClient from '@/app/agreement/admin/sellers/[id]/AgreementPrintClient';
 
 export const dynamic = 'force-dynamic';
@@ -19,16 +18,12 @@ export default async function PublicAgreementPage({
   searchParams?: { token?: string };
 }) {
   const token = String(searchParams?.token || '');
-  const expected = process.env.AGREEMENT_PUBLIC_TOKEN || '';
-
-  if (!expected || !token || token !== expected) {
-    notFound();
-  }
+  const qs = token ? `?token=${encodeURIComponent(token)}` : '';
 
   return (
     <AgreementPrintClient
       id={params.id}
-      dataUrl={`/api/admin/sellers/${params.id}/agreement?token=${encodeURIComponent(token)}`}
+      dataUrl={`/api/admin/sellers/${params.id}/agreement${qs}`}
     />
   );
 }

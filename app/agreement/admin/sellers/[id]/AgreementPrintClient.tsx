@@ -6,7 +6,7 @@ import { useEffect, useState } from "react";
 type AgreementPayload = any;
 
 function safe(value: any) {
-  return value === null || value === undefined || value === "" ? "—" : String(value);
+  return value === null || value === undefined || value === "" ? "â€”" : String(value);
 }
 
 function Row({ label, value }: { label: string; value: any }) {
@@ -53,7 +53,7 @@ export default function AgreementPrintClient({
     return () => {
       alive = false;
     };
-  }, [id]);
+  }, [id, dataUrl]);
 
   if (loading) return <div style={{ padding: 24, fontFamily: "Arial, sans-serif" }}>Loading agreement...</div>;
   if (err) return <div style={{ padding: 24, color: "#991b1b", fontFamily: "Arial, sans-serif" }}>{err}</div>;
@@ -93,7 +93,7 @@ export default function AgreementPrintClient({
     );
   }
 
-  const exportBaseName = "NEEJEE · Found. Personal_";
+  const exportBaseName = "NEEJEE Â· Found. Personal_";
 
   const handlePrint = () => {
   const previousTitle = document.title;
@@ -418,6 +418,34 @@ export default function AgreementPrintClient({
           margin: 14mm;
         }
 
+                @media screen {
+          .sheet {
+            position: relative;
+            overflow: hidden;
+            background-color: #fff;
+            box-shadow: 0 10px 28px rgba(0, 0, 0, 0.12);
+            background-image: repeating-linear-gradient(
+              to bottom,
+              transparent 0,
+              transparent calc(297mm - 1px),
+              rgba(120, 104, 78, 0.35) calc(297mm - 1px),
+              rgba(120, 104, 78, 0.35) 297mm
+            );
+            background-size: 100% 297mm;
+          }
+
+          .docFooter {
+            display: none;
+          }
+
+          .toolbar {
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            background: rgba(245, 241, 235, 0.92);
+            backdrop-filter: blur(4px);
+          }
+        }
         @media print {
           h1, h2, h3 {
             break-after: avoid-page;
@@ -528,6 +556,34 @@ export default function AgreementPrintClient({
             margin: 0;
             padding: 20px 16px 28px;
           }
+
+          .grid2,
+          .sigWrap,
+          .docFooter {
+            grid-template-columns: 1fr;
+          }
+
+          .title {
+            padding: 0;
+          }
+        }
+          .sheet {
+            width: auto;
+            min-height: auto;
+            margin: 0;
+            padding: 20px 16px 28px;
+          }
+
+          .grid2,
+          .sigWrap,
+          .docFooter {
+            grid-template-columns: 1fr;
+          }
+
+          .title {
+            padding: 0;
+          }
+        }
 
           .grid2,
           .sigWrap,
@@ -652,7 +708,7 @@ export default function AgreementPrintClient({
                   <Row label="Contact Name" value={seller?.contactName} />
                   <Row label="Email" value={seller?.email} />
                   <Row label="Phone" value={seller?.phone} />
-                  <Row label="Craft / Region" value={[seller?.craft, seller?.region].filter(Boolean).join(" • ")} />
+                  <Row label="Craft / Region" value={[seller?.craft, seller?.region].filter(Boolean).join(" â€¢ ")} />
                   <Row label="PAN" value={seller?.pan} />
                   <Row label="GSTIN" value={seller?.gstin} />
                   <Row label="Bank Name" value={seller?.bankName} />
@@ -695,7 +751,7 @@ export default function AgreementPrintClient({
                 ) : clause?.text ? (
                   <p>{clause.text}</p>
                 ) : (
-                  <p>—</p>
+                  <p>â€”</p>
                 )}
               </article>
             ))
