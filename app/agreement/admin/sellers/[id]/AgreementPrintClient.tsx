@@ -723,7 +723,7 @@ export default function AgreementPrintClient({
                 ) : clause?.text ? (
                   <p>{clause.text}</p>
                 ) : (
-                  <p>Ã¢â‚¬â€</p>
+                  <p>ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â</p>
                 )}
               </article>
             ))
