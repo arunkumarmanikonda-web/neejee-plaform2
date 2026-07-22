@@ -6,7 +6,7 @@ import { useEffect, useState } from "react";
 type AgreementPayload = any;
 
 function safe(value: any) {
-  return value === null || value === undefined || value === "" ? "â€”" : String(value);
+  return value === null || value === undefined || value === "" ? String.fromCharCode(0x2014) : String(value);
 }
 
 function Row({ label, value }: { label: string; value: any }) {
@@ -93,7 +93,7 @@ export default function AgreementPrintClient({
     );
   }
 
-  const exportBaseName = "NEEJEE Â· Found. Personal_";
+  const exportBaseName = `NEEJEE ${String.fromCharCode(0x00B7)} Found. Personal_`;
 
   const handlePrint = () => {
   const previousTitle = document.title;
@@ -567,34 +567,6 @@ export default function AgreementPrintClient({
             padding: 0;
           }
         }
-          .sheet {
-            width: auto;
-            min-height: auto;
-            margin: 0;
-            padding: 20px 16px 28px;
-          }
-
-          .grid2,
-          .sigWrap,
-          .docFooter {
-            grid-template-columns: 1fr;
-          }
-
-          .title {
-            padding: 0;
-          }
-        }
-
-          .grid2,
-          .sigWrap,
-          .docFooter {
-            grid-template-columns: 1fr;
-          }
-
-          .title {
-            padding: 0;
-          }
-        }
       `}</style>
 
       <div className="toolbar">
@@ -708,7 +680,7 @@ export default function AgreementPrintClient({
                   <Row label="Contact Name" value={seller?.contactName} />
                   <Row label="Email" value={seller?.email} />
                   <Row label="Phone" value={seller?.phone} />
-                  <Row label="Craft / Region" value={[seller?.craft, seller?.region].filter(Boolean).join(" â€¢ ")} />
+                  <Row label="Craft / Region" value={[seller?.craft, seller?.region].filter(Boolean).join(` ${String.fromCharCode(0x2022)} `)} />
                   <Row label="PAN" value={seller?.pan} />
                   <Row label="GSTIN" value={seller?.gstin} />
                   <Row label="Bank Name" value={seller?.bankName} />
@@ -751,7 +723,7 @@ export default function AgreementPrintClient({
                 ) : clause?.text ? (
                   <p>{clause.text}</p>
                 ) : (
-                  <p>â€”</p>
+                  <p>Ã¢â‚¬â€</p>
                 )}
               </article>
             ))
