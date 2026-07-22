@@ -93,7 +93,26 @@ export default function AgreementPrintClient({
     );
   }
 
-  const exportBaseName = `NEEJEE ${String.fromCharCode(0x00B7)} Found. Personal_`;
+  const cleanFilePart = (value: any) =>
+    String(value ?? "")
+      .trim()
+      .replace(/[\\/:*?"<>|]+/g, "")
+      .replace(/\s+/g, "_");
+
+  const formatFileDate = (value: any) => {
+    const d = value ? new Date(value) : new Date();
+    if (Number.isNaN(d.getTime())) return "";
+    const dd = String(d.getDate()).padStart(2, "0");
+    const mm = String(d.getMonth() + 1).padStart(2, "0");
+    const yyyy = String(d.getFullYear());
+    return `${dd}${mm}${yyyy}`;
+  };
+
+  const exportBaseName = [
+    cleanFilePart(seller?.businessName || seller?.contactName || "seller"),
+    cleanFilePart(seller?.id || id),
+    formatFileDate(data?.generatedAt),
+  ].filter(Boolean).join("_");
 
   const handlePrint = () => {
   const previousTitle = document.title;
@@ -723,7 +742,7 @@ export default function AgreementPrintClient({
                 ) : clause?.text ? (
                   <p>{clause.text}</p>
                 ) : (
-                  <p>ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â</p>
+                  <p>ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â</p>
                 )}
               </article>
             ))
