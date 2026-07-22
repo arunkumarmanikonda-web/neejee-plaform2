@@ -81,6 +81,14 @@ export default function AdminAgreementWorkbenchPage() {
   const [doc, setDoc] = useState<any>(ensureDocumentShape({}));
   const [draftStatus, setDraftStatus] = useState('DRAFT');
   const [selectedSignatory, setSelectedSignatory] = useState('');
+  const [agreementNumber, setAgreementNumber] = useState('');
+  const [effectiveDate, setEffectiveDate] = useState('');
+  const [validFrom, setValidFrom] = useState('');
+  const [validTo, setValidTo] = useState('');
+  const [renewalMode, setRenewalMode] = useState('MANUAL');
+  const [renewalNoticeDays, setRenewalNoticeDays] = useState('30');
+  const [expiryAction, setExpiryAction] = useState('LOCK_STOCK_BARREL');
+  const [renegotiationReason, setRenegotiationReason] = useState('');
   const [changeSummary, setChangeSummary] = useState('');
   const [observationDrafts, setObservationDrafts] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
@@ -122,6 +130,14 @@ export default function AdminAgreementWorkbenchPage() {
         '';
 
       setSelectedSignatory(String(defaultSignatoryId || ''));
+      setAgreementNumber(String(workflowJson?.agreement?.agreementNumber || ''));
+      setEffectiveDate(String(workflowJson?.agreement?.effectiveDate || ''));
+      setValidFrom(String(workflowJson?.agreement?.validFrom || ''));
+      setValidTo(String(workflowJson?.agreement?.validTo || ''));
+      setRenewalMode(String(workflowJson?.agreement?.renewalMode || 'MANUAL'));
+      setRenewalNoticeDays(String(workflowJson?.agreement?.renewalNoticeDays ?? 30));
+      setExpiryAction(String(workflowJson?.agreement?.expiryAction || 'LOCK_STOCK_BARREL'));
+      setRenegotiationReason(String(workflowJson?.agreement?.renegotiationReason || ''));
 
       const nextResponses: Record<string, string> = {};
       for (const obs of workflowJson?.observations || []) {
@@ -162,6 +178,14 @@ export default function AdminAgreementWorkbenchPage() {
 
       setDraftStatus(String(json?.agreement?.status || draftStatus));
       setSelectedSignatory(String(json?.agreement?.companySignatoryId || selectedSignatory));
+      setAgreementNumber(String(json?.agreement?.agreementNumber || agreementNumber));
+      setEffectiveDate(String(json?.agreement?.effectiveDate || effectiveDate));
+      setValidFrom(String(json?.agreement?.validFrom || validFrom));
+      setValidTo(String(json?.agreement?.validTo || validTo));
+      setRenewalMode(String(json?.agreement?.renewalMode || renewalMode));
+      setRenewalNoticeDays(String(json?.agreement?.renewalNoticeDays ?? renewalNoticeDays));
+      setExpiryAction(String(json?.agreement?.expiryAction || expiryAction));
+      setRenegotiationReason(String(json?.agreement?.renegotiationReason || renegotiationReason));
       setMsg(successMessage);
       setTimeout(() => setMsg(''), 2500);
     } catch (e: any) {
@@ -171,12 +195,25 @@ export default function AdminAgreementWorkbenchPage() {
     }
   };
 
+  const commercialPayload = () => ({
+    companySignatoryId: selectedSignatory || null,
+    agreementNumber,
+    effectiveDate,
+    validFrom,
+    validTo,
+    renewalMode,
+    renewalNoticeDays: Number(renewalNoticeDays || 30),
+    expiryAction,
+    renegotiationReason,
+  });
+
   const saveDraft = async () => {
     await persistWorkflow(
       {
         action: 'save-draft',
         document: doc,
         status: draftStatus,
+        ...commercialPayload(),
         changeSummary: changeSummary || 'Agreement updated in workbench',
       },
       'Draft saved',
@@ -367,7 +404,7 @@ export default function AdminAgreementWorkbenchPage() {
         <div className="flex items-start justify-between gap-4 flex-wrap mt-2">
           <div>
             <h1 className="font-display text-4xl text-kohl">
-              Agreement workbench — {seller.businessName || 'Seller'}
+              Agreement workbench â€” {seller.businessName || 'Seller'}
             </h1>
             <p className="font-italic italic text-mitti mt-2">
               Admin/legal can revise, lock, route for signature, and close the agreement.
@@ -483,7 +520,15 @@ export default function AdminAgreementWorkbenchPage() {
               </button>
 
               <button
-                onClick={() => workflowAction('company-sign', { signatoryId: selectedSignatory || null })}
+                onClick={() => workflowAction('set-signatory', { signatoryId: selectedSignatory || null, ...commercialPayload() })}
+                disabled={saving}
+                className="px-3 py-2 border border-mitti/25 text-xs tracking-wider text-mitti hover:bg-mitti/5 disabled:opacity-50"
+              >
+                APPLY SIGNATORY + TERMS
+              </button>
+
+              <button
+                onClick={() => workflowAction('company-sign', { signatoryId: selectedSignatory || null, ...commercialPayload() })}
                 disabled={saving}
                 className="px-3 py-2 bg-neem text-ivory text-xs tracking-wider inline-flex items-center gap-1 disabled:opacity-50"
               >
@@ -671,19 +716,112 @@ export default function AdminAgreementWorkbenchPage() {
           <section className="bg-beige p-5">
             <p className="label text-madder mb-3">SELLER SNAPSHOT</p>
             <div className="space-y-2 text-sm">
-              <p className="font-display text-2xl text-kohl">{seller.businessName || '—'}</p>
-              <p className="text-mitti">{seller.contactName || '—'}</p>
-              <p className="text-mitti">{seller.email || '—'}</p>
-              <p className="text-mitti">{seller.phone || '—'}</p>
+              <p className="font-display text-2xl text-kohl">{seller.businessName || 'â€”'}</p>
+              <p className="text-mitti">{seller.contactName || 'â€”'}</p>
+              <p className="text-mitti">{seller.email || 'â€”'}</p>
+              <p className="text-mitti">{seller.phone || 'â€”'}</p>
               <p className="text-mitti">
-                {[seller.craft, seller.region].filter(Boolean).join(' • ') || '—'}
+                {[seller.craft, seller.region].filter(Boolean).join(' â€¢ ') || 'â€”'}
               </p>
-              <p className="text-mitti">Commission: {seller.commissionPct ?? '—'}%</p>
-              <p className="text-mitti">Payout cycle: {seller.payoutCycle || '—'}</p>
+              <p className="text-mitti">Commission: {seller.commissionPct ?? 'â€”'}%</p>
+              <p className="text-mitti">Payout cycle: {seller.payoutCycle || 'â€”'}</p>
             </div>
           </section>
 
           <section className="bg-beige p-5">
+            <div className="bg-beige border border-mitti/15 p-5 mb-6">
+              <p className="label text-madder mb-3">COMMERCIAL TERMS</p>
+
+              <div className="grid md:grid-cols-2 gap-4">
+                <label className="block">
+                  <span className="label text-mitti">AGREEMENT NUMBER</span>
+                  <input
+                    value={agreementNumber}
+                    onChange={e => setAgreementNumber(e.target.value)}
+                    className="w-full p-3 bg-ivory border border-mitti/20 text-sm mt-1"
+                  />
+                </label>
+
+                <label className="block">
+                  <span className="label text-mitti">EFFECTIVE DATE</span>
+                  <input
+                    type="date"
+                    value={effectiveDate}
+                    onChange={e => setEffectiveDate(e.target.value)}
+                    className="w-full p-3 bg-ivory border border-mitti/20 text-sm mt-1"
+                  />
+                </label>
+
+                <label className="block">
+                  <span className="label text-mitti">VALID FROM</span>
+                  <input
+                    type="date"
+                    value={validFrom}
+                    onChange={e => setValidFrom(e.target.value)}
+                    className="w-full p-3 bg-ivory border border-mitti/20 text-sm mt-1"
+                  />
+                </label>
+
+                <label className="block">
+                  <span className="label text-mitti">VALID TO</span>
+                  <input
+                    type="date"
+                    value={validTo}
+                    onChange={e => setValidTo(e.target.value)}
+                    className="w-full p-3 bg-ivory border border-mitti/20 text-sm mt-1"
+                  />
+                </label>
+
+                <label className="block">
+                  <span className="label text-mitti">RENEWAL MODE</span>
+                  <select
+                    value={renewalMode}
+                    onChange={e => setRenewalMode(e.target.value)}
+                    className="w-full p-3 bg-ivory border border-mitti/20 text-sm mt-1"
+                  >
+                    <option value="MANUAL">MANUAL</option>
+                    <option value="AUTO_RENEW">AUTO RENEW</option>
+                    <option value="RENEGOTIATION_REQUIRED">RENEGOTIATION REQUIRED</option>
+                    <option value="NON_RENEWING">NON RENEWING</option>
+                  </select>
+                </label>
+
+                <label className="block">
+                  <span className="label text-mitti">RENEWAL NOTICE DAYS</span>
+                  <input
+                    type="number"
+                    min="0"
+                    value={renewalNoticeDays}
+                    onChange={e => setRenewalNoticeDays(e.target.value)}
+                    className="w-full p-3 bg-ivory border border-mitti/20 text-sm mt-1"
+                  />
+                </label>
+
+                <label className="block md:col-span-2">
+                  <span className="label text-mitti">EXPIRY ACTION</span>
+                  <select
+                    value={expiryAction}
+                    onChange={e => setExpiryAction(e.target.value)}
+                    className="w-full p-3 bg-ivory border border-mitti/20 text-sm mt-1"
+                  >
+                    <option value="LOCK_STOCK_BARREL">LOCK STOCK BARREL</option>
+                    <option value="BLOCK_NEW_UPLOADS">BLOCK NEW UPLOADS</option>
+                    <option value="REQUIRE_RENEGOTIATION">REQUIRE RENEGOTIATION</option>
+                    <option value="CLOSE_AGREEMENT">CLOSE AGREEMENT</option>
+                  </select>
+                </label>
+
+                <label className="block md:col-span-2">
+                  <span className="label text-mitti">RENEGOTIATION REASON</span>
+                  <textarea
+                    value={renegotiationReason}
+                    onChange={e => setRenegotiationReason(e.target.value)}
+                    className="w-full p-3 bg-ivory border border-mitti/20 text-sm mt-1 min-h-[88px]"
+                  />
+                </label>
+              </div>
+            </div>
+
             <p className="label text-madder mb-3">COMPANY SIGNATORY</p>
 
             <select
@@ -694,7 +832,7 @@ export default function AdminAgreementWorkbenchPage() {
               <option value="">Select signatory</option>
               {signatories.map((s: any) => (
                 <option key={s.id} value={s.id}>
-                  {s.name} — {s.title}{s.isDefault ? ' (default)' : ''}
+                  {s.name} â€” {s.title}{s.isDefault ? ' (default)' : ''}
                 </option>
               ))}
             </select>
@@ -755,7 +893,7 @@ export default function AdminAgreementWorkbenchPage() {
                     <div className="flex items-center justify-between gap-3 flex-wrap">
                       <div>
                         <p className="text-xs text-kohl font-medium">
-                          Clause {obs.clauseId} · {obs.paragraphKey}
+                          Clause {obs.clauseId} Â· {obs.paragraphKey}
                         </p>
                         <p className="text-[11px] text-mitti mt-1">
                           Status: {String(obs.status || 'OPEN').replace(/_/g, ' ')}
