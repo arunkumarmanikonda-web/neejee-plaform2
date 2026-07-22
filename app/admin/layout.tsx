@@ -1,4 +1,4 @@
-﻿import Link from 'next/link';
+import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import type { LucideIcon } from 'lucide-react';
 import {
@@ -124,6 +124,7 @@ const NAV_GROUPS: NavGroup[] = [
     label: 'MARKETPLACE',
     items: [
       { href: '/admin/sellers', label: 'Sellers', icon: Store },
+      { href: '/admin/agreements', label: 'Agreements', icon: FileText },
       { href: '/admin/seller-onboarding', label: 'Seller Onboarding', icon: ShieldCheck },
       { href: '/admin/seller-inventory', label: 'Seller Inventory Queue', icon: Package },
       { href: '/admin/seller-change-requests', label: 'Seller Changes', icon: Clock },
