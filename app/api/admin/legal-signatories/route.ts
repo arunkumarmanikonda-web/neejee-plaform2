@@ -76,11 +76,12 @@ async function readItems() {
       select: { sections: true },
     });
 
+    const sections: any = page?.sections;
     const raw =
-      isObj(page?.sections) && Array.isArray(page.sections.items)
-        ? page.sections.items
-        : Array.isArray(page?.sections)
-          ? page.sections
+      isObj(sections) && Array.isArray(sections.items)
+        ? sections.items
+        : Array.isArray(sections)
+          ? sections
           : [];
 
     const items = normalize(raw as any[]);
