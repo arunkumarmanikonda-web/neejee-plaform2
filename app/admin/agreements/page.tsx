@@ -96,7 +96,7 @@ const STATUS_TABS = [
   'EXPIRED',
 ] as const;
 
-const safe = (value: unknown, fallback = 'â€”') => {
+const safe = (value: unknown, fallback = '-') => {
   const text = String(value ?? '').trim();
   return text || fallback;
 };
@@ -109,7 +109,7 @@ function parseDate(value?: string) {
 
 function formatDate(value?: string) {
   const d = parseDate(value);
-  return d ? d.toLocaleDateString('en-IN') : 'â€”';
+  return d ? d.toLocaleDateString('en-IN') : '-';
 }
 
 function isExpired(validTo?: string, status?: string) {
@@ -297,7 +297,7 @@ export default function AdminAgreementsPage() {
 
   return (
     <>
-      <p className="label text-madder">LEGAL Â· MARKETPLACE</p>
+      <p className="label text-madder">LEGAL - MARKETPLACE</p>
       <h1 className="font-display text-4xl text-kohl mt-2">Agreement Control Center</h1>
       <p className="font-italic italic text-mitti mt-2">
         Search agreements by seller name, seller ID, agreement number, or signing authority.
@@ -318,7 +318,7 @@ export default function AdminAgreementsPage() {
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search seller name, seller ID, agreement number, signatoryâ€¦"
+              placeholder="Search seller name, seller ID, agreement number, signatory..."
               className="w-full pl-9 pr-3 py-2 bg-beige border border-mitti/20 text-sm"
             />
           </div>
@@ -349,7 +349,7 @@ export default function AdminAgreementsPage() {
 
       <div className="mt-6">
         {loading ? (
-          <p className="text-mitti">Loading agreementsâ€¦</p>
+          <p className="text-mitti">Loading agreements...</p>
         ) : error ? (
           <div className="border border-dashed border-madder/30 p-6 text-madder bg-madder/5 inline-flex items-start gap-3">
             <AlertCircle className="w-5 h-5 mt-0.5" />
@@ -390,16 +390,16 @@ export default function AdminAgreementsPage() {
                         <p className="font-display text-kohl">{safe(row.businessName)}</p>
                         <p className="text-xs text-mitti mt-1">{safe(row.contactName)}</p>
                         <p className="text-[11px] text-mitti mt-2 font-mono">{row.sellerId}</p>
-                        <p className="text-[11px] text-mitti mt-1">{safe(row.email)} Â· {safe(row.phone)}</p>
+                        <p className="text-[11px] text-mitti mt-1">{safe(row.email)} - {safe(row.phone)}</p>
                         <p className="text-[11px] text-mitti mt-1">
-                          {safe(row.craft)} Â· {safe(row.region)}
+                          {safe(row.craft)} - {safe(row.region)}
                         </p>
                       </td>
 
                       <td className="p-3 text-sm text-kohl">
                         <p className="font-mono">{row.agreementNumber}</p>
                         <p className="text-xs text-mitti mt-1">Template {safe(row.templateVersion)}</p>
-                        <p className="text-xs text-mitti mt-1">KYC {safe(row.kycStatus)} Â· Products {row.productCount}</p>
+                        <p className="text-xs text-mitti mt-1">KYC {safe(row.kycStatus)} - Products {row.productCount}</p>
                         {row.hasWorkflowError && (
                           <p className="text-[11px] text-madder mt-2">Workflow fallback loaded</p>
                         )}
@@ -415,9 +415,9 @@ export default function AdminAgreementsPage() {
                       </td>
 
                       <td className="p-3 text-sm text-kohl">
-                        <p>{formatDate(row.validFrom)} â†’ {formatDate(row.validTo)}</p>
+                        <p>{formatDate(row.validFrom)} -> {formatDate(row.validTo)}</p>
                         {row.derivedStatus === 'EXPIRED' ? (
-                          <p className="text-[11px] text-madder mt-2">Expired â€” seller should be blocked from fresh uploads after enforcement is wired</p>
+                          <p className="text-[11px] text-madder mt-2">Expired - seller should be blocked from fresh uploads after enforcement is wired</p>
                         ) : expiringSoon ? (
                           <p className="text-[11px] text-haldi mt-2">Expiring in {expiryDiff} day(s)</p>
                         ) : (
@@ -443,13 +443,13 @@ export default function AdminAgreementsPage() {
                       <td className="p-3 text-right">
                         <div className="flex flex-col items-end gap-2">
                           <Link href={`/admin/sellers/${row.sellerId}/agreement-workbench`} className="text-madder hover:text-kohl text-sm">
-                            WORKBENCH â†’
+                            WORKBENCH ->
                           </Link>
                           <Link href={`/agreement/admin/sellers/${row.sellerId}`} className="text-madder hover:text-kohl text-sm">
-                            PRINTABLE â†’
+                            PRINTABLE ->
                           </Link>
                           <Link href={`/admin/sellers/${row.sellerId}`} className="text-madder hover:text-kohl text-sm">
-                            SELLER â†’
+                            SELLER ->
                           </Link>
                         </div>
                       </td>
