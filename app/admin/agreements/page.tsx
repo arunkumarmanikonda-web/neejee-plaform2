@@ -415,7 +415,7 @@ export default function AdminAgreementsPage() {
                       </td>
 
                       <td className="p-3 text-sm text-kohl">
-                        <p>{formatDate(row.validFrom)} -> {formatDate(row.validTo)}</p>
+                        <p>{formatDate(row.validFrom)} {'->'} {formatDate(row.validTo)}</p>
                         {row.derivedStatus === 'EXPIRED' ? (
                           <p className="text-[11px] text-madder mt-2">Expired - seller should be blocked from fresh uploads after enforcement is wired</p>
                         ) : expiringSoon ? (
@@ -443,13 +443,13 @@ export default function AdminAgreementsPage() {
                       <td className="p-3 text-right">
                         <div className="flex flex-col items-end gap-2">
                           <Link href={`/admin/sellers/${row.sellerId}/agreement-workbench`} className="text-madder hover:text-kohl text-sm">
-                            WORKBENCH ->
+                            WORKBENCH {'->'}
                           </Link>
                           <Link href={`/agreement/admin/sellers/${row.sellerId}`} className="text-madder hover:text-kohl text-sm">
-                            PRINTABLE ->
+                            PRINTABLE {'->'}
                           </Link>
                           <Link href={`/admin/sellers/${row.sellerId}`} className="text-madder hover:text-kohl text-sm">
-                            SELLER ->
+                            SELLER {'->'}
                           </Link>
                         </div>
                       </td>

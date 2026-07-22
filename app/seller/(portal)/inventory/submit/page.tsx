@@ -245,9 +245,7 @@ function BulkUploadForm({ onDone }: { onDone: (msg: string) => void }) {
         <p className="text-mitti text-sm mt-1">
           Upload an Excel/CSV with one product per row. Include columns: name, sku, mrp, sellingPrice, description, material, images (comma-separated URLs).
         </p>
-        <a href="/seller-bulk-template.xlsx" download
-          Download template
-        </a>
+        <a href="/seller-bulk-template.xlsx" download className="text-banarasi text-xs hover:underline mt-2 inline-block">Download template</a>
       </div>
 
       <label className="block border-2 border-dashed border-mitti/30 hover:border-kohl cursor-pointer p-8 rounded text-center transition-colors">
