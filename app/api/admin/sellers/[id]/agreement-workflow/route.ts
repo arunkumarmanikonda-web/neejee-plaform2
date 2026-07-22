@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { getSession, requireRole } from '@/lib/auth';
 
 const DEFAULT_STATUS = 'DRAFT';
+const REGISTRY_SLUG = 'admin-legal-signatories';
 
 const isObject = (value: unknown): value is Record<string, any> =>
   !!value && typeof value === 'object' && !Array.isArray(value);
@@ -16,11 +17,68 @@ function toJsonObject(value: unknown): Record<string, any> {
   return isObject(value) ? value : {};
 }
 
+function deepClone<T>(value: T): T {
+  return JSON.parse(JSON.stringify(value ?? null));
+}
+
+function normalizeAction(value: unknown) {
+  return String(value ?? '')
+    .trim()
+    .toUpperCase()
+    .replace(/[\s-]+/g, '_');
+}
+
 function maskBankAccount(value: unknown) {
   const raw = String(value ?? '').trim();
   if (!raw) return '';
   const tail = raw.slice(-4);
-  return tail ? `••••${tail}` : '';
+  return tail ? `****${tail}` : '';
+}
+
+function normalizeSignatory(item: any, index: number) {
+  return {
+    id: asString(item?.id, `signatory_${index + 1}`),
+    name: asString(item?.name, ''),
+    title: asString(item?.title, ''),
+    email: asString(item?.email, ''),
+    phone: asString(item?.phone, ''),
+    signatureUrl: asString(item?.signatureUrl, ''),
+    validFrom: asString(item?.validFrom, ''),
+    validTo: asString(item?.validTo, ''),
+    notes: asString(item?.notes, ''),
+    active: item?.active !== false,
+    isDefault: !!item?.isDefault,
+  };
+}
+
+function dedupeSignatories(signatories: any[]) {
+  const map = new Map<string, any>();
+
+  signatories.forEach((item, index) => {
+    const normalized = normalizeSignatory(item, index);
+    if (
+      !normalized.name &&
+      !normalized.title &&
+      !normalized.signatureUrl &&
+      !normalized.email &&
+      !normalized.phone
+    ) {
+      return;
+    }
+    const current = map.get(normalized.id) || {};
+    map.set(normalized.id, { ...current, ...normalized });
+  });
+
+  let next = Array.from(map.values());
+  if (!next.length) return [];
+
+  const firstDefault = next.findIndex((item) => item.isDefault);
+  next = next.map((item, index) => ({
+    ...item,
+    isDefault: firstDefault === -1 ? index === 0 : index === firstDefault,
+  }));
+
+  return next;
 }
 
 function buildFallbackDocument(seller: any) {
@@ -99,24 +157,142 @@ function deriveDefaultSignatory(documentJson: any) {
     id: 'default-company-signatory',
     name: asString(company.authorisedSignatory, 'Authorised Signatory'),
     title: asString(company.signatoryTitle, ''),
+    email: asString(company.contactEmail, ''),
+    phone: asString(company.contactPhone, ''),
     signatureUrl: asString(company.signatureUrl, ''),
+    validFrom: '',
+    validTo: '',
+    notes: '',
     isDefault: true,
     active: true,
   };
 }
 
-function buildAgreementBundle(documentJson: any, workflowState: Record<string, any>) {
-  const defaultSignatory = deriveDefaultSignatory(documentJson);
+async function loadCentralSignatories(documentJson: any) {
+  try {
+    const page = await prisma.cmsPage.findUnique({
+      where: { slug: REGISTRY_SLUG },
+      select: { sections: true },
+    });
 
-  const signatories =
-    Array.isArray(workflowState.signatories) && workflowState.signatories.length > 0
-      ? workflowState.signatories
-      : [defaultSignatory];
+    const sections: any = page?.sections;
+    const raw =
+      isObject(sections) && Array.isArray(sections.items)
+        ? sections.items
+        : Array.isArray(sections)
+          ? sections
+          : [];
 
-  const companySignatoryId =
-    asString(workflowState.companySignatoryId) ||
-    asString(signatories.find((x: any) => x?.isDefault)?.id) ||
-    defaultSignatory.id;
+    const items = dedupeSignatories(raw as any[]);
+    if (items.length) return items;
+  } catch {}
+
+  try {
+    const entity = await prisma.legalEntity.findUnique({ where: { key: 'default' } });
+    if (entity) {
+      const item = dedupeSignatories([
+        {
+          id: 'default-company-signatory',
+          name: entity.authorisedSignatory || 'Authorised Signatory',
+          title: entity.signatoryTitle || '',
+          email: entity.contactEmail || '',
+          phone: entity.contactPhone || '',
+          signatureUrl: entity.signatureUrl || '',
+          active: true,
+          isDefault: true,
+        },
+      ]);
+      if (item.length) return item;
+    }
+  } catch {}
+
+  return [deriveDefaultSignatory(documentJson)];
+}
+
+function mergeSignatories(registryItems: any[], workflowState: Record<string, any>, documentJson: any) {
+  const workflowItems = Array.isArray(workflowState.signatories) ? workflowState.signatories : [];
+  const merged = dedupeSignatories([...(registryItems || []), ...(workflowItems || [])]);
+  return merged.length ? merged : [deriveDefaultSignatory(documentJson)];
+}
+
+function syncDocumentMeta(documentJson: any, workflowState: Record<string, any>, signatories: any[]) {
+  const doc = deepClone(documentJson || {});
+  doc.meta = isObject(doc.meta) ? doc.meta : {};
+  doc.company = isObject(doc.company) ? doc.company : {};
+  doc.seller = isObject(doc.seller) ? doc.seller : {};
+  doc.commercialTerms = isObject(doc.commercialTerms) ? doc.commercialTerms : {};
+  doc.recitals = Array.isArray(doc.recitals) ? doc.recitals : [];
+  doc.annexure = Array.isArray(doc.annexure) ? doc.annexure : [];
+  doc.clauses = Array.isArray(doc.clauses) ? doc.clauses : [];
+
+  const selectedSignatory =
+    signatories.find((item) => item.id === asString(workflowState.companySignatoryId)) ||
+    signatories.find((item) => item.isDefault) ||
+    signatories[0] ||
+    deriveDefaultSignatory(doc);
+
+  doc.meta.agreementNumber = asString(
+    workflowState.agreementNumber,
+    asString(doc.meta.agreementNumber, '')
+  );
+  doc.meta.templateVersion = asString(
+    workflowState.templateVersion,
+    asString(doc.meta.templateVersion, 'v1')
+  );
+  doc.meta.effectiveDate = asString(
+    workflowState.effectiveDate,
+    asString(doc.meta.effectiveDate, '')
+  );
+  doc.meta.validFrom = asString(
+    workflowState.validFrom,
+    asString(doc.meta.validFrom, '')
+  );
+  doc.meta.validTo = asString(
+    workflowState.validTo,
+    asString(doc.meta.validTo, '')
+  );
+  doc.meta.renewalMode = asString(
+    workflowState.renewalMode,
+    asString(doc.meta.renewalMode, 'MANUAL')
+  );
+  doc.meta.renewalNoticeDays = Number(
+    workflowState.renewalNoticeDays ?? doc.meta.renewalNoticeDays ?? 30
+  );
+  doc.meta.expiryAction = asString(
+    workflowState.expiryAction,
+    asString(doc.meta.expiryAction, 'LOCK_STOCK_BARREL')
+  );
+
+  doc.company.authorisedSignatory = asString(
+    selectedSignatory?.name,
+    asString(doc.company.authorisedSignatory, 'Authorised Signatory')
+  );
+  doc.company.signatoryTitle = asString(
+    selectedSignatory?.title,
+    asString(doc.company.signatoryTitle, '')
+  );
+  doc.company.signatureUrl = asString(
+    selectedSignatory?.signatureUrl,
+    asString(doc.company.signatureUrl, '')
+  );
+  doc.company.contactEmail = asString(
+    selectedSignatory?.email,
+    asString(doc.company.contactEmail, '')
+  );
+  doc.company.contactPhone = asString(
+    selectedSignatory?.phone,
+    asString(doc.company.contactPhone, '')
+  );
+
+  return doc;
+}
+
+function buildAgreementBundle(documentJson: any, workflowState: Record<string, any>, signatories: any[]) {
+  const selectedSignatory =
+    signatories.find((item) => item.id === asString(workflowState.companySignatoryId)) ||
+    signatories.find((item) => item.isDefault) ||
+    signatories[0] ||
+    deriveDefaultSignatory(documentJson);
 
   const meta = isObject(documentJson?.meta) ? documentJson.meta : {};
 
@@ -130,7 +306,10 @@ function buildAgreementBundle(documentJson: any, workflowState: Record<string, a
     templateVersion: asString(workflowState.templateVersion, asString(meta.templateVersion, 'v1')),
     status: asString(workflowState.status, DEFAULT_STATUS),
     currentDocumentJson: documentJson,
-    companySignatoryId,
+    companySignatoryId: asString(
+      workflowState.companySignatoryId,
+      asString(selectedSignatory?.id, 'default-company-signatory')
+    ),
     effectiveDate: asString(workflowState.effectiveDate, asString(meta.effectiveDate, '')),
     signedDate: asString(workflowState.signedDate, ''),
     validFrom: asString(workflowState.validFrom, asString(meta.validFrom, '')),
@@ -197,21 +376,34 @@ async function saveWorkflowState(
   const printable = await fetchPrintableAgreement(request, seller.id, seller);
 
   const currentSummary = toJsonObject(seller.autoKycSummary);
-  const currentWorkflow = toJsonObject(currentSummary.agreementWorkflow);
+  const currentWorkflow: Record<string, any> = toJsonObject(currentSummary.agreementWorkflow);
 
-  const nextDocument =
+  const baseDocument =
     patch.currentDocumentJson !== undefined
       ? patch.currentDocumentJson
       : currentWorkflow.currentDocumentJson !== undefined
         ? currentWorkflow.currentDocumentJson
         : printable;
 
-  const nextWorkflow = {
+  const nextWorkflow: Record<string, any> = {
     ...currentWorkflow,
     ...patch,
-    currentDocumentJson: nextDocument,
     updatedAt: nowIso(),
   };
+
+  const registryItems = await loadCentralSignatories(baseDocument);
+  const signatories = mergeSignatories(registryItems, nextWorkflow, baseDocument);
+
+  if (!nextWorkflow.companySignatoryId) {
+    nextWorkflow.companySignatoryId =
+      asString(signatories.find((item) => item.isDefault)?.id) ||
+      asString(signatories[0]?.id);
+  }
+
+  const nextDocument = syncDocumentMeta(baseDocument, nextWorkflow, signatories);
+
+  nextWorkflow.currentDocumentJson = nextDocument;
+  nextWorkflow.signatories = signatories;
 
   const nextSummary = {
     ...currentSummary,
@@ -225,7 +417,7 @@ async function saveWorkflowState(
     },
   });
 
-  return buildAgreementBundle(nextDocument, nextWorkflow);
+  return buildAgreementBundle(nextDocument, nextWorkflow, signatories);
 }
 
 export async function GET(
@@ -246,14 +438,24 @@ export async function GET(
     const seller = loaded.seller;
     const printable = await fetchPrintableAgreement(request, id, seller);
     const currentSummary = toJsonObject(seller.autoKycSummary);
-    const currentWorkflow = toJsonObject(currentSummary.agreementWorkflow);
+    const currentWorkflow: Record<string, any> = toJsonObject(currentSummary.agreementWorkflow);
 
-    const documentJson =
+    const baseDocument =
       currentWorkflow.currentDocumentJson !== undefined
         ? currentWorkflow.currentDocumentJson
         : printable;
 
-    const bundle = buildAgreementBundle(documentJson, currentWorkflow);
+    const registryItems = await loadCentralSignatories(baseDocument);
+    const signatories = mergeSignatories(registryItems, currentWorkflow, baseDocument);
+
+    if (!currentWorkflow.companySignatoryId) {
+      currentWorkflow.companySignatoryId =
+        asString(signatories.find((item) => item.isDefault)?.id) ||
+        asString(signatories[0]?.id);
+    }
+
+    const documentJson = syncDocumentMeta(baseDocument, currentWorkflow, signatories);
+    const bundle = buildAgreementBundle(documentJson, currentWorkflow, signatories);
     return NextResponse.json(bundle);
   } catch (error: any) {
     return NextResponse.json(
@@ -324,13 +526,15 @@ export async function POST(
     }
 
     const body = await request.json().catch(() => ({}));
-    const action = String(body?.action || '').trim().toUpperCase().replace(/\s+/g, '_');
+    const action = normalizeAction(body?.action);
     const patch: Record<string, any> = {};
 
     if (body?.document !== undefined) patch.currentDocumentJson = body.document;
     if (body?.currentDocumentJson !== undefined) patch.currentDocumentJson = body.currentDocumentJson;
     if (body?.companySignatoryId !== undefined) patch.companySignatoryId = String(body.companySignatoryId || '');
+    if (body?.signatoryId !== undefined) patch.companySignatoryId = String(body.signatoryId || '');
     if (body?.agreementNumber !== undefined) patch.agreementNumber = String(body.agreementNumber || '');
+    if (body?.templateVersion !== undefined) patch.templateVersion = String(body.templateVersion || 'v1');
     if (body?.effectiveDate !== undefined) patch.effectiveDate = String(body.effectiveDate || '');
     if (body?.signedDate !== undefined) patch.signedDate = String(body.signedDate || '');
     if (body?.validFrom !== undefined) patch.validFrom = String(body.validFrom || '');
@@ -345,7 +549,10 @@ export async function POST(
         patch.status = String(body?.status || 'DRAFT');
         break;
       case 'APPLY_STATUS':
+      case 'SET_STATUS':
         patch.status = String(body?.status || DEFAULT_STATUS);
+        break;
+      case 'SET_SIGNATORY':
         break;
       case 'LOCK':
         patch.status = 'LOCKED';
