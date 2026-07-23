@@ -121,6 +121,29 @@ export default function AdminAgreementWorkbenchPage() {
       setBundle(workflowJson || null);
 
       const nextDoc = ensureDocumentShape(workflowJson?.agreement?.currentDocumentJson || {});
+      const fallbackAgreementNumber = `AGR-${String(id || '').slice(-8).toUpperCase()}`;
+
+      nextDoc.meta = nextDoc.meta || {};
+      nextDoc.seller = nextDoc.seller || {};
+
+      if (!String(nextDoc.meta.agreementNumber || '').trim()) {
+        nextDoc.meta.agreementNumber = fallbackAgreementNumber;
+      }
+
+      if ((!Array.isArray(nextDoc.recitals) || nextDoc.recitals.length === 0) && nextDoc.seller) {
+        const recitalSeed = [
+          nextDoc.seller.businessName
+            ? `The Seller, ${nextDoc.seller.businessName}, has requested onboarding on the Neejee marketplace for listing and selling its products.`
+            : '',
+          nextDoc.seller.address
+            ? `The Seller's principal place of business is ${nextDoc.seller.address}.`
+            : '',
+        ].filter(Boolean);
+
+        if (recitalSeed.length) {
+          nextDoc.recitals = recitalSeed;
+        }
+      }
       setDoc(nextDoc);
       setDraftStatus(String(workflowJson?.agreement?.status || 'DRAFT'));
 
@@ -130,7 +153,13 @@ export default function AdminAgreementWorkbenchPage() {
         '';
 
       setSelectedSignatory(String(defaultSignatoryId || ''));
-      setAgreementNumber(String(workflowJson?.agreement?.agreementNumber || ''));
+      setAgreementNumber(
+        String(
+          workflowJson?.agreement?.agreementNumber ||
+          nextDoc?.meta?.agreementNumber ||
+          `AGR-${String(id || '').slice(-8).toUpperCase()}`
+        )
+      );
       setEffectiveDate(String(workflowJson?.agreement?.effectiveDate || ''));
       setValidFrom(String(workflowJson?.agreement?.validFrom || ''));
       setValidTo(String(workflowJson?.agreement?.validTo || ''));
@@ -404,7 +433,7 @@ export default function AdminAgreementWorkbenchPage() {
         <div className="flex items-start justify-between gap-4 flex-wrap mt-2">
           <div>
             <h1 className="font-display text-4xl text-kohl">
-              Agreement workbench â€” {seller.businessName || 'Seller'}
+              Agreement workbench - {seller.businessName || 'Seller'}
             </h1>
             <p className="font-italic italic text-mitti mt-2">
               Admin/legal can revise, lock, route for signature, and close the agreement.
@@ -716,15 +745,15 @@ export default function AdminAgreementWorkbenchPage() {
           <section className="bg-beige p-5">
             <p className="label text-madder mb-3">SELLER SNAPSHOT</p>
             <div className="space-y-2 text-sm">
-              <p className="font-display text-2xl text-kohl">{seller.businessName || 'â€”'}</p>
-              <p className="text-mitti">{seller.contactName || 'â€”'}</p>
-              <p className="text-mitti">{seller.email || 'â€”'}</p>
-              <p className="text-mitti">{seller.phone || 'â€”'}</p>
+              <p className="font-display text-2xl text-kohl">{seller.businessName || '-'}</p>
+              <p className="text-mitti">{seller.contactName || '-'}</p>
+              <p className="text-mitti">{seller.email || '-'}</p>
+              <p className="text-mitti">{seller.phone || '-'}</p>
               <p className="text-mitti">
-                {[seller.craft, seller.region].filter(Boolean).join(' â€¢ ') || 'â€”'}
+                {[seller.craft, seller.region].filter(Boolean).join(' - ') || '-'}
               </p>
-              <p className="text-mitti">Commission: {seller.commissionPct ?? 'â€”'}%</p>
-              <p className="text-mitti">Payout cycle: {seller.payoutCycle || 'â€”'}</p>
+              <p className="text-mitti">Commission: {seller.commissionPct ?? '-'}%</p>
+              <p className="text-mitti">Payout cycle: {seller.payoutCycle || '-'}</p>
             </div>
           </section>
 
@@ -737,9 +766,11 @@ export default function AdminAgreementWorkbenchPage() {
                   <span className="label text-mitti">AGREEMENT NUMBER</span>
                   <input
                     value={agreementNumber}
-                    onChange={e => setAgreementNumber(e.target.value)}
+                    onChange={e => setAgreementNumber(e.target.value.toUpperCase())}
+                    placeholder={`AGR-${String(id || '').slice(-8).toUpperCase()}`}
                     className="w-full p-3 bg-ivory border border-mitti/20 text-sm mt-1"
                   />
+                  <p className="text-[11px] text-mitti mt-1">Auto-generated if blank on first save.</p>
                 </label>
 
                 <label className="block">
@@ -832,7 +863,7 @@ export default function AdminAgreementWorkbenchPage() {
               <option value="">Select signatory</option>
               {signatories.map((s: any) => (
                 <option key={s.id} value={s.id}>
-                  {s.name} â€” {s.title}{s.isDefault ? ' (default)' : ''}
+                  {s.name} - {s.title}{s.isDefault ? ' (default)' : ''}
                 </option>
               ))}
             </select>
@@ -893,7 +924,7 @@ export default function AdminAgreementWorkbenchPage() {
                     <div className="flex items-center justify-between gap-3 flex-wrap">
                       <div>
                         <p className="text-xs text-kohl font-medium">
-                          Clause {obs.clauseId} Â· {obs.paragraphKey}
+                          Clause {obs.clauseId} - {obs.paragraphKey}
                         </p>
                         <p className="text-[11px] text-mitti mt-1">
                           Status: {String(obs.status || 'OPEN').replace(/_/g, ' ')}

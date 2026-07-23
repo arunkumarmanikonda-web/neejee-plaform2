@@ -149,6 +149,21 @@ export default function AdminSellerDetail() {
           >
             RESEND CONFIRMATION
           </button>
+
+          <Link
+            href={`/admin/sellers/${id}/agreement-workbench`}
+            className="px-3 py-2 bg-kohl text-ivory text-[10px] tracking-wider hover:opacity-90 inline-flex items-center"
+          >
+            WORKBENCH
+          </Link>
+
+          <Link
+            href={`/agreement/admin/sellers/${id}`}
+            target="_blank"
+            className="px-3 py-2 border border-kohl/20 text-kohl text-[10px] tracking-wider hover:bg-kohl/5 inline-flex items-center"
+          >
+            LEGAL PREVIEW
+          </Link>
         </div>
       </div>
 

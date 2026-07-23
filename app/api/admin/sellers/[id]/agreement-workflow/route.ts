@@ -81,7 +81,65 @@ function dedupeSignatories(signatories: any[]) {
   return next;
 }
 
+function asCleanString(value: unknown) {
+  return typeof value === 'string' ? value.trim() : '';
+}
+
+function fromPath(input: any, path: string[]) {
+  let cur = input;
+  for (const key of path) {
+    if (!cur || typeof cur !== 'object') return '';
+    cur = cur[key];
+  }
+  return asCleanString(cur);
+}
+
+function firstNonEmpty(...values: unknown[]) {
+  for (const value of values) {
+    const next = asCleanString(value);
+    if (next) return next;
+  }
+  return '';
+}
+
+function extractSellerAddressFromSummary(summary: any) {
+  const lineAddress = [
+    fromPath(summary, ['onboarding', 'addressLine1']),
+    fromPath(summary, ['onboarding', 'addressLine2']),
+    fromPath(summary, ['onboarding', 'city']),
+    fromPath(summary, ['onboarding', 'state']),
+    fromPath(summary, ['onboarding', 'pincode']),
+  ].filter(Boolean).join(', ');
+
+  return firstNonEmpty(
+    fromPath(summary, ['seller', 'address']),
+    fromPath(summary, ['sellerProfile', 'address']),
+    fromPath(summary, ['onboarding', 'address']),
+    fromPath(summary, ['onboarding', 'registeredAddress']),
+    fromPath(summary, ['onboarding', 'businessAddress']),
+    fromPath(summary, ['kyc', 'address']),
+    fromPath(summary, ['agreementWorkflow', 'currentDocumentJson', 'seller', 'address']),
+    lineAddress,
+  );
+}
+
 function buildFallbackDocument(seller: any) {
+  const summary =
+    seller && seller.autoKycSummary && typeof seller.autoKycSummary === 'object'
+      ? seller.autoKycSummary
+      : {};
+
+  const sellerAddress = extractSellerAddressFromSummary(summary);
+
+  const defaultRecitals = [
+    seller.businessName
+      ? `The Seller, ${seller.businessName}, has requested onboarding on the Neejee marketplace for listing and selling its products.`
+      : '',
+    sellerAddress
+      ? `The Seller's principal place of business is ${sellerAddress}.`
+      : '',
+  ].filter(Boolean);
+
   return {
     meta: {
       agreementNumber: `AGR-${String(seller.id || '').slice(-8).toUpperCase()}`,
@@ -123,9 +181,11 @@ function buildFallbackDocument(seller: any) {
       ifsc: seller.ifsc || '',
       bankName: seller.bankName || '',
       story: seller.story || '',
+      cin: seller.cin || '',
+      address: sellerAddress || '',
     },
     commercialTerms: {},
-    recitals: [],
+    recitals: defaultRecitals,
     annexure: [],
     clauses: [],
   };
@@ -355,6 +415,7 @@ async function loadSellerOr401(id: string) {
       bankAccount: true,
       ifsc: true,
       bankName: true,
+      cin: true,
       region: true,
       craft: true,
       autoKycSummary: true,
