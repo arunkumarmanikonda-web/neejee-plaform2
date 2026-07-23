@@ -77,7 +77,7 @@ export default function AdminAgreementWorkbenchPage() {
   const id = params?.id as string;
 
   const [seller, setSeller] = useState<any>(null);
-  const [addressDiag, setAddressDiag] = useState<any>({ sellerApi: '', workflowDoc: '', agreementApi: '', agreementDebug: null });
+  const [addressDiag, setAddressDiag] = useState<any>({ sellerApi: '', workflowDoc: '', agreementApi: '', agreementDebug: null, agreementStatus: '', agreementContentType: '', agreementSnippet: '' });
   const [bundle, setBundle] = useState<any>(null);
   const [doc, setDoc] = useState<any>(ensureDocumentShape({}));
   const [draftStatus, setDraftStatus] = useState('DRAFT');
@@ -124,12 +124,23 @@ export default function AdminAgreementWorkbenchPage() {
         workflowDoc: String(workflowJson?.agreement?.currentDocumentJson?.seller?.address || '').trim(),
         agreementApi: '',
         agreementDebug: null,
+        agreementStatus: '',
+        agreementContentType: '',
+        agreementSnippet: '',
       });
 
       try {
         const agreementRes = await fetch(`/api/admin/sellers/${id}/agreement`);
-        const agreementJson = await agreementRes.json().catch(() => ({}));
-        setAddressDiag((prev) => ({
+        const agreementContentType = agreementRes.headers.get('content-type') || '';
+        const agreementText = await agreementRes.text();
+        let agreementJson: any = {};
+        try {
+          agreementJson = agreementText ? JSON.parse(agreementText) : {};
+        } catch {
+          agreementJson = {};
+        }
+
+        setAddressDiag((prev: any) => ({
           ...prev,
           agreementApi: String(
             agreementJson?.seller?.address ||
@@ -137,8 +148,17 @@ export default function AdminAgreementWorkbenchPage() {
             ''
           ).trim(),
           agreementDebug: agreementJson?.debugAddressSources || null,
+          agreementStatus: String(agreementRes.status || ''),
+          agreementContentType: agreementContentType,
+          agreementSnippet: String(agreementText || '').slice(0, 300),
         }));
-      } catch {}
+      } catch (err: any) {
+        setAddressDiag((prev: any) => ({
+          ...prev,
+          agreementStatus: 'FETCH_ERROR',
+          agreementSnippet: String(err?.message || err || ''),
+        }));
+      }
       setBundle(workflowJson || null);
 
       const nextDoc = ensureDocumentShape(workflowJson?.agreement?.currentDocumentJson || {});
@@ -784,7 +804,10 @@ export default function AdminAgreementWorkbenchPage() {
                         <p className="text-stone-600">/api/admin/sellers/[id]: {addressDiag.sellerApi || '-'}</p>
                         <p className="text-stone-600">workflow currentDocumentJson: {addressDiag.workflowDoc || '-'}</p>
                         <p className="text-stone-600">/api/admin/sellers/[id]/agreement: {addressDiag.agreementApi || '-'}</p>
+                        <p className="mt-2 text-stone-600">agreement status: {addressDiag.agreementStatus || '-'}</p>
+                        <p className="text-stone-600">content-type: {addressDiag.agreementContentType || '-'}</p>
                         <pre className="mt-2 whitespace-pre-wrap break-words text-[10px] text-stone-500">{JSON.stringify(addressDiag.agreementDebug || {}, null, 2)}</pre>
+                        <pre className="mt-2 whitespace-pre-wrap break-words text-[10px] text-stone-400">{addressDiag.agreementSnippet || ''}</pre>
                       </div>
               <p className="text-mitti">
                 {[seller.craft, seller.region].filter(Boolean).join(' - ') || '-'}
