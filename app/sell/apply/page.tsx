@@ -61,6 +61,11 @@ const initialForm = {
   bankAccount: '',
   ifsc: '',
   bankName: '',
+  addressLine1: '',
+  addressLine2: '',
+  city: '',
+  state: '',
+  pincode: '',
 };
 
 type UploadCardProps = {
@@ -279,6 +284,11 @@ export default function SellerApplyPage() {
           bankAccount: form.bankAccount,
           ifsc: form.ifsc,
           bankName: form.bankName,
+          addressLine1: form.addressLine1,
+          addressLine2: form.addressLine2 || null,
+          city: form.city,
+          state: form.state,
+          pincode: form.pincode,
           documents,
         }),
       });
@@ -521,6 +531,44 @@ export default function SellerApplyPage() {
                       value={form.bankName}
                       onChange={(e) => setField('bankName', e.target.value)}
                     />
+
+                    <div className="pt-2">
+                      <p className="text-xs font-medium uppercase tracking-[0.2em] text-stone-500">Business address</p>
+                    </div>
+
+                    <input
+                      className="w-full rounded-xl border border-stone-300 px-4 py-3 text-sm outline-none focus:border-stone-900"
+                      placeholder="Address line 1"
+                      value={form.addressLine1}
+                      onChange={(e) => setField('addressLine1', e.target.value)}
+                    />
+                    <input
+                      className="w-full rounded-xl border border-stone-300 px-4 py-3 text-sm outline-none focus:border-stone-900"
+                      placeholder="Address line 2 (optional)"
+                      value={form.addressLine2}
+                      onChange={(e) => setField('addressLine2', e.target.value)}
+                    />
+
+                    <div className="grid gap-4 sm:grid-cols-3">
+                      <input
+                        className="w-full rounded-xl border border-stone-300 px-4 py-3 text-sm outline-none focus:border-stone-900"
+                        placeholder="City"
+                        value={form.city}
+                        onChange={(e) => setField('city', e.target.value)}
+                      />
+                      <input
+                        className="w-full rounded-xl border border-stone-300 px-4 py-3 text-sm outline-none focus:border-stone-900"
+                        placeholder="State"
+                        value={form.state}
+                        onChange={(e) => setField('state', e.target.value)}
+                      />
+                      <input
+                        className="w-full rounded-xl border border-stone-300 px-4 py-3 text-sm outline-none focus:border-stone-900"
+                        placeholder="Pincode"
+                        value={form.pincode}
+                        onChange={(e) => setField('pincode', e.target.value.replace(/\D+/g, '').slice(0, 6))}
+                      />
+                    </div>
                   </div>
                 </div>
               </div>

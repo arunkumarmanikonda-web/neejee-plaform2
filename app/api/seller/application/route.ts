@@ -51,6 +51,11 @@ const BodySchema = z.object({
   bankAccount: z.string().min(6),
   ifsc: z.string().min(5),
   bankName: z.string().min(2),
+  addressLine1: z.string().min(3),
+  addressLine2: z.string().optional().nullable(),
+  city: z.string().min(2),
+  state: z.string().min(2),
+  pincode: z.string().regex(/^\d{6}$/),
   documents: z.array(DocSchema).min(1),
 });
 
@@ -165,8 +170,41 @@ export async function POST(request: Request) {
       },
       select: {
         id: true,
+        autoKycSummary: true,
       },
     });
+
+
+    const previousSummary =
+      existingSeller?.autoKycSummary && typeof existingSeller.autoKycSummary === 'object'
+        ? (existingSeller.autoKycSummary as any)
+        : {};
+
+    const onboardingAddress = {
+      addressLine1: String(body.addressLine1 || '').trim(),
+      addressLine2: String(body.addressLine2 || '').trim(),
+      city: String(body.city || '').trim(),
+      state: String(body.state || '').trim(),
+      pincode: String(body.pincode || '').trim(),
+      address: [
+        String(body.addressLine1 || '').trim(),
+        String(body.addressLine2 || '').trim(),
+        String(body.city || '').trim(),
+        String(body.state || '').trim(),
+        String(body.pincode || '').trim(),
+      ].filter(Boolean).join(', '),
+    };
+
+    const nextAutoKycSummary = {
+      ...previousSummary,
+      ...(validation as any),
+      onboarding: {
+        ...(previousSummary?.onboarding && typeof previousSummary.onboarding === 'object'
+          ? previousSummary.onboarding
+          : {}),
+        ...onboardingAddress,
+      },
+    };
 
     const seller = existingSeller
       ? await prisma.seller.update({
@@ -186,7 +224,7 @@ export async function POST(request: Request) {
             bankName: String(body.bankName || '').trim(),
             applicationSubmittedAt: now,
             autoKycPassed: true,
-            autoKycSummary: validation,
+            autoKycSummary: nextAutoKycSummary as any,
             kycStatus: KycStatus.PENDING,
           },
           select: {
@@ -212,7 +250,7 @@ export async function POST(request: Request) {
             bankName: String(body.bankName || '').trim(),
             applicationSubmittedAt: now,
             autoKycPassed: true,
-            autoKycSummary: validation,
+            autoKycSummary: nextAutoKycSummary as any,
             kycStatus: KycStatus.PENDING,
           },
           select: {
