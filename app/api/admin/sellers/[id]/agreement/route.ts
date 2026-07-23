@@ -423,7 +423,7 @@ const debugKyc =
   debugAutoKycSummary?.kyc && typeof debugAutoKycSummary.kyc === 'object'
     ? debugAutoKycSummary.kyc
     : {};
-const debugWorkflowSeller = {};
+const debugWorkflowSeller: any = {};
 const debugAddressSources = {
   sellerBlockAddress: String(sellerBlock?.address || ''),
   onboardingAddress: String(debugOnboarding?.address || ''),
