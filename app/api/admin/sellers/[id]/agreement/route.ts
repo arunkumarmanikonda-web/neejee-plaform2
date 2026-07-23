@@ -406,7 +406,44 @@ export async function GET(request: Request, { params }: { params: { id: string }
       { label: 'Bank', value: compact([sellerBlock.bankName, sellerBlock.ifsc, sellerBlock.bankAccountMasked]).join(` ${String.fromCharCode(0x2022)} `) || String.fromCharCode(0x2014) },
     ];
 
-    return NextResponse.json({
+    const debugAutoKycSummaryRaw = (seller as any)?.autoKycSummary;
+const debugAutoKycSummary =
+  typeof debugAutoKycSummaryRaw === 'string'
+    ? (() => { try { return JSON.parse(debugAutoKycSummaryRaw); } catch { return {}; } })()
+    : (debugAutoKycSummaryRaw && typeof debugAutoKycSummaryRaw === 'object' ? debugAutoKycSummaryRaw : {});
+const debugOnboarding =
+  debugAutoKycSummary?.onboarding && typeof debugAutoKycSummary.onboarding === 'object'
+    ? debugAutoKycSummary.onboarding
+    : {};
+const debugSellerProfile =
+  debugAutoKycSummary?.sellerProfile && typeof debugAutoKycSummary.sellerProfile === 'object'
+    ? debugAutoKycSummary.sellerProfile
+    : {};
+const debugKyc =
+  debugAutoKycSummary?.kyc && typeof debugAutoKycSummary.kyc === 'object'
+    ? debugAutoKycSummary.kyc
+    : {};
+const debugWorkflowSeller =
+  agreementWorkflow?.currentDocumentJson?.seller && typeof agreementWorkflow.currentDocumentJson.seller === 'object'
+    ? agreementWorkflow.currentDocumentJson.seller
+    : {};
+const debugAddressSources = {
+  sellerBlockAddress: String(sellerBlock?.address || ''),
+  onboardingAddress: String(debugOnboarding?.address || ''),
+  onboardingAddressLine1: String(debugOnboarding?.addressLine1 || ''),
+  onboardingAddressLine2: String(debugOnboarding?.addressLine2 || ''),
+  onboardingCity: String(debugOnboarding?.city || ''),
+  onboardingState: String(debugOnboarding?.state || ''),
+  onboardingPincode: String(debugOnboarding?.pincode || ''),
+  onboardingRegisteredAddress: String(debugOnboarding?.registeredAddress || ''),
+  onboardingBusinessAddress: String(debugOnboarding?.businessAddress || ''),
+  sellerProfileAddress: String(debugSellerProfile?.address || ''),
+  kycAddress: String(debugKyc?.address || ''),
+  workflowSellerAddress: String(debugWorkflowSeller?.address || ''),
+};
+
+return NextResponse.json({
+  debugAddressSources,
       agreement: {
         generatedAt: new Date().toISOString(),
         templateVersion: 'phase-2a-v1',

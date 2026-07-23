@@ -77,7 +77,7 @@ export default function AdminAgreementWorkbenchPage() {
   const id = params?.id as string;
 
   const [seller, setSeller] = useState<any>(null);
-  const [addressDiag, setAddressDiag] = useState({ sellerApi: '', workflowDoc: '', agreementApi: '' });
+  const [addressDiag, setAddressDiag] = useState<any>({ sellerApi: '', workflowDoc: '', agreementApi: '', agreementDebug: null });
   const [bundle, setBundle] = useState<any>(null);
   const [doc, setDoc] = useState<any>(ensureDocumentShape({}));
   const [draftStatus, setDraftStatus] = useState('DRAFT');
@@ -123,6 +123,7 @@ export default function AdminAgreementWorkbenchPage() {
         sellerApi: String(sellerJson?.seller?.address || '').trim(),
         workflowDoc: String(workflowJson?.agreement?.currentDocumentJson?.seller?.address || '').trim(),
         agreementApi: '',
+        agreementDebug: null,
       });
 
       try {
@@ -135,6 +136,7 @@ export default function AdminAgreementWorkbenchPage() {
             agreementJson?.agreement?.currentDocumentJson?.seller?.address ||
             ''
           ).trim(),
+          agreementDebug: agreementJson?.debugAddressSources || null,
         }));
       } catch {}
       setBundle(workflowJson || null);
@@ -782,6 +784,7 @@ export default function AdminAgreementWorkbenchPage() {
                         <p className="text-stone-600">/api/admin/sellers/[id]: {addressDiag.sellerApi || '-'}</p>
                         <p className="text-stone-600">workflow currentDocumentJson: {addressDiag.workflowDoc || '-'}</p>
                         <p className="text-stone-600">/api/admin/sellers/[id]/agreement: {addressDiag.agreementApi || '-'}</p>
+                        <pre className="mt-2 whitespace-pre-wrap break-words text-[10px] text-stone-500">{JSON.stringify(addressDiag.agreementDebug || {}, null, 2)}</pre>
                       </div>
               <p className="text-mitti">
                 {[seller.craft, seller.region].filter(Boolean).join(' - ') || '-'}
