@@ -78,7 +78,6 @@ export default function AdminAgreementWorkbenchPage() {
 
   const [seller, setSeller] = useState<any>(null);
   const [addressDiag, setAddressDiag] = useState({ sellerApi: '', workflowDoc: '', agreementApi: '' });
-  const [addressDiag, setAddressDiag] = useState({ sellerApi: '', workflowDoc: '', agreementApi: '' });
   const [bundle, setBundle] = useState<any>(null);
   const [doc, setDoc] = useState<any>(ensureDocumentShape({}));
   const [draftStatus, setDraftStatus] = useState('DRAFT');
@@ -120,24 +119,6 @@ export default function AdminAgreementWorkbenchPage() {
       if (!workflowRes.ok) throw new Error(workflowJson?.error || 'Failed to load workflow');
 
       setSeller(sellerJson?.seller || null);
-      setAddressDiag({
-        sellerApi: String(sellerJson?.seller?.address || '').trim(),
-        workflowDoc: String(workflowJson?.agreement?.currentDocumentJson?.seller?.address || '').trim(),
-        agreementApi: '',
-      });
-
-      try {
-        const agreementRes = await fetch(`/api/admin/sellers/${id}/agreement`);
-        const agreementJson = await agreementRes.json().catch(() => ({}));
-        setAddressDiag((prev) => ({
-          ...prev,
-          agreementApi: String(
-            agreementJson?.seller?.address ||
-            agreementJson?.agreement?.currentDocumentJson?.seller?.address ||
-            ''
-          ).trim(),
-        }));
-      } catch {}
       setAddressDiag({
         sellerApi: String(sellerJson?.seller?.address || '').trim(),
         workflowDoc: String(workflowJson?.agreement?.currentDocumentJson?.seller?.address || '').trim(),
@@ -796,12 +777,6 @@ export default function AdminAgreementWorkbenchPage() {
               <p className="text-mitti">{seller.email || '-'}</p>
               <p className="text-mitti">{seller.phone || '-'}</p>
               <p className="text-mitti">Address: {seller.address || '-'}</p>
-                      <div className="mt-2 rounded border border-dashed border-stone-300 bg-stone-50 p-2 text-[11px]">
-                        <p className="font-medium text-stone-700">ADDRESS DIAG</p>
-                        <p className="text-stone-600">/api/admin/sellers/[id]: {addressDiag.sellerApi || '-'}</p>
-                        <p className="text-stone-600">workflow currentDocumentJson: {addressDiag.workflowDoc || '-'}</p>
-                        <p className="text-stone-600">/api/admin/sellers/[id]/agreement: {addressDiag.agreementApi || '-'}</p>
-                      </div>
                       <div className="mt-2 rounded border border-dashed border-stone-300 bg-stone-50 p-2 text-[11px]">
                         <p className="font-medium text-stone-700">ADDRESS DIAG</p>
                         <p className="text-stone-600">/api/admin/sellers/[id]: {addressDiag.sellerApi || '-'}</p>
