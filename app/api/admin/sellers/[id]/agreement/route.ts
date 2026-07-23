@@ -27,6 +27,17 @@ function maskBankAccount(v: any) {
   return tail ? `XXXX${tail}` : '';
 }
 
+function extractSellerAddress(summary: any) {
+  const onboarding = summary?.onboarding && typeof summary.onboarding === 'object' ? summary.onboarding : {};
+  const line1 = safeString(onboarding.addressLine1);
+  const line2 = safeString(onboarding.addressLine2);
+  const city = safeString(onboarding.city);
+  const state = safeString(onboarding.state);
+  const pincode = safeString(onboarding.pincode);
+  const direct = safeString(onboarding.address);
+  return direct || compact([line1, line2, city, state, pincode]).join(', ');
+}
+
 export async function GET(request: Request, { params }: { params: { id: string } }) {
   const url = new URL(request.url);
   const token = url.searchParams.get('token') || '';
@@ -60,6 +71,7 @@ export async function GET(request: Request, { params }: { params: { id: string }
         ifsc: true,
         bankName: true,
         story: true,
+        autoKycSummary: true,
       },
     });
 
@@ -152,6 +164,8 @@ export async function GET(request: Request, { params }: { params: { id: string }
       logoUrl: safeString(entity?.logoUrl),
     };
 
+    const sellerAddress = extractSellerAddress(seller?.autoKycSummary);
+
     const sellerBlock = {
       id: seller.id,
       businessName: safeString(seller.businessName),
@@ -166,6 +180,7 @@ export async function GET(request: Request, { params }: { params: { id: string }
       ifsc: safeString(seller.ifsc),
       bankName: safeString(seller.bankName),
       story: safeString(seller.story),
+      address: sellerAddress,
     };
 
     const clauses = [
@@ -375,19 +390,19 @@ export async function GET(request: Request, { params }: { params: { id: string }
 ];
 
     const annexure = [
-      { label: 'Seller legal name / business name', value: sellerBlock.businessName || 'ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â' },
-      { label: 'Primary contact', value: sellerBlock.contactName || 'ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â' },
-      { label: 'Email', value: sellerBlock.email || 'ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â' },
-      { label: 'Phone', value: sellerBlock.phone || 'ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â' },
+      { label: 'Seller legal name / business name', value: sellerBlock.businessName || '-' },
+      { label: 'Primary contact', value: sellerBlock.contactName || '-' },
+      { label: 'Email', value: sellerBlock.email || '-' },
+      { label: 'Phone', value: sellerBlock.phone || '-' },
       { label: 'Craft / category', value: compact([sellerBlock.craft, sellerBlock.region]).join(` ${String.fromCharCode(0x2022)} `) || String.fromCharCode(0x2014) },
       { label: 'Commission %', value: `${commercialTerms.commissionPct ?? 20}%` },
-      { label: 'Payout cycle', value: safeString(commercialTerms.payoutCycle, 'MONTHLY') || 'ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â' },
+      { label: 'Payout cycle', value: safeString(commercialTerms.payoutCycle, 'MONTHLY') || '-' },
       { label: 'Neejee Select', value: commercialTerms.isNeejeeSelect ? 'Yes' : 'No' },
       { label: 'Quality score', value: String(commercialTerms.qualityScore ?? 0) },
-      { label: 'Years of practice', value: commercialTerms.yearsOfPractice != null ? String(commercialTerms.yearsOfPractice) : 'ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â' },
+      { label: 'Years of practice', value: commercialTerms.yearsOfPractice != null ? String(commercialTerms.yearsOfPractice) : '-' },
       { label: 'Cluster', value: safeString(commercialTerms.cluster, String.fromCharCode(0x2014)) },
-      { label: 'PAN', value: sellerBlock.pan || 'ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â' },
-      { label: 'GSTIN', value: sellerBlock.gstin || 'ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â' },
+      { label: 'PAN', value: sellerBlock.pan || '-' },
+      { label: 'GSTIN', value: sellerBlock.gstin || '-' },
       { label: 'Bank', value: compact([sellerBlock.bankName, sellerBlock.ifsc, sellerBlock.bankAccountMasked]).join(` ${String.fromCharCode(0x2022)} `) || String.fromCharCode(0x2014) },
     ];
 

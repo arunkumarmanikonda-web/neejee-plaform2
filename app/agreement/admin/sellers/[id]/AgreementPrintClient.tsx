@@ -630,8 +630,7 @@ export default function AgreementPrintClient({
             </p>
             <p style={{ textAlign: "center", fontWeight: 700, margin: "16px 0" }}>AND</p>
             <p>
-              <strong>{safe(sellerName)}</strong>, having its principal place of business at the seller particulars recorded
-              in this Agreement, through its proprietor / partner / authorised signatory, hereinafter referred to as the
+              <strong>{safe(sellerName)}</strong>, having its principal place of business at <strong>{safe(seller?.address || 'the seller particulars recorded in this Agreement')}</strong>, through its proprietor / partner / authorised signatory, hereinafter referred to as the
               "<strong>Seller</strong>", which expression shall, unless repugnant to the context or meaning thereof, include its
               successors, representatives and permitted assigns.
             </p>
@@ -699,6 +698,7 @@ export default function AgreementPrintClient({
                   <Row label="Contact Name" value={seller?.contactName} />
                   <Row label="Email" value={seller?.email} />
                   <Row label="Phone" value={seller?.phone} />
+    <Row label="Address" value={seller?.address} />
                   <Row label="Craft / Region" value={[seller?.craft, seller?.region].filter(Boolean).join(` ${String.fromCharCode(0x2022)} `)} />
                   <Row label="PAN" value={seller?.pan} />
                   <Row label="GSTIN" value={seller?.gstin} />
