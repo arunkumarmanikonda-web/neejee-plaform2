@@ -77,8 +77,7 @@ export default function AdminAgreementWorkbenchPage() {
   const id = params?.id as string;
 
   const [seller, setSeller] = useState<any>(null);
-  const [addressDiag, setAddressDiag] = useState<any>({ sellerApi: '', workflowDoc: '', agreementApi: '', agreementDebug: null, agreementStatus: '', agreementContentType: '', agreementSnippet: '' });
-  const [bundle, setBundle] = useState<any>(null);
+    const [bundle, setBundle] = useState<any>(null);
   const [doc, setDoc] = useState<any>(ensureDocumentShape({}));
   const [draftStatus, setDraftStatus] = useState('DRAFT');
   const [selectedSignatory, setSelectedSignatory] = useState('');
