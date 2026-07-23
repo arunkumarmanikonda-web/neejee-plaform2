@@ -35,6 +35,7 @@ export async function GET(request: Request, { params }: { params: { id: string }
         bankAccount: true,
         ifsc: true,
         bankName: true,
+        autoKycSummary: true,
         products: {
           select: { id: true, name: true, status: true },
         },
@@ -65,6 +66,24 @@ export async function GET(request: Request, { params }: { params: { id: string }
         contactName: seller.contactName,
         email: seller.email,
         phone: seller.phone,
+        address:
+          ((summary: any) => {
+            const onboarding =
+              summary?.onboarding && typeof summary.onboarding === 'object'
+                ? summary.onboarding
+                : {};
+            const direct = String(onboarding.address || '').trim();
+            const parts = [
+              onboarding.addressLine1,
+              onboarding.addressLine2,
+              onboarding.city,
+              onboarding.state,
+              onboarding.pincode,
+            ]
+              .map((value: any) => String(value || '').trim())
+              .filter(Boolean);
+            return direct || parts.join(', ');
+          })(seller.autoKycSummary),
         craft: seller.craft,
         region: seller.region,
         kycStatus: seller.kycStatus,
@@ -124,7 +143,7 @@ export async function PATCH(request: Request, { params }: { params: { id: string
     if (body.resendApplicationEmail) {
       const r = await sendEmail({
         to: existing.email,
-        subject: 'Your NEEJEE seller application Ã¢â‚¬â€ received',
+        subject: 'Your NEEJEE seller application ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â received',
         html: sellerApplicationReceivedEmail(existing.contactName, existing.businessName),
       });
       return NextResponse.json({ success: true, emailSent: r.ok, error: r.ok ? undefined : 'Could not send email' });
@@ -178,8 +197,8 @@ export async function PATCH(request: Request, { params }: { params: { id: string
     // Status-change emails
     if (statusChange === 'APPROVED' || statusChange === 'REAPPROVED') {
       const subj = statusChange === 'REAPPROVED'
-        ? `Good news from NEEJEE Ã¢â‚¬â€ we have re-opened your portal`
-        : `Welcome to NEEJEE Ã¢â‚¬â€ your portal is open`;
+        ? `Good news from NEEJEE ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â we have re-opened your portal`
+        : `Welcome to NEEJEE ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â your portal is open`;
       sendEmail({
         to: seller.email,
         subject: subj,
@@ -189,7 +208,7 @@ export async function PATCH(request: Request, { params }: { params: { id: string
     if (statusChange === 'REJECTED') {
       sendEmail({
         to: seller.email,
-        subject: `Your NEEJEE application Ã¢â‚¬â€ a note from us`,
+        subject: `Your NEEJEE application ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â a note from us`,
         html: rejectionEmail(seller.contactName, seller.businessName, body.rejectionNote || ''),
       }).catch(() => {});
     }
@@ -205,7 +224,7 @@ function shell(inner: string) {
   <div style="max-width:580px;margin:0 auto;background:#fff;font-family:Georgia,serif;">
     <div style="background:#1A1613;padding:36px;text-align:center;">
       <div style="font-family:Georgia,serif;color:#F4EFE6;font-size:32px;letter-spacing:0.18em;">NEE<span style="display:inline-block;width:6px;height:6px;background:#8B2E2A;border-radius:50%;margin:0 8px;vertical-align:middle"></span>JEE</div>
-      <p style="color:#A47E3B;font-size:10px;letter-spacing:0.35em;margin-top:14px;font-style:italic;">FOUND Ã‚Â· PERSONAL</p>
+      <p style="color:#A47E3B;font-size:10px;letter-spacing:0.35em;margin-top:14px;font-style:italic;">FOUND ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â· PERSONAL</p>
     </div>
     <div style="padding:48px 36px;">${inner}</div>
     <div style="background:#F4EFE6;padding:24px;text-align:center;color:#6B6862;font-size:11px;">
@@ -230,10 +249,10 @@ function approvalEmail(name: string, businessName: string, reapproved = false) {
       ${intro}
     </p>
     <p style="color:#6B6862;line-height:1.8;font-size:14px;margin:0 0 18px;">
-      Your seller portal is now open. Sign in with the same email and you'll find your dashboard at /seller Ã¢â‚¬â€ that is where you'll add your pieces, manage stock, view orders, and see your payouts.
+      Your seller portal is now open. Sign in with the same email and you'll find your dashboard at /seller ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â that is where you'll add your pieces, manage stock, view orders, and see your payouts.
     </p>
     <p style="color:#6B6862;line-height:1.8;font-size:14px;margin:0 0 18px;">
-      Every piece you submit goes through a short personal review before it goes live. This is not bureaucracy Ã¢â‚¬â€ it is the trust our customers place in NEEJEE.
+      Every piece you submit goes through a short personal review before it goes live. This is not bureaucracy ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â it is the trust our customers place in NEEJEE.
     </p>
     <a href="https://www.neejee.com/seller" style="display:inline-block;margin-top:18px;background:#1A1613;color:#F4EFE6;padding:14px 28px;text-decoration:none;letter-spacing:0.25em;font-size:12px;">OPEN MY PORTAL</a>
   `);
@@ -248,14 +267,14 @@ function sellerApplicationReceivedEmail(name: string, businessName: string) {
       Thank you for sharing <strong>${businessName}</strong> with us.
     </p>
     <p style="color:#6B6862;line-height:1.8;font-size:14px;margin:0 0 18px;">
-      We read every application personally. It usually takes 3Ã¢â‚¬â€œ5 working days while we look at your portfolio, listen to your craft, and decide together whether NEEJEE is the right home for your work.
+      We read every application personally. It usually takes 3ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œ5 working days while we look at your portfolio, listen to your craft, and decide together whether NEEJEE is the right home for your work.
     </p>
     <p style="color:#6B6862;line-height:1.8;font-size:14px;margin:0 0 18px;">
-      We will write back from this same address. If you have anything more to share Ã¢â‚¬â€ a story, a photograph, a person who introduced you Ã¢â‚¬â€ simply reply to this note.
+      We will write back from this same address. If you have anything more to share ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â a story, a photograph, a person who introduced you ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â simply reply to this note.
     </p>
     <p style="color:#1A1613;line-height:1.8;font-size:14px;margin:0 0 0;font-style:italic;">
       With respect for your work,<br/>
-      Ã¢â‚¬â€ Nidhi, Founder
+      ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â Nidhi, Founder
     </p>
   `);
 }
@@ -269,12 +288,12 @@ function rejectionEmail(name: string, businessName: string, note: string) {
       Thank you for sharing <strong>${businessName}</strong> with us.
     </p>
     <p style="color:#6B6862;line-height:1.8;font-size:14px;margin:0 0 18px;">
-      After looking at your application carefully, we don't think NEEJEE is the right home for your work just yet. This is not a judgment of your craft Ã¢â‚¬â€ only that our trunk is small and we open it slowly.
+      After looking at your application carefully, we don't think NEEJEE is the right home for your work just yet. This is not a judgment of your craft ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â only that our trunk is small and we open it slowly.
     </p>
     ${note ? `<p style="color:#6B6862;line-height:1.8;font-size:14px;margin:0 0 18px;padding:14px 18px;background:#F4EFE6;border-left:2px solid #8B2E2A;font-style:italic;">${note}</p>` : ''}
     <p style="color:#6B6862;line-height:1.8;font-size:14px;margin:0 0 0;">
       You are welcome to reapply any time. With respect for your work,<br/>
-      Ã¢â‚¬â€ The NEEJEE team
+      ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â The NEEJEE team
     </p>
   `);
 }
