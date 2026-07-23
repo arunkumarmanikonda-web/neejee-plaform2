@@ -749,6 +749,7 @@ export default function AdminAgreementWorkbenchPage() {
               <p className="text-mitti">{seller.contactName || '-'}</p>
               <p className="text-mitti">{seller.email || '-'}</p>
               <p className="text-mitti">{seller.phone || '-'}</p>
+              <p className="text-mitti">Address: {seller.address || '-'}</p>
               <p className="text-mitti">
                 {[seller.craft, seller.region].filter(Boolean).join(' - ') || '-'}
               </p>
