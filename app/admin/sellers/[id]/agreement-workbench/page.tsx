@@ -122,9 +122,17 @@ export default function AdminAgreementWorkbenchPage() {
 
       const nextDoc = ensureDocumentShape(workflowJson?.agreement?.currentDocumentJson || {});
       const fallbackAgreementNumber = `AGR-${String(id || '').slice(-8).toUpperCase()}`;
+      const sellerFromApi = sellerJson?.seller || {};
+      const resolvedSellerAddress =
+        String(nextDoc?.seller?.address || '').trim() ||
+        String(sellerFromApi?.address || '').trim();
 
       nextDoc.meta = nextDoc.meta || {};
-      nextDoc.seller = nextDoc.seller || {};
+      nextDoc.seller = {
+        ...sellerFromApi,
+        ...(nextDoc.seller || {}),
+        address: resolvedSellerAddress,
+      };
 
       if (!String(nextDoc.meta.agreementNumber || '').trim()) {
         nextDoc.meta.agreementNumber = fallbackAgreementNumber;
