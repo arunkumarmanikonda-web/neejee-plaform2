@@ -1,18 +1,9 @@
 import { getSession } from '@/lib/auth';
 import Link from 'next/link';
+import AdminAdaptiveQuickActions from '@/components/admin/AdminAdaptiveQuickActions';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
-
-const QUICK_LINKS = [
-  { href: '/admin/products', label: 'PRODUCTS', desc: 'Edit catalogue, pricing, media, and curation.' },
-  { href: '/admin/orders', label: 'ORDERS', desc: 'Review recent orders and fulfillment activity.' },
-  { href: '/admin/customers', label: 'CUSTOMERS', desc: 'Search customers, segments, and account activity.' },
-  { href: '/admin/categories', label: 'CATEGORIES', desc: 'Manage taxonomy and category placement.' },
-  { href: '/admin/analytics', label: 'ANALYTICS', desc: 'Open reporting pages when database capacity allows.' },
-  { href: '/admin/ai-photo-studio', label: 'AI PHOTO STUDIO', desc: 'Run creative and catalogue media workflows.' },
-  { href: '/admin/erp', label: 'ERP CONTROL PANEL', desc: 'Open ERP sync monitoring, reconciliation, and failure handling.' },
-];
 
 export default async function AdminDashboard() {
   const user = await getSession();
@@ -28,7 +19,7 @@ export default async function AdminDashboard() {
 
   return (
     <>
-      <p className="label text-madder">DASHBOARD Â· SAFE MODE</p>
+      <p className="label text-madder">DASHBOARD · SAFE MODE</p>
       <h1 className="font-display text-4xl text-kohl mt-2">
         {greeting}, {displayName}.
       </h1>
@@ -49,47 +40,35 @@ export default async function AdminDashboard() {
         </div>
       </div>
 
-      <div className="mt-6 bg-madder/10 p-4 font-ui text-sm text-madder space-y-2">
+      <div className="mt-6 bg-madder/10 p-4 font-ui text-sm text-madder space-y-2 rounded-xl">
         <p>
-          This page intentionally avoids Prisma queries. Use the quick links below to continue working while the production pool recovers or the database connection mode is adjusted.
+          This page intentionally avoids Prisma queries. Use the adaptive quick actions below to continue working while the production pool recovers or the database connection mode is adjusted.
         </p>
         <p>
-          If a linked page still fails, retry once in a fresh tab. Product editing, catalogue drafting, and save flows should be tested directly from the Products section.
+          The dashboard now learns from recent and repeated navigation, so the most useful admin destinations automatically move closer to the top over time.
         </p>
       </div>
 
-      <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-6 mt-10">
-        {QUICK_LINKS.map((item) => (
-          <Link
-            key={item.href}
-            href={item.href}
-            className="bg-beige p-8 hover:bg-white transition-colors border border-mitti/10"
-          >
-            <p className="label text-madder">{item.label}</p>
-            <p className="font-ui text-sm text-mitti mt-3 leading-6">{item.desc}</p>
-            <p className="font-ui text-xs text-madder mt-6">OPEN â†’</p>
-          </Link>
-        ))}
-      </div>
+      <AdminAdaptiveQuickActions />
 
       <div className="grid md:grid-cols-2 gap-6 mt-10">
-        <div className="bg-beige p-8">
+        <div className="bg-beige p-8 rounded-xl">
           <p className="label text-madder">RECOMMENDED NEXT STEP</p>
           <p className="font-ui text-sm text-mitti mt-3 leading-6">
             Open Products first, then edit the target item directly. This bypasses the heavy dashboard queries and gets you back into the catalogue workflow faster.
           </p>
           <Link href="/admin/products" className="font-ui text-xs text-madder hover:underline mt-6 inline-block">
-            GO TO PRODUCTS â†’
+            GO TO PRODUCTS →
           </Link>
         </div>
 
-        <div className="bg-beige p-8">
+        <div className="bg-beige p-8 rounded-xl">
           <p className="label text-madder">ERP WORKFLOWS</p>
           <p className="font-ui text-sm text-mitti mt-3 leading-6">
-            ERP monitoring, reconciliation, and dead-letter handling are now grouped under a single control panel so the team can enter the full workflow from one visible admin location.
+            ERP monitoring, reconciliation, and dead-letter handling are grouped under a single control panel so the team can enter the full workflow from one visible admin location.
           </p>
           <Link href="/admin/erp" className="font-ui text-xs text-madder hover:underline mt-6 inline-block">
-            OPEN ERP CONTROL PANEL â†’
+            OPEN ERP CONTROL PANEL →
           </Link>
         </div>
       </div>
