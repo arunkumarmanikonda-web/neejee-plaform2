@@ -40,6 +40,7 @@ import {
   Banknote,
 } from 'lucide-react';
 import { NeejeeLogo } from '@/components/brand/Logo';
+import AdminCommandPalette from '@/components/admin/AdminCommandPalette';
 import { getSession } from '@/lib/auth';
 import { hasFinancePerm } from '@/lib/finance/roles';
 
@@ -272,7 +273,10 @@ export default async function AdminLayout({
           </form>
         </div>
       </aside>
-      <main className="p-12 overflow-x-auto">{children}</main>
+      <main className="p-6 md:p-10 xl:p-12 overflow-x-auto">
+        <AdminCommandPalette />
+        {children}
+      </main>
     </div>
   );
 }

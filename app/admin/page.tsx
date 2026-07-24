@@ -28,7 +28,7 @@ export default async function AdminDashboard() {
 
   return (
     <>
-      <p className="label text-madder">DASHBOARD · SAFE MODE</p>
+      <p className="label text-madder">DASHBOARD Â· SAFE MODE</p>
       <h1 className="font-display text-4xl text-kohl mt-2">
         {greeting}, {displayName}.
       </h1>
@@ -36,6 +36,18 @@ export default async function AdminDashboard() {
         The database pool is saturated in production, so this overview page is temporarily running without live metrics to keep admin access usable.
       </p>
       <div className="madder-divider mt-4"></div>
+
+      <div className="mt-6 bg-white border border-mitti/15 rounded-xl px-5 py-4 flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <p className="label text-madder">ADMIN COMMAND PALETTE</p>
+          <p className="font-ui text-sm text-mitti mt-2 leading-6">
+            Press Ctrl/Cmd + K anywhere in admin to jump to pages, settings, reports, sellers, products, and quick destinations.
+          </p>
+        </div>
+        <div className="px-3 py-2 rounded-lg border border-mitti/20 bg-ivory font-mono text-xs text-kohl">
+          Ctrl / Cmd + K
+        </div>
+      </div>
 
       <div className="mt-6 bg-madder/10 p-4 font-ui text-sm text-madder space-y-2">
         <p>
@@ -55,7 +67,7 @@ export default async function AdminDashboard() {
           >
             <p className="label text-madder">{item.label}</p>
             <p className="font-ui text-sm text-mitti mt-3 leading-6">{item.desc}</p>
-            <p className="font-ui text-xs text-madder mt-6">OPEN →</p>
+            <p className="font-ui text-xs text-madder mt-6">OPEN â†’</p>
           </Link>
         ))}
       </div>
@@ -67,7 +79,7 @@ export default async function AdminDashboard() {
             Open Products first, then edit the target item directly. This bypasses the heavy dashboard queries and gets you back into the catalogue workflow faster.
           </p>
           <Link href="/admin/products" className="font-ui text-xs text-madder hover:underline mt-6 inline-block">
-            GO TO PRODUCTS →
+            GO TO PRODUCTS â†’
           </Link>
         </div>
 
@@ -77,7 +89,7 @@ export default async function AdminDashboard() {
             ERP monitoring, reconciliation, and dead-letter handling are now grouped under a single control panel so the team can enter the full workflow from one visible admin location.
           </p>
           <Link href="/admin/erp" className="font-ui text-xs text-madder hover:underline mt-6 inline-block">
-            OPEN ERP CONTROL PANEL →
+            OPEN ERP CONTROL PANEL â†’
           </Link>
         </div>
       </div>
