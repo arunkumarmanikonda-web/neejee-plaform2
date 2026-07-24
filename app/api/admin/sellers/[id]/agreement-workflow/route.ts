@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getSession, requireRole } from '@/lib/auth';
+import { buildSellerSigningUrl, createSigningToken, getRequestOrigin, maskPhone } from '@/lib/agreement-signing';
 
 const DEFAULT_STATUS = 'DRAFT';
 const REGISTRY_SLUG = 'admin-legal-signatories';
@@ -387,6 +388,17 @@ function buildAgreementBundle(documentJson: any, workflowState: Record<string, a
     closedAt: asString(workflowState.closedAt, ''),
     voidedAt: asString(workflowState.voidedAt, ''),
     updatedAt: asString(workflowState.updatedAt, nowIso()),
+    sellerSigningToken: asString(workflowState.sellerSigningToken, ''),
+    sellerSigningUrl: asString(workflowState.sellerSigningUrl, ''),
+    sellerSignatureStatus: asString(workflowState.sellerSignatureStatus, ''),
+    sellerSignaturePhone: asString(workflowState.sellerSignaturePhone, ''),
+    sellerSignaturePhoneMasked: asString(workflowState.sellerSignaturePhoneMasked, ''),
+    sellerSignatureImageUrl: asString(workflowState.sellerSignatureImageUrl, ''),
+    sellerSignatureProcessedUrl: asString(workflowState.sellerSignatureProcessedUrl, ''),
+    sellerSignatureOtpRequestedAt: asString(workflowState.sellerSignatureOtpRequestedAt, ''),
+    sellerSignatureOtpVerifiedAt: asString(workflowState.sellerSignatureOtpVerifiedAt, ''),
+    sellerSignedDocumentUrl: asString(workflowState.sellerSignedDocumentUrl, ''),
+    sellerSignatureAuditTrail: Array.isArray(workflowState.sellerSignatureAuditTrail) ? workflowState.sellerSignatureAuditTrail : [],
   };
 
   const observations =
@@ -625,6 +637,11 @@ export async function POST(
       case 'SEND_FOR_SIGNATURE':
         patch.status = 'SENT_FOR_SIGNATURE';
         patch.sentForSignatureAt = nowIso();
+        patch.sellerSigningToken = String(body?.sellerSigningToken || '') || createSigningToken();
+        patch.sellerSigningUrl = buildSellerSigningUrl(getRequestOrigin(request), id, patch.sellerSigningToken);
+        patch.sellerSignatureStatus = 'SIGNATURE_REQUESTED';
+        patch.sellerSignaturePhone = String(body?.phone || loaded.seller.phone || '');
+        patch.sellerSignaturePhoneMasked = maskPhone(patch.sellerSignaturePhone);
         break;
       case 'COMPANY_SIGN':
         patch.status = 'COMPANY_SIGNED';

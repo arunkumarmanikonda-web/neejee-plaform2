@@ -13,6 +13,7 @@ import {
   Save,
   Send,
   ShieldCheck,
+  Copy,
   Trash2,
 } from 'lucide-react';
 
@@ -580,6 +581,37 @@ export default function AdminAgreementWorkbenchPage() {
                 CLOSE
               </button>
             </div>
+
+            {bundle?.agreement?.sellerSigningUrl ? (
+              <div className="mt-4 bg-ivory border border-mitti/15 p-4 space-y-2">
+                <p className="label text-mitti">SELLER SIGNING</p>
+                <p className="text-xs text-mitti">Status: {bundle?.agreement?.sellerSignatureStatus || bundle?.agreement?.status || 'â€”'}</p>
+                <div className="flex flex-wrap gap-2">
+                  <a
+                    href={bundle.agreement.sellerSigningUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="px-3 py-2 bg-kohl text-ivory text-xs tracking-wider inline-flex items-center gap-1"
+                  >
+                    <ExternalLink className="w-3.5 h-3.5" /> OPEN SELLER SIGNING PAGE
+                  </a>
+                  <button
+                    onClick={async () => {
+                      try {
+                        await navigator.clipboard.writeText(bundle.agreement.sellerSigningUrl);
+                        setMsg('Signing link copied');
+                        setTimeout(() => setMsg(''), 2500);
+                      } catch {
+                        setErr('Could not copy signing link');
+                      }
+                    }}
+                    className="px-3 py-2 border border-mitti/25 text-xs tracking-wider text-mitti inline-flex items-center gap-1"
+                  >
+                    <Copy className="w-3.5 h-3.5" /> COPY SIGNING LINK
+                  </button>
+                </div>
+              </div>
+            ) : null}
           </section>
 
           <section className="bg-beige p-5">

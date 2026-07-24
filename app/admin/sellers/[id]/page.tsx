@@ -1,15 +1,16 @@
-'use client';
+﻿'use client';
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { useParams } from 'next/navigation';
-import { ArrowLeft, Check, ExternalLink, Printer, Save, X } from 'lucide-react';
+import { useParams, useRouter } from 'next/navigation';
+import { AlertTriangle, ArrowLeft, Check, ExternalLink, Printer, Save, Trash2, X } from 'lucide-react';
 
 export const dynamic = 'force-dynamic';
 
 export default function AdminSellerDetail() {
   const params = useParams();
   const id = params?.id as string;
+  const router = useRouter();
 
   const [seller, setSeller] = useState<any>(null);
   const [agreement, setAgreement] = useState<any>(null);
@@ -19,6 +20,11 @@ export default function AdminSellerDetail() {
   const [err, setErr] = useState('');
   const [rejectOpen, setRejectOpen] = useState(false);
   const [rejectNote, setRejectNote] = useState('');
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleteConfirm, setDeleteConfirm] = useState('');
+  const [deleteBusy, setDeleteBusy] = useState(false);
+  const [deleteErr, setDeleteErr] = useState('');
+  const [deleteInfo, setDeleteInfo] = useState<any>(null);
 
   const load = async () => {
     if (!id) return;
@@ -77,6 +83,34 @@ export default function AdminSellerDetail() {
       setErr(e?.message || 'Update failed');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const deleteSeller = async (force = false) => {
+    setDeleteBusy(true);
+    setDeleteErr('');
+    setDeleteInfo(null);
+
+    try {
+      const qs = force ? '?force=1' : '';
+      const res = await fetch(`/api/admin/sellers/${id}${qs}`, {
+        method: 'DELETE',
+      });
+      const j = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        if (res.status === 409) {
+          setDeleteInfo(j?.dependencies || null);
+        }
+        throw new Error(j?.error || 'Delete failed');
+      }
+
+      router.push('/admin/sellers');
+      router.refresh();
+    } catch (e: any) {
+      setDeleteErr(e?.message || 'Delete failed');
+    } finally {
+      setDeleteBusy(false);
     }
   };
 
@@ -473,6 +507,88 @@ export default function AdminSellerDetail() {
                 </div>
               </div>
             )}
+          </section>
+
+          <section className="bg-beige p-5 border border-madder/20">
+            <div className="flex items-start justify-between gap-4 flex-wrap">
+              <div>
+                <p className="label text-madder">DANGER ZONE</p>
+                <p className="text-xs text-mitti mt-1">
+                  Delete this seller record. Non-force delete is blocked when products or payouts exist.
+                </p>
+              </div>
+
+              <button
+                onClick={() => setDeleteOpen(v => !v)}
+                className="px-3 py-2 border border-madder text-madder text-xs tracking-wider inline-flex items-center gap-1"
+              >
+                <Trash2 className="w-3.5 h-3.5" /> DELETE SELLER
+              </button>
+            </div>
+
+            {deleteOpen ? (
+              <div className="mt-4 bg-ivory border border-mitti/15 p-4 space-y-3">
+                <div className="flex items-start gap-2 text-xs text-mitti">
+                  <AlertTriangle className="w-4 h-4 mt-0.5 text-madder" />
+                  <p>
+                    Type <span className="font-semibold text-kohl">DELETE</span> to enable seller deletion.
+                  </p>
+                </div>
+
+                <input
+                  value={deleteConfirm}
+                  onChange={e => setDeleteConfirm(e.target.value)}
+                  placeholder="Type DELETE"
+                  className="w-full p-3 bg-ivory border border-mitti/20 text-sm"
+                />
+
+                {deleteErr ? <p className="text-xs text-madder">{deleteErr}</p> : null}
+
+                {deleteInfo ? (
+                  <div className="text-xs text-kohl bg-beige p-3 border border-mitti/15">
+                    <p className="font-medium mb-2">Blocking dependencies</p>
+                    <div className="grid grid-cols-2 gap-2">
+                      {Object.entries(deleteInfo).map(([k, v]) => (
+                        <div key={k} className="flex justify-between gap-3">
+                          <span className="text-mitti">{k}</span>
+                          <span>{String(v)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
+
+                <div className="flex gap-2 flex-wrap">
+                  <button
+                    onClick={() => deleteSeller(false)}
+                    disabled={deleteBusy || deleteConfirm !== 'DELETE'}
+                    className="px-4 py-2 bg-madder text-ivory text-xs tracking-wider disabled:opacity-50"
+                  >
+                    DELETE SELLER
+                  </button>
+
+                  <button
+                    onClick={() => deleteSeller(true)}
+                    disabled={deleteBusy || deleteConfirm !== 'DELETE'}
+                    className="px-4 py-2 border border-madder text-madder text-xs tracking-wider disabled:opacity-50"
+                  >
+                    FORCE DELETE
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setDeleteOpen(false);
+                      setDeleteConfirm('');
+                      setDeleteErr('');
+                      setDeleteInfo(null);
+                    }}
+                    className="px-4 py-2 border border-mitti/25 text-xs tracking-wider"
+                  >
+                    CANCEL
+                  </button>
+                </div>
+              </div>
+            ) : null}
           </section>
 
           {seller.payouts && seller.payouts.length > 0 ? (

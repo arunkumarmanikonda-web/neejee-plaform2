@@ -297,3 +297,112 @@ function rejectionEmail(name: string, businessName: string, note: string) {
     </p>
   `);
 }
+
+async function getSellerDependencyCounts(sellerId: string) {
+  const [
+    products,
+    payouts,
+    documents,
+    changeRequests,
+    auditLogs,
+    magicTokens,
+    teamMembers,
+    inventorySubmissions,
+    categoryCommissions,
+    productCommissions,
+    orderReleases
+  ] = await Promise.all([
+    prisma.product.count({ where: { sellerId } }),
+    prisma.payout.count({ where: { sellerId } }),
+    prisma.sellerDocument.count({ where: { sellerId } }),
+    prisma.sellerChangeRequest.count({ where: { sellerId } }),
+    prisma.sellerAuditLog.count({ where: { sellerId } }),
+    prisma.sellerMagicToken.count({ where: { sellerId } }),
+    prisma.sellerTeamMember.count({ where: { sellerId } }),
+    prisma.sellerInventorySubmission.count({ where: { sellerId } }),
+    prisma.sellerCategoryCommission.count({ where: { sellerId } }),
+    prisma.sellerProductCommission.count({ where: { sellerId } }),
+    prisma.sellerOrderRelease.count({ where: { sellerId } }),
+  ]);
+
+  return {
+    products,
+    payouts,
+    documents,
+    changeRequests,
+    auditLogs,
+    magicTokens,
+    teamMembers,
+    inventorySubmissions,
+    categoryCommissions,
+    productCommissions,
+    orderReleases,
+  };
+}
+
+export async function DELETE(request: Request, { params }: { params: { id: string } }) {
+  const user = await getSession();
+  if (!requireRole(user, ['ADMIN', 'SUPER_ADMIN'])) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  try {
+    const url = new URL(request.url);
+    const force = url.searchParams.get('force') === '1';
+
+    const seller = await prisma.seller.findUnique({
+      where: { id: params.id },
+      select: { id: true, businessName: true },
+    });
+
+    if (!seller) {
+      return NextResponse.json({ error: 'Not found' }, { status: 404 });
+    }
+
+    const deps = await getSellerDependencyCounts(params.id);
+    const hardBlock = deps.products > 0 || deps.payouts > 0;
+
+    if (hardBlock && !force) {
+      return NextResponse.json(
+        {
+          error: 'Seller has dependent records. Remove products/payouts first or retry with force=1 only after manual review.',
+          code: 'seller_delete_blocked',
+          dependencies: deps,
+        },
+        { status: 409 }
+      );
+    }
+
+    await prisma.$transaction(async (tx) => {
+      await tx.sellerDocument.deleteMany({ where: { sellerId: params.id } });
+      await tx.sellerChangeRequest.deleteMany({ where: { sellerId: params.id } });
+      await tx.sellerAuditLog.deleteMany({ where: { sellerId: params.id } });
+      await tx.sellerMagicToken.deleteMany({ where: { sellerId: params.id } });
+      await tx.sellerTeamMember.deleteMany({ where: { sellerId: params.id } });
+      await tx.sellerInventorySubmission.deleteMany({ where: { sellerId: params.id } });
+      await tx.sellerCategoryCommission.deleteMany({ where: { sellerId: params.id } });
+      await tx.sellerProductCommission.deleteMany({ where: { sellerId: params.id } });
+      await tx.sellerOrderRelease.deleteMany({ where: { sellerId: params.id } });
+
+      if (force) {
+        await tx.product.deleteMany({ where: { sellerId: params.id } });
+        await tx.payout.deleteMany({ where: { sellerId: params.id } });
+      }
+
+      await tx.seller.delete({ where: { id: params.id } });
+    });
+
+    return NextResponse.json({
+      ok: true,
+      deletedSellerId: params.id,
+      deletedSellerName: seller.businessName || '',
+      force,
+      dependencies: deps,
+    });
+  } catch (e: any) {
+    return NextResponse.json(
+      { error: e?.message || 'Failed to delete seller' },
+      { status: 500 }
+    );
+  }
+}
