@@ -269,6 +269,10 @@ export default function SellerOnboardingPage() {
                           <div className="mt-1 text-[11px] text-mitti">
                             {seller.productCount} {seller.productCount === 1 ? 'product' : 'products'}
                           </div>
+                          <div className="mt-1 text-[11px] text-mitti">
+                            {(seller.blockers?.length || 0)} {(seller.blockers?.length || 0) === 1 ? 'blocker' : 'blockers'}{' · '}
+                            {(seller.warnings?.length || 0)} {(seller.warnings?.length || 0) === 1 ? 'warning' : 'warnings'}
+                          </div>
                         </td>
                         <td className="px-3 py-3">
                           <div className="flex flex-col gap-2">
