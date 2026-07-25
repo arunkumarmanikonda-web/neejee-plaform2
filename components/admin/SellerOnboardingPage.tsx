@@ -380,6 +380,9 @@ export default function SellerOnboardingPage() {
                         <div className="flex items-start justify-between gap-3">
                           <div>
                             <div className="font-medium text-kohl">{row.seller.businessName}</div>
+                            {row.seller.slug ? (
+                              <div className="mt-1 text-[11px] text-mitti">/{row.seller.slug}</div>
+                            ) : null}
                             <div className="mt-1 text-xs text-mitti">
                               {row.changedFieldCount} changed fields{' · '}{row.supportingDocCount} docs{' · '}{fmtDate(row.createdAt)}
                             </div>
