@@ -263,6 +263,9 @@ export default function SellerOnboardingPage() {
                           <div className="mt-1 text-xs text-mitti">
                             {seller.contactName}{' · '}{seller.craft || '—'}{' · '}{seller.region || '—'}
                           </div>
+                          <div className="mt-1 text-xs text-mitti">
+                            {seller.email}{' · '}{seller.phone}
+                          </div>
                         </td>
                         <td className="px-3 py-3">
                           <span className={`inline-flex rounded px-2 py-1 text-[10px] tracking-widest uppercase ${kycPill(seller.kycStatus)}`}>
