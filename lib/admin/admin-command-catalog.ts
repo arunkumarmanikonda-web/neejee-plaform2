@@ -63,6 +63,7 @@ export const ADMIN_COMMAND_ITEMS: AdminCommandItem[] = [
   { href: '/admin/finance/vendor-payouts', label: 'Vendor Payouts', group: 'Finance', desc: 'Vendor payout review and processing.', keywords: ['vendor payouts', 'vendor settlements'], aliases: ['vendor settlements'], financePerm: 'finance.read' },
 
   { href: '/admin/cms', label: 'CMS Pages', group: 'Content', desc: 'CMS page management.', keywords: ['cms', 'pages', 'content'] },
+  { href: '/admin/seo', label: 'SEO Control Plane', group: 'Content', desc: 'Default metadata, social preview, canonical, and robots controls.', keywords: ['seo', 'metadata', 'open graph', 'twitter', 'canonical', 'robots'], aliases: ['seo settings', 'metadata settings', 'open graph'], boost: 2 },
   { href: '/admin/taxonomy', label: 'Taxonomy', group: 'Content', desc: 'Taxonomy management tools.', keywords: ['taxonomy', 'content', 'hierarchy'] },
   { href: '/admin/journal', label: 'Journal (auto)', group: 'Content', desc: 'Journal automation workspace.', keywords: ['journal', 'editorial', 'content'] },
   { href: '/admin/banners', label: 'Banners', group: 'Content', desc: 'Banner asset management.', keywords: ['banners', 'hero', 'creative'] },
@@ -84,7 +85,7 @@ export const ADMIN_FEATURED_HREFS = [
   '/admin/customers',
   '/admin/categories',
   '/admin/analytics',
-  '/admin/ai-photo-studio',
+  '/admin/seo',
   '/admin/erp',
   '/admin/sellers',
 ];
