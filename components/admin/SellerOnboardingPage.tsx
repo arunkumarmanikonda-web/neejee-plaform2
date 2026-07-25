@@ -261,7 +261,7 @@ export default function SellerOnboardingPage() {
                         <td className="px-3 py-3">
                           <div className="font-display text-kohl">{seller.businessName}</div>
                           <div className="mt-1 text-xs text-mitti">
-                            {seller.contactName} Ã‚Â· {seller.craft || 'Ã¢â‚¬â€'} Ã‚Â· {seller.region || 'Ã¢â‚¬â€'}
+                            {seller.contactName}{' · '}{seller.craft || '—'}{' · '}{seller.region || '—'}
                           </div>
                         </td>
                         <td className="px-3 py-3">
@@ -358,7 +358,7 @@ export default function SellerOnboardingPage() {
                           <div>
                             <div className="font-medium text-kohl">{row.seller.businessName}</div>
                             <div className="mt-1 text-xs text-mitti">
-                              {row.changedFieldCount} changed fields Ã‚Â· {row.supportingDocCount} docs Ã‚Â· {fmtDate(row.createdAt)}
+                              {row.changedFieldCount} changed fields{' · '}{row.supportingDocCount} docs{' · '}{fmtDate(row.createdAt)}
                             </div>
                           </div>
                           <Link href="/admin/seller-change-requests" className="text-xs uppercase tracking-widest text-madder hover:text-kohl">
@@ -407,7 +407,7 @@ export default function SellerOnboardingPage() {
                           <div>
                             <div className="font-medium text-kohl">{row.product?.name || 'Untitled submission'}</div>
                             <div className="mt-1 text-xs text-mitti">
-                              {row.seller.businessName} Ã‚Â· {row.submissionType.replace(/_/g, ' ')} Ã‚Â· {fmtDate(row.createdAt)}
+                              {row.seller.businessName}{' · '}{row.submissionType.replace(/_/g, ' ')}{' · '}{fmtDate(row.createdAt)}
                             </div>
                           </div>
                           <span className={`inline-flex rounded px-2 py-1 text-[10px] tracking-widest uppercase ${inventoryPill(row.status)}`}>
