@@ -28,15 +28,24 @@ export default async function AdminDashboard() {
       </p>
       <div className="madder-divider mt-4"></div>
 
-      <div className="mt-6 bg-white border border-mitti/15 rounded-xl px-5 py-4 flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <p className="label text-madder">ADMIN COMMAND PALETTE</p>
-          <p className="font-ui text-sm text-mitti mt-2 leading-6">
-            Press Ctrl/Cmd + K anywhere in admin to jump to pages, settings, reports, sellers, products, and quick destinations.
-          </p>
+      <div className="grid lg:grid-cols-2 gap-6 mt-6">
+        <div className="bg-white border border-mitti/15 rounded-xl px-5 py-4 flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <p className="label text-madder">ADMIN COMMAND PALETTE</p>
+            <p className="font-ui text-sm text-mitti mt-2 leading-6">
+              Press Ctrl/Cmd + K anywhere in admin to jump to pages, settings, reports, sellers, products, finance destinations, and direct utility actions.
+            </p>
+          </div>
+          <div className="px-3 py-2 rounded-lg border border-mitti/20 bg-ivory font-mono text-xs text-kohl">
+            Ctrl / Cmd + K
+          </div>
         </div>
-        <div className="px-3 py-2 rounded-lg border border-mitti/20 bg-ivory font-mono text-xs text-kohl">
-          Ctrl / Cmd + K
+
+        <div className="bg-white border border-mitti/15 rounded-xl px-5 py-4">
+          <p className="label text-madder">AOS-003 SHORTCUTS</p>
+          <p className="font-ui text-sm text-mitti mt-2 leading-6">
+            Try natural phrases like profit and loss, seller payouts, copy current URL, refresh page, open dashboard, or duplicate this page. Alias search and direct action launching now work from the same palette.
+          </p>
         </div>
       </div>
 
@@ -45,7 +54,7 @@ export default async function AdminDashboard() {
           This page intentionally avoids Prisma queries. Use the adaptive quick actions below to continue working while the production pool recovers or the database connection mode is adjusted.
         </p>
         <p>
-          The dashboard now learns from recent and repeated navigation, so the most useful admin destinations automatically move closer to the top over time.
+          The dashboard now learns from recent and repeated navigation, and the command palette also accepts richer shortcut phrases so common admin tasks surface faster.
         </p>
       </div>
 
