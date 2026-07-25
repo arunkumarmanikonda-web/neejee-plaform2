@@ -206,7 +206,7 @@ export default function AdminCommandPalette({ user }: Props) {
 
     const pageResults: PalettePageResult[] = visibleItems
       .filter((item) => item.href !== pathname)
-      .map((item) => {
+      .map((item): PalettePageResult => {
         const textScore = scoreTextMatch(q, item);
         const usageScore = Math.min((counts[item.href] ?? 0) * 2, 10);
         const recentScore = recentOrder.has(item.href)
@@ -217,7 +217,7 @@ export default function AdminCommandPalette({ user }: Props) {
 
         return {
           ...item,
-          kind: 'page',
+          kind: 'page' as const,
           score: textScore + usageScore + recentScore + roleScore + baseBoost,
         };
       })
@@ -429,7 +429,7 @@ export default function AdminCommandPalette({ user }: Props) {
                 <Command className="w-3.5 h-3.5" />
                 Ctrl/Cmd + K
               </span>
-              <span>↑ ↓ to move</span>
+              <span>â†‘ â†“ to move</span>
               <span className="flex items-center gap-1">
                 <CornerDownLeft className="w-3.5 h-3.5" />
                 Enter to open
