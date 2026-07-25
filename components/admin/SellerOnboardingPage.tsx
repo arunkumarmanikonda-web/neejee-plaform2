@@ -385,6 +385,9 @@ export default function SellerOnboardingPage() {
                             ) : null}
                             <div className="mt-1 font-mono text-[11px] text-mitti/80">ID: {row.seller.id}</div>
                             <div className="mt-1 font-mono text-[11px] text-mitti/80">Submission ID: {row.id}</div>
+                            <div className="mt-1 text-[11px] uppercase tracking-widest text-mitti/80">
+                              Status: {row.status.replace(/_/g, ' ')}
+                            </div>
                             {row.reason ? (
                               <div className="mt-1 text-xs text-mitti/90">Reason: {row.reason}</div>
                             ) : null}
