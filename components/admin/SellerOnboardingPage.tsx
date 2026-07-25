@@ -268,9 +268,18 @@ export default function SellerOnboardingPage() {
                           </div>
                         </td>
                         <td className="px-3 py-3">
-                          <span className={`inline-flex rounded px-2 py-1 text-[10px] tracking-widest uppercase ${kycPill(seller.kycStatus)}`}>
-                            {seller.kycStatus.replace(/_/g, ' ')}
-                          </span>
+                          <div className="flex flex-col gap-2">
+                            <span className={`inline-flex w-fit rounded px-2 py-1 text-[10px] tracking-widest uppercase ${kycPill(seller.kycStatus)}`}>
+                              {seller.kycStatus.replace(/_/g, ' ')}
+                            </span>
+                            <span
+                              className={`inline-flex w-fit rounded px-2 py-1 text-[10px] tracking-widest uppercase ${
+                                seller.canActivate ? 'bg-neem/15 text-neem' : 'bg-haldi/20 text-mitti'
+                              }`}
+                            >
+                              {seller.canActivate ? 'Ready to approve' : 'Needs checks'}
+                            </span>
+                          </div>
                         </td>
                         <td className="px-3 py-3">
                           <div className="flex flex-wrap gap-2">
