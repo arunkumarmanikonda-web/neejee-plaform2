@@ -433,6 +433,9 @@ export default function SellerOnboardingPage() {
                         <div className="flex items-start justify-between gap-3">
                           <div>
                             <div className="font-medium text-kohl">{row.product?.name || 'Untitled submission'}</div>
+                            {row.product?.sku ? (
+                              <div className="mt-1 font-mono text-[11px] text-mitti/80">SKU: {row.product.sku}</div>
+                            ) : null}
                             {row.seller.slug ? (
                               <div className="mt-1 text-[11px] text-mitti">/{row.seller.slug}</div>
                             ) : null}
