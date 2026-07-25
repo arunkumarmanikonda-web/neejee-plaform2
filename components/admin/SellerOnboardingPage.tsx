@@ -436,6 +436,7 @@ export default function SellerOnboardingPage() {
                             {row.seller.slug ? (
                               <div className="mt-1 text-[11px] text-mitti">/{row.seller.slug}</div>
                             ) : null}
+                            <div className="mt-1 font-mono text-[11px] text-mitti/80">ID: {row.seller.id}</div>
                             <div className="mt-1 text-xs text-mitti">
                               {row.seller.businessName}{' · '}{row.submissionType.replace(/_/g, ' ')}{' · '}{fmtDate(row.createdAt)}
                             </div>
