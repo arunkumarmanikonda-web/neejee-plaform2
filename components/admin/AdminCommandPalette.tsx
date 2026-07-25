@@ -429,7 +429,7 @@ export default function AdminCommandPalette({ user }: Props) {
                 <Command className="w-3.5 h-3.5" />
                 Ctrl/Cmd + K
               </span>
-              <span>â†‘ â†“ to move</span>
+              <span>Ã¢â€ â€˜ Ã¢â€ â€œ to move</span>
               <span className="flex items-center gap-1">
                 <CornerDownLeft className="w-3.5 h-3.5" />
                 Enter to open
