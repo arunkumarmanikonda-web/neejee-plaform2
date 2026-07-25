@@ -263,6 +263,7 @@ export default function SellerOnboardingPage() {
                           {seller.slug ? (
                             <div className="mt-1 text-[11px] text-mitti">/{seller.slug}</div>
                           ) : null}
+                          <div className="mt-1 font-mono text-[11px] text-mitti/80">ID: {seller.id}</div>
                           <div className="mt-1 text-xs text-mitti">
                             {seller.contactName}{' · '}{seller.craft || '—'}{' · '}{seller.region || '—'}
                           </div>
