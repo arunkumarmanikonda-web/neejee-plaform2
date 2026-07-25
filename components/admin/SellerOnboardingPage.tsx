@@ -12,6 +12,7 @@ import {
   Store,
   FileText,
   AlertCircle,
+  Mail,
 } from 'lucide-react';
 
 type SellerRow = {
