@@ -441,6 +441,9 @@ export default function SellerOnboardingPage() {
                                 Product status: {row.product.status.replace(/_/g, ' ')}
                               </div>
                             ) : null}
+                            {row.product?.id ? (
+                              <div className="mt-1 font-mono text-[11px] text-mitti/80">Product ID: {row.product.id}</div>
+                            ) : null}
                             {row.seller.slug ? (
                               <div className="mt-1 text-[11px] text-mitti">/{row.seller.slug}</div>
                             ) : null}
