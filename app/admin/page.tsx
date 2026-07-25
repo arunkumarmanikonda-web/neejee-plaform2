@@ -42,9 +42,9 @@ export default async function AdminDashboard() {
         </div>
 
         <div className="bg-white border border-mitti/15 rounded-xl px-5 py-4">
-          <p className="label text-madder">AOS-003 SHORTCUTS</p>
+          <p className="label text-madder">AOS-004 CONTEXT</p>
           <p className="font-ui text-sm text-mitti mt-2 leading-6">
-            Try natural phrases like profit and loss, seller payouts, copy current URL, refresh page, open dashboard, or duplicate this page. Alias search and direct action launching now work from the same palette.
+            Quick actions are now tuned by recent usage, current workflow area, and admin role so the next step is more obvious without opening broad navigation first.
           </p>
         </div>
       </div>
@@ -54,11 +54,11 @@ export default async function AdminDashboard() {
           This page intentionally avoids Prisma queries. Use the adaptive quick actions below to continue working while the production pool recovers or the database connection mode is adjusted.
         </p>
         <p>
-          The dashboard now learns from recent and repeated navigation, and the command palette also accepts richer shortcut phrases so common admin tasks surface faster.
+          The dashboard now combines learned behavior with page-aware and role-aware suggestions so common admin flows stay closer to the operator.
         </p>
       </div>
 
-      <AdminAdaptiveQuickActions />
+      <AdminAdaptiveQuickActions user={user} />
 
       <div className="grid md:grid-cols-2 gap-6 mt-10">
         <div className="bg-beige p-8 rounded-xl">
