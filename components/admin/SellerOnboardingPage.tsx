@@ -12,6 +12,7 @@ import {
   Store,
   FileText,
   AlertCircle,
+  Mail,
 } from 'lucide-react';
 
 type SellerRow = {
@@ -260,7 +261,7 @@ export default function SellerOnboardingPage() {
                         <td className="px-3 py-3">
                           <div className="font-display text-kohl">{seller.businessName}</div>
                           <div className="mt-1 text-xs text-mitti">
-                            {seller.contactName} · {seller.craft || '—'} · {seller.region || '—'}
+                            {seller.contactName} Â· {seller.craft || 'â€”'} Â· {seller.region || 'â€”'}
                           </div>
                         </td>
                         <td className="px-3 py-3">
@@ -279,11 +280,35 @@ export default function SellerOnboardingPage() {
                             <Gate ok={seller.emailVerified} label="Email OTP" />
                             <Gate ok={seller.autoKycPassed} label="Auto KYC" />
                           </div>
+                          {seller.blockers?.length ? (
+                            <div className="mt-2 flex flex-wrap gap-2">
+                              {seller.blockers.map((item) => (
+                                <span
+                                  key={locker--}
+                                  className="inline-flex rounded px-2 py-1 text-[10px] tracking-wide bg-madder/10 text-madder"
+                                >
+                                  Blocker: {item}
+                                </span>
+                              ))}
+                            </div>
+                          ) : null}
+                          {seller.warnings?.length ? (
+                            <div className="mt-2 flex flex-wrap gap-2">
+                              {seller.warnings.map((item) => (
+                                <span
+                                  key={warning--}
+                                  className="inline-flex rounded px-2 py-1 text-[10px] tracking-wide bg-haldi/20 text-mitti"
+                                >
+                                  Warning: {item}
+                                </span>
+                              ))}
+                            </div>
+                          ) : null}
                         </td>
                         <td className="px-3 py-3 text-xs text-mitti">{fmtDate(seller.createdAt)}</td>
                         <td className="px-3 py-3 text-right">
                           <Link href={`/admin/sellers/${seller.id}`} className="text-sm text-madder hover:text-kohl">
-                            Review →
+                            Review â†’
                           </Link>
                         </td>
                       </tr>
@@ -315,7 +340,7 @@ export default function SellerOnboardingPage() {
                           <div>
                             <div className="font-medium text-kohl">{row.seller.businessName}</div>
                             <div className="mt-1 text-xs text-mitti">
-                              {row.changedFieldCount} changed fields · {row.supportingDocCount} docs · {fmtDate(row.createdAt)}
+                              {row.changedFieldCount} changed fields Â· {row.supportingDocCount} docs Â· {fmtDate(row.createdAt)}
                             </div>
                           </div>
                           <Link href="/admin/seller-change-requests" className="text-xs uppercase tracking-widest text-madder hover:text-kohl">
@@ -364,7 +389,7 @@ export default function SellerOnboardingPage() {
                           <div>
                             <div className="font-medium text-kohl">{row.product?.name || 'Untitled submission'}</div>
                             <div className="mt-1 text-xs text-mitti">
-                              {row.seller.businessName} · {row.submissionType.replace(/_/g, ' ')} · {fmtDate(row.createdAt)}
+                              {row.seller.businessName} Â· {row.submissionType.replace(/_/g, ' ')} Â· {fmtDate(row.createdAt)}
                             </div>
                           </div>
                           <span className={`inline-flex rounded px-2 py-1 text-[10px] tracking-widest uppercase ${inventoryPill(row.status)}`}>
