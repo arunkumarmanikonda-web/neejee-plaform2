@@ -261,7 +261,7 @@ export default function SellerOnboardingPage() {
                         <td className="px-3 py-3">
                           <div className="font-display text-kohl">{seller.businessName}</div>
                           <div className="mt-1 text-xs text-mitti">
-                            {seller.contactName} Â· {seller.craft || 'â€”'} Â· {seller.region || 'â€”'}
+                            {seller.contactName} Ã‚Â· {seller.craft || 'Ã¢â‚¬â€'} Ã‚Â· {seller.region || 'Ã¢â‚¬â€'}
                           </div>
                         </td>
                         <td className="px-3 py-3">
@@ -306,10 +306,28 @@ export default function SellerOnboardingPage() {
                           ) : null}
                         </td>
                         <td className="px-3 py-3 text-xs text-mitti">{fmtDate(seller.createdAt)}</td>
-                        <td className="px-3 py-3 text-right">
-                          <Link href={`/admin/sellers/${seller.id}`} className="text-sm text-madder hover:text-kohl">
-                            Review â†’
-                          </Link>
+                        <td className="px-3 py-3">
+                          <div className="flex justify-end gap-2">
+                            <button
+                              type="button"
+                              onClick={() => patchSeller(seller.id, { resendApplicationEmail: true })}
+                              disabled={busySellerId === seller.id}
+                              className="inline-flex items-center gap-2 rounded-lg border border-kohl/15 bg-white px-3 py-2 text-xs text-kohl hover:bg-ivory disabled:cursor-not-allowed disabled:opacity-60"
+                            >
+                              {busySellerId === seller.id ? (
+                                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                              ) : (
+                                <Mail className="h-3.5 w-3.5" />
+                              )}
+                              Resend email
+                            </button>
+                            <Link
+                              href={`/admin/sellers/${seller.id}`}
+                              className="inline-flex items-center rounded-lg bg-kohl px-3 py-2 text-xs text-white hover:bg-kohl/90"
+                            >
+                              Review
+                            </Link>
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -340,7 +358,7 @@ export default function SellerOnboardingPage() {
                           <div>
                             <div className="font-medium text-kohl">{row.seller.businessName}</div>
                             <div className="mt-1 text-xs text-mitti">
-                              {row.changedFieldCount} changed fields Â· {row.supportingDocCount} docs Â· {fmtDate(row.createdAt)}
+                              {row.changedFieldCount} changed fields Ã‚Â· {row.supportingDocCount} docs Ã‚Â· {fmtDate(row.createdAt)}
                             </div>
                           </div>
                           <Link href="/admin/seller-change-requests" className="text-xs uppercase tracking-widest text-madder hover:text-kohl">
@@ -389,7 +407,7 @@ export default function SellerOnboardingPage() {
                           <div>
                             <div className="font-medium text-kohl">{row.product?.name || 'Untitled submission'}</div>
                             <div className="mt-1 text-xs text-mitti">
-                              {row.seller.businessName} Â· {row.submissionType.replace(/_/g, ' ')} Â· {fmtDate(row.createdAt)}
+                              {row.seller.businessName} Ã‚Â· {row.submissionType.replace(/_/g, ' ')} Ã‚Â· {fmtDate(row.createdAt)}
                             </div>
                           </div>
                           <span className={`inline-flex rounded px-2 py-1 text-[10px] tracking-widest uppercase ${inventoryPill(row.status)}`}>
