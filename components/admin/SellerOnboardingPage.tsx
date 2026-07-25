@@ -385,6 +385,9 @@ export default function SellerOnboardingPage() {
                             ) : null}
                             <div className="mt-1 font-mono text-[11px] text-mitti/80">ID: {row.seller.id}</div>
                             <div className="mt-1 font-mono text-[11px] text-mitti/80">Submission ID: {row.id}</div>
+                            {row.reason ? (
+                              <div className="mt-1 text-xs text-mitti/90">Reason: {row.reason}</div>
+                            ) : null}
                             <div className="mt-1 text-xs text-mitti">
                               {row.changedFieldCount} changed fields{' · '}{row.supportingDocCount} docs{' · '}{fmtDate(row.createdAt)}
                             </div>
