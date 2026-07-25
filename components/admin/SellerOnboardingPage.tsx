@@ -260,6 +260,9 @@ export default function SellerOnboardingPage() {
                       <tr key={seller.id} className="border-b border-mitti/10 align-top hover:bg-beige/20">
                         <td className="px-3 py-3">
                           <div className="font-display text-kohl">{seller.businessName}</div>
+                          {seller.slug ? (
+                            <div className="mt-1 text-[11px] text-mitti">/{seller.slug}</div>
+                          ) : null}
                           <div className="mt-1 text-xs text-mitti">
                             {seller.contactName}{' · '}{seller.craft || '—'}{' · '}{seller.region || '—'}
                           </div>
