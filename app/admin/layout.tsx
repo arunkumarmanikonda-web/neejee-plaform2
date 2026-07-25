@@ -274,7 +274,7 @@ export default async function AdminLayout({
         </div>
       </aside>
       <main className="p-6 md:p-10 xl:p-12 overflow-x-auto">
-        <AdminCommandPalette />
+        <AdminCommandPalette user={user} />
         {children}
       </main>
     </div>

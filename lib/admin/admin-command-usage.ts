@@ -27,7 +27,7 @@ function emptyState(): AdminCommandUsageState {
   };
 }
 
-function readState(): AdminCommandUsageState {
+export function getAdminCommandUsageState(): AdminCommandUsageState {
   if (!canUseStorage()) return emptyState();
 
   try {
@@ -43,7 +43,9 @@ function readState(): AdminCommandUsageState {
         ? Object.fromEntries(
             Object.entries(parsed.counts).filter(
               (entry): entry is [string, number] =>
-                typeof entry[0] === 'string' && typeof entry[1] === 'number' && Number.isFinite(entry[1]),
+                typeof entry[0] === 'string' &&
+                typeof entry[1] === 'number' &&
+                Number.isFinite(entry[1]),
             ),
           )
         : {},
@@ -60,7 +62,7 @@ function writeState(state: AdminCommandUsageState) {
 }
 
 export function recordAdminCommandUsage(href: string) {
-  const state = readState();
+  const state = getAdminCommandUsageState();
   const recent = [href, ...state.recent.filter((item) => item !== href)].slice(0, RECENT_LIMIT);
   const counts = {
     ...state.counts,
@@ -78,7 +80,7 @@ export function getAdminCommandInsights(
   items: AdminCommandItem[],
   limit = 6,
 ): AdminCommandInsights {
-  const state = readState();
+  const state = getAdminCommandUsageState();
   const byHref = new Map(items.map((item) => [item.href, item]));
 
   const recentItems: AdminCommandItem[] = state.recent

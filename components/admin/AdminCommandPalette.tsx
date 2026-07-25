@@ -10,15 +10,22 @@ import {
   Search,
   Sparkles,
 } from 'lucide-react';
+import type { SessionUser } from '@/lib/auth';
 import { ADMIN_COMMAND_ITEMS } from '@/lib/admin/admin-command-catalog';
-import { recordAdminCommandUsage } from '@/lib/admin/admin-command-usage';
+import { getAdminCommandRoleBoost, getVisibleAdminCommandItems } from '@/lib/admin/admin-command-access';
+import { getAdminCommandUsageState, recordAdminCommandUsage } from '@/lib/admin/admin-command-usage';
 
-export default function AdminCommandPalette() {
+type Props = {
+  user: SessionUser;
+};
+
+export default function AdminCommandPalette({ user }: Props) {
   const router = useRouter();
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [cursor, setCursor] = useState(0);
+  const visibleItems = useMemo(() => getVisibleAdminCommandItems(ADMIN_COMMAND_ITEMS, user), [user]);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -46,32 +53,43 @@ export default function AdminCommandPalette() {
 
   const results = useMemo(() => {
     const q = query.trim().toLowerCase();
+    const usage = getAdminCommandUsageState();
+    const recentOrder = new Map(usage.recent.map((href, index) => [href, index]));
+    const counts = usage.counts;
 
-    return ADMIN_COMMAND_ITEMS
+    return visibleItems
       .filter((item) => item.href !== pathname)
       .map((item) => {
-        const haystack = [item.label, item.group, item.desc, item.href, ...item.keywords]
+        const haystack = [item.label, item.group, item.desc, item.href, ...item.keywords, ...(item.aliases ?? [])]
           .join(' ')
           .toLowerCase();
 
-        let score = 0;
+        let textScore = 0;
         if (!q) {
-          score = 1;
+          textScore = 1;
         } else {
-          if (item.label.toLowerCase().includes(q)) score += 8;
-          if (item.group.toLowerCase().includes(q)) score += 4;
-          if (item.href.toLowerCase().includes(q)) score += 3;
-          if (item.desc.toLowerCase().includes(q)) score += 2;
-          if (item.keywords.some((keyword) => keyword.toLowerCase().includes(q))) score += 5;
-          if (haystack.includes(q)) score += 1;
+          if (item.label.toLowerCase().includes(q)) textScore += 10;
+          if (item.group.toLowerCase().includes(q)) textScore += 4;
+          if (item.href.toLowerCase().includes(q)) textScore += 4;
+          if (item.desc.toLowerCase().includes(q)) textScore += 2;
+          if (item.keywords.some((keyword) => keyword.toLowerCase().includes(q))) textScore += 6;
+          if ((item.aliases ?? []).some((alias) => alias.toLowerCase().includes(q))) textScore += 8;
+          if (haystack.includes(q)) textScore += 1;
         }
 
-        return { ...item, score };
+        const usageScore = Math.min((counts[item.href] ?? 0) * 2, 10);
+        const recentScore = recentOrder.has(item.href)
+          ? Math.max(6 - (recentOrder.get(item.href) ?? 0), 1)
+          : 0;
+        const roleScore = getAdminCommandRoleBoost(item, user);
+        const baseBoost = item.boost ?? 0;
+
+        return { ...item, score: textScore + usageScore + recentScore + roleScore + baseBoost };
       })
       .filter((item) => item.score > 0)
       .sort((a, b) => b.score - a.score || a.label.localeCompare(b.label))
-      .slice(0, 12);
-  }, [pathname, query]);
+      .slice(0, 14);
+  }, [pathname, query, user, visibleItems]);
 
   useEffect(() => {
     setCursor(0);
@@ -96,7 +114,7 @@ export default function AdminCommandPalette() {
           <span className="flex items-center gap-3 min-w-0">
             <Search className="w-4 h-4 text-madder shrink-0" />
             <span className="text-sm text-kohl text-left truncate">
-              Search admin pages, settings, reports, sellers, products, and actions
+              Search admin pages, settings, reports, sellers, products, finance, and actions
             </span>
           </span>
           <span className="flex items-center gap-2 text-[11px] text-mitti shrink-0">
@@ -131,7 +149,7 @@ export default function AdminCommandPalette() {
                       go(active.href);
                     }
                   }}
-                  placeholder="Search pages, settings, reports, users, sellers, products..."
+                  placeholder="Search pages, aliases, reports, finance, sellers, products..."
                   className="w-full bg-transparent outline-none text-kohl placeholder:text-mitti text-sm"
                 />
                 <button
@@ -186,11 +204,11 @@ export default function AdminCommandPalette() {
 
             <div className="border-t border-mitti/15 px-5 py-3 bg-white flex flex-wrap items-center gap-4 text-[11px] text-mitti">
               <span className="flex items-center gap-1"><Command className="w-3.5 h-3.5" /> Ctrl/Cmd + K</span>
-              <span>↑ ↓ to move</span>
+              <span>ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¹Ãƒâ€¦Ã¢â‚¬Å“ ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œ to move</span>
               <span className="flex items-center gap-1"><CornerDownLeft className="w-3.5 h-3.5" /> Enter to open</span>
               <span>Esc to close</span>
               <Link href="/admin/settings" className="ml-auto text-madder hover:underline">
-                OPEN SETTINGS →
+                OPEN SETTINGS ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¾Ãƒâ€šÃ‚Â¢
               </Link>
             </div>
           </div>

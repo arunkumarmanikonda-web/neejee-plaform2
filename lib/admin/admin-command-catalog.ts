@@ -1,9 +1,14 @@
+import type { FinancePermission } from '@/lib/finance/roles';
+
 export type AdminCommandItem = {
   href: string;
   label: string;
   group: string;
   desc: string;
   keywords: string[];
+  aliases?: string[];
+  financePerm?: FinancePermission;
+  boost?: number;
 };
 
 export const ADMIN_COMMAND_ITEMS: AdminCommandItem[] = [
@@ -48,7 +53,14 @@ export const ADMIN_COMMAND_ITEMS: AdminCommandItem[] = [
   { href: '/admin/erp', label: 'ERP Home', group: 'ERP', desc: 'ERP control panel and navigation root.', keywords: ['erp', 'integration', 'sync'] },
   { href: '/admin/erp/dashboard', label: 'Sync Dashboard', group: 'ERP', desc: 'ERP sync overview.', keywords: ['sync dashboard', 'erp dashboard'] },
   { href: '/admin/erp/failures', label: 'Failure Queue', group: 'ERP', desc: 'ERP dead-letter and failure handling.', keywords: ['failures', 'queue', 'dead letter'] },
-  { href: '/admin/erp/reconciliation', label: 'Reconciliation', group: 'ERP', desc: 'ERP reconciliation workflow.', keywords: ['reconciliation', 'erp'] },
+  { href: '/admin/erp/reconciliation', label: 'Reconciliation', group: 'ERP', desc: 'ERP reconciliation workflow.', keywords: ['reconciliation', 'erp'], aliases: ['erp recon'] },
+
+  { href: '/admin/finance/pnl', label: 'P&L', group: 'Finance', desc: 'Profit and loss reporting.', keywords: ['pnl', 'profit', 'loss', 'finance'], aliases: ['profit and loss'], financePerm: 'finance.read', boost: 3 },
+  { href: '/admin/finance/expenses', label: 'Expenses', group: 'Finance', desc: 'Expense records and approvals.', keywords: ['expenses', 'spend', 'costs'], aliases: ['expense ledger'], financePerm: 'finance.read' },
+  { href: '/admin/finance/trial-balance', label: 'Trial Balance', group: 'Finance', desc: 'Trial balance reporting.', keywords: ['trial balance', 'ledger', 'accounts'], aliases: ['tb'], financePerm: 'finance.read' },
+  { href: '/admin/finance/bank-reconciliation', label: 'Bank Reconciliation', group: 'Finance', desc: 'Match bank transactions and ledger entries.', keywords: ['bank reconciliation', 'reco', 'bank'], aliases: ['bank reco'], financePerm: 'finance.read' },
+  { href: '/admin/finance/seller-payouts', label: 'Seller Payouts', group: 'Finance', desc: 'Seller payout review and processing.', keywords: ['seller payouts', 'settlements', 'seller finance'], aliases: ['seller settlements'], financePerm: 'finance.read' },
+  { href: '/admin/finance/vendor-payouts', label: 'Vendor Payouts', group: 'Finance', desc: 'Vendor payout review and processing.', keywords: ['vendor payouts', 'vendor settlements'], aliases: ['vendor settlements'], financePerm: 'finance.read' },
 
   { href: '/admin/cms', label: 'CMS Pages', group: 'Content', desc: 'CMS page management.', keywords: ['cms', 'pages', 'content'] },
   { href: '/admin/taxonomy', label: 'Taxonomy', group: 'Content', desc: 'Taxonomy management tools.', keywords: ['taxonomy', 'content', 'hierarchy'] },
