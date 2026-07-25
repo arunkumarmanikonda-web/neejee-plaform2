@@ -28,7 +28,7 @@ import {
 } from '@/lib/admin/admin-page-quick-actions';
 
 type Props = {
-  user: SessionUser;
+  user: SessionUser | null;
 };
 
 type QuickSection = {
