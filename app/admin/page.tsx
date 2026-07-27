@@ -97,6 +97,15 @@ export default async function AdminDashboard() {
     },
   ] as const;
 
+  const secondaryControlLinks = [
+    { label: 'Disputes', href: '/admin/disputes' },
+    { label: 'Reviews', href: '/admin/reviews' },
+    { label: 'Inventory', href: '/admin/inventory' },
+    { label: 'Trial Balance', href: '/admin/finance/trial-balance' },
+    { label: 'Marketing Studio', href: '/admin/marketing-studio' },
+    { label: 'Team & Roles', href: '/admin/team' },
+  ] as const;
+
   return (
     <>
       <p className="label text-madder">DASHBOARD · SAFE MODE</p>
@@ -164,8 +173,23 @@ export default async function AdminDashboard() {
           ))}
         </div>
 
+        <div className="bg-white border border-mitti/15 rounded-xl px-5 py-4">
+          <div className="flex flex-wrap items-center gap-3">
+            <p className="label text-madder mr-2">SAFE MODE SECONDARY ROUTES</p>
+            {secondaryControlLinks.map((link) => (
+              <Link
+                key={link.href}
+                href={link.href}
+                className="px-3 py-2 rounded-lg border border-mitti/15 bg-ivory font-ui text-xs text-kohl hover:text-madder hover:border-madder/20 transition-colors"
+              >
+                {link.label}
+              </Link>
+            ))}
+          </div>
+        </div>
+
         <p className="font-ui text-xs text-mitti leading-6">
-          Customers, categories, analytics, campaigns, SEO, ERP, finance reporting, seller operations, catalog work, and platform settings now stay visible from one safe-mode dashboard zone.
+          Customers, categories, analytics, campaigns, SEO, ERP, finance reporting, seller operations, catalog work, platform settings, and additional recovery-safe routes now stay visible from one dashboard zone.
         </p>
       </section>
     </>
