@@ -229,6 +229,39 @@ export default async function AdminDashboard() {
     },
   ] as const;
 
+  const safeModeFinanceLinks = [
+    {
+      label: 'P&L',
+      href: '/admin/finance/pnl',
+      detail: 'Profit and loss reporting.',
+    },
+    {
+      label: 'Expenses',
+      href: '/admin/finance/expenses',
+      detail: 'Expense records and approvals.',
+    },
+    {
+      label: 'Trial Balance',
+      href: '/admin/finance/trial-balance',
+      detail: 'Trial balance reporting.',
+    },
+    {
+      label: 'Bank Reconciliation',
+      href: '/admin/finance/bank-reconciliation',
+      detail: 'Match bank transactions and ledger entries.',
+    },
+    {
+      label: 'Seller Payouts',
+      href: '/admin/finance/seller-payouts',
+      detail: 'Seller payout review and processing.',
+    },
+    {
+      label: 'Vendor Payouts',
+      href: '/admin/finance/vendor-payouts',
+      detail: 'Vendor payout review and processing.',
+    },
+  ] as const;
+
   return (
     <>
       <p className="label text-madder">DASHBOARD · SAFE MODE</p>
@@ -369,8 +402,24 @@ export default async function AdminDashboard() {
           </div>
         </div>
 
+        <div className="space-y-3">
+          <p className="label text-madder">SAFE MODE FINANCE SURFACES</p>
+          <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-4">
+            {safeModeFinanceLinks.map((item) => (
+              <Link
+                key={item.href}
+                href={item.href}
+                className="block bg-beige border border-mitti/10 rounded-xl px-5 py-4 hover:border-madder/20 transition-colors"
+              >
+                <p className="font-ui text-sm text-kohl font-medium">{item.label}</p>
+                <p className="font-ui text-xs text-mitti mt-2 leading-5">{item.detail}</p>
+              </Link>
+            ))}
+          </div>
+        </div>
+
         <p className="font-ui text-xs text-mitti leading-6">
-          Customers, categories, analytics, campaigns, SEO, ERP, finance reporting, seller operations, catalog work, platform settings, additional recovery-safe routes, grouped route coverage, and priority workstreams now stay visible from one dashboard zone.
+          Customers, categories, analytics, campaigns, SEO, ERP, finance reporting, seller operations, catalog work, platform settings, additional recovery-safe routes, grouped route coverage, priority workstreams, and finance surfaces now stay visible from one dashboard zone.
         </p>
       </section>
     </>
