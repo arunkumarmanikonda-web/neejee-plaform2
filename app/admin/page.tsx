@@ -33,6 +33,27 @@ export default async function AdminDashboard() {
       cta: 'OPEN ORDERS →',
     },
     {
+      eyebrow: 'OPERATIONS',
+      title: 'Customers',
+      description: 'Search customer accounts, investigate support context, and resume account-level follow-up.',
+      href: '/admin/customers',
+      cta: 'OPEN CUSTOMERS →',
+    },
+    {
+      eyebrow: 'CATALOG',
+      title: 'Categories',
+      description: 'Jump into taxonomy and storefront category controls when navigation or classification needs attention.',
+      href: '/admin/categories',
+      cta: 'OPEN CATEGORIES →',
+    },
+    {
+      eyebrow: 'GROWTH',
+      title: 'Analytics',
+      description: 'Open reporting and KPI surfaces quickly when operators need performance context without live dashboard widgets.',
+      href: '/admin/analytics',
+      cta: 'OPEN ANALYTICS →',
+    },
+    {
       eyebrow: 'MARKETPLACE',
       title: 'Sellers',
       description: 'Continue seller review, onboarding, and marketplace control workflows.',
@@ -144,7 +165,7 @@ export default async function AdminDashboard() {
         </div>
 
         <p className="font-ui text-xs text-mitti leading-6">
-          Campaigns, SEO, ERP, finance reporting, seller operations, catalog work, and platform settings now stay visible from one safe-mode dashboard zone.
+          Customers, categories, analytics, campaigns, SEO, ERP, finance reporting, seller operations, catalog work, and platform settings now stay visible from one safe-mode dashboard zone.
         </p>
       </section>
     </>
