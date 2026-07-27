@@ -225,7 +225,7 @@ export default function SellerOnboardingPage() {
         </div>
       ) : !data ? null : (
         <>
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-8">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-9">
             <Metric label="Seller applications" value={data.summary.sellersPending} hint="Pending KYC intake" icon={Store} />
             <Metric label="Under review" value={data.summary.sellersUnderReview} hint="Needs admin decision" icon={Clock3} />
             <Metric label="Approved" value={data.summary.sellersApproved} hint="Approved seller accounts" icon={CheckCircle2} />
@@ -233,6 +233,7 @@ export default function SellerOnboardingPage() {
             <Metric label="Change requests" value={data.summary.changeRequestsPending} hint="Profile edits awaiting review" icon={FileText} />
             <Metric label="Inventory submitted" value={data.summary.inventorySubmitted} hint="Submissions awaiting queue action" icon={Package} />
             <Metric label="Inventory under review" value={data.summary.inventoryUnderReview} hint="Submissions in active review" icon={Clock3} />
+            <Metric label="Inventory needs info" value={data.summary.inventoryNeedsInfo} hint="Submissions waiting on seller updates" icon={Mail} />
             <Metric label="Activation ready" value={data.summary.activationReady} hint="Approved + bank + PAN ready" icon={ShieldCheck} />
           </div>
 
