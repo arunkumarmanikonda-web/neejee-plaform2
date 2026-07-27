@@ -262,6 +262,29 @@ export default async function AdminDashboard() {
     },
   ] as const;
 
+  const safeModeErpLinks = [
+    {
+      label: 'ERP Home',
+      href: '/admin/erp',
+      detail: 'ERP control panel and navigation root.',
+    },
+    {
+      label: 'Sync Dashboard',
+      href: '/admin/erp/dashboard',
+      detail: 'ERP sync overview.',
+    },
+    {
+      label: 'Failure Queue',
+      href: '/admin/erp/failures',
+      detail: 'ERP dead-letter and failure handling.',
+    },
+    {
+      label: 'Reconciliation',
+      href: '/admin/erp/reconciliation',
+      detail: 'ERP reconciliation workflow.',
+    },
+  ] as const;
+
   const safeModeContentLinks = [
     {
       label: 'SEO',
@@ -538,6 +561,22 @@ export default async function AdminDashboard() {
         </div>
 
         <div className="space-y-3">
+          <p className="label text-madder">SAFE MODE ERP SURFACES</p>
+          <div className="grid md:grid-cols-2 xl:grid-cols-4 gap-4">
+            {safeModeErpLinks.map((item) => (
+              <Link
+                key={item.href}
+                href={item.href}
+                className="block bg-white border border-mitti/15 rounded-xl px-5 py-4 hover:border-madder/20 transition-colors"
+              >
+                <p className="font-ui text-sm text-kohl font-medium">{item.label}</p>
+                <p className="font-ui text-xs text-mitti mt-2 leading-5">{item.detail}</p>
+              </Link>
+            ))}
+          </div>
+        </div>
+
+        <div className="space-y-3">
           <p className="label text-madder">SAFE MODE CONTENT SURFACES</p>
           <div className="grid md:grid-cols-2 xl:grid-cols-4 gap-4">
             {safeModeContentLinks.map((item) => (
@@ -586,7 +625,7 @@ export default async function AdminDashboard() {
         </div>
 
         <p className="font-ui text-xs text-mitti leading-6">
-          Customers, categories, analytics, campaigns, SEO, ERP, finance reporting, seller operations, marketplace workflows, catalog work, platform settings, additional recovery-safe routes, grouped route coverage, priority workstreams, finance surfaces, content surfaces, marketplace surfaces, and admin surfaces now stay visible from one dashboard zone.
+          Customers, categories, analytics, campaigns, SEO, ERP, finance reporting, seller operations, marketplace workflows, catalog work, platform settings, additional recovery-safe routes, grouped route coverage, priority workstreams, finance surfaces, ERP surfaces, content surfaces, marketplace surfaces, and admin surfaces now stay visible from one dashboard zone.
         </p>
       </section>
     </>
