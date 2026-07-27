@@ -106,6 +106,24 @@ export default async function AdminDashboard() {
     { label: 'Team & Roles', href: '/admin/team' },
   ] as const;
 
+  const safeModeSummaryItems = [
+    {
+      value: String(controlCenterCards.length),
+      label: 'Primary destinations',
+      detail: 'High-value admin surfaces pinned in the control center.',
+    },
+    {
+      value: String(secondaryControlLinks.length),
+      label: 'Secondary routes',
+      detail: 'Recovery-safe links for adjacent operational workflows.',
+    },
+    {
+      value: 'Ctrl / Cmd + K',
+      label: 'Palette fallback',
+      detail: 'Global command access remains available from anywhere in admin.',
+    },
+  ] as const;
+
   return (
     <>
       <p className="label text-madder">DASHBOARD · SAFE MODE</p>
@@ -184,6 +202,19 @@ export default async function AdminDashboard() {
               >
                 {link.label}
               </Link>
+            ))}
+          </div>
+        </div>
+
+        <div className="space-y-3">
+          <p className="label text-madder">SAFE MODE COVERAGE</p>
+          <div className="grid md:grid-cols-3 gap-4">
+            {safeModeSummaryItems.map((item) => (
+              <div key={item.label} className="bg-white border border-mitti/15 rounded-xl px-5 py-4">
+                <p className="font-display text-2xl text-kohl">{item.value}</p>
+                <p className="font-ui text-sm text-kohl mt-2 font-medium">{item.label}</p>
+                <p className="font-ui text-xs text-mitti mt-2 leading-5">{item.detail}</p>
+              </div>
             ))}
           </div>
         </div>
