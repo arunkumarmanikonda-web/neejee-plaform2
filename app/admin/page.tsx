@@ -348,6 +348,39 @@ export default async function AdminDashboard() {
     },
   ] as const;
 
+  const safeModeAdminLinks = [
+    {
+      label: 'Team & Roles',
+      href: '/admin/team',
+      detail: 'Role, team, and permission administration.',
+    },
+    {
+      label: 'Legal Entity',
+      href: '/admin/legal-entity',
+      detail: 'Legal entity setup and company metadata.',
+    },
+    {
+      label: 'Notification Logs',
+      href: '/admin/notifications',
+      detail: 'Notification log review and message tracing.',
+    },
+    {
+      label: 'SMS & OTP',
+      href: '/admin/settings/sms',
+      detail: 'SMS, OTP, sender, and template controls.',
+    },
+    {
+      label: 'My Profile',
+      href: '/admin/profile',
+      detail: 'Current admin profile settings.',
+    },
+    {
+      label: 'Settings',
+      href: '/admin/settings',
+      detail: 'Core admin settings and configuration.',
+    },
+  ] as const;
+
   return (
     <>
       <p className="label text-madder">DASHBOARD · SAFE MODE</p>
@@ -536,8 +569,24 @@ export default async function AdminDashboard() {
           </div>
         </div>
 
+        <div className="space-y-3">
+          <p className="label text-madder">SAFE MODE ADMIN SURFACES</p>
+          <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-4">
+            {safeModeAdminLinks.map((item) => (
+              <Link
+                key={item.href}
+                href={item.href}
+                className="block bg-white border border-mitti/15 rounded-xl px-5 py-4 hover:border-madder/20 transition-colors"
+              >
+                <p className="font-ui text-sm text-kohl font-medium">{item.label}</p>
+                <p className="font-ui text-xs text-mitti mt-2 leading-5">{item.detail}</p>
+              </Link>
+            ))}
+          </div>
+        </div>
+
         <p className="font-ui text-xs text-mitti leading-6">
-          Customers, categories, analytics, campaigns, SEO, ERP, finance reporting, seller operations, marketplace workflows, catalog work, platform settings, additional recovery-safe routes, grouped route coverage, priority workstreams, finance surfaces, content surfaces, and marketplace surfaces now stay visible from one dashboard zone.
+          Customers, categories, analytics, campaigns, SEO, ERP, finance reporting, seller operations, marketplace workflows, catalog work, platform settings, additional recovery-safe routes, grouped route coverage, priority workstreams, finance surfaces, content surfaces, marketplace surfaces, and admin surfaces now stay visible from one dashboard zone.
         </p>
       </section>
     </>
