@@ -298,6 +298,52 @@ export default async function AdminDashboard() {
       href: '/admin/badges',
       detail: 'Badge asset management.',
     },
+  const safeModeMarketplaceLinks = [
+    {
+      label: 'Sellers',
+      href: '/admin/sellers',
+      detail: 'Seller records, review, and marketplace controls.',
+    },
+    {
+      label: 'Agreements',
+      href: '/admin/agreements',
+      detail: 'Agreement records and contract review.',
+    },
+    {
+      label: 'Legal Signatories',
+      href: '/admin/legal-signatories',
+      detail: 'Company signatories and legal setup.',
+    },
+    {
+      label: 'Seller Onboarding',
+      href: '/admin/seller-onboarding',
+      detail: 'Onboarding and verification workspace.',
+    },
+    {
+      label: 'Seller Inventory Queue',
+      href: '/admin/seller-inventory',
+      detail: 'Seller inventory intake and submission queue.',
+    },
+    {
+      label: 'Seller Changes',
+      href: '/admin/seller-change-requests',
+      detail: 'Seller profile and change-request review.',
+    },
+    {
+      label: 'Vendors',
+      href: '/admin/vendors',
+      detail: 'Vendor records and supplier controls.',
+    },
+    {
+      label: 'Vendor Changes',
+      href: '/admin/vendor-change-requests',
+      detail: 'Vendor change request queue.',
+    },
+    {
+      label: 'Purchase Orders',
+      href: '/admin/purchase-orders',
+      detail: 'PO flows and supplier handling.',
+    },
   ] as const;
 
   return (
@@ -472,8 +518,24 @@ export default async function AdminDashboard() {
           </div>
         </div>
 
+        <div className="space-y-3">
+          <p className="label text-madder">SAFE MODE MARKETPLACE SURFACES</p>
+          <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-4">
+            {safeModeMarketplaceLinks.map((item) => (
+              <Link
+                key={item.href}
+                href={item.href}
+                className="block bg-beige border border-mitti/10 rounded-xl px-5 py-4 hover:border-madder/20 transition-colors"
+              >
+                <p className="font-ui text-sm text-kohl font-medium">{item.label}</p>
+                <p className="font-ui text-xs text-mitti mt-2 leading-5">{item.detail}</p>
+              </Link>
+            ))}
+          </div>
+        </div>
+
         <p className="font-ui text-xs text-mitti leading-6">
-          Customers, categories, analytics, campaigns, SEO, ERP, finance reporting, seller operations, catalog work, platform settings, additional recovery-safe routes, grouped route coverage, priority workstreams, finance surfaces, and content surfaces now stay visible from one dashboard zone.
+          Customers, categories, analytics, campaigns, SEO, ERP, finance reporting, seller operations, marketplace workflows, catalog work, platform settings, additional recovery-safe routes, grouped route coverage, priority workstreams, finance surfaces, content surfaces, and marketplace surfaces now stay visible from one dashboard zone.
         </p>
       </section>
     </>
