@@ -229,6 +229,39 @@ export default async function AdminDashboard() {
     },
   ] as const;
 
+  const safeModeOperationsLinks = [
+    {
+      label: 'Overview',
+      href: '/admin',
+      detail: 'Admin landing page and safe-mode dashboard.',
+    },
+    {
+      label: 'Orders',
+      href: '/admin/orders',
+      detail: 'Review recent orders and fulfillment activity.',
+    },
+    {
+      label: 'Disputes',
+      href: '/admin/disputes',
+      detail: 'Review dispute cases and interventions.',
+    },
+    {
+      label: 'Customers',
+      href: '/admin/customers',
+      detail: 'Search customers and account activity.',
+    },
+    {
+      label: 'Segments',
+      href: '/admin/customers/segments',
+      detail: 'Audience segmentation and lifecycle targeting.',
+    },
+    {
+      label: 'Reviews',
+      href: '/admin/reviews',
+      detail: 'Moderate product and customer reviews.',
+    },
+  ] as const;
+
   const safeModeFinanceLinks = [
     {
       label: 'P&L',
@@ -545,6 +578,22 @@ export default async function AdminDashboard() {
         </div>
 
         <div className="space-y-3">
+          <p className="label text-madder">SAFE MODE OPERATIONS SURFACES</p>
+          <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-4">
+            {safeModeOperationsLinks.map((item) => (
+              <Link
+                key={item.href}
+                href={item.href}
+                className="block bg-beige border border-mitti/10 rounded-xl px-5 py-4 hover:border-madder/20 transition-colors"
+              >
+                <p className="font-ui text-sm text-kohl font-medium">{item.label}</p>
+                <p className="font-ui text-xs text-mitti mt-2 leading-5">{item.detail}</p>
+              </Link>
+            ))}
+          </div>
+        </div>
+
+        <div className="space-y-3">
           <p className="label text-madder">SAFE MODE FINANCE SURFACES</p>
           <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-4">
             {safeModeFinanceLinks.map((item) => (
@@ -625,7 +674,7 @@ export default async function AdminDashboard() {
         </div>
 
         <p className="font-ui text-xs text-mitti leading-6">
-          Customers, categories, analytics, campaigns, SEO, ERP, finance reporting, seller operations, marketplace workflows, catalog work, platform settings, additional recovery-safe routes, grouped route coverage, priority workstreams, finance surfaces, ERP surfaces, content surfaces, marketplace surfaces, and admin surfaces now stay visible from one dashboard zone.
+          Customers, categories, analytics, campaigns, SEO, ERP, finance reporting, seller operations, marketplace workflows, catalog work, platform settings, additional recovery-safe routes, grouped route coverage, priority workstreams, operations surfaces, finance surfaces, ERP surfaces, content surfaces, marketplace surfaces, and admin surfaces now stay visible from one dashboard zone.
         </p>
       </section>
     </>
