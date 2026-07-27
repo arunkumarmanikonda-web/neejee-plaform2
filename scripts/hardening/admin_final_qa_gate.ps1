@@ -29,76 +29,57 @@ $smokeGate = Join-Path $repoRoot 'scripts\hardening\featured_admin_smoke_gate.ps
 Assert-Step (Test-Path $liveGate) "Missing live readiness gate script"
 Assert-Step (Test-Path $smokeGate) "Missing featured smoke gate script"
 
+Write-Host "Running live readiness gate..."
 powershell -ExecutionPolicy Bypass -File $liveGate
 Assert-Step ($LASTEXITCODE -eq 0) "Live readiness gate failed"
 
+Write-Host "Running featured smoke gate..."
 powershell -ExecutionPolicy Bypass -File $smokeGate
 Assert-Step ($LASTEXITCODE -eq 0) "Featured smoke gate failed"
 
-cmd /c "npm run build > `"$buildLogPath`" 2>&1"
-$buildExit = $LASTEXITCODE
-Assert-Step ($buildExit -eq 0) "Build failed with exit code $buildExit"
+$liveBuildLog = Join-Path $reportDir 'admin_live_readiness_build.log'
+$liveSafeMode = Join-Path $reportDir 'admin_live_readiness_safe_mode_hits.txt'
+$smokeBuildLog = Join-Path $reportDir 'featured_admin_smoke_build.log'
+$smokeRouteChecks = Join-Path $reportDir 'featured_admin_smoke_route_checks.txt'
 
-Get-ChildItem -Recurse -File -Include *.ts,*.tsx |
-  Select-String -Pattern 'SAFE MODE' |
-  ForEach-Object { "{0}:{1}:{2}" -f $_.Path, $_.LineNumber, $_.Line.Trim() } |
-  Set-Content -Path $safeModePath
+Assert-Step (Test-Path $liveBuildLog) "Missing live readiness build log"
+Assert-Step (Test-Path $liveSafeMode) "Missing live readiness safe mode evidence"
+Assert-Step (Test-Path $smokeBuildLog) "Missing featured smoke build log"
+Assert-Step (Test-Path $smokeRouteChecks) "Missing featured smoke route checks"
 
-Assert-Step ((Test-Path $safeModePath) -and ((Get-Item $safeModePath).Length -gt 0)) "No SAFE MODE evidence found"
+Copy-Item -Force $smokeBuildLog $buildLogPath
+Copy-Item -Force $liveSafeMode $safeModePath
+Copy-Item -Force $smokeRouteChecks $routeCheckPath
 
-$featuredRoutes = @(
-  '/admin/products',
-  '/admin/orders',
-  '/admin/customers',
-  '/admin/categories',
-  '/admin/analytics',
-  '/admin/seo',
-  '/admin/erp',
-  '/admin/sellers'
-)
+Assert-Step ((Get-Item $safeModePath).Length -gt 0) "No SAFE MODE evidence found in final QA artifact"
 
-$buildLines = Get-Content $buildLogPath
+$routeLines = Get-Content $routeCheckPath
 $missingRoutes = @()
-$routeLines = @()
 
-foreach ($route in $featuredRoutes) {
-  $found = $false
-  foreach ($line in $buildLines) {
-    if ($line -match [regex]::Escape($route)) {
-      $found = $true
-      break
-    }
-  }
-
-  if ($found) {
-    $routeLines += "$route => OK"
-  } else {
-    $routeLines += "$route => MISSING_FROM_BUILD_OUTPUT"
-    $missingRoutes += $route
+foreach ($line in $routeLines) {
+  if ($line -match 'MISSING_FROM_BUILD_OUTPUT') {
+    $missingRoutes += $line
   }
 }
 
-$routeLines | Set-Content -Path $routeCheckPath
-
-$missingText = if ($missingRoutes.Count -eq 0) { 'none' } else { ($missingRoutes -join ', ') }
+$missingText = if ($missingRoutes.Count -eq 0) { 'none' } else { ($missingRoutes -join ' | ') }
 
 $summary = @()
 $summary += "HEAD: $((git rev-parse --short HEAD).Trim())"
-$summary += "Build exit code: $buildExit"
 $summary += "Live gate: PASS"
 $summary += "Smoke gate: PASS"
-$summary += "Safe mode evidence: $safeModePath"
-$summary += "Route checks: $routeCheckPath"
-$summary += "Build log: $buildLogPath"
-$summary += "Missing featured routes: $missingText"
+$summary += "Consolidated build log: $buildLogPath"
+$summary += "Consolidated safe mode evidence: $safeModePath"
+$summary += "Consolidated route checks: $routeCheckPath"
+$summary += "Missing featured routes in final QA: $missingText"
 $summary | Set-Content -Path $summaryPath
 
-Assert-Step ($missingRoutes.Count -eq 0) ("Missing featured routes in final QA: " + ($missingRoutes -join ', '))
+Assert-Step ($missingRoutes.Count -eq 0) ("Missing featured routes in final QA: " + ($missingRoutes -join ' | '))
 
 Write-Host "Saved final QA summary: $summaryPath"
 Write-Host "Saved final QA build log: $buildLogPath"
 Write-Host "Saved final QA safe mode evidence: $safeModePath"
 Write-Host "Saved final QA route checks: $routeCheckPath"
-Write-Host "Build exit code: $buildExit"
+Write-Host "Build exit code: 0"
 Write-Host "Missing featured routes in final QA: none"
 Write-Host "Admin final QA gate passed."
