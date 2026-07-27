@@ -229,6 +229,22 @@ export default async function AdminDashboard() {
     },
   ] as const;
 
+  const safeModeJumpLinks = [
+    { label: 'Control Center', href: '#control-center' },
+    { label: 'Secondary Routes', href: '#secondary-routes' },
+    { label: 'Coverage', href: '#coverage' },
+    { label: 'Route Groups', href: '#route-groups' },
+    { label: 'Priority Workstreams', href: '#priority-workstreams' },
+    { label: 'Operations', href: '#operations-surfaces' },
+    { label: 'Growth', href: '#growth-surfaces' },
+    { label: 'Catalog', href: '#catalog-surfaces' },
+    { label: 'Finance', href: '#finance-surfaces' },
+    { label: 'ERP', href: '#erp-surfaces' },
+    { label: 'Content', href: '#content-surfaces' },
+    { label: 'Marketplace', href: '#marketplace-surfaces' },
+    { label: 'Admin', href: '#admin-surfaces' },
+  ] as const;
+
   const safeModeOperationsLinks = [
     {
       label: 'Overview',
@@ -581,8 +597,24 @@ export default async function AdminDashboard() {
 
       <AdminAdaptiveQuickActions user={user} />
 
+      <div className="mt-6 bg-white border border-mitti/15 rounded-xl px-5 py-4">
+        <div className="flex flex-wrap items-center gap-3">
+          <p className="label text-madder mr-2">SAFE MODE SECTION JUMP BAR</p>
+          {safeModeJumpLinks.map((link) => (
+            <Link
+              key={link.href}
+              href={link.href}
+              className="px-3 py-2 rounded-lg border border-mitti/15 bg-ivory font-ui text-xs text-kohl hover:text-madder hover:border-madder/20 transition-colors"
+            >
+              {link.label}
+            </Link>
+          ))}
+        </div>
+      </div>
+
+
       <section className="mt-10 space-y-4">
-        <div>
+        <div id="control-center">
           <p className="label text-madder">SAFE MODE CONTROL CENTER</p>
           <h2 className="font-display text-2xl text-kohl mt-1">
             Stable destinations while live metrics stay offline
@@ -605,7 +637,7 @@ export default async function AdminDashboard() {
           ))}
         </div>
 
-        <div className="bg-white border border-mitti/15 rounded-xl px-5 py-4">
+        <div id="secondary-routes" className="bg-white border border-mitti/15 rounded-xl px-5 py-4">
           <div className="flex flex-wrap items-center gap-3">
             <p className="label text-madder mr-2">SAFE MODE SECONDARY ROUTES</p>
             {secondaryControlLinks.map((link) => (
@@ -620,7 +652,7 @@ export default async function AdminDashboard() {
           </div>
         </div>
 
-        <div className="space-y-3">
+        <div id="coverage" className="space-y-3">
           <p className="label text-madder">SAFE MODE COVERAGE</p>
           <div className="grid md:grid-cols-3 gap-4">
             {safeModeSummaryItems.map((item) => (
@@ -633,7 +665,7 @@ export default async function AdminDashboard() {
           </div>
         </div>
 
-        <div className="space-y-3">
+        <div id="route-groups" className="space-y-3">
           <p className="label text-madder">SAFE MODE ROUTE GROUPS</p>
           <div className="grid md:grid-cols-2 xl:grid-cols-4 gap-4">
             {safeModeRouteGroups.map((group) => (
@@ -650,7 +682,7 @@ export default async function AdminDashboard() {
           </div>
         </div>
 
-        <div className="space-y-3">
+        <div id="priority-workstreams" className="space-y-3">
           <p className="label text-madder">SAFE MODE PRIORITY WORKSTREAMS</p>
           <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-4">
             {safeModePriorityWorkstreams.map((item) => (
@@ -678,7 +710,7 @@ export default async function AdminDashboard() {
           </div>
         </div>
 
-        <div className="space-y-3">
+        <div id="operations-surfaces" className="space-y-3">
           <p className="label text-madder">SAFE MODE OPERATIONS SURFACES</p>
           <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-4">
             {safeModeOperationsLinks.map((item) => (
@@ -694,7 +726,7 @@ export default async function AdminDashboard() {
           </div>
         </div>
 
-        <div className="space-y-3">
+        <div id="growth-surfaces" className="space-y-3">
           <p className="label text-madder">SAFE MODE GROWTH SURFACES</p>
           <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-4">
             {safeModeGrowthLinks.map((item) => (
@@ -710,7 +742,7 @@ export default async function AdminDashboard() {
           </div>
         </div>
 
-        <div className="space-y-3">
+        <div id="catalog-surfaces" className="space-y-3">
           <p className="label text-madder">SAFE MODE CATALOG SURFACES</p>
           <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-4">
             {safeModeCatalogLinks.map((item) => (
@@ -726,7 +758,7 @@ export default async function AdminDashboard() {
           </div>
         </div>
 
-        <div className="space-y-3">
+        <div id="finance-surfaces" className="space-y-3">
           <p className="label text-madder">SAFE MODE FINANCE SURFACES</p>
           <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-4">
             {safeModeFinanceLinks.map((item) => (
@@ -742,7 +774,7 @@ export default async function AdminDashboard() {
           </div>
         </div>
 
-        <div className="space-y-3">
+        <div id="erp-surfaces" className="space-y-3">
           <p className="label text-madder">SAFE MODE ERP SURFACES</p>
           <div className="grid md:grid-cols-2 xl:grid-cols-4 gap-4">
             {safeModeErpLinks.map((item) => (
@@ -758,7 +790,7 @@ export default async function AdminDashboard() {
           </div>
         </div>
 
-        <div className="space-y-3">
+        <div id="content-surfaces" className="space-y-3">
           <p className="label text-madder">SAFE MODE CONTENT SURFACES</p>
           <div className="grid md:grid-cols-2 xl:grid-cols-4 gap-4">
             {safeModeContentLinks.map((item) => (
@@ -774,7 +806,7 @@ export default async function AdminDashboard() {
           </div>
         </div>
 
-        <div className="space-y-3">
+        <div id="marketplace-surfaces" className="space-y-3">
           <p className="label text-madder">SAFE MODE MARKETPLACE SURFACES</p>
           <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-4">
             {safeModeMarketplaceLinks.map((item) => (
@@ -790,7 +822,7 @@ export default async function AdminDashboard() {
           </div>
         </div>
 
-        <div className="space-y-3">
+        <div id="admin-surfaces" className="space-y-3">
           <p className="label text-madder">SAFE MODE ADMIN SURFACES</p>
           <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-4">
             {safeModeAdminLinks.map((item) => (
