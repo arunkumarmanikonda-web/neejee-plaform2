@@ -42,6 +42,15 @@ type PaletteActionResult = PaletteActionItem & {
 
 type PaletteResult = PalettePageResult | PaletteActionResult;
 
+const QUICK_SCOPE_ITEMS = [
+  { label: 'Reports', query: 'profit and loss', hint: 'P&L, trial balance, payouts' },
+  { label: 'Settings', query: 'settings', hint: 'Platform settings and controls' },
+  { label: 'SEO', query: 'seo settings', hint: 'SEO, metadata, canonical, robots' },
+  { label: 'Sellers', query: 'seller onboarding', hint: 'Sellers, onboarding, change requests' },
+  { label: 'Products', query: 'products', hint: 'Catalog, products, categories' },
+  { label: 'Orders', query: 'orders', hint: 'Orders, disputes, customers' },
+] as const;
+
 function normalizeCommandText(value: string) {
   return value
     .toLowerCase()
@@ -169,6 +178,12 @@ export default function AdminCommandPalette({ user }: Props) {
     [],
   );
 
+  const openPalette = (nextQuery = '') => {
+    setQuery(nextQuery);
+    setCursor(0);
+    setOpen(true);
+  };
+
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       const hotkey = (event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k';
@@ -185,6 +200,18 @@ export default function AdminCommandPalette({ user }: Props) {
 
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
+  }, []);
+
+  useEffect(() => {
+    const onOpen = (event: Event) => {
+      const detail = (event as CustomEvent<{ query?: string }>).detail;
+      setQuery(detail?.query ?? '');
+      setCursor(0);
+      setOpen(true);
+    };
+
+    window.addEventListener('neejee:admin-command-open', onOpen as EventListener);
+    return () => window.removeEventListener('neejee:admin-command-open', onOpen as EventListener);
   }, []);
 
   useEffect(() => {
@@ -300,13 +327,13 @@ export default function AdminCommandPalette({ user }: Props) {
       <div className="sticky top-0 z-20 -mx-2 px-2 pb-6 bg-gradient-to-b from-ivory via-ivory to-transparent">
         <button
           type="button"
-          onClick={() => setOpen(true)}
+          onClick={() => openPalette('')}
           className="w-full bg-white border border-mitti/15 rounded-xl px-4 py-3 flex items-center justify-between gap-4 shadow-sm hover:border-madder/30 transition-colors"
         >
           <span className="flex items-center gap-3 min-w-0">
             <Search className="w-4 h-4 text-madder shrink-0" />
             <span className="text-sm text-kohl text-left truncate">
-              Search admin pages or run direct actions with aliases and natural shortcuts
+              Search pages, settings, reports, SEO, sellers, products, orders, or run direct actions
             </span>
           </span>
           <span className="flex items-center gap-2 text-[11px] text-mitti shrink-0">
@@ -315,6 +342,21 @@ export default function AdminCommandPalette({ user }: Props) {
             <span className="px-2 py-1 rounded border border-mitti/20 bg-ivory font-mono">Ctrl K</span>
           </span>
         </button>
+
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <span className="text-[10px] tracking-[0.18em] text-mitti uppercase">Popular starts</span>
+          {QUICK_SCOPE_ITEMS.map((scope) => (
+            <button
+              key={scope.label}
+              type="button"
+              onClick={() => openPalette(scope.query)}
+              className="px-3 py-2 rounded-full bg-white border border-mitti/15 text-[11px] text-kohl hover:border-madder/30 transition-colors"
+              title={scope.hint}
+            >
+              {scope.label}
+            </button>
+          ))}
+        </div>
       </div>
 
       {open ? (
@@ -341,7 +383,7 @@ export default function AdminCommandPalette({ user }: Props) {
                       runResult(active);
                     }
                   }}
-                  placeholder="Try profit and loss, seller payouts, copy current URL, refresh page..."
+                  placeholder="Try settings, SEO metadata, seller payouts, products, refresh page..."
                   className="w-full bg-transparent outline-none text-kohl placeholder:text-mitti text-sm"
                 />
                 <button
@@ -418,7 +460,7 @@ export default function AdminCommandPalette({ user }: Props) {
                 <div className="bg-white rounded-xl border border-mitti/15 p-6">
                   <p className="label text-madder">NO MATCHES</p>
                   <p className="text-sm text-mitti mt-3 leading-6">
-                    Try broader natural phrases like profit and loss, seller payouts, copy current URL, refresh page, products, settings, or inventory.
+                    Try broader natural phrases like settings, SEO metadata, seller payouts, products, inventory, orders, or refresh page.
                   </p>
                 </div>
               )}
