@@ -298,6 +298,8 @@ export default async function AdminDashboard() {
       href: '/admin/badges',
       detail: 'Badge asset management.',
     },
+  ] as const;
+
   const safeModeMarketplaceLinks = [
     {
       label: 'Sellers',
