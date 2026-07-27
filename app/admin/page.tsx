@@ -262,6 +262,49 @@ export default async function AdminDashboard() {
     },
   ] as const;
 
+  const safeModeGrowthLinks = [
+    {
+      label: 'Analytics',
+      href: '/admin/analytics',
+      detail: 'Reporting and KPI visibility during safe mode.',
+    },
+    {
+      label: 'Demand Forecast',
+      href: '/admin/forecast',
+      detail: 'Demand forecasting workspace and planning tools.',
+    },
+    {
+      label: "Founder's Circle",
+      href: '/admin/loyalty',
+      detail: 'Loyalty configuration and member activity.',
+    },
+    {
+      label: 'Campaigns',
+      href: '/admin/campaigns',
+      detail: 'Campaign planning and execution workspace.',
+    },
+    {
+      label: 'Email Broadcasts',
+      href: '/admin/marketing',
+      detail: 'Email broadcast and messaging workflows.',
+    },
+    {
+      label: 'Abandoned Carts',
+      href: '/admin/abandoned',
+      detail: 'Cart-recovery monitoring and follow-up.',
+    },
+    {
+      label: 'Marketing Studio',
+      href: '/admin/marketing-studio',
+      detail: 'Creative drafting and campaign production.',
+    },
+    {
+      label: 'Marketing Approvals',
+      href: '/admin/marketing-approvals',
+      detail: 'Approval queue for growth and marketing outputs.',
+    },
+  ] as const;
+
   const safeModeFinanceLinks = [
     {
       label: 'P&L',
@@ -594,6 +637,22 @@ export default async function AdminDashboard() {
         </div>
 
         <div className="space-y-3">
+          <p className="label text-madder">SAFE MODE GROWTH SURFACES</p>
+          <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-4">
+            {safeModeGrowthLinks.map((item) => (
+              <Link
+                key={item.href}
+                href={item.href}
+                className="block bg-beige border border-mitti/10 rounded-xl px-5 py-4 hover:border-madder/20 transition-colors"
+              >
+                <p className="font-ui text-sm text-kohl font-medium">{item.label}</p>
+                <p className="font-ui text-xs text-mitti mt-2 leading-5">{item.detail}</p>
+              </Link>
+            ))}
+          </div>
+        </div>
+
+        <div className="space-y-3">
           <p className="label text-madder">SAFE MODE FINANCE SURFACES</p>
           <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-4">
             {safeModeFinanceLinks.map((item) => (
@@ -674,7 +733,7 @@ export default async function AdminDashboard() {
         </div>
 
         <p className="font-ui text-xs text-mitti leading-6">
-          Customers, categories, analytics, campaigns, SEO, ERP, finance reporting, seller operations, marketplace workflows, catalog work, platform settings, additional recovery-safe routes, grouped route coverage, priority workstreams, operations surfaces, finance surfaces, ERP surfaces, content surfaces, marketplace surfaces, and admin surfaces now stay visible from one dashboard zone.
+          Customers, categories, analytics, campaigns, SEO, ERP, finance reporting, seller operations, marketplace workflows, catalog work, platform settings, additional recovery-safe routes, grouped route coverage, priority workstreams, operations surfaces, growth surfaces, finance surfaces, ERP surfaces, content surfaces, marketplace surfaces, and admin surfaces now stay visible from one dashboard zone.
         </p>
       </section>
     </>
