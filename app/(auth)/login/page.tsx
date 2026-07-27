@@ -1,6 +1,6 @@
 ﻿'use client';
 
-import { Suspense, useEffect, useRef, useState } from 'react';
+import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import Script from 'next/script';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -8,10 +8,18 @@ import { Eye, EyeOff, ArrowLeft, Loader2, Smartphone, Mail } from 'lucide-react'
 import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
 import { looksLikePhone, normalizePhone, formatPhoneDisplay } from '@/lib/phone';
+import { ADMIN_COMMAND_ITEMS } from '@/lib/admin/admin-command-catalog';
+import { getAdminCommandInsights } from '@/lib/admin/admin-command-usage';
 
 export const dynamic = 'force-dynamic';
 
 type Step = 'identity' | 'password' | 'otp' | 'admin_2fa';
+
+type AdminQuickReturn = {
+  label: string;
+  href: string;
+  hint: string;
+};
 
 function LoginInner() {
   const router = useRouter();
@@ -42,6 +50,7 @@ function LoginInner() {
   });
   const [facebookAppId, setFacebookAppId] = useState<string>('');
   const [otpEnabled, setOtpEnabled] = useState<boolean>(false);
+  const [preferredNext, setPreferredNext] = useState(nextParam);
 
   useEffect(() => {
     fetch('/api/auth/social/availability', { cache: 'no-store' })
@@ -66,8 +75,37 @@ function LoginInner() {
     return () => clearTimeout(t);
   }, [resendCountdown]);
 
+  useEffect(() => {
+    setPreferredNext(nextParam);
+  }, [nextParam]);
+
+  const adminQuickReturns = useMemo<AdminQuickReturn[]>(() => {
+    const launches: AdminQuickReturn[] = [];
+    const seen = new Set<string>();
+
+    const pushLaunch = (label: string, href: string, hint: string) => {
+      if (!href.startsWith('/admin') || seen.has(href)) return;
+      seen.add(href);
+      launches.push({ label, href, hint });
+    };
+
+    const insights = getAdminCommandInsights(ADMIN_COMMAND_ITEMS, 6);
+    [...insights.recentItems, ...insights.frequentItems, ...insights.suggestedItems].forEach((item) => {
+      pushLaunch(item.label, item.href, item.desc);
+    });
+
+    [
+      { label: 'Dashboard', href: '/admin', hint: 'Return to the admin dashboard' },
+      { label: 'Sellers', href: '/admin/sellers', hint: 'Open seller records and controls' },
+      { label: 'Products', href: '/admin/products', hint: 'Continue product and catalog work' },
+      { label: 'Reports', href: '/admin/finance/pnl', hint: 'Open finance reporting quickly' },
+    ].forEach((item) => pushLaunch(item.label, item.href, item.hint));
+
+    return launches.slice(0, 4);
+  }, []);
+
   const resolveDestination = (data: any, fallback: string) => {
-    const normalDest = nextParam || data?.redirect || fallback;
+    const normalDest = preferredNext || nextParam || data?.redirect || fallback;
 
     if (data?.forceRedirect || data?.needsProfileCompletion) {
       const nextAfterProfile =
@@ -230,7 +268,7 @@ Create an account with this number to continue.`);
         return;
       }
 
-      const dest = nextParam || data.redirect || '/admin';
+      const dest = preferredNext || nextParam || data.redirect || '/admin';
       router.push(dest);
       router.refresh();
     } catch (err: any) {
@@ -590,6 +628,42 @@ Create an account with this number to continue.`);
             <button type="submit" disabled={loading || twoFACode.length < 4} className="btn-primary w-full disabled:opacity-50">
               {loading ? 'Verifying...' : 'VERIFY & SIGN IN'}
             </button>
+
+            {adminQuickReturns.length > 0 && (
+              <div className="bg-white border border-mitti/15 rounded-xl p-4 space-y-3">
+                <div>
+                  <p className="label text-madder">ADMIN QUICK RETURN</p>
+                  <p className="font-ui text-xs text-mitti mt-2 leading-6">
+                    Choose where to land after verification based on your recent admin work.
+                  </p>
+                </div>
+
+                <div className="flex flex-wrap gap-2">
+                  {adminQuickReturns.map((item) => {
+                    const active = (preferredNext || nextParam || '/admin') === item.href;
+                    return (
+                      <button
+                        key={item.href}
+                        type="button"
+                        onClick={() => setPreferredNext(item.href)}
+                        title={item.hint}
+                        className={`px-3 py-2 rounded-lg border text-xs font-ui transition-colors ${
+                          active
+                            ? 'border-madder bg-madder/5 text-kohl'
+                            : 'border-mitti/15 bg-white text-kohl hover:border-madder/30'
+                        }`}
+                      >
+                        {item.label}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <p className="font-mono text-[11px] text-mitti">
+                  Post-login destination: {preferredNext || nextParam || '/admin'}
+                </p>
+              </div>
+            )}
           </form>
         )}
 
