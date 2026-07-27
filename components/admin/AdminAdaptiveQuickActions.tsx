@@ -7,6 +7,7 @@ import {
   ArrowRight,
   Clock3,
   Compass,
+  Search,
   ShieldCheck,
   Sparkles,
 } from 'lucide-react';
@@ -40,11 +41,26 @@ type QuickSection = {
   items: AdminCommandItem[];
 };
 
+type SearchLaunch = {
+  label: string;
+  query: string;
+  hint: string;
+};
+
 function SectionIcon({ icon }: { icon: QuickSection['icon'] }) {
   if (icon === 'continue') return <Clock3 className="w-4 h-4 text-banarasi" />;
   if (icon === 'context') return <Compass className="w-4 h-4 text-madder" />;
   if (icon === 'role') return <ShieldCheck className="w-4 h-4 text-banarasi" />;
   return <Sparkles className="w-4 h-4 text-madder" />;
+}
+
+function openAdminCommandPalette(query: string) {
+  if (typeof window === 'undefined') return;
+  window.dispatchEvent(
+    new CustomEvent('neejee:admin-command-open', {
+      detail: { query },
+    }),
+  );
 }
 
 export default function AdminAdaptiveQuickActions({ user }: Props) {
@@ -81,6 +97,40 @@ export default function AdminAdaptiveQuickActions({ user }: Props) {
     window.addEventListener('focus', load);
     return () => window.removeEventListener('focus', load);
   }, [featuredItems, visibleItems]);
+
+  const searchLaunches = useMemo<SearchLaunch[]>(() => {
+    const launches: SearchLaunch[] = [];
+    const seen = new Set<string>();
+
+    const pushLaunch = (label: string, query: string, hint: string) => {
+      const normalized = query.trim().toLowerCase();
+      if (!normalized || seen.has(normalized)) return;
+      seen.add(normalized);
+      launches.push({ label, query, hint });
+    };
+
+    dedupeAdminItems(
+      [...recentItems, ...frequentItems, ...suggestedItems, ...featuredItems],
+      12,
+    ).forEach((item) => {
+      pushLaunch(
+        item.label,
+        item.aliases?.[0] ?? item.label.toLowerCase(),
+        item.desc,
+      );
+    });
+
+    [
+      { label: 'Settings', query: 'settings', hint: 'Platform settings and controls' },
+      { label: 'SEO', query: 'seo settings', hint: 'SEO, metadata, canonical, robots' },
+      { label: 'Sellers', query: 'seller onboarding', hint: 'Sellers, onboarding, change requests' },
+      { label: 'Products', query: 'products', hint: 'Catalog, products, categories' },
+      { label: 'Orders', query: 'orders', hint: 'Orders, fulfillment, customers' },
+      { label: 'Reports', query: 'profit and loss', hint: 'P&L, trial balance, payouts' },
+    ].forEach((item) => pushLaunch(item.label, item.query, item.hint));
+
+    return launches.slice(0, 8);
+  }, [featuredItems, frequentItems, recentItems, suggestedItems]);
 
   const routeContext = useMemo(() => getAdminRouteContext(pathname), [pathname]);
   const roleFocus = useMemo(() => getAdminRoleFocus(user), [user]);
@@ -184,6 +234,38 @@ export default function AdminAdaptiveQuickActions({ user }: Props) {
 
   return (
     <div className="space-y-8 mt-10">
+      <section className="space-y-4">
+        <div className="flex flex-wrap items-start gap-3">
+          <div className="mt-1">
+            <Search className="w-4 h-4 text-banarasi" />
+          </div>
+          <div className="min-w-0">
+            <p className="label text-madder">SEARCH LAUNCHPAD</p>
+            <h2 className="font-display text-2xl text-kohl mt-1">
+              Search any admin surface faster
+            </h2>
+            <p className="font-ui text-sm text-mitti mt-2 leading-6 max-w-3xl">
+              These adaptive launches open the command palette with a focused starting query based on recent usage, frequent workflows, and high-value admin areas.
+            </p>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap gap-3">
+          {searchLaunches.map((item) => (
+            <button
+              key={`search-launch:${item.label}:${item.query}`}
+              type="button"
+              onClick={() => openAdminCommandPalette(item.query)}
+              className="px-4 py-3 rounded-xl bg-white border border-mitti/15 text-left hover:border-madder/30 transition-colors"
+              title={item.hint}
+            >
+              <p className="font-ui text-sm font-medium text-kohl">{item.label}</p>
+              <p className="font-mono text-[11px] text-mitti mt-2">{item.query}</p>
+            </button>
+          ))}
+        </div>
+      </section>
+
       {sections.map((section) => (
         <section key={section.key} className="space-y-4">
           <div className="flex flex-wrap items-start gap-3">
