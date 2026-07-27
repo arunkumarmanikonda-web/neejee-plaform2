@@ -305,6 +305,64 @@ export default async function AdminDashboard() {
     },
   ] as const;
 
+  const safeModeCatalogLinks = [
+    {
+      label: 'Products',
+      href: '/admin/products',
+      detail: 'Product CRUD, pricing, media, and day-to-day catalog edits.',
+    },
+    {
+      label: 'Catalogues',
+      href: '/admin/catalogues',
+      detail: 'Catalogue generation, exports, and printable catalog workflows.',
+    },
+    {
+      label: 'Merchandising',
+      href: '/admin/merchandising',
+      detail: 'Curated launch planning and catalog merchandising control.',
+    },
+    {
+      label: 'Categories',
+      href: '/admin/categories',
+      detail: 'Taxonomy and storefront category management during safe mode.',
+    },
+    {
+      label: 'Crafts',
+      href: '/admin/crafts',
+      detail: 'Craft definitions and editorial organization for product storytelling.',
+    },
+    {
+      label: 'AI Photo Studio',
+      href: '/admin/ai-photo-studio',
+      detail: 'AI-assisted catalogue media workflows and image generation tools.',
+    },
+    {
+      label: 'Vendor Photo Queue',
+      href: '/admin/ai-photo-requests',
+      detail: 'Vendor media intake, requests, and asset follow-up.',
+    },
+    {
+      label: 'Inventory',
+      href: '/admin/inventory',
+      detail: 'Inventory visibility and stock administration surfaces.',
+    },
+    {
+      label: 'Drops',
+      href: '/admin/drops',
+      detail: 'Drop planning and merchandising window coordination.',
+    },
+    {
+      label: 'Waitlist',
+      href: '/admin/waitlist',
+      detail: 'Waitlist monitoring and demand-intent review.',
+    },
+    {
+      label: 'Coupons',
+      href: '/admin/coupons',
+      detail: 'Coupon setup and campaign incentive management.',
+    },
+  ] as const;
+
   const safeModeFinanceLinks = [
     {
       label: 'P&L',
@@ -653,6 +711,22 @@ export default async function AdminDashboard() {
         </div>
 
         <div className="space-y-3">
+          <p className="label text-madder">SAFE MODE CATALOG SURFACES</p>
+          <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-4">
+            {safeModeCatalogLinks.map((item) => (
+              <Link
+                key={item.href}
+                href={item.href}
+                className="block bg-beige border border-mitti/10 rounded-xl px-5 py-4 hover:border-madder/20 transition-colors"
+              >
+                <p className="font-ui text-sm text-kohl font-medium">{item.label}</p>
+                <p className="font-ui text-xs text-mitti mt-2 leading-5">{item.detail}</p>
+              </Link>
+            ))}
+          </div>
+        </div>
+
+        <div className="space-y-3">
           <p className="label text-madder">SAFE MODE FINANCE SURFACES</p>
           <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-4">
             {safeModeFinanceLinks.map((item) => (
@@ -733,7 +807,7 @@ export default async function AdminDashboard() {
         </div>
 
         <p className="font-ui text-xs text-mitti leading-6">
-          Customers, categories, analytics, campaigns, SEO, ERP, finance reporting, seller operations, marketplace workflows, catalog work, platform settings, additional recovery-safe routes, grouped route coverage, priority workstreams, operations surfaces, growth surfaces, finance surfaces, ERP surfaces, content surfaces, marketplace surfaces, and admin surfaces now stay visible from one dashboard zone.
+          Customers, categories, analytics, campaigns, SEO, ERP, finance reporting, seller operations, marketplace workflows, catalog work, platform settings, additional recovery-safe routes, grouped route coverage, priority workstreams, operations surfaces, growth surfaces, catalog surfaces, finance surfaces, ERP surfaces, content surfaces, marketplace surfaces, and admin surfaces now stay visible from one dashboard zone.
         </p>
       </section>
     </>
