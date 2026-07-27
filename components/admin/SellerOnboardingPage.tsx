@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
@@ -265,16 +265,16 @@ export default function SellerOnboardingPage() {
                           ) : null}
                           <div className="mt-1 font-mono text-[11px] text-mitti/80">ID: {seller.id}</div>
                           <div className="mt-1 text-xs text-mitti">
-                            {seller.contactName}{' · '}{seller.craft || '—'}{' · '}{seller.region || '—'}
+                            {seller.contactName}{' Â· '}{seller.craft || 'â€”'}{' Â· '}{seller.region || 'â€”'}
                           </div>
                           <div className="mt-1 text-xs text-mitti">
-                            {seller.email}{' · '}{seller.phone}
+                            {seller.email}{' Â· '}{seller.phone}
                           </div>
                           <div className="mt-1 text-[11px] text-mitti">
                             {seller.productCount} {seller.productCount === 1 ? 'product' : 'products'}
                           </div>
                           <div className="mt-1 text-[11px] text-mitti">
-                            {(seller.blockers?.length || 0)} {(seller.blockers?.length || 0) === 1 ? 'blocker' : 'blockers'}{' · '}
+                            {(seller.blockers?.length || 0)} {(seller.blockers?.length || 0) === 1 ? 'blocker' : 'blockers'}{' Â· '}
                             {(seller.warnings?.length || 0)} {(seller.warnings?.length || 0) === 1 ? 'warning' : 'warnings'}
                           </div>
                         </td>
@@ -393,7 +393,7 @@ export default function SellerOnboardingPage() {
                               <div className="mt-1 text-xs text-mitti/90">Reason: {row.reason}</div>
                             ) : null}
                             <div className="mt-1 text-xs text-mitti">
-                              {row.changedFieldCount} changed fields{' · '}{row.supportingDocCount} docs{' · '}{fmtDate(row.createdAt)}
+                              {row.changedFieldCount} changed fields{' Â· '}{row.supportingDocCount} docs{' Â· '}{fmtDate(row.createdAt)}
                             </div>
                           </div>
                           <Link href="/admin/seller-change-requests" className="text-xs uppercase tracking-widest text-madder hover:text-kohl">
@@ -458,7 +458,7 @@ export default function SellerOnboardingPage() {
                             <div className="mt-1 font-mono text-[11px] text-mitti/80">ID: {row.seller.id}</div>
                             <div className="mt-1 font-mono text-[11px] text-mitti/80">Submission ID: {row.id}</div>
                             <div className="mt-1 text-xs text-mitti">
-                              {row.seller.businessName}{' · '}{row.submissionType.replace(/_/g, ' ')}{' · '}{fmtDate(row.createdAt)}
+                              {row.seller.businessName}{' Â· '}{row.submissionType.replace(/_/g, ' ')}{' Â· '}{fmtDate(row.createdAt)}
                             </div>
                           </div>
                           <span className={`inline-flex rounded px-2 py-1 text-[10px] tracking-widest uppercase ${inventoryPill(row.status)}`}>
@@ -490,4 +490,5 @@ export default function SellerOnboardingPage() {
     </div>
   );
 }
+
 
