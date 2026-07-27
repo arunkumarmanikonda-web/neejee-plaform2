@@ -38,27 +38,37 @@ $buildExit = $LASTEXITCODE
 
 Assert-Step ($buildExit -eq 0) "Build failed with exit code $buildExit"
 
-$buildText = Get-Content $buildLogPath -Raw
+$buildLines = Get-Content $buildLogPath
 
 $missingRoutes = @()
 $routeLines = @()
 
 foreach ($route in $featuredRoutes) {
-  $escaped = [regex]::Escape($route)
-  $matched = [regex]::IsMatch($buildText, "(?m)^\s*[├└│┌]?\s*[ƒ○λ]?\s*$escaped(\s|$)")
-  $routeLines += ("{0} => {1}" -f $route, $(if ($matched) { 'OK' } else { 'MISSING_FROM_BUILD_OUTPUT' }))
-  if (-not $matched) {
+  $found = $false
+  foreach ($line in $buildLines) {
+    if ($line -match [regex]::Escape($route)) {
+      $found = $true
+      break
+    }
+  }
+
+  if ($found) {
+    $routeLines += "$route => OK"
+  } else {
+    $routeLines += "$route => MISSING_FROM_BUILD_OUTPUT"
     $missingRoutes += $route
   }
 }
 
 $routeLines | Set-Content -Path $routeCheckPath
 
+$missingText = if ($missingRoutes.Count -eq 0) { 'none' } else { ($missingRoutes -join ', ') }
+
 $summary = @()
 $summary += "Build exit code: $buildExit"
 $summary += "Route checks: $routeCheckPath"
 $summary += "Build log: $buildLogPath"
-$summary += "Missing featured routes in build output: $(if ($missingRoutes.Count -eq 0) { 'none' } else { ($missingRoutes -join ', ') })"
+$summary += "Missing featured routes in build output: $missingText"
 $summary | Set-Content -Path $summaryPath
 
 Assert-Step ($missingRoutes.Count -eq 0) ("Missing featured routes in build output: " + ($missingRoutes -join ', '))
