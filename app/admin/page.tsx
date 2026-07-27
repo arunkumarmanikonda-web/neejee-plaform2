@@ -167,6 +167,68 @@ export default async function AdminDashboard() {
     },
   ] as const;
 
+  const safeModePriorityWorkstreams = [
+    {
+      title: 'Order response',
+      tag: 'OPERATIONS',
+      detail: 'Keep order review, dispute triage, and moderation recovery paths close together during safe mode.',
+      routes: [
+        { label: 'Orders', href: '/admin/orders' },
+        { label: 'Disputes', href: '/admin/disputes' },
+        { label: 'Reviews', href: '/admin/reviews' },
+      ],
+    },
+    {
+      title: 'Catalog upkeep',
+      tag: 'CATALOG',
+      detail: 'Pin the most common catalog maintenance surfaces for edits, taxonomy work, and stock follow-up.',
+      routes: [
+        { label: 'Products', href: '/admin/products' },
+        { label: 'Categories', href: '/admin/categories' },
+        { label: 'Inventory', href: '/admin/inventory' },
+      ],
+    },
+    {
+      title: 'Growth studio',
+      tag: 'GROWTH',
+      detail: 'Keep reporting, campaign planning, and creative drafting visible from one recovery-safe lane.',
+      routes: [
+        { label: 'Analytics', href: '/admin/analytics' },
+        { label: 'Campaigns', href: '/admin/campaigns' },
+        { label: 'Marketing Studio', href: '/admin/marketing-studio' },
+      ],
+    },
+    {
+      title: 'Finance close',
+      tag: 'FINANCE',
+      detail: 'Group fast access to finance reporting and trial-balance review when live dashboard metrics are unavailable.',
+      routes: [
+        { label: 'P&L', href: '/admin/finance/pnl' },
+        { label: 'Trial Balance', href: '/admin/finance/trial-balance' },
+        { label: 'ERP', href: '/admin/erp' },
+      ],
+    },
+    {
+      title: 'Marketplace control',
+      tag: 'MARKETPLACE',
+      detail: 'Keep seller operations and adjacent admin controls visible for onboarding and coordination workflows.',
+      routes: [
+        { label: 'Sellers', href: '/admin/sellers' },
+        { label: 'Team & Roles', href: '/admin/team' },
+        { label: 'Settings', href: '/admin/settings' },
+      ],
+    },
+    {
+      title: 'Content + search',
+      tag: 'CONTENT',
+      detail: 'Retain content visibility and a clear search fallback when operators need broader admin reach quickly.',
+      routes: [
+        { label: 'SEO', href: '/admin/seo' },
+        { label: 'Ctrl / Cmd + K', href: '/admin' },
+      ],
+    },
+  ] as const;
+
   return (
     <>
       <p className="label text-madder">DASHBOARD · SAFE MODE</p>
@@ -279,8 +341,36 @@ export default async function AdminDashboard() {
           </div>
         </div>
 
+        <div className="space-y-3">
+          <p className="label text-madder">SAFE MODE PRIORITY WORKSTREAMS</p>
+          <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-4">
+            {safeModePriorityWorkstreams.map((item) => (
+              <div key={item.title} className="bg-white border border-mitti/15 rounded-xl px-5 py-4">
+                <div className="flex items-center justify-between gap-3">
+                  <p className="font-ui text-sm text-kohl font-medium">{item.title}</p>
+                  <span className="px-2 py-1 rounded-full bg-beige border border-mitti/10 font-ui text-[11px] text-madder">
+                    {item.tag}
+                  </span>
+                </div>
+                <p className="font-ui text-xs text-mitti mt-3 leading-5">{item.detail}</p>
+                <div className="flex flex-wrap items-center gap-2 mt-3">
+                  {item.routes.map((route) => (
+                    <Link
+                      key={route.label}
+                      href={route.href}
+                      className="px-2.5 py-1.5 rounded-full bg-ivory border border-mitti/15 font-ui text-[11px] text-kohl hover:text-madder hover:border-madder/20 transition-colors"
+                    >
+                      {route.label}
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
         <p className="font-ui text-xs text-mitti leading-6">
-          Customers, categories, analytics, campaigns, SEO, ERP, finance reporting, seller operations, catalog work, platform settings, additional recovery-safe routes, and grouped route coverage now stay visible from one dashboard zone.
+          Customers, categories, analytics, campaigns, SEO, ERP, finance reporting, seller operations, catalog work, platform settings, additional recovery-safe routes, grouped route coverage, and priority workstreams now stay visible from one dashboard zone.
         </p>
       </section>
     </>
