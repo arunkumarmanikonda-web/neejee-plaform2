@@ -17,6 +17,65 @@ export default async function AdminDashboard() {
 
   const displayName = user?.name || user?.email?.split('@')[0] || 'Admin';
 
+  const controlCenterCards = [
+    {
+      eyebrow: 'CATALOG',
+      title: 'Products',
+      description: 'Go directly into product CRUD, pricing, media, and day-to-day catalog edits.',
+      href: '/admin/products',
+      cta: 'OPEN PRODUCTS →',
+    },
+    {
+      eyebrow: 'OPERATIONS',
+      title: 'Orders',
+      description: 'Resume order review, fulfillment checks, and operational exceptions quickly.',
+      href: '/admin/orders',
+      cta: 'OPEN ORDERS →',
+    },
+    {
+      eyebrow: 'MARKETPLACE',
+      title: 'Sellers',
+      description: 'Continue seller review, onboarding, and marketplace control workflows.',
+      href: '/admin/sellers',
+      cta: 'OPEN SELLERS →',
+    },
+    {
+      eyebrow: 'CONTENT',
+      title: 'SEO',
+      description: 'Reach the SEO control plane for metadata, canonical, and indexation work.',
+      href: '/admin/seo',
+      cta: 'OPEN SEO →',
+    },
+    {
+      eyebrow: 'ERP',
+      title: 'ERP',
+      description: 'Jump into ERP monitoring, reconciliation, and failure-handling surfaces.',
+      href: '/admin/erp',
+      cta: 'OPEN ERP →',
+    },
+    {
+      eyebrow: 'FINANCE',
+      title: 'P&L',
+      description: 'Open finance reporting fast when live dashboard metrics are unavailable.',
+      href: '/admin/finance/pnl',
+      cta: 'OPEN P&L →',
+    },
+    {
+      eyebrow: 'GROWTH',
+      title: 'Campaigns',
+      description: 'Keep campaign planning and execution close while broader growth tooling evolves.',
+      href: '/admin/campaigns',
+      cta: 'OPEN CAMPAIGNS →',
+    },
+    {
+      eyebrow: 'ADMIN',
+      title: 'Settings',
+      description: 'Access platform controls, integration settings, and operational configuration.',
+      href: '/admin/settings',
+      cta: 'OPEN SETTINGS →',
+    },
+  ] as const;
+
   return (
     <>
       <p className="label text-madder">DASHBOARD · SAFE MODE</p>
@@ -60,27 +119,34 @@ export default async function AdminDashboard() {
 
       <AdminAdaptiveQuickActions user={user} />
 
-      <div className="grid md:grid-cols-2 gap-6 mt-10">
-        <div className="bg-beige p-8 rounded-xl">
-          <p className="label text-madder">RECOMMENDED NEXT STEP</p>
-          <p className="font-ui text-sm text-mitti mt-3 leading-6">
-            Open Products first, then edit the target item directly. This bypasses the heavy dashboard queries and gets you back into the catalogue workflow faster.
+      <section className="mt-10 space-y-4">
+        <div>
+          <p className="label text-madder">SAFE MODE CONTROL CENTER</p>
+          <h2 className="font-display text-2xl text-kohl mt-1">
+            Stable destinations while live metrics stay offline
+          </h2>
+          <p className="font-ui text-sm text-mitti mt-3 leading-6 max-w-3xl">
+            These links keep the highest-value admin surfaces one click away while the dashboard avoids heavy production queries.
           </p>
-          <Link href="/admin/products" className="font-ui text-xs text-madder hover:underline mt-6 inline-block">
-            GO TO PRODUCTS →
-          </Link>
         </div>
 
-        <div className="bg-beige p-8 rounded-xl">
-          <p className="label text-madder">ERP WORKFLOWS</p>
-          <p className="font-ui text-sm text-mitti mt-3 leading-6">
-            ERP monitoring, reconciliation, and dead-letter handling are grouped under a single control panel so the team can enter the full workflow from one visible admin location.
-          </p>
-          <Link href="/admin/erp" className="font-ui text-xs text-madder hover:underline mt-6 inline-block">
-            OPEN ERP CONTROL PANEL →
-          </Link>
+        <div className="grid md:grid-cols-2 xl:grid-cols-4 gap-6">
+          {controlCenterCards.map((card) => (
+            <div key={card.href} className="bg-beige p-8 rounded-xl border border-mitti/10">
+              <p className="label text-madder">{card.eyebrow}</p>
+              <p className="font-ui text-base text-kohl mt-3 font-medium">{card.title}</p>
+              <p className="font-ui text-sm text-mitti mt-3 leading-6">{card.description}</p>
+              <Link href={card.href} className="font-ui text-xs text-madder hover:underline mt-6 inline-block">
+                {card.cta}
+              </Link>
+            </div>
+          ))}
         </div>
-      </div>
+
+        <p className="font-ui text-xs text-mitti leading-6">
+          Campaigns, SEO, ERP, finance reporting, seller operations, catalog work, and platform settings now stay visible from one safe-mode dashboard zone.
+        </p>
+      </section>
     </>
   );
 }
