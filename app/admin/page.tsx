@@ -124,6 +124,49 @@ export default async function AdminDashboard() {
     },
   ] as const;
 
+  const safeModeRouteGroups = [
+    {
+      name: 'Operations',
+      count: '6 routes',
+      detail: 'Orders, disputes, customers, segments, and reviews remain reachable during safe-mode recovery.',
+    },
+    {
+      name: 'Growth',
+      count: '8 routes',
+      detail: 'Analytics, campaigns, forecasting, approvals, and recovery marketing tools remain grouped together.',
+    },
+    {
+      name: 'Catalog',
+      count: '11 routes',
+      detail: 'Products, categories, inventory, media tooling, drops, and merchandising stay easy to scan.',
+    },
+    {
+      name: 'Marketplace',
+      count: '9 routes',
+      detail: 'Seller, vendor, agreement, onboarding, and purchase-order flows remain visible as one domain.',
+    },
+    {
+      name: 'ERP',
+      count: '4 routes',
+      detail: 'Sync, reconciliation, failure handling, and ERP entry points remain clearly separated.',
+    },
+    {
+      name: 'Finance',
+      count: '6 routes',
+      detail: 'P&L, trial balance, reconciliation, and payout reporting remain grouped for finance operators.',
+    },
+    {
+      name: 'Content',
+      count: '8 routes',
+      detail: 'SEO, CMS, taxonomy, banners, badges, assets, journal, and AI tooling stay discoverable.',
+    },
+    {
+      name: 'Admin',
+      count: '6 routes',
+      detail: 'Team, legal, notification, SMS, profile, and settings controls remain available in safe mode.',
+    },
+  ] as const;
+
   return (
     <>
       <p className="label text-madder">DASHBOARD · SAFE MODE</p>
@@ -219,8 +262,25 @@ export default async function AdminDashboard() {
           </div>
         </div>
 
+        <div className="space-y-3">
+          <p className="label text-madder">SAFE MODE ROUTE GROUPS</p>
+          <div className="grid md:grid-cols-2 xl:grid-cols-4 gap-4">
+            {safeModeRouteGroups.map((group) => (
+              <div key={group.name} className="bg-beige border border-mitti/10 rounded-xl px-5 py-4">
+                <div className="flex items-center justify-between gap-3">
+                  <p className="font-ui text-sm text-kohl font-medium">{group.name}</p>
+                  <span className="px-2 py-1 rounded-full bg-white border border-mitti/15 font-ui text-[11px] text-madder">
+                    {group.count}
+                  </span>
+                </div>
+                <p className="font-ui text-xs text-mitti mt-3 leading-5">{group.detail}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+
         <p className="font-ui text-xs text-mitti leading-6">
-          Customers, categories, analytics, campaigns, SEO, ERP, finance reporting, seller operations, catalog work, platform settings, and additional recovery-safe routes now stay visible from one dashboard zone.
+          Customers, categories, analytics, campaigns, SEO, ERP, finance reporting, seller operations, catalog work, platform settings, additional recovery-safe routes, and grouped route coverage now stay visible from one dashboard zone.
         </p>
       </section>
     </>
