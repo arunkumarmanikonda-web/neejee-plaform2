@@ -63,6 +63,39 @@ function openAdminCommandPalette(query: string) {
   );
 }
 
+function getAdaptiveBadge(
+  href: string,
+  recentHrefSet: Set<string>,
+  frequentHrefSet: Set<string>,
+  suggestedHrefSet: Set<string>,
+) {
+  if (recentHrefSet.has(href)) {
+    return {
+      label: 'RECENT',
+      className: 'bg-madder/10 text-madder border-madder/20',
+    };
+  }
+
+  if (frequentHrefSet.has(href)) {
+    return {
+      label: 'FREQUENT',
+      className: 'bg-banarasi/10 text-banarasi border-banarasi/20',
+    };
+  }
+
+  if (suggestedHrefSet.has(href)) {
+    return {
+      label: 'SUGGESTED',
+      className: 'bg-white text-kohl border-mitti/20',
+    };
+  }
+
+  return {
+    label: 'FEATURED',
+    className: 'bg-white text-mitti border-mitti/15',
+  };
+}
+
 export default function AdminAdaptiveQuickActions({ user }: Props) {
   const pathname = usePathname() || '/admin';
   const visibleItems = useMemo(
@@ -131,6 +164,29 @@ export default function AdminAdaptiveQuickActions({ user }: Props) {
 
     return launches.slice(0, 8);
   }, [featuredItems, frequentItems, recentItems, suggestedItems]);
+
+  const recentHrefSet = useMemo(() => new Set(recentItems.map((item) => item.href)), [recentItems]);
+  const frequentHrefSet = useMemo(() => new Set(frequentItems.map((item) => item.href)), [frequentItems]);
+  const suggestedHrefSet = useMemo(() => new Set(suggestedItems.map((item) => item.href)), [suggestedItems]);
+
+  const bestNextItem = useMemo(() => {
+    return (
+      dedupeAdminItems(
+        [...recentItems, ...frequentItems, ...featuredItems, ...suggestedItems],
+        12,
+      ).find((item) => item.href !== pathname) ?? null
+    );
+  }, [featuredItems, frequentItems, pathname, recentItems, suggestedItems]);
+
+  const bestNextBadge = useMemo(() => {
+    if (!bestNextItem) return null;
+    return getAdaptiveBadge(
+      bestNextItem.href,
+      recentHrefSet,
+      frequentHrefSet,
+      suggestedHrefSet,
+    );
+  }, [bestNextItem, frequentHrefSet, recentHrefSet, suggestedHrefSet]);
 
   const routeContext = useMemo(() => getAdminRouteContext(pathname), [pathname]);
   const roleFocus = useMemo(() => getAdminRoleFocus(user), [user]);
@@ -234,6 +290,42 @@ export default function AdminAdaptiveQuickActions({ user }: Props) {
 
   return (
     <div className="space-y-8 mt-10">
+      {bestNextItem && bestNextBadge ? (
+        <section className="bg-white border border-mitti/15 rounded-2xl p-6 md:p-8">
+          <div className="flex flex-wrap items-start justify-between gap-6">
+            <div className="max-w-3xl">
+              <p className="label text-madder">BEST NEXT ACTION</p>
+              <h2 className="font-display text-2xl text-kohl mt-1">{bestNextItem.label}</h2>
+              <p className="font-ui text-sm text-mitti mt-3 leading-6">
+                This is the strongest next admin destination based on recent activity, repeated usage, and featured operational surfaces.
+              </p>
+
+              <div className="flex flex-wrap items-center gap-2 mt-4">
+                <span
+                  className={`px-2 py-1 rounded-full border text-[10px] ${bestNextBadge.className}`}
+                >
+                  {bestNextBadge.label}
+                </span>
+                <span className="px-2 py-1 rounded-full bg-white border border-mitti/15 text-[10px] text-mitti">
+                  {bestNextItem.group}
+                </span>
+              </div>
+
+              <p className="font-ui text-sm text-mitti mt-4 leading-6">{bestNextItem.desc}</p>
+              <p className="font-mono text-[11px] text-mitti/80 mt-5">{bestNextItem.href}</p>
+            </div>
+
+            <Link
+              href={bestNextItem.href}
+              className="inline-flex items-center gap-2 px-4 py-3 rounded-xl bg-kohl text-white font-ui text-sm hover:bg-kohl/90 transition-colors"
+            >
+              Open now
+              <ArrowRight className="w-4 h-4" />
+            </Link>
+          </div>
+        </section>
+      ) : null}
+
       <section className="space-y-4">
         <div className="flex flex-wrap items-start gap-3">
           <div className="mt-1">
@@ -282,37 +374,54 @@ export default function AdminAdaptiveQuickActions({ user }: Props) {
           </div>
 
           <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-6">
-            {section.items.map((item) => (
-              <Link
-                key={`${section.key}:${item.href}`}
-                href={item.href}
-                className="bg-beige p-8 hover:bg-white transition-colors border border-mitti/10 rounded-xl"
-              >
-                <div className="flex items-start justify-between gap-4">
-                  <div>
-                    <p className="label text-madder">{item.group}</p>
-                    <p className="font-ui text-base text-kohl mt-3 font-medium">{item.label}</p>
-                    <p className="font-ui text-sm text-mitti mt-3 leading-6">{item.desc}</p>
-                  </div>
-                  <ArrowRight className="w-4 h-4 text-mitti shrink-0 mt-1" />
-                </div>
+            {section.items.map((item) => {
+              const badge = getAdaptiveBadge(
+                item.href,
+                recentHrefSet,
+                frequentHrefSet,
+                suggestedHrefSet,
+              );
 
-                {item.aliases?.length ? (
-                  <div className="flex flex-wrap gap-2 mt-4">
-                    {item.aliases.slice(0, 2).map((alias) => (
-                      <span
-                        key={`${item.href}:${alias}`}
-                        className="px-2 py-1 rounded-full bg-white border border-mitti/15 text-[10px] text-mitti"
-                      >
-                        {alias}
-                      </span>
-                    ))}
-                  </div>
-                ) : null}
+              return (
+                <Link
+                  key={`${section.key}:${item.href}`}
+                  href={item.href}
+                  className="bg-beige p-8 hover:bg-white transition-colors border border-mitti/10 rounded-xl"
+                >
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="label text-madder">{item.group}</p>
+                        <span
+                          className={`px-2 py-1 rounded-full border text-[10px] ${badge.className}`}
+                        >
+                          {badge.label}
+                        </span>
+                      </div>
 
-                <p className="font-mono text-[11px] text-mitti/80 mt-5">{item.href}</p>
-              </Link>
-            ))}
+                      <p className="font-ui text-base text-kohl mt-3 font-medium">{item.label}</p>
+                      <p className="font-ui text-sm text-mitti mt-3 leading-6">{item.desc}</p>
+                    </div>
+                    <ArrowRight className="w-4 h-4 text-mitti shrink-0 mt-1" />
+                  </div>
+
+                  {item.aliases?.length ? (
+                    <div className="flex flex-wrap gap-2 mt-4">
+                      {item.aliases.slice(0, 2).map((alias) => (
+                        <span
+                          key={`${item.href}:${alias}`}
+                          className="px-2 py-1 rounded-full bg-white border border-mitti/15 text-[10px] text-mitti"
+                        >
+                          {alias}
+                        </span>
+                      ))}
+                    </div>
+                  ) : null}
+
+                  <p className="font-mono text-[11px] text-mitti/80 mt-5">{item.href}</p>
+                </Link>
+              );
+            })}
           </div>
         </section>
       ))}
