@@ -717,10 +717,6 @@ Create an account with this number to continue.`);
                     </span>
                     <span>Continue with Meta</span>
                   </button>
-
-                  <p className="text-center text-[11px] leading-5 text-mitti/75 tracking-[0.01em]">
-                    Use your connected Facebook or Instagram business account
-                  </p>
                 </div>
               )}
             </div>
