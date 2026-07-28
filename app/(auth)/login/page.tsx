@@ -671,7 +671,7 @@ Create an account with this number to continue.`);
           <>
             <div className="flex items-center gap-2 my-4">
               <div className="flex-1 h-px bg-mitti/20"></div>
-              <span className="text-[10px] uppercase tracking-[0.24em] text-mitti/45">Or continue with</span>
+              <span className="text-[10px] uppercase tracking-[0.28em] text-mitti/40">Or continue with</span>
               <div className="flex-1 h-px bg-mitti/20"></div>
             </div>
 
@@ -680,17 +680,17 @@ Create an account with this number to continue.`);
                 <div className="relative mx-auto w-[340px] max-w-full">
                   <div
                     aria-hidden="true"
-                    className="pointer-events-none flex min-h-[48px] items-center rounded-full border border-[#D9D4CB] bg-white px-5 py-[11px] text-[#3C342D]"
+                    className="pointer-events-none flex h-[52px] items-center rounded-full border border-[#D9D4CB] bg-white px-5 text-[#3C342D]"
                   >
                     <span className="inline-flex w-[44px] shrink-0 items-center justify-start">
-                      <svg className="h-[18px] w-[18px]" viewBox="0 0 24 24" aria-hidden="true">
+                      <svg className="h-[16px] w-[16px]" viewBox="0 0 24 24" aria-hidden="true">
                         <path fill="#EA4335" d="M12.24 10.285V14.4h5.88c-.259 1.329-1.79 3.898-5.88 3.898-3.54 0-6.424-2.93-6.424-6.538s2.884-6.538 6.424-6.538c2.014 0 3.365.86 4.14 1.604l2.82-2.728C17.36 2.387 15.056 1.5 12.24 1.5 6.987 1.5 2.73 5.757 2.73 11.01s4.257 9.51 9.51 9.51c5.49 0 9.51-3.86 9.51-9.307 0-.625-.068-1.1-.151-1.928H12.24z"/>
                         <path fill="#34A853" d="M2.73 11.01c0 1.697.406 3.298 1.126 4.71l3.694-2.872c-.191-.57-.298-1.178-.298-1.838 0-.66.107-1.268.298-1.838L3.856 6.3A9.45 9.45 0 0 0 2.73 11.01z"/>
                         <path fill="#FBBC05" d="M12.24 20.52c2.816 0 5.181-.926 6.908-2.514l-3.36-2.596c-.925.644-2.11 1.092-3.548 1.092-2.998 0-5.54-1.998-6.444-4.822l-3.72 2.872c1.71 3.392 5.234 5.968 10.164 5.968z"/>
                         <path fill="#4285F4" d="M19.148 18.006c1.992-1.834 3.102-4.53 3.102-7 0-.703-.061-1.22-.151-1.721H12.24V13.4h5.664c-.199 1.016-.809 2.422-2.116 3.49l3.36 2.596z"/>
                       </svg>
                     </span>
-                    <span className="flex-1 pr-[44px] text-center font-ui text-[16px] font-medium leading-none normal-case tracking-[0]">
+                    <span className="flex-1 pr-[44px] text-center font-ui text-[15px] font-medium leading-none normal-case tracking-[0] text-[#3C342D]">
                       Continue with Google
                     </span>
                   </div>
@@ -707,17 +707,17 @@ Create an account with this number to continue.`);
                   onClick={startFacebook}
                   disabled={loading}
                   type="button"
-                  className="mx-auto flex w-[340px] max-w-full items-center rounded-full border border-[#D9D4CB] bg-white px-5 py-[11px] text-[#3C342D] disabled:opacity-60"
+                  className="mx-auto flex h-[52px] w-[340px] max-w-full items-center rounded-full border border-[#D9D4CB] bg-white px-5 text-[#3C342D] disabled:opacity-60"
                   aria-label="Continue with Meta"
                 >
-                  <span className="inline-flex w-[44px] shrink-0 items-center justify-start gap-2">
+                  <span className="inline-flex w-[44px] shrink-0 items-center justify-start gap-[6px]">
                     <span className="inline-flex items-center justify-center text-mitti opacity-90" aria-hidden="true">
-                      <svg className="h-[14px] w-[14px]" viewBox="0 0 24 24" fill="currentColor">
+                      <svg className="h-[12px] w-[12px]" viewBox="0 0 24 24" fill="currentColor">
                         <path d="M24 12.073c0-6.627-5.373-12-12-12S0 5.446 0 12.073c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
                       </svg>
                     </span>
                     <span className="inline-flex items-center justify-center opacity-80" aria-hidden="true">
-                      <svg className="h-[14px] w-[14px]" viewBox="0 0 24 24" fill="none">
+                      <svg className="h-[12px] w-[12px]" viewBox="0 0 24 24" fill="none">
                         <defs>
                           <linearGradient id="igMetaLogin" x1="0%" y1="100%" x2="100%" y2="0%">
                             <stop offset="0%" stopColor="#F58529" />
@@ -732,7 +732,7 @@ Create an account with this number to continue.`);
                       </svg>
                     </span>
                   </span>
-                  <span className="flex-1 pr-[44px] text-center font-ui text-[16px] font-medium leading-none normal-case tracking-[0]">
+                  <span className="flex-1 pr-[44px] text-center font-ui text-[15px] font-medium leading-none normal-case tracking-[0] text-[#3C342D]">
                     Continue with Meta
                   </span>
                 </button>
@@ -813,7 +813,7 @@ function IdentityField({
   return (
     <form onSubmit={onSubmit} className="space-y-4">
       <label className="block">
-        <span className="text-[10px] uppercase tracking-widest text-mitti">
+        <span className="text-[10px] uppercase tracking-[0.24em] text-mitti/80">
           {otpEnabled ? 'Mobile or email' : 'Email'}
         </span>
 
@@ -841,7 +841,7 @@ function IdentityField({
             placeholder={otpEnabled ? '9876543210 or you@email.com' : 'you@email.com'}
             value={identifier}
             onChange={(e) => setIdentifier(e.target.value)}
-            className="flex-1 p-3 bg-beige border border-mitti/20 font-ui text-sm"
+            className="flex-1 px-4 py-[14px] bg-beige/70 border border-mitti/25 font-ui text-[15px] text-kohl placeholder:text-mitti/45"
           />
         </div>
 
@@ -883,7 +883,7 @@ function IdentityField({
 
       <button type="submit" disabled={loading || !identifier.trim()} className="btn-primary w-full disabled:opacity-50">
         {loading ? (
-          <span className="inline-flex w-[44px] shrink-0 items-center justify-start gap-2">
+          <span className="inline-flex w-[44px] shrink-0 items-center justify-start gap-[6px]">
             <Loader2 className="w-4 h-4 animate-spin" /> Continuing...
           </span>
         ) : (
