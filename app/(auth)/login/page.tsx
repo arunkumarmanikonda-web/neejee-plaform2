@@ -384,9 +384,9 @@ Create an account with this number to continue.`);
           theme: 'outline',
           size: 'large',
           text: 'continue_with',
-          shape: 'rectangular',
+          shape: 'pill',
           logo_alignment: 'left',
-          width: 340,
+          width: 320,
         });
       } catch (e: any) {
         console.warn('[google] renderButton failed:', e?.message);
@@ -671,20 +671,20 @@ Create an account with this number to continue.`);
           <>
             <div className="flex items-center gap-2 my-4">
               <div className="flex-1 h-px bg-mitti/20"></div>
-              <span className="text-[10px] uppercase tracking-widest text-mitti">Or continue with</span>
+              <span className="text-[10px] uppercase tracking-[0.28em] text-mitti/70">Or continue with</span>
               <div className="flex-1 h-px bg-mitti/20"></div>
             </div>
 
-            <div className="space-y-2">
-              {socialAvailable.google && <div ref={googleBtnRef} className="flex justify-center" />}
+            <div className="space-y-3">
+              {socialAvailable.google && (<div className="rounded-2xl border border-mitti/15 bg-white/90 shadow-[0_8px_24px_rgba(44,36,28,0.06)] px-3 py-2"><div ref={googleBtnRef} className="flex justify-center" /></div>)}
 
               {socialAvailable.facebook && (
-                <div className="space-y-2">
+                <div className="space-y-3">
                   <button
                     onClick={startFacebook}
                     disabled={loading}
                     type="button"
-                    className="w-full p-3 bg-[#1877F2] text-white text-sm font-ui hover:opacity-90 inline-flex items-center justify-center gap-3"
+                    className="w-full rounded-2xl border border-[#0F5FD7]/20 bg-gradient-to-r from-[#1877F2] to-[#0F5FD7] px-4 py-3 text-white text-sm font-ui shadow-[0_10px_24px_rgba(24,119,242,0.22)] transition duration-150 hover:brightness-[1.03] inline-flex items-center justify-center gap-3"
                     aria-label="Continue with Meta"
                   >
                     <span className="inline-flex items-center gap-2">
@@ -718,7 +718,7 @@ Create an account with this number to continue.`);
                     <span>Continue with Meta</span>
                   </button>
 
-                  <p className="text-center text-[11px] leading-5 text-mitti/80">
+                  <p className="text-center text-[11px] leading-5 text-mitti/75 tracking-[0.01em]">
                     Use your connected Facebook or Instagram business account
                   </p>
                 </div>
