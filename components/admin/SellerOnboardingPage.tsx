@@ -408,6 +408,22 @@ export default function SellerOnboardingPage() {
                           <div className="flex justify-end gap-2">
                             <button
                               type="button"
+                              onClick={() => patchSeller(seller.id, { kycStatus: 'APPROVED', rejectionNote: null })}
+                              disabled={busySellerId === seller.id || !seller.canActivate}
+                              title={
+                                !seller.canActivate && Array.isArray(seller.blockers) && seller.blockers.length
+                                  ? seller.blockers.join(', ')
+                                  : 'Approve seller'
+                              }
+                              className="inline-flex items-center gap-2 rounded-lg bg-neem px-3 py-2 text-xs text-white hover:bg-neem/90 disabled:cursor-not-allowed disabled:opacity-60"
+                            >
+                              {busySellerId === seller.id ? (
+                                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                              ) : null}
+                              APPROVE
+                            </button>
+                            <button
+                              type="button"
                               onClick={() => patchSeller(seller.id, { resendApplicationEmail: true })}
                               disabled={busySellerId === seller.id}
                               className="inline-flex items-center gap-2 rounded-lg border border-kohl/15 bg-white px-3 py-2 text-xs text-kohl hover:bg-ivory disabled:cursor-not-allowed disabled:opacity-60"
