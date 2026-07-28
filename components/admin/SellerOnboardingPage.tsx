@@ -35,6 +35,11 @@ type SellerRow = {
   phoneVerified: boolean;
   emailVerified: boolean;
   autoKycPassed: boolean;
+  liveKycOverallStatus?: string | null;
+  liveKycReviewRequired?: boolean;
+  liveKycHttpStatus?: number | null;
+  liveKycSummary?: Record<string, any> | null;
+  liveKycStatuses?: any[];
   canActivate: boolean;
   blockers?: string[];
   warnings?: string[];
@@ -95,6 +100,17 @@ function kycPill(status: SellerRow['kycStatus']) {
     SUSPENDED: 'bg-mitti/20 text-mitti',
   };
   return map[status] || 'bg-beige text-mitti';
+}
+
+function liveKycPill(status?: string | null) {
+  const map: Record<string, string> = {
+    VERIFIED: 'bg-neem/20 text-neem',
+    REVIEW_REQUIRED: 'bg-haldi/20 text-mitti',
+    FAILED: 'bg-madder/15 text-madder',
+    ERROR: 'bg-madder/15 text-madder',
+    PENDING: 'bg-banarasi/20 text-banarasi',
+  };
+  return map[String(status || '').toUpperCase()] || 'bg-ivory text-mitti';
 }
 
 function inventoryPill(status: string) {
@@ -295,6 +311,29 @@ export default function SellerOnboardingPage() {
                             >
                               {seller.canActivate ? 'Ready to approve' : 'Needs checks'}
                             </span>
+                            {seller.liveKycOverallStatus ? (
+                              <span
+                                className={`inline-flex w-fit rounded px-2 py-1 text-[10px] tracking-widest uppercase ${liveKycPill(
+                                  seller.liveKycOverallStatus,
+                                )}`}
+                              >
+                                AI {seller.liveKycOverallStatus.replace(/_/g, ' ')}
+                              </span>
+                            ) : null}
+                            {typeof seller.liveKycReviewRequired === 'boolean' ? (
+                              <span
+                                className={`inline-flex w-fit rounded px-2 py-1 text-[10px] tracking-widest uppercase ${
+                                  seller.liveKycReviewRequired ? 'bg-madder/10 text-madder' : 'bg-neem/15 text-neem'
+                                }`}
+                              >
+                                {seller.liveKycReviewRequired ? 'AI review required' : 'AI clear'}
+                              </span>
+                            ) : null}
+                            {typeof seller.liveKycHttpStatus === 'number' ? (
+                              <span className="inline-flex w-fit rounded bg-ivory px-2 py-1 text-[10px] tracking-widest uppercase text-mitti">
+                                KYC HTTP {seller.liveKycHttpStatus}
+                              </span>
+                            ) : null}
                           </div>
                         </td>
                         <td className="px-3 py-3">
@@ -308,6 +347,37 @@ export default function SellerOnboardingPage() {
                             <Gate ok={seller.emailVerified} label="Email OTP" />
                             <Gate ok={seller.autoKycPassed} label="Auto KYC" />
                           </div>
+                          {seller.liveKycSummary ? (
+                            <div className="mt-2 rounded-lg bg-ivory/60 px-3 py-2 text-[11px] text-mitti">
+                              <div className="font-medium text-kohl">AI review summary</div>
+                              <div className="mt-1">
+                                Total: {seller.liveKycSummary?.totalChecks ?? 0}{'  '}
+                                Passed: {seller.liveKycSummary?.okCount ?? 0}{'  '}
+                                Failed: {seller.liveKycSummary?.failedCount ?? 0}{'  '}
+                                Review: {seller.liveKycSummary?.reviewRequiredCount ?? 0}
+                              </div>
+                            </div>
+                          ) : null}
+                          {seller.liveKycStatuses?.length ? (
+                            <div className="mt-2 flex flex-wrap gap-2">
+                              {seller.liveKycStatuses.slice(0, 6).map((item: any, idx: number) => (
+                                <span
+                                  key={`${seller.id}-live-${idx}`}
+                                  className={`inline-flex rounded px-2 py-1 text-[10px] tracking-wide ${
+                                    item?.reviewRequired
+                                      ? 'bg-haldi/20 text-mitti'
+                                      : String(item?.status || '').toUpperCase() === 'VERIFIED'
+                                        ? 'bg-neem/15 text-neem'
+                                        : 'bg-ivory text-kohl'
+                                  }`}
+                                >
+                                  {String(item?.kind || 'check').replace(/_/g, ' ')}:{' '}
+                                  {String(item?.status || 'unknown').replace(/_/g, ' ')}
+                                  {item?.provider ? ` (${item.provider})` : ''}
+                                </span>
+                              ))}
+                            </div>
+                          ) : null}
                           {seller.blockers?.length ? (
                             <div className="mt-2 flex flex-wrap gap-2">
                               {seller.blockers.map((item, idx) => (
