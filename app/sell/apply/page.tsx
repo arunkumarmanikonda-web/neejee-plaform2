@@ -30,14 +30,41 @@ type UploadedApplicationDocument = {
   };
 };
 
+type ValidationStatusItem = {
+  kind: string;
+  status: string;
+  provider: string;
+  ok: boolean;
+  reviewRequired: boolean;
+};
+
 type ValidationResult = {
   ok: boolean;
   overallPass?: boolean;
+  overallStatus?: string;
+  reviewRequired?: boolean;
   errors?: string[];
   warnings?: string[];
   provider?: Record<string, any>;
   extracted?: Record<string, any>;
   documentsPresent?: Record<string, boolean>;
+  includeLiveVerification?: boolean;
+  kycPackageHttpStatus?: number | null;
+  kycPackageVerification?: {
+    ok?: boolean;
+    overallStatus?: string;
+    reviewRequired?: boolean;
+    submitted?: Record<string, any>;
+    verifications?: Record<string, any>;
+    summary?: {
+      totalChecks?: number;
+      okCount?: number;
+      failedCount?: number;
+      reviewRequiredCount?: number;
+      statuses?: ValidationStatusItem[];
+    };
+    error?: string;
+  } | null;
 };
 
 const steps = [
@@ -240,6 +267,8 @@ export default function SellerApplyPage() {
           msmeNumber: form.msmeNumber || null,
           bankAccount: form.bankAccount,
           ifsc: form.ifsc,
+          phone: form.phone || null,
+          includeLiveVerification: true,
           documents,
         }),
       });
@@ -251,8 +280,10 @@ export default function SellerApplyPage() {
         throw new Error(data?.error || 'Validation failed');
       }
 
-      if (data?.ok) {
-        setNotice('Validation passed. You can now submit the application.');
+      if (data?.overallStatus === 'VERIFIED' && data?.ok) {
+        setNotice('Validation passed. Live KYC checks are verified and you can now submit the application.');
+      } else if (data?.reviewRequired) {
+        setNotice('Validation requires review. Please check mismatches and live KYC findings before submission.');
       } else {
         setNotice('Validation found mismatches. Please review and correct them.');
       }
@@ -690,9 +721,64 @@ export default function SellerApplyPage() {
 
                   {validation ? (
                     <div className="mt-4 space-y-4">
-                      <div className={`rounded-xl px-4 py-3 text-sm ${validation.ok ? 'bg-emerald-50 text-emerald-800' : 'bg-red-50 text-red-800'}`}>
-                        {validation.ok ? 'Validation passed' : 'Validation failed'}
+                      <div className={`rounded-xl px-4 py-3 text-sm ${
+                        validation.overallStatus === 'VERIFIED'
+                          ? 'bg-emerald-50 text-emerald-800'
+                          : validation.reviewRequired
+                            ? 'bg-amber-50 text-amber-800'
+                            : validation.ok
+                              ? 'bg-emerald-50 text-emerald-800'
+                              : 'bg-red-50 text-red-800'
+                      }`}>
+                        {validation.overallStatus === 'VERIFIED'
+                          ? 'Validation verified'
+                          : validation.reviewRequired
+                            ? 'Validation requires review'
+                            : validation.ok
+                              ? 'Validation passed'
+                              : 'Validation failed'}
                       </div>
+
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        <div className="rounded-xl border border-stone-200 px-4 py-3 text-sm">
+                          <div className="font-medium text-stone-900">Overall status</div>
+                          <div className="mt-1 text-stone-600">{validation.overallStatus || (validation.ok ? 'VERIFIED' : 'FAILED')}</div>
+                        </div>
+                        <div className="rounded-xl border border-stone-200 px-4 py-3 text-sm">
+                          <div className="font-medium text-stone-900">Review required</div>
+                          <div className="mt-1 text-stone-600">{validation.reviewRequired ? 'Yes' : 'No'}</div>
+                        </div>
+                        <div className="rounded-xl border border-stone-200 px-4 py-3 text-sm">
+                          <div className="font-medium text-stone-900">Live verification</div>
+                          <div className="mt-1 text-stone-600">{validation.includeLiveVerification ? 'Enabled' : 'Not requested'}</div>
+                        </div>
+                        <div className="rounded-xl border border-stone-200 px-4 py-3 text-sm">
+                          <div className="font-medium text-stone-900">KYC package status</div>
+                          <div className="mt-1 text-stone-600">{validation.kycPackageVerification?.overallStatus || 'Not available'}</div>
+                        </div>
+                      </div>
+
+                      {validation.kycPackageVerification?.summary ? (
+                        <div className="rounded-xl border border-stone-200 p-4">
+                          <div className="text-sm font-medium text-stone-900">Live KYC summary</div>
+                          <div className="mt-2 grid gap-3 sm:grid-cols-4 text-sm text-stone-600">
+                            <div>Total checks: {validation.kycPackageVerification.summary.totalChecks ?? 0}</div>
+                            <div>Passed: {validation.kycPackageVerification.summary.okCount ?? 0}</div>
+                            <div>Failed: {validation.kycPackageVerification.summary.failedCount ?? 0}</div>
+                            <div>Review required: {validation.kycPackageVerification.summary.reviewRequiredCount ?? 0}</div>
+                          </div>
+
+                          {validation.kycPackageVerification.summary.statuses?.length ? (
+                            <ul className="mt-3 space-y-2 text-sm text-stone-700">
+                              {validation.kycPackageVerification.summary.statuses.map((item) => (
+                                <li key={`${item.kind}-${item.provider}`} className="rounded-lg bg-stone-50 px-3 py-2">
+                                  <span className="font-medium uppercase">{item.kind}</span>: {item.status} via {item.provider} · {item.reviewRequired ? 'review required' : 'clear'}
+                                </li>
+                              ))}
+                            </ul>
+                          ) : null}
+                        </div>
+                      ) : null}
 
                       {validation.errors?.length ? (
                         <div>
@@ -713,6 +799,12 @@ export default function SellerApplyPage() {
                               <li key={item}>{item}</li>
                             ))}
                           </ul>
+                        </div>
+                      ) : null}
+
+                      {validation.kycPackageVerification?.error ? (
+                        <div className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-800">
+                          Live KYC package error: {validation.kycPackageVerification.error}
                         </div>
                       ) : null}
                     </div>
