@@ -424,6 +424,22 @@ export default function SellerOnboardingPage() {
                             </button>
                             <button
                               type="button"
+                              onClick={() => {
+                                const rejectionNote = window.prompt('Optional rejection note for seller:', '');
+                                if (rejectionNote === null) return;
+                                void patchSeller(seller.id, { kycStatus: 'REJECTED', rejectionNote });
+                              }}
+                              disabled={busySellerId === seller.id || seller.kycStatus === 'REJECTED'}
+                              title={seller.kycStatus === 'REJECTED' ? 'Seller already rejected' : 'Reject seller'}
+                              className="inline-flex items-center gap-2 rounded-lg border border-madder/30 bg-white px-3 py-2 text-xs text-madder hover:bg-madder/5 disabled:cursor-not-allowed disabled:opacity-60"
+                            >
+                              {busySellerId === seller.id ? (
+                                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                              ) : null}
+                              REJECT
+                            </button>
+                            <button
+                              type="button"
                               onClick={() => patchSeller(seller.id, { resendApplicationEmail: true })}
                               disabled={busySellerId === seller.id}
                               className="inline-flex items-center gap-2 rounded-lg border border-kohl/15 bg-white px-3 py-2 text-xs text-kohl hover:bg-ivory disabled:cursor-not-allowed disabled:opacity-60"
