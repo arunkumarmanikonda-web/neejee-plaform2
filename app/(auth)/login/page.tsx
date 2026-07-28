@@ -684,10 +684,10 @@ Create an account with this number to continue.`);
                     onClick={startFacebook}
                     disabled={loading}
                     type="button"
-                    className="relative w-[340px] max-w-full mx-auto rounded-full border border-[#D9D4CB] bg-white text-[#3C342D] px-5 py-[11px] font-ui text-[16px] font-medium transition duration-150 hover:border-[#CBB9A6] inline-flex items-center justify-center"
+                    className="mx-auto flex w-[340px] max-w-full items-center rounded-full border border-[#D9D4CB] bg-white px-5 py-[11px] text-[#3C342D]"
                     aria-label="Continue with Meta"
                   >
-                    <span className="absolute left-5 inline-flex items-center gap-2">
+                    <span className="inline-flex w-[44px] shrink-0 items-center justify-start gap-2">
                       <span
                         className="inline-flex items-center justify-center text-mitti opacity-90"
                         aria-hidden="true"
@@ -715,7 +715,7 @@ Create an account with this number to continue.`);
                         </svg>
                       </span>
                     </span>
-                    <span className="font-ui text-[16px] font-medium tracking-[0] normal-case">Continue with Meta</span>
+                    <span className="flex-1 pr-[44px] text-center font-ui text-[16px] font-medium leading-none normal-case tracking-[0]">Continue with Meta</span>
                   </button>
                 </div>
               )}
@@ -865,7 +865,7 @@ function IdentityField({
 
       <button type="submit" disabled={loading || !identifier.trim()} className="btn-primary w-full disabled:opacity-50">
         {loading ? (
-          <span className="absolute left-5 inline-flex items-center gap-2">
+          <span className="inline-flex w-[44px] shrink-0 items-center justify-start gap-2">
             <Loader2 className="w-4 h-4 animate-spin" /> Continuing...
           </span>
         ) : (
