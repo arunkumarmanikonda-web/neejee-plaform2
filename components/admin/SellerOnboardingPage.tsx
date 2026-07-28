@@ -474,6 +474,15 @@ export default function SellerOnboardingPage() {
                               Resend email
                             </button>
                             <Link
+                              href={`/agreement/admin/sellers/${seller.id}`}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="inline-flex items-center gap-1 rounded-lg border border-kohl/15 bg-white px-3 py-2 text-xs text-kohl hover:bg-ivory"
+                            >
+                              <FileText className="h-3.5 w-3.5" />
+                              Legal preview
+                            </Link>
+                            <Link
                               href={`/admin/sellers/${seller.id}/agreement-workbench`}
                               className="inline-flex items-center rounded-lg border border-kohl/15 bg-white px-3 py-2 text-xs text-kohl hover:bg-ivory"
                             >
