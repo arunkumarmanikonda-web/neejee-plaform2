@@ -386,7 +386,7 @@ Create an account with this number to continue.`);
           text: 'continue_with',
           shape: 'pill',
           logo_alignment: 'left',
-          width: 292,
+          width: 340,
         });
       } catch (e: any) {
         console.warn('[google] renderButton failed:', e?.message);
@@ -671,7 +671,7 @@ Create an account with this number to continue.`);
           <>
             <div className="flex items-center gap-2 my-4">
               <div className="flex-1 h-px bg-mitti/20"></div>
-              <span className="text-[10px] uppercase tracking-[0.28em] text-mitti/50">Or continue with</span>
+              <span className="text-[10px] uppercase tracking-[0.24em] text-mitti/45">Or continue with</span>
               <div className="flex-1 h-px bg-mitti/20"></div>
             </div>
 
@@ -684,10 +684,10 @@ Create an account with this number to continue.`);
                     onClick={startFacebook}
                     disabled={loading}
                     type="button"
-                    className="w-full max-w-[292px] mx-auto rounded-full border border-mitti/15 bg-white/90 px-5 py-3 text-kohl text-sm font-ui tracking-[0.02em] transition duration-150 hover:border-madder/25 hover:text-madder inline-flex items-center justify-center gap-2.5"
+                    className="relative w-[340px] max-w-full mx-auto rounded-full border border-[#D9D4CB] bg-white text-[#3C342D] px-5 py-[11px] font-ui text-[16px] font-medium transition duration-150 hover:border-[#CBB9A6] inline-flex items-center justify-center"
                     aria-label="Continue with Meta"
                   >
-                    <span className="inline-flex items-center gap-2">
+                    <span className="absolute left-5 inline-flex items-center gap-2">
                       <span
                         className="inline-flex items-center justify-center text-mitti opacity-90"
                         aria-hidden="true"
@@ -715,7 +715,7 @@ Create an account with this number to continue.`);
                         </svg>
                       </span>
                     </span>
-                    <span>Continue with Meta</span>
+                    <span className="font-ui text-[16px] font-medium tracking-[0] normal-case">Continue with Meta</span>
                   </button>
                 </div>
               )}
@@ -865,7 +865,7 @@ function IdentityField({
 
       <button type="submit" disabled={loading || !identifier.trim()} className="btn-primary w-full disabled:opacity-50">
         {loading ? (
-          <span className="inline-flex items-center gap-2">
+          <span className="absolute left-5 inline-flex items-center gap-2">
             <Loader2 className="w-4 h-4 animate-spin" /> Continuing...
           </span>
         ) : (
