@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { validateSellerApplicationPackage } from '@/lib/seller-onboarding/application-validation';
 import type { UploadedApplicationDocument } from '@/lib/seller-onboarding/document-intel';
@@ -41,10 +41,77 @@ const BodySchema = z.object({
   msmeNumber: z.string().optional().nullable(),
   bankAccount: z.string().min(6),
   ifsc: z.string().min(5),
+  phone: z.string().optional().nullable(),
+  includeLiveVerification: z.boolean().optional().default(true),
   documents: z.array(DocSchema).default([]),
 });
 
-export async function POST(request: Request) {
+type KycPackageVerification = {
+  ok?: boolean;
+  overallStatus?: string;
+  reviewRequired?: boolean;
+  submitted?: Record<string, unknown>;
+  verifications?: Record<string, unknown>;
+  summary?: Record<string, unknown>;
+  error?: string;
+} | null;
+
+async function postPackageVerification(request: NextRequest, body: {
+  businessName: string;
+  pan: string;
+  gstin: string | null;
+  bankAccount: string;
+  ifsc: string;
+  phone: string | null;
+}) {
+  const url = new URL('/api/kyc/verify/package', request.url);
+  const cookie = request.headers.get('cookie');
+
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        ...(cookie ? { cookie } : {}),
+      },
+      body: JSON.stringify({
+        businessName: body.businessName,
+        name: body.businessName,
+        pan: body.pan,
+        gstin: body.gstin,
+        bankAccount: body.bankAccount,
+        ifsc: body.ifsc,
+        phone: body.phone,
+      }),
+      cache: 'no-store',
+    });
+
+    let payload: KycPackageVerification = null;
+    try {
+      payload = await response.json();
+    } catch {
+      payload = {
+        ok: false,
+        error: 'invalid_package_verification_response',
+      };
+    }
+
+    return {
+      httpStatus: response.status,
+      payload,
+    };
+  } catch (error) {
+    return {
+      httpStatus: 500,
+      payload: {
+        ok: false,
+        error: error instanceof Error ? error.message : 'kyc_package_fetch_failed',
+      },
+    };
+  }
+}
+
+export async function POST(request: NextRequest) {
   try {
     const body = BodySchema.parse(await request.json());
 
@@ -78,9 +145,40 @@ export async function POST(request: Request) {
       documents,
     });
 
+    let kycPackageVerification: KycPackageVerification = null;
+    let kycPackageHttpStatus: number | null = null;
+
+    if (body.includeLiveVerification) {
+      const packageResult = await postPackageVerification(request, {
+        businessName: body.businessName,
+        pan: body.pan,
+        gstin: body.gstin || null,
+        bankAccount: body.bankAccount,
+        ifsc: body.ifsc,
+        phone: body.phone || null,
+      });
+
+      kycPackageVerification = packageResult.payload;
+      kycPackageHttpStatus = packageResult.httpStatus;
+    }
+
+    const reviewRequired =
+      !result.overallPass ||
+      Boolean(kycPackageVerification?.reviewRequired) ||
+      Boolean(kycPackageVerification && kycPackageVerification.ok === false);
+
+    const overallStatus = reviewRequired
+      ? 'REVIEW_REQUIRED'
+      : 'VERIFIED';
+
     return NextResponse.json({
       ok: result.overallPass,
       ...result,
+      includeLiveVerification: body.includeLiveVerification,
+      kycPackageHttpStatus,
+      kycPackageVerification,
+      reviewRequired,
+      overallStatus,
     });
   } catch (e: any) {
     if (e?.issues) {
