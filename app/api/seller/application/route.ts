@@ -56,8 +56,77 @@ const BodySchema = z.object({
   city: z.string().min(2),
   state: z.string().min(2),
   pincode: z.string().regex(/^\d{6}$/),
+  includeLiveVerification: z.boolean().optional().default(true),
   documents: z.array(DocSchema).min(1),
 });
+
+type KycPackageVerification = {
+  ok?: boolean;
+  overallStatus?: string;
+  reviewRequired?: boolean;
+  submitted?: Record<string, unknown>;
+  verifications?: Record<string, unknown>;
+  summary?: Record<string, unknown>;
+  error?: string;
+} | null;
+
+async function postPackageVerification(
+  request: Request,
+  body: {
+    businessName: string;
+    pan: string;
+    gstin: string | null;
+    bankAccount: string;
+    ifsc: string;
+    phone: string | null;
+  },
+) {
+  const url = new URL('/api/kyc/verify/package', request.url);
+  const cookie = request.headers.get('cookie');
+
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        ...(cookie ? { cookie } : {}),
+      },
+      body: JSON.stringify({
+        businessName: body.businessName,
+        name: body.businessName,
+        pan: body.pan,
+        gstin: body.gstin,
+        bankAccount: body.bankAccount,
+        ifsc: body.ifsc,
+        phone: body.phone,
+      }),
+      cache: 'no-store',
+    });
+
+    let payload: KycPackageVerification = null;
+    try {
+      payload = await response.json();
+    } catch {
+      payload = {
+        ok: false,
+        error: 'invalid_package_verification_response',
+      };
+    }
+
+    return {
+      httpStatus: response.status,
+      payload,
+    };
+  } catch (error) {
+    return {
+      httpStatus: 500,
+      payload: {
+        ok: false,
+        error: error instanceof Error ? error.message : 'kyc_package_fetch_failed',
+      },
+    };
+  }
+}
 
 function normalizeEmail(value: string): string {
   return String(value || '').trim().toLowerCase();
@@ -139,6 +208,29 @@ export async function POST(request: Request) {
       );
     }
 
+    let kycPackageVerification: KycPackageVerification = null;
+    let kycPackageHttpStatus: number | null = null;
+
+    if (body.includeLiveVerification) {
+      const packageResult = await postPackageVerification(request, {
+        businessName: body.businessName,
+        pan: body.pan,
+        gstin: body.gstin || null,
+        bankAccount: body.bankAccount,
+        ifsc: body.ifsc,
+        phone,
+      });
+
+      kycPackageVerification = packageResult.payload;
+      kycPackageHttpStatus = packageResult.httpStatus;
+    }
+
+    const reviewRequired =
+      Boolean(kycPackageVerification?.reviewRequired) ||
+      Boolean(kycPackageVerification && kycPackageVerification.ok === false);
+
+    const overallStatus = reviewRequired ? 'REVIEW_REQUIRED' : 'VERIFIED';
+
     const now = new Date();
 
     const user = await prisma.user.upsert({
@@ -198,6 +290,11 @@ export async function POST(request: Request) {
     const nextAutoKycSummary = {
       ...previousSummary,
       ...(validation as any),
+      overallStatus,
+      reviewRequired,
+      includeLiveVerification: body.includeLiveVerification,
+      kycPackageHttpStatus,
+      liveVerification: kycPackageVerification,
       onboarding: {
         ...(previousSummary?.onboarding && typeof previousSummary.onboarding === 'object'
           ? previousSummary.onboarding
@@ -223,7 +320,7 @@ export async function POST(request: Request) {
             ifsc: String(body.ifsc || '').trim().toUpperCase(),
             bankName: String(body.bankName || '').trim(),
             applicationSubmittedAt: now,
-            autoKycPassed: true,
+            autoKycPassed: !reviewRequired,
             autoKycSummary: nextAutoKycSummary as any,
             kycStatus: KycStatus.PENDING,
           },
@@ -249,7 +346,7 @@ export async function POST(request: Request) {
             ifsc: String(body.ifsc || '').trim().toUpperCase(),
             bankName: String(body.bankName || '').trim(),
             applicationSubmittedAt: now,
-            autoKycPassed: true,
+            autoKycPassed: !reviewRequired,
             autoKycSummary: nextAutoKycSummary as any,
             kycStatus: KycStatus.PENDING,
           },
