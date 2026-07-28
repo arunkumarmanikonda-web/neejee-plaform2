@@ -25,6 +25,7 @@ export default function AdminSellerDetail() {
   const [deleteBusy, setDeleteBusy] = useState(false);
   const [deleteErr, setDeleteErr] = useState('');
   const [deleteInfo, setDeleteInfo] = useState<any>(null);
+  const [signingBusy, setSigningBusy] = useState(false);
 
   const load = async () => {
     if (!id) return;
@@ -83,6 +84,31 @@ export default function AdminSellerDetail() {
       setErr(e?.message || 'Update failed');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const sendForSignature = async () => {
+    setSigningBusy(true);
+    setErr('');
+    setMsg('');
+    try {
+      const res = await fetch(`/api/admin/sellers/${id}/agreement-workflow`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'SEND_FOR_SIGNATURE',
+          phone: agreementWorkflow?.sellerSignaturePhone || seller?.phone || '',
+        }),
+      });
+      const j = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(j?.error || 'Failed to issue signing link');
+      setMsg(sellerSigningUrl ? 'Seller signing link reissued' : 'Seller signing link issued');
+      setTimeout(() => setMsg(''), 2500);
+      await load();
+    } catch (e: any) {
+      setErr(e?.message || 'Failed to issue signing link');
+    } finally {
+      setSigningBusy(false);
     }
   };
 
@@ -603,6 +629,15 @@ export default function AdminSellerDetail() {
               >
                 <Printer className="w-3.5 h-3.5" /> OPEN PRINTABLE AGREEMENT
               </Link>
+
+              <button
+                type="button"
+                onClick={() => void sendForSignature()}
+                disabled={signingBusy}
+                className="inline-flex items-center gap-1 px-3 py-2 border border-banarasi/30 text-xs tracking-wider text-banarasi hover:bg-banarasi/5 disabled:opacity-50"
+              >
+                {sellerSigningUrl ? 'REISSUE SIGNING LINK' : 'ISSUE SIGNING LINK'}
+              </button>
 
               {sellerSigningUrl ? (
                 <a
