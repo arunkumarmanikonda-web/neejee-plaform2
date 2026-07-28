@@ -1,105 +1,81 @@
 import { NextRequest, NextResponse } from 'next/server';
-import {
-  normalizeKycVerificationResult,
-  type KycVerificationDecision,
-  type KycVerificationDocumentType,
-  type NormalizedKycVerificationResult,
-} from '../../../admin/seller-onboarding/kyc-contract';
+import { aggregateKycStatus, verifyKycDocument } from '../../../admin/seller-onboarding/kyc-ai-core';
 
-type SellerKycStatusResponse = {
-  documents: Record<KycVerificationDocumentType, NormalizedKycVerificationResult>;
-  overallDecision: KycVerificationDecision;
-  overallReviewRequired: boolean;
+export const dynamic = 'force-dynamic';
+
+type DocumentPayload = {
+  provider?: string;
+  typed?: Record<string, unknown>;
+  extracted?: Record<string, unknown>;
+  metadata?: Record<string, unknown>;
 };
 
-function asRecord(value: unknown): Record<string, unknown> | null {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
-  return value as Record<string, unknown>;
-}
+type StatusRequestPayload = {
+  documents?: {
+    pan?: DocumentPayload;
+    gst?: DocumentPayload;
+    bank?: DocumentPayload;
+  };
+};
 
-function asDecision(value: unknown): KycVerificationDecision | null {
-  if (value === 'verified') return 'verified';
-  if (value === 'review_required') return 'review_required';
-  if (value === 'rejected') return 'rejected';
-  if (value === 'pending') return 'pending';
-  return null;
-}
-
-function asStringArray(value: unknown): string[] {
-  if (!Array.isArray(value)) return [];
-  return value.filter(
-    (item): item is string => typeof item === 'string' && item.trim().length > 0,
-  );
-}
-
-function buildDocument(
-  documentType: KycVerificationDocumentType,
-  value: unknown,
-): NormalizedKycVerificationResult {
-  const source = asRecord(value) ?? {};
-
-  return normalizeKycVerificationResult({
-    documentType,
-    provider: typeof source.provider === 'string' ? source.provider : null,
-    status: typeof source.status === 'string' ? source.status : null,
-    decision: asDecision(source.decision),
-    providedFields: asRecord(source.providedFields),
-    extractedFields: asRecord(source.extractedFields),
-    confidence: typeof source.confidence === 'number' ? source.confidence : null,
-    reviewRequired:
-      typeof source.reviewRequired === 'boolean' ? source.reviewRequired : null,
-    mismatchReasons: asStringArray(source.mismatchReasons),
-    raw: Object.prototype.hasOwnProperty.call(source, 'raw') ? source.raw : source,
+export async function GET(): Promise<NextResponse> {
+  const aggregate = aggregateKycStatus('seller', {});
+  return NextResponse.json({
+    ok: true,
+    actor: 'seller',
+    status: aggregate,
   });
 }
 
-function computeOverallDecision(
-  pan: NormalizedKycVerificationResult,
-  gst: NormalizedKycVerificationResult,
-  bank: NormalizedKycVerificationResult,
-): KycVerificationDecision {
-  const docs = [pan, gst, bank];
-
-  if (docs.some((doc) => doc.decision === 'rejected')) return 'rejected';
-  if (docs.some((doc) => doc.reviewRequired || doc.decision === 'review_required')) {
-    return 'review_required';
+export async function POST(request: NextRequest): Promise<NextResponse> {
+  let payload: StatusRequestPayload = {};
+  try {
+    payload = (await request.json()) as StatusRequestPayload;
+  } catch {
+    payload = {};
   }
-  if (docs.every((doc) => doc.decision === 'verified')) return 'verified';
-  return 'pending';
-}
 
-function buildResponse(
-  pan: NormalizedKycVerificationResult,
-  gst: NormalizedKycVerificationResult,
-  bank: NormalizedKycVerificationResult,
-): SellerKycStatusResponse {
-  return {
-    documents: {
-      pan,
-      gst,
-      bank,
-    },
-    overallDecision: computeOverallDecision(pan, gst, bank),
-    overallReviewRequired:
-      pan.reviewRequired || gst.reviewRequired || bank.reviewRequired,
-  };
-}
+  const docs = payload.documents ?? {};
+  const results: Partial<Record<'pan' | 'gst' | 'bank', ReturnType<typeof verifyKycDocument>>> = {};
 
-export async function GET() {
-  const pan = buildDocument('pan', null);
-  const gst = buildDocument('gst', null);
-  const bank = buildDocument('bank', null);
+  if (docs.pan) {
+    results.pan = verifyKycDocument({
+      actor: 'seller',
+      documentType: 'pan',
+      provider: docs.pan.provider,
+      typed: docs.pan.typed ?? {},
+      extracted: docs.pan.extracted ?? {},
+      metadata: docs.pan.metadata ?? {},
+    });
+  }
 
-  return NextResponse.json(buildResponse(pan, gst, bank));
-}
+  if (docs.gst) {
+    results.gst = verifyKycDocument({
+      actor: 'seller',
+      documentType: 'gst',
+      provider: docs.gst.provider,
+      typed: docs.gst.typed ?? {},
+      extracted: docs.gst.extracted ?? {},
+      metadata: docs.gst.metadata ?? {},
+    });
+  }
 
-export async function POST(request: NextRequest) {
-  const bodyUnknown = await request.json().catch(() => ({}));
-  const body = asRecord(bodyUnknown) ?? {};
+  if (docs.bank) {
+    results.bank = verifyKycDocument({
+      actor: 'seller',
+      documentType: 'bank',
+      provider: docs.bank.provider,
+      typed: docs.bank.typed ?? {},
+      extracted: docs.bank.extracted ?? {},
+      metadata: docs.bank.metadata ?? {},
+    });
+  }
 
-  const pan = buildDocument('pan', body.pan);
-  const gst = buildDocument('gst', body.gst);
-  const bank = buildDocument('bank', body.bank);
+  const aggregate = aggregateKycStatus('seller', results);
 
-  return NextResponse.json(buildResponse(pan, gst, bank));
+  return NextResponse.json({
+    ok: true,
+    actor: 'seller',
+    status: aggregate,
+  });
 }

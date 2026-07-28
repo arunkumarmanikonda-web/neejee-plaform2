@@ -1,59 +1,45 @@
 import { NextRequest, NextResponse } from 'next/server';
-import {
-  normalizeKycVerificationResult,
-  type KycVerificationDecision,
-} from '../kyc-contract';
+import { verifyKycDocument } from '../kyc-ai-core';
 
-function normalizeDecision(value: unknown): KycVerificationDecision | null {
-  if (value === 'verified') return 'verified';
-  if (value === 'review_required') return 'review_required';
-  if (value === 'rejected') return 'rejected';
-  if (value === 'pending') return 'pending';
-  return null;
-}
+export const dynamic = 'force-dynamic';
 
-function toRecord(value: unknown): Record<string, unknown> | null {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
-  return value as Record<string, unknown>;
-}
+type RequestPayload = {
+  provider?: string;
+  typed?: Record<string, unknown>;
+  extracted?: Record<string, unknown>;
+  metadata?: Record<string, unknown>;
+};
 
-function toStringArray(value: unknown): string[] {
-  if (!Array.isArray(value)) return [];
-  return value.filter((item): item is string => typeof item === 'string' && item.trim().length > 0);
-}
-
-export async function POST(request: NextRequest) {
-  const body = await request.json().catch(() => ({} as Record<string, unknown>));
-
-  const providedFields =
-    toRecord(body?.providedFields) ??
-    {
-      panNumber: typeof body?.panNumber === 'string' ? body.panNumber : null,
-      fullName: typeof body?.fullName === 'string' ? body.fullName : null,
-      dateOfBirth: typeof body?.dateOfBirth === 'string' ? body.dateOfBirth : null,
-      legalName: typeof body?.legalName === 'string' ? body.legalName : null,
-    };
-
-  const extractedFields = toRecord(body?.extractedFields) ?? {};
-  const matchResults = Array.isArray(body?.matchResults) ? body.matchResults : [];
-  const mismatchReasons = toStringArray(body?.mismatchReasons);
-
-  const normalized = normalizeKycVerificationResult({
+export async function GET(): Promise<NextResponse> {
+  return NextResponse.json({
+    ok: true,
+    actor: 'admin',
     documentType: 'pan',
-    provider: typeof body?.provider === 'string' ? body.provider : null,
-    status: typeof body?.status === 'string' ? body.status : null,
-    decision: normalizeDecision(body?.decision),
-    providedFields,
-    extractedFields,
-    matchResults,
-    confidence: typeof body?.confidence === 'number' ? body.confidence : null,
-    reviewRequired:
-      typeof body?.reviewRequired === 'boolean'
-        ? body.reviewRequired
-        : mismatchReasons.length > 0,
-    mismatchReasons,
-    raw: Object.prototype.hasOwnProperty.call(body, 'raw') ? body.raw : body,
+    capability: 'ai-first-kyc-verification',
+  });
+}
+
+export async function POST(request: NextRequest): Promise<NextResponse> {
+  let payload: RequestPayload = {};
+  try {
+    payload = (await request.json()) as RequestPayload;
+  } catch {
+    payload = {};
+  }
+
+  const result = verifyKycDocument({
+    actor: 'admin',
+    documentType: 'pan',
+    provider: payload.provider,
+    typed: payload.typed ?? {},
+    extracted: payload.extracted ?? {},
+    metadata: payload.metadata ?? {},
   });
 
-  return NextResponse.json(normalized);
+  return NextResponse.json({
+    ok: true,
+    actor: 'admin',
+    documentType: 'pan',
+    result,
+  });
 }

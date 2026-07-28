@@ -1,68 +1,73 @@
 export type KycVerificationProvider =
-  | 'cashfree'
-  | 'local_format'
-  | 'manual_document_match'
-  | 'mock'
-  | 'unknown';
+  | 'ai-core'
+  | 'ocr'
+  | 'external'
+  | 'admin-manual'
+  | 'seller-self';
 
 export type KycVerificationDocumentType = 'pan' | 'gst' | 'bank';
 
-export type KycVerificationDecision =
-  | 'verified'
-  | 'review_required'
-  | 'rejected'
-  | 'pending';
+export type KycVerificationDecision = 'approved' | 'review' | 'rejected';
 
-export interface KycFieldMatchResult {
+export type KycFieldMatchResult = {
   field: string;
-  providedValue: string | null;
-  extractedValue: string | null;
-  matched: boolean | null;
-  reason: string | null;
-}
+  typedValue: string;
+  extractedValue: string;
+  normalizedTypedValue: string;
+  normalizedExtractedValue: string;
+  matched: boolean;
+  confidence: number;
+  notes?: string;
+};
 
-export interface NormalizedKycVerificationResult {
-  documentType: KycVerificationDocumentType;
+export type NormalizeKycVerificationInput = {
   provider: KycVerificationProvider;
-  status: string;
-  decision: KycVerificationDecision;
-  providedFields: Record<string, string | null>;
-  extractedFields: Record<string, string | null>;
-  matchResults: KycFieldMatchResult[];
-  confidence: number | null;
-  reviewRequired: boolean;
-  mismatchReasons: string[];
-  raw: unknown;
-}
-
-export interface NormalizeKycVerificationInput {
   documentType: KycVerificationDocumentType;
-  provider?: string | null;
-  status?: string | null;
-  decision?: KycVerificationDecision | null;
-  providedFields?: Record<string, unknown> | null;
-  extractedFields?: Record<string, unknown> | null;
-  matchResults?: Array<Partial<KycFieldMatchResult>> | null;
-  confidence?: number | null;
-  reviewRequired?: boolean | null;
-  mismatchReasons?: string[] | null;
-  raw?: unknown;
-}
+  decision: KycVerificationDecision;
+  confidence: number;
+  typed: Record<string, unknown>;
+  extracted: Record<string, unknown>;
+  fieldResults: KycFieldMatchResult[];
+  exceptionReasons?: string[];
+  requiresManualReview?: boolean;
+  metadata?: Record<string, unknown>;
+  notes?: string;
+};
+
+export type NormalizedKycVerificationResult = {
+  provider: KycVerificationProvider;
+  documentType: KycVerificationDocumentType;
+  decision: KycVerificationDecision;
+  confidence: number;
+  typed: Record<string, unknown>;
+  extracted: Record<string, unknown>;
+  fieldResults: KycFieldMatchResult[];
+  exceptionReasons: string[];
+  requiresManualReview: boolean;
+  metadata: Record<string, unknown>;
+  notes: string;
+  timestamp: string;
+};
 
 export function normalizeKycVerificationResult(
   input: NormalizeKycVerificationInput,
 ): NormalizedKycVerificationResult {
+  const confidence = Number.isFinite(input.confidence)
+    ? Math.max(0, Math.min(0.99, Number(input.confidence.toFixed(2))))
+    : 0;
+
   return {
+    provider: input.provider,
     documentType: input.documentType,
-    provider: (input.provider ?? 'unknown') as KycVerificationProvider,
-    status: input.status ?? 'pending',
-    decision: input.decision ?? 'pending',
-    providedFields: {},
-    extractedFields: {},
-    matchResults: [],
-    confidence: input.confidence ?? null,
-    reviewRequired: input.reviewRequired ?? false,
-    mismatchReasons: input.mismatchReasons ?? [],
-    raw: input.raw ?? null,
+    decision: input.decision,
+    confidence,
+    typed: input.typed ?? {},
+    extracted: input.extracted ?? {},
+    fieldResults: Array.isArray(input.fieldResults) ? input.fieldResults : [],
+    exceptionReasons: Array.isArray(input.exceptionReasons) ? input.exceptionReasons : [],
+    requiresManualReview: Boolean(input.requiresManualReview),
+    metadata: input.metadata ?? {},
+    notes: input.notes ?? '',
+    timestamp: new Date().toISOString(),
   };
 }
