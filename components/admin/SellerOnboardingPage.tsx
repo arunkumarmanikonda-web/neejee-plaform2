@@ -408,6 +408,28 @@ export default function SellerOnboardingPage() {
                           <div className="flex justify-end gap-2">
                             <button
                               type="button"
+                              onClick={() => patchSeller(seller.id, { kycStatus: 'UNDER_REVIEW' })}
+                              disabled={
+                                busySellerId === seller.id ||
+                                seller.kycStatus === 'UNDER_REVIEW' ||
+                                seller.kycStatus === 'APPROVED'
+                              }
+                              title={
+                                seller.kycStatus === 'UNDER_REVIEW'
+                                  ? 'Seller already under review'
+                                  : seller.kycStatus === 'APPROVED'
+                                    ? 'Approved seller cannot be moved to under review from queue'
+                                    : 'Mark seller under review'
+                              }
+                              className="inline-flex items-center gap-2 rounded-lg border border-banarasi/30 bg-white px-3 py-2 text-xs text-banarasi hover:bg-banarasi/5 disabled:cursor-not-allowed disabled:opacity-60"
+                            >
+                              {busySellerId === seller.id ? (
+                                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                              ) : null}
+                              UNDER REVIEW
+                            </button>
+                            <button
+                              type="button"
                               onClick={() => patchSeller(seller.id, { kycStatus: 'APPROVED', rejectionNote: null })}
                               disabled={busySellerId === seller.id || !seller.canActivate}
                               title={
