@@ -136,6 +136,14 @@ export default function AdminSellerDetail() {
     typeof seller?.autoKycSummary?.kycPackageHttpStatus === 'number'
       ? seller.autoKycSummary.kycPackageHttpStatus
       : null;
+  const agreementWorkflow =
+    seller?.autoKycSummary && typeof seller.autoKycSummary === 'object'
+      ? seller.autoKycSummary.agreementWorkflow || null
+      : null;
+  const sellerSigningUrl = String(agreementWorkflow?.sellerSigningUrl || '').trim();
+  const sellerSignatureStatus = String(agreementWorkflow?.sellerSignatureStatus || agreementWorkflow?.status || '').trim();
+  const sellerSignedAt = String(agreementWorkflow?.sellerSignedAt || '').trim();
+  const sellerSignatureOtpVerifiedAt = String(agreementWorkflow?.sellerSignatureOtpVerifiedAt || '').trim();
 
   const liveKycPill = (status?: string | null) => {
     const map: Record<string, string> = {
@@ -596,6 +604,17 @@ export default function AdminSellerDetail() {
                 <Printer className="w-3.5 h-3.5" /> OPEN PRINTABLE AGREEMENT
               </Link>
 
+              {sellerSigningUrl ? (
+                <a
+                  href={sellerSigningUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center gap-1 px-3 py-2 border border-neem/30 text-xs tracking-wider text-neem hover:bg-neem/5"
+                >
+                  OPEN SELLER SIGNING <ExternalLink className="w-3.5 h-3.5" />
+                </a>
+              ) : null}
+
               {agreement?.existingAgreementDocument?.fileUrl ? (
                 <a
                   href={agreement.existingAgreementDocument.fileUrl}
@@ -683,7 +702,17 @@ export default function AdminSellerDetail() {
                 <div className="bg-ivory border border-dashed border-mitti/20 p-4 text-xs text-mitti space-y-1">
                   <p>Printable agreement page is live.</p>
                   <p>Legal editing is available in Agreement Workbench.</p>
-                  <p>Seller-side digital signing (Aadhaar / eSign) is not active yet and remains pending for Phase 3.</p>
+                  <p>{sellerSigningUrl ? 'Seller signing link is active and uses OTP verification.' : 'Seller signing link has not been issued yet.'}</p>
+                  {sellerSignatureStatus ? (
+                    <p>
+                      Signing status: <span className="text-kohl">{sellerSignatureStatus.replace(/_/g, ' ')}</span>
+                      {sellerSignedAt
+                        ? ` • Signed at ${new Date(sellerSignedAt).toLocaleString()}`
+                        : sellerSignatureOtpVerifiedAt
+                        ? ` • OTP verified at ${new Date(sellerSignatureOtpVerifiedAt).toLocaleString()}`
+                        : ''}
+                    </p>
+                  ) : null}
                 </div>
               </div>
             )}
