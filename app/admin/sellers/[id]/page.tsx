@@ -122,6 +122,7 @@ export default function AdminSellerDetail() {
 
   const liveKyc = seller?.autoKycSummary?.liveVerification || null;
   const liveKycSummary = liveKyc?.summary || null;
+  const activationSnapshot = seller?.activationSnapshot || null;
   const liveKycVerifications = Array.isArray(liveKyc?.verifications) ? liveKyc.verifications : [];
   const liveKycOverallStatus = seller?.autoKycSummary?.overallStatus || null;
   const liveKycReviewRequired =
@@ -408,6 +409,73 @@ export default function AdminSellerDetail() {
                       <div>Failed: {liveKycSummary?.failedCount ?? 0}</div>
                       <div>Review: {liveKycSummary?.reviewRequiredCount ?? 0}</div>
                     </div>
+                  </div>
+                ) : null}
+
+                {activationSnapshot ? (
+                  <div className="mt-3 rounded-lg border border-mitti/15 bg-ivory/70 p-3 text-xs text-kohl">
+                    <div className="font-medium text-kohl">ACTIVATION READINESS</div>
+
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      <span
+                        className={`inline-flex rounded px-2 py-1 text-[10px] tracking-widest uppercase ${
+                          activationSnapshot?.canApprove ? 'bg-neem/15 text-neem' : 'bg-madder/10 text-madder'
+                        }`}
+                      >
+                        {activationSnapshot?.canApprove ? 'activation clear' : 'activation blocked'}
+                      </span>
+
+                      <span
+                        className={`inline-flex rounded px-2 py-1 text-[10px] tracking-widest uppercase ${
+                          activationSnapshot?.readyForReview ? 'bg-banarasi/15 text-ivory' : 'bg-mitti/10 text-mitti'
+                        }`}
+                      >
+                        {activationSnapshot?.readyForReview ? 'ready for review' : 'not ready'}
+                      </span>
+                    </div>
+
+                    <div className="mt-3 grid sm:grid-cols-2 gap-2">
+                      <div>PAN: {activationSnapshot?.hasPan ? 'YES' : 'NO'}</div>
+                      <div>Bank: {activationSnapshot?.hasBank ? 'YES' : 'NO'}</div>
+                      <div>GSTIN: {activationSnapshot?.hasGstin ? 'YES' : 'NO'}</div>
+                      <div>Portfolio: {activationSnapshot?.hasPortfolio ? 'YES' : 'NO'}</div>
+                      <div>User account: {activationSnapshot?.hasUserAccount ? 'YES' : 'NO'}</div>
+                      <div>Phone verified: {activationSnapshot?.phoneVerified ? 'YES' : 'NO'}</div>
+                      <div>Email verified: {activationSnapshot?.emailVerified ? 'YES' : 'NO'}</div>
+                      <div>Auto KYC passed: {activationSnapshot?.autoKycPassed ? 'YES' : 'NO'}</div>
+                    </div>
+
+                    {Array.isArray(activationSnapshot?.blockers) && activationSnapshot.blockers.length ? (
+                      <div className="mt-3">
+                        <p className="label text-madder mb-2">BLOCKERS</p>
+                        <div className="flex flex-wrap gap-2">
+                          {activationSnapshot.blockers.map((item: string, idx: number) => (
+                            <span
+                              key={`activation-blocker-${idx}`}
+                              className="inline-flex rounded bg-madder/10 px-2 py-1 text-[10px] tracking-wide text-madder"
+                            >
+                              {item}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    ) : null}
+
+                    {Array.isArray(activationSnapshot?.warnings) && activationSnapshot.warnings.length ? (
+                      <div className="mt-3">
+                        <p className="label text-mitti mb-2">WARNINGS</p>
+                        <div className="flex flex-wrap gap-2">
+                          {activationSnapshot.warnings.map((item: string, idx: number) => (
+                            <span
+                              key={`activation-warning-${idx}`}
+                              className="inline-flex rounded bg-haldi/20 px-2 py-1 text-[10px] tracking-wide text-mitti"
+                            >
+                              {item}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    ) : null}
                   </div>
                 ) : null}
 
