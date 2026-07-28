@@ -18,7 +18,16 @@ export type SellerActivationSnapshot = {
 export async function getSellerActivationSnapshot(sellerId: string): Promise<SellerActivationSnapshot | null> {
   const seller = await prisma.seller.findUnique({
     where: { id: sellerId },
-    include: {
+    select: {
+      id: true,
+      pan: true,
+      gstin: true,
+      bankAccount: true,
+      ifsc: true,
+      bankName: true,
+      portfolio: true,
+      userId: true,
+      autoKycPassed: true,
       user: {
         select: {
           emailVerified: true,
@@ -77,6 +86,10 @@ export async function getSellerActivationSnapshot(sellerId: string): Promise<Sel
 export async function syncSellerKycStatus(sellerId: string) {
   const seller = await prisma.seller.findUnique({
     where: { id: sellerId },
+    select: {
+      id: true,
+      kycStatus: true,
+    },
   });
 
   if (!seller) return null;

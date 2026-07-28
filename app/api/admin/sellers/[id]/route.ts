@@ -54,6 +54,8 @@ export async function GET(request: Request, { params }: { params: { id: string }
       return NextResponse.json({ error: 'Not found' }, { status: 404 });
     }
 
+    const activationSnapshot = await getSellerActivationSnapshot(params.id);
+
     const documents = await prisma.sellerDocument.findMany({
       where: { sellerId: params.id },
       orderBy: { createdAt: 'desc' },
@@ -101,6 +103,8 @@ export async function GET(request: Request, { params }: { params: { id: string }
         bankAccount: seller.bankAccount ?? '',
         ifsc: seller.ifsc ?? '',
         bankName: seller.bankName ?? '',
+        autoKycSummary: seller.autoKycSummary ?? null,
+        activationSnapshot,
         user: seller.user,
         products: Array.isArray(seller.products) ? seller.products : [],
         payouts: Array.isArray(seller.payouts) ? seller.payouts : [],
@@ -187,11 +191,13 @@ export async function PATCH(request: Request, { params }: { params: { id: string
     const seller = await prisma.seller.update({ where: { id: existing.id }, data });
 
     // If approved, promote the linked user to SELLER role
-    if (statusChange === 'APPROVED' && existing.userId) {
-      await prisma.user.update({
-        where: { id: existing.userId },
-        data: { role: 'SELLER' },
-      }).catch(() => {});
+    if ((statusChange === 'APPROVED' || statusChange === 'REAPPROVED') && existing.userId) {
+      await prisma.user
+        .update({
+          where: { id: existing.userId },
+          data: { role: 'SELLER' },
+        })
+        .catch(() => {});
     }
 
     // Status-change emails
@@ -296,4 +302,113 @@ function rejectionEmail(name: string, businessName: string, note: string) {
       ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â The NEEJEE team
     </p>
   `);
+}
+
+async function getSellerDependencyCounts(sellerId: string) {
+  const [
+    products,
+    payouts,
+    documents,
+    changeRequests,
+    auditLogs,
+    magicTokens,
+    teamMembers,
+    inventorySubmissions,
+    categoryCommissions,
+    productCommissions,
+    orderReleases
+  ] = await Promise.all([
+    prisma.product.count({ where: { sellerId } }),
+    prisma.payout.count({ where: { sellerId } }),
+    prisma.sellerDocument.count({ where: { sellerId } }),
+    prisma.sellerChangeRequest.count({ where: { sellerId } }),
+    prisma.sellerAuditLog.count({ where: { sellerId } }),
+    prisma.sellerMagicToken.count({ where: { sellerId } }),
+    prisma.sellerTeamMember.count({ where: { sellerId } }),
+    prisma.sellerInventorySubmission.count({ where: { sellerId } }),
+    prisma.sellerCategoryCommission.count({ where: { sellerId } }),
+    prisma.sellerProductCommission.count({ where: { sellerId } }),
+    prisma.sellerOrderRelease.count({ where: { sellerId } }),
+  ]);
+
+  return {
+    products,
+    payouts,
+    documents,
+    changeRequests,
+    auditLogs,
+    magicTokens,
+    teamMembers,
+    inventorySubmissions,
+    categoryCommissions,
+    productCommissions,
+    orderReleases,
+  };
+}
+
+export async function DELETE(request: Request, { params }: { params: { id: string } }) {
+  const user = await getSession();
+  if (!requireRole(user, ['ADMIN', 'SUPER_ADMIN'])) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  try {
+    const url = new URL(request.url);
+    const force = url.searchParams.get('force') === '1';
+
+    const seller = await prisma.seller.findUnique({
+      where: { id: params.id },
+      select: { id: true, businessName: true },
+    });
+
+    if (!seller) {
+      return NextResponse.json({ error: 'Not found' }, { status: 404 });
+    }
+
+    const deps = await getSellerDependencyCounts(params.id);
+    const hardBlock = deps.products > 0 || deps.payouts > 0;
+
+    if (hardBlock && !force) {
+      return NextResponse.json(
+        {
+          error: 'Seller has dependent records. Remove products/payouts first or retry with force=1 only after manual review.',
+          code: 'seller_delete_blocked',
+          dependencies: deps,
+        },
+        { status: 409 }
+      );
+    }
+
+    await prisma.$transaction(async (tx) => {
+      await tx.sellerDocument.deleteMany({ where: { sellerId: params.id } });
+      await tx.sellerChangeRequest.deleteMany({ where: { sellerId: params.id } });
+      await tx.sellerAuditLog.deleteMany({ where: { sellerId: params.id } });
+      await tx.sellerMagicToken.deleteMany({ where: { sellerId: params.id } });
+      await tx.sellerTeamMember.deleteMany({ where: { sellerId: params.id } });
+      await tx.sellerInventorySubmission.deleteMany({ where: { sellerId: params.id } });
+      await tx.sellerCategoryCommission.deleteMany({ where: { sellerId: params.id } });
+      await tx.sellerProductCommission.deleteMany({ where: { sellerId: params.id } });
+      await tx.sellerOrderRelease.deleteMany({ where: { sellerId: params.id } });
+
+      if (force) {
+        await tx.product.deleteMany({ where: { sellerId: params.id } });
+        await tx.payout.deleteMany({ where: { sellerId: params.id } });
+      }
+
+      await tx.seller.delete({ where: { id: params.id } });
+    });
+
+    return NextResponse.json({
+      ok: true,
+      deletedSellerId: params.id,
+      deletedSellerName: seller.businessName || '',
+      force,
+      dependencies: deps,
+    });
+  } catch (e: any) {
+    return NextResponse.json(
+      { error: e?.message || 'Failed to delete seller' },
+      { status: 500 }
+    );
+  }
 }

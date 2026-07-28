@@ -1,15 +1,16 @@
-'use client';
+﻿'use client';
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { useParams } from 'next/navigation';
-import { ArrowLeft, Check, ExternalLink, Printer, Save, X } from 'lucide-react';
+import { useParams, useRouter } from 'next/navigation';
+import { AlertTriangle, ArrowLeft, Check, ExternalLink, Printer, Save, Trash2, X } from 'lucide-react';
 
 export const dynamic = 'force-dynamic';
 
 export default function AdminSellerDetail() {
   const params = useParams();
   const id = params?.id as string;
+  const router = useRouter();
 
   const [seller, setSeller] = useState<any>(null);
   const [agreement, setAgreement] = useState<any>(null);
@@ -19,6 +20,12 @@ export default function AdminSellerDetail() {
   const [err, setErr] = useState('');
   const [rejectOpen, setRejectOpen] = useState(false);
   const [rejectNote, setRejectNote] = useState('');
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleteConfirm, setDeleteConfirm] = useState('');
+  const [deleteBusy, setDeleteBusy] = useState(false);
+  const [deleteErr, setDeleteErr] = useState('');
+  const [deleteInfo, setDeleteInfo] = useState<any>(null);
+  const [signingBusy, setSigningBusy] = useState(false);
 
   const load = async () => {
     if (!id) return;
@@ -80,11 +87,100 @@ export default function AdminSellerDetail() {
     }
   };
 
+  const sendForSignature = async () => {
+    setSigningBusy(true);
+    setErr('');
+    setMsg('');
+    try {
+      const res = await fetch(`/api/admin/sellers/${id}/agreement-workflow`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'SEND_FOR_SIGNATURE',
+          phone: agreementWorkflow?.sellerSignaturePhone || seller?.phone || '',
+        }),
+      });
+      const j = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(j?.error || 'Failed to issue signing link');
+      setMsg(sellerSigningUrl ? 'Seller signing link reissued' : 'Seller signing link issued');
+      setTimeout(() => setMsg(''), 2500);
+      await load();
+    } catch (e: any) {
+      setErr(e?.message || 'Failed to issue signing link');
+    } finally {
+      setSigningBusy(false);
+    }
+  };
+
+  const deleteSeller = async (force = false) => {
+    setDeleteBusy(true);
+    setDeleteErr('');
+    setDeleteInfo(null);
+
+    try {
+      const qs = force ? '?force=1' : '';
+      const res = await fetch(`/api/admin/sellers/${id}${qs}`, {
+        method: 'DELETE',
+      });
+      const j = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        if (res.status === 409) {
+          setDeleteInfo(j?.dependencies || null);
+        }
+        throw new Error(j?.error || 'Delete failed');
+      }
+
+      router.push('/admin/sellers');
+      router.refresh();
+    } catch (e: any) {
+      setDeleteErr(e?.message || 'Delete failed');
+    } finally {
+      setDeleteBusy(false);
+    }
+  };
+
   if (loading) return <p className="text-mitti">Loading...</p>;
   if (err && !seller) return <p className="text-madder">{err}</p>;
   if (!seller) return <p className="text-madder">Seller not found.</p>;
 
   const update = (key: string, value: any) => setSeller({ ...seller, [key]: value });
+
+  const liveKyc = seller?.autoKycSummary?.liveVerification || null;
+  const liveKycSummary = liveKyc?.summary || null;
+  const activationSnapshot = seller?.activationSnapshot || null;
+  const approveBlocked = !!activationSnapshot && !activationSnapshot?.canApprove;
+  const approveBlockedReason =
+    Array.isArray(activationSnapshot?.blockers) && activationSnapshot.blockers.length
+      ? activationSnapshot.blockers.join(' • ')
+      : 'Seller is not approval-ready';
+  const liveKycVerifications = Array.isArray(liveKyc?.verifications) ? liveKyc.verifications : [];
+  const liveKycOverallStatus = seller?.autoKycSummary?.overallStatus || null;
+  const liveKycReviewRequired =
+    typeof seller?.autoKycSummary?.reviewRequired === 'boolean' ? seller.autoKycSummary.reviewRequired : null;
+  const liveKycHttpStatus =
+    typeof seller?.autoKycSummary?.kycPackageHttpStatus === 'number'
+      ? seller.autoKycSummary.kycPackageHttpStatus
+      : null;
+  const agreementWorkflow =
+    seller?.autoKycSummary && typeof seller.autoKycSummary === 'object'
+      ? seller.autoKycSummary.agreementWorkflow || null
+      : null;
+  const sellerSigningUrl = String(agreementWorkflow?.sellerSigningUrl || '').trim();
+  const sellerSignatureStatus = String(agreementWorkflow?.sellerSignatureStatus || agreementWorkflow?.status || '').trim();
+  const sellerSignedAt = String(agreementWorkflow?.sellerSignedAt || '').trim();
+  const sellerSignatureOtpVerifiedAt = String(agreementWorkflow?.sellerSignatureOtpVerifiedAt || '').trim();
+
+  const liveKycPill = (status?: string | null) => {
+    const map: Record<string, string> = {
+      VERIFIED: 'bg-neem/15 text-neem',
+      REVIEW_REQUIRED: 'bg-haldi/20 text-mitti',
+      FAILED: 'bg-madder/10 text-madder',
+      ERROR: 'bg-madder/10 text-madder',
+      PENDING: 'bg-banarasi/15 text-ivory',
+    };
+    return map[String(status || '').toUpperCase()] || 'bg-mitti/10 text-mitti';
+  };
 
   return (
     <>
@@ -114,7 +210,8 @@ export default function AdminSellerDetail() {
           {seller.kycStatus !== 'APPROVED' && (
             <button
               onClick={() => patch({ kycStatus: 'APPROVED', rejectionNote: null })}
-              disabled={saving}
+              disabled={saving || approveBlocked}
+              title={approveBlocked ? approveBlockedReason : 'Approve seller'}
               className="px-4 py-2 bg-neem text-ivory text-xs tracking-wider hover:bg-neem/90 disabled:opacity-50 inline-flex items-center gap-1.5"
             >
               <Check className="w-4 h-4" /> {seller.kycStatus === 'REJECTED' ? 'RE-APPROVE' : 'APPROVE'}
@@ -149,6 +246,12 @@ export default function AdminSellerDetail() {
           >
             RESEND CONFIRMATION
           </button>
+
+          {approveBlocked ? (
+            <div className="w-full rounded border border-madder/30 bg-madder/5 px-3 py-2 text-[11px] text-madder">
+              <span className="font-medium">Approval blocked:</span> {approveBlockedReason}
+            </div>
+          ) : null}
 
           <Link
             href={`/admin/sellers/${id}/agreement-workbench`}
@@ -302,7 +405,152 @@ export default function AdminSellerDetail() {
             <KvRow k="Bank name" v={seller.bankName} />
             <KvRow k="Years of practice" v={seller.yearsOfPractice} />
             <KvRow k="Cluster" v={seller.cluster} />
-          </section>
+          
+            {seller.autoKycSummary ? (
+              <div className="mt-5 border-t border-mitti/15 pt-4">
+                <p className="label text-madder mb-3">LIVE KYC REVIEW</p>
+
+                <div className="flex flex-wrap gap-2 mb-3">
+                  {liveKycOverallStatus ? (
+                    <span className={`inline-flex rounded px-2 py-1 text-[10px] tracking-widest uppercase ${liveKycPill(liveKycOverallStatus)}`}>
+                      AI {String(liveKycOverallStatus).replace(/_/g, ' ')}
+                    </span>
+                  ) : null}
+
+                  {typeof liveKycReviewRequired === 'boolean' ? (
+                    <span
+                      className={`inline-flex rounded px-2 py-1 text-[10px] tracking-widest uppercase ${
+                        liveKycReviewRequired ? 'bg-madder/10 text-madder' : 'bg-neem/15 text-neem'
+                      }`}
+                    >
+                      {liveKycReviewRequired ? 'AI review required' : 'AI clear'}
+                    </span>
+                  ) : null}
+
+                  {typeof liveKycHttpStatus === 'number' ? (
+                    <span className="inline-flex rounded bg-ivory px-2 py-1 text-[10px] tracking-widest uppercase text-mitti">
+                      KYC HTTP {liveKycHttpStatus}
+                    </span>
+                  ) : null}
+                </div>
+
+                <KvRow k="Live overall status" v={liveKycOverallStatus ? String(liveKycOverallStatus).replace(/_/g, ' ') : '—'} />
+                <KvRow
+                  k="Live review flag"
+                  v={
+                    typeof liveKycReviewRequired === 'boolean'
+                      ? (liveKycReviewRequired ? 'REVIEW REQUIRED' : 'CLEAR')
+                      : '—'
+                  }
+                />
+                <KvRow k="Live verification checks" v={liveKycVerifications.length || '0'} />
+                <KvRow k="Package HTTP status" v={typeof liveKycHttpStatus === 'number' ? String(liveKycHttpStatus) : '—'} />
+
+                {liveKycSummary ? (
+                  <div className="mt-3 rounded-lg bg-ivory/70 p-3 text-xs text-kohl">
+                    <div className="font-medium text-kohl">AI review summary</div>
+                    <div className="mt-2 grid sm:grid-cols-4 gap-2">
+                      <div>Total: {liveKycSummary?.totalChecks ?? 0}</div>
+                      <div>Passed: {liveKycSummary?.okCount ?? 0}</div>
+                      <div>Failed: {liveKycSummary?.failedCount ?? 0}</div>
+                      <div>Review: {liveKycSummary?.reviewRequiredCount ?? 0}</div>
+                    </div>
+                  </div>
+                ) : null}
+
+                {activationSnapshot ? (
+                  <div className="mt-3 rounded-lg border border-mitti/15 bg-ivory/70 p-3 text-xs text-kohl">
+                    <div className="font-medium text-kohl">ACTIVATION READINESS</div>
+
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      <span
+                        className={`inline-flex rounded px-2 py-1 text-[10px] tracking-widest uppercase ${
+                          activationSnapshot?.canApprove ? 'bg-neem/15 text-neem' : 'bg-madder/10 text-madder'
+                        }`}
+                      >
+                        {activationSnapshot?.canApprove ? 'activation clear' : 'activation blocked'}
+                      </span>
+
+                      <span
+                        className={`inline-flex rounded px-2 py-1 text-[10px] tracking-widest uppercase ${
+                          activationSnapshot?.readyForReview ? 'bg-banarasi/15 text-ivory' : 'bg-mitti/10 text-mitti'
+                        }`}
+                      >
+                        {activationSnapshot?.readyForReview ? 'ready for review' : 'not ready'}
+                      </span>
+                    </div>
+
+                    <div className="mt-3 grid sm:grid-cols-2 gap-2">
+                      <div>PAN: {activationSnapshot?.hasPan ? 'YES' : 'NO'}</div>
+                      <div>Bank: {activationSnapshot?.hasBank ? 'YES' : 'NO'}</div>
+                      <div>GSTIN: {activationSnapshot?.hasGstin ? 'YES' : 'NO'}</div>
+                      <div>Portfolio: {activationSnapshot?.hasPortfolio ? 'YES' : 'NO'}</div>
+                      <div>User account: {activationSnapshot?.hasUserAccount ? 'YES' : 'NO'}</div>
+                      <div>Phone verified: {activationSnapshot?.phoneVerified ? 'YES' : 'NO'}</div>
+                      <div>Email verified: {activationSnapshot?.emailVerified ? 'YES' : 'NO'}</div>
+                      <div>Auto KYC passed: {activationSnapshot?.autoKycPassed ? 'YES' : 'NO'}</div>
+                    </div>
+
+                    {Array.isArray(activationSnapshot?.blockers) && activationSnapshot.blockers.length ? (
+                      <div className="mt-3">
+                        <p className="label text-madder mb-2">BLOCKERS</p>
+                        <div className="flex flex-wrap gap-2">
+                          {activationSnapshot.blockers.map((item: string, idx: number) => (
+                            <span
+                              key={`activation-blocker-${idx}`}
+                              className="inline-flex rounded bg-madder/10 px-2 py-1 text-[10px] tracking-wide text-madder"
+                            >
+                              {item}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    ) : null}
+
+                    {Array.isArray(activationSnapshot?.warnings) && activationSnapshot.warnings.length ? (
+                      <div className="mt-3">
+                        <p className="label text-mitti mb-2">WARNINGS</p>
+                        <div className="flex flex-wrap gap-2">
+                          {activationSnapshot.warnings.map((item: string, idx: number) => (
+                            <span
+                              key={`activation-warning-${idx}`}
+                              className="inline-flex rounded bg-haldi/20 px-2 py-1 text-[10px] tracking-wide text-mitti"
+                            >
+                              {item}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    ) : null}
+                  </div>
+                ) : null}
+
+                {liveKycVerifications.length ? (
+                  <div className="mt-3">
+                    <p className="label text-mitti mb-2">VERIFICATION BREAKDOWN</p>
+                    <div className="flex flex-wrap gap-2">
+                      {liveKycVerifications.slice(0, 12).map((item: any, idx: number) => (
+                        <span
+                          key={`live-kyc-${idx}`}
+                          className={`inline-flex rounded px-2 py-1 text-[10px] tracking-wide ${
+                            item?.reviewRequired
+                              ? 'bg-haldi/20 text-mitti'
+                              : String(item?.status || '').toUpperCase() === 'VERIFIED'
+                                ? 'bg-neem/15 text-neem'
+                                : 'bg-ivory text-kohl'
+                          }`}
+                        >
+                          {String(item?.kind || 'check').replace(/_/g, ' ')}:{' '}
+                          {String(item?.status || 'unknown').replace(/_/g, ' ')}
+                          {item?.provider ? ` (${item.provider})` : ''}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
+</section>
 
           <section className="bg-beige p-5">
             <div className="flex items-center justify-between gap-3 mb-3 flex-wrap">
@@ -381,6 +629,26 @@ export default function AdminSellerDetail() {
               >
                 <Printer className="w-3.5 h-3.5" /> OPEN PRINTABLE AGREEMENT
               </Link>
+
+              <button
+                type="button"
+                onClick={() => void sendForSignature()}
+                disabled={signingBusy}
+                className="inline-flex items-center gap-1 px-3 py-2 border border-banarasi/30 text-xs tracking-wider text-banarasi hover:bg-banarasi/5 disabled:opacity-50"
+              >
+                {sellerSigningUrl ? 'REISSUE SIGNING LINK' : 'ISSUE SIGNING LINK'}
+              </button>
+
+              {sellerSigningUrl ? (
+                <a
+                  href={sellerSigningUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center gap-1 px-3 py-2 border border-neem/30 text-xs tracking-wider text-neem hover:bg-neem/5"
+                >
+                  OPEN SELLER SIGNING <ExternalLink className="w-3.5 h-3.5" />
+                </a>
+              ) : null}
 
               {agreement?.existingAgreementDocument?.fileUrl ? (
                 <a
@@ -469,10 +737,102 @@ export default function AdminSellerDetail() {
                 <div className="bg-ivory border border-dashed border-mitti/20 p-4 text-xs text-mitti space-y-1">
                   <p>Printable agreement page is live.</p>
                   <p>Legal editing is available in Agreement Workbench.</p>
-                  <p>Seller-side digital signing (Aadhaar / eSign) is not active yet and remains pending for Phase 3.</p>
+                  <p>{sellerSigningUrl ? 'Seller signing link is active and uses OTP verification.' : 'Seller signing link has not been issued yet.'}</p>
+                  {sellerSignatureStatus ? (
+                    <p>
+                      Signing status: <span className="text-kohl">{sellerSignatureStatus.replace(/_/g, ' ')}</span>
+                      {sellerSignedAt
+                        ? ` • Signed at ${new Date(sellerSignedAt).toLocaleString()}`
+                        : sellerSignatureOtpVerifiedAt
+                        ? ` • OTP verified at ${new Date(sellerSignatureOtpVerifiedAt).toLocaleString()}`
+                        : ''}
+                    </p>
+                  ) : null}
                 </div>
               </div>
             )}
+          </section>
+
+          <section className="bg-beige p-5 border border-madder/20">
+            <div className="flex items-start justify-between gap-4 flex-wrap">
+              <div>
+                <p className="label text-madder">DANGER ZONE</p>
+                <p className="text-xs text-mitti mt-1">
+                  Delete this seller record. Non-force delete is blocked when products or payouts exist.
+                </p>
+              </div>
+
+              <button
+                onClick={() => setDeleteOpen(v => !v)}
+                className="px-3 py-2 border border-madder text-madder text-xs tracking-wider inline-flex items-center gap-1"
+              >
+                <Trash2 className="w-3.5 h-3.5" /> DELETE SELLER
+              </button>
+            </div>
+
+            {deleteOpen ? (
+              <div className="mt-4 bg-ivory border border-mitti/15 p-4 space-y-3">
+                <div className="flex items-start gap-2 text-xs text-mitti">
+                  <AlertTriangle className="w-4 h-4 mt-0.5 text-madder" />
+                  <p>
+                    Type <span className="font-semibold text-kohl">DELETE</span> to enable seller deletion.
+                  </p>
+                </div>
+
+                <input
+                  value={deleteConfirm}
+                  onChange={e => setDeleteConfirm(e.target.value)}
+                  placeholder="Type DELETE"
+                  className="w-full p-3 bg-ivory border border-mitti/20 text-sm"
+                />
+
+                {deleteErr ? <p className="text-xs text-madder">{deleteErr}</p> : null}
+
+                {deleteInfo ? (
+                  <div className="text-xs text-kohl bg-beige p-3 border border-mitti/15">
+                    <p className="font-medium mb-2">Blocking dependencies</p>
+                    <div className="grid grid-cols-2 gap-2">
+                      {Object.entries(deleteInfo).map(([k, v]) => (
+                        <div key={k} className="flex justify-between gap-3">
+                          <span className="text-mitti">{k}</span>
+                          <span>{String(v)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
+
+                <div className="flex gap-2 flex-wrap">
+                  <button
+                    onClick={() => deleteSeller(false)}
+                    disabled={deleteBusy || deleteConfirm !== 'DELETE'}
+                    className="px-4 py-2 bg-madder text-ivory text-xs tracking-wider disabled:opacity-50"
+                  >
+                    DELETE SELLER
+                  </button>
+
+                  <button
+                    onClick={() => deleteSeller(true)}
+                    disabled={deleteBusy || deleteConfirm !== 'DELETE'}
+                    className="px-4 py-2 border border-madder text-madder text-xs tracking-wider disabled:opacity-50"
+                  >
+                    FORCE DELETE
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setDeleteOpen(false);
+                      setDeleteConfirm('');
+                      setDeleteErr('');
+                      setDeleteInfo(null);
+                    }}
+                    className="px-4 py-2 border border-mitti/25 text-xs tracking-wider"
+                  >
+                    CANCEL
+                  </button>
+                </div>
+              </div>
+            ) : null}
           </section>
 
           {seller.payouts && seller.payouts.length > 0 ? (

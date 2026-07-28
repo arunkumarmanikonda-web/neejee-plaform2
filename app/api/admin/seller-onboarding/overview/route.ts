@@ -100,6 +100,7 @@ export async function GET() {
         bankAccount: true,
         ifsc: true,
         bankName: true,
+        autoKycSummary: true,
         portfolio: true,
         userId: true,
         user: {
@@ -175,6 +176,21 @@ export async function GET() {
 
     const pendingSellers = sellerRowsRaw.map((seller: any) => {
       const activation = buildActivationSnapshot(seller);
+      const liveKyc =
+        seller.autoKycSummary && typeof seller.autoKycSummary === 'object'
+          ? seller.autoKycSummary
+          : null;
+      const liveVerification =
+        liveKyc && liveKyc.liveVerification && typeof liveKyc.liveVerification === 'object'
+          ? liveKyc.liveVerification
+          : null;
+      const liveSummary =
+        liveVerification && liveVerification.summary && typeof liveVerification.summary === 'object'
+          ? liveVerification.summary
+          : null;
+      const liveStatuses = Array.isArray(liveSummary?.statuses)
+        ? liveSummary.statuses
+        : [];
 
       return {
         id: seller.id,
@@ -196,6 +212,14 @@ export async function GET() {
         phoneVerified: activation.phoneVerified,
         emailVerified: activation.emailVerified,
         autoKycPassed: activation.autoKycPassed,
+        liveKycOverallStatus: typeof liveKyc?.overallStatus === 'string' ? liveKyc.overallStatus : null,
+        liveKycReviewRequired: Boolean(liveKyc?.reviewRequired),
+        liveKycHttpStatus:
+          typeof liveKyc?.kycPackageHttpStatus === 'number' ? liveKyc.kycPackageHttpStatus : null,
+        liveKycSummary: liveSummary,
+        liveKycVerification: liveVerification,
+        liveKycStatuses: liveStatuses,
+        autoKycSummary: liveKyc,
         canActivate: activation.canApprove && seller.kycStatus === 'UNDER_REVIEW',
         blockers: activation.blockers,
         warnings: activation.warnings,

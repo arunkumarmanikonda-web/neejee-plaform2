@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { buildVerificationPayload, toNullableString } from '@/lib/kyc/normalized-verification'
 
 const GSTIN_RE = /^\d{2}[A-Z]{5}\d{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/
 
@@ -25,7 +26,23 @@ export async function POST(request: Request) {
     const inputPan = String(body?.pan ?? '').trim().toUpperCase()
 
     if (!gstin) {
-      return NextResponse.json({ ok: false, error: 'gstin_required' }, { status: 400 })
+      return NextResponse.json({
+        ok: false,
+        error: 'gstin_required',
+        ...buildVerificationPayload({
+          verificationType: 'gst',
+          provider: 'request_validation',
+          ok: false,
+          valid: false,
+          status: 'INPUT_INVALID',
+          reviewRequired: false,
+          submitted: { gstin, pan: toNullableString(inputPan) },
+          extracted: {},
+          fieldChecks: [],
+          confidence: null,
+          errorCode: 'gstin_required',
+        }),
+      }, { status: 400 })
     }
 
     if (!GSTIN_RE.test(gstin)) {
@@ -36,6 +53,28 @@ export async function POST(request: Request) {
           error: 'invalid_gstin_format',
           gstin,
           source: 'local_format',
+          ...buildVerificationPayload({
+            verificationType: 'gst',
+            provider: 'local_format',
+            ok: false,
+            valid: false,
+            status: 'INPUT_INVALID',
+            reviewRequired: false,
+            submitted: { gstin, pan: toNullableString(inputPan) },
+            extracted: { gstin },
+            fieldChecks: [
+              {
+                field: 'gstin',
+                submittedValue: gstin,
+                extractedValue: gstin,
+                matched: false,
+                score: null,
+                reason: 'invalid_gstin_format',
+              },
+            ],
+            confidence: null,
+            errorCode: 'invalid_gstin_format',
+          }),
         },
         { status: 400 }
       )
@@ -56,6 +95,34 @@ export async function POST(request: Request) {
         panMatches,
         gstStatus: 'Active',
         source: 'mock',
+        ...buildVerificationPayload({
+          verificationType: 'gst',
+          provider: 'mock',
+          ok: true,
+          valid: true,
+          status: 'VERIFIED',
+          reviewRequired: false,
+          submitted: { gstin, pan: toNullableString(inputPan) },
+          extracted: {
+            gstin,
+            pan: embeddedPan,
+            legalName: 'TEST BUSINESS',
+            tradeName: 'TEST BUSINESS',
+            gstStatus: 'Active',
+          },
+          fieldChecks: [
+            {
+              field: 'pan',
+              submittedValue: toNullableString(inputPan),
+              extractedValue: embeddedPan,
+              matched: panMatches,
+              score: panMatches === true ? 100 : panMatches === false ? 0 : null,
+              reason: panMatches === true ? 'GST_PAN_MATCH' : panMatches === false ? 'GST_PAN_MISMATCH' : null,
+            },
+          ],
+          confidence: panMatches === true ? 100 : null,
+          referenceId: null,
+        }),
       })
     }
 
@@ -74,6 +141,19 @@ export async function POST(request: Request) {
             ok: false,
             error: 'cashfree_gst_not_configured',
             source: 'cashfree',
+            ...buildVerificationPayload({
+              verificationType: 'gst',
+              provider: 'cashfree',
+              ok: false,
+              valid: false,
+              status: 'PROVIDER_UNAVAILABLE',
+              reviewRequired: true,
+              submitted: { gstin, pan: toNullableString(inputPan) },
+              extracted: {},
+              fieldChecks: [],
+              confidence: null,
+              errorCode: 'cashfree_gst_not_configured',
+            }),
           },
           { status: 503 }
         )
@@ -112,6 +192,20 @@ export async function POST(request: Request) {
             source: 'cashfree',
             upstreamStatus: upstream.status,
             raw,
+            ...buildVerificationPayload({
+              verificationType: 'gst',
+              provider: 'cashfree',
+              ok: false,
+              valid: false,
+              status: 'UPSTREAM_ERROR',
+              reviewRequired: true,
+              submitted: { gstin, pan: toNullableString(inputPan) },
+              extracted: {},
+              fieldChecks: [],
+              confidence: null,
+              errorCode: 'cashfree_gst_upstream_error',
+              raw,
+            }),
           },
           { status: 502 }
         )
@@ -123,6 +217,7 @@ export async function POST(request: Request) {
         raw?.valid ?? /exists|active/i.test(String(raw?.message ?? raw?.gst_in_status ?? ''))
       )
 
+      const resolvedPanMatches = inputPan ? resolvedPan === inputPan : null
       return NextResponse.json(
         {
           ok: valid,
@@ -132,7 +227,7 @@ export async function POST(request: Request) {
           tradeName: raw?.trade_name_of_business ?? raw?.tradeName ?? null,
           name: raw?.trade_name_of_business ?? raw?.legal_name_of_business ?? null,
           pan: resolvedPan,
-          panMatches: inputPan ? resolvedPan === inputPan : null,
+          panMatches: resolvedPanMatches,
           gstStatus: raw?.gst_in_status ?? raw?.status ?? null,
           taxpayerType: raw?.taxpayer_type ?? null,
           constitutionOfBusiness: raw?.constitution_of_business ?? null,
@@ -142,6 +237,35 @@ export async function POST(request: Request) {
           referenceId: raw?.reference_id ?? null,
           source: 'cashfree',
           raw,
+          ...buildVerificationPayload({
+            verificationType: 'gst',
+            provider: 'cashfree',
+            ok: valid,
+            valid,
+            status: valid ? 'VERIFIED' : 'REJECTED',
+            reviewRequired: !valid || resolvedPanMatches === false,
+            submitted: { gstin, pan: toNullableString(inputPan) },
+            extracted: {
+              gstin: resolvedGstin,
+              pan: resolvedPan,
+              legalName: toNullableString(raw?.legal_name_of_business ?? raw?.legalName),
+              tradeName: toNullableString(raw?.trade_name_of_business ?? raw?.tradeName),
+              gstStatus: toNullableString(raw?.gst_in_status ?? raw?.status),
+            },
+            fieldChecks: [
+              {
+                field: 'pan',
+                submittedValue: toNullableString(inputPan),
+                extractedValue: resolvedPan,
+                matched: resolvedPanMatches,
+                score: resolvedPanMatches === true ? 100 : resolvedPanMatches === false ? 0 : null,
+                reason: resolvedPanMatches === true ? 'GST_PAN_MATCH' : resolvedPanMatches === false ? 'GST_PAN_MISMATCH' : null,
+              },
+            ],
+            confidence: resolvedPanMatches === true ? 100 : null,
+            referenceId: toNullableString(raw?.reference_id),
+            raw,
+          }),
         },
         { status: valid ? 200 : 422 }
       )
@@ -158,9 +282,50 @@ export async function POST(request: Request) {
       panMatches,
       source: 'local_format',
       note: 'GSTIN format validated locally; live provider disabled.',
+      ...buildVerificationPayload({
+        verificationType: 'gst',
+        provider: 'local_format',
+        ok: true,
+        valid: true,
+        status: 'FORMAT_VALIDATED',
+        reviewRequired: true,
+        submitted: { gstin, pan: toNullableString(inputPan) },
+        extracted: {
+          gstin,
+          pan: embeddedPan,
+        },
+        fieldChecks: [
+          {
+            field: 'pan',
+            submittedValue: toNullableString(inputPan),
+            extractedValue: embeddedPan,
+            matched: panMatches,
+            score: panMatches === true ? 100 : panMatches === false ? 0 : null,
+            reason: panMatches === true ? 'GST_PAN_MATCH' : panMatches === false ? 'GST_PAN_MISMATCH' : null,
+          },
+        ],
+        confidence: panMatches === true ? 100 : null,
+        referenceId: null,
+      }),
     })
   } catch (error) {
     console.error('GST verify error', error)
-    return NextResponse.json({ ok: false, error: 'gst_verify_failed' }, { status: 500 })
+    return NextResponse.json({
+      ok: false,
+      error: 'gst_verify_failed',
+      ...buildVerificationPayload({
+        verificationType: 'gst',
+        provider: 'internal',
+        ok: false,
+        valid: false,
+        status: 'INTERNAL_ERROR',
+        reviewRequired: true,
+        submitted: {},
+        extracted: {},
+        fieldChecks: [],
+        confidence: null,
+        errorCode: 'gst_verify_failed',
+      }),
+    }, { status: 500 })
   }
 }

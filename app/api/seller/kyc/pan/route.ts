@@ -1,0 +1,45 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { verifyKycDocument } from '../../../admin/seller-onboarding/kyc-ai-core';
+
+export const dynamic = 'force-dynamic';
+
+type RequestPayload = {
+  provider?: string;
+  typed?: Record<string, unknown>;
+  extracted?: Record<string, unknown>;
+  metadata?: Record<string, unknown>;
+};
+
+export async function GET(): Promise<NextResponse> {
+  return NextResponse.json({
+    ok: true,
+    actor: 'seller',
+    documentType: 'pan',
+    capability: 'ai-first-kyc-verification',
+  });
+}
+
+export async function POST(request: NextRequest): Promise<NextResponse> {
+  let payload: RequestPayload = {};
+  try {
+    payload = (await request.json()) as RequestPayload;
+  } catch {
+    payload = {};
+  }
+
+  const result = verifyKycDocument({
+    actor: 'seller',
+    documentType: 'pan',
+    provider: payload.provider,
+    typed: payload.typed ?? {},
+    extracted: payload.extracted ?? {},
+    metadata: payload.metadata ?? {},
+  });
+
+  return NextResponse.json({
+    ok: true,
+    actor: 'seller',
+    documentType: 'pan',
+    result,
+  });
+}

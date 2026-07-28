@@ -42,7 +42,8 @@ export type OtpPurpose =
   | 'signup_customer'
   | 'checkout_guest'
   | 'change_phone'
-  | 'admin_2fa';
+  | 'admin_2fa'
+  | 'seller_agreement_sign';
 
 export type CreateOtpInput = {
   phone: string;
@@ -618,3 +619,4 @@ export async function verifyOtp(
     purpose: input.purpose,
   };
 }
+

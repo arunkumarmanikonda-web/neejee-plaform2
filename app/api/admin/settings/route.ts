@@ -25,6 +25,19 @@ const EDITABLE_KEYS = [
   'FAST2SMS_ENTITY_ID',
   'FAST2SMS_ROUTE',
   'FAST2SMS_TEST_PHONE',
+  'NEXT_PUBLIC_SITE_NAME',
+  'NEXT_PUBLIC_CANONICAL_BASE_URL',
+  'NEXT_PUBLIC_DEFAULT_META_TITLE',
+  'NEXT_PUBLIC_META_TITLE_TEMPLATE',
+  'NEXT_PUBLIC_DEFAULT_META_DESCRIPTION',
+  'NEXT_PUBLIC_META_KEYWORDS',
+  'NEXT_PUBLIC_OG_TITLE',
+  'NEXT_PUBLIC_OG_DESCRIPTION',
+  'NEXT_PUBLIC_OG_IMAGE_URL',
+  'NEXT_PUBLIC_TWITTER_TITLE',
+  'NEXT_PUBLIC_TWITTER_DESCRIPTION',
+  'NEXT_PUBLIC_ROBOTS_INDEX',
+  'NEXT_PUBLIC_ROBOTS_FOLLOW',
 ] as const;
 
 type EditableKey = typeof EDITABLE_KEYS[number];
@@ -39,6 +52,19 @@ const PUBLIC_KEYS = new Set<EditableKey>([
   'FAST2SMS_ENTITY_ID',
   'FAST2SMS_ROUTE',
   'FAST2SMS_TEST_PHONE',
+  'NEXT_PUBLIC_SITE_NAME',
+  'NEXT_PUBLIC_CANONICAL_BASE_URL',
+  'NEXT_PUBLIC_DEFAULT_META_TITLE',
+  'NEXT_PUBLIC_META_TITLE_TEMPLATE',
+  'NEXT_PUBLIC_DEFAULT_META_DESCRIPTION',
+  'NEXT_PUBLIC_META_KEYWORDS',
+  'NEXT_PUBLIC_OG_TITLE',
+  'NEXT_PUBLIC_OG_DESCRIPTION',
+  'NEXT_PUBLIC_OG_IMAGE_URL',
+  'NEXT_PUBLIC_TWITTER_TITLE',
+  'NEXT_PUBLIC_TWITTER_DESCRIPTION',
+  'NEXT_PUBLIC_ROBOTS_INDEX',
+  'NEXT_PUBLIC_ROBOTS_FOLLOW',
 ]);
 
 function vercelConfig() {
@@ -185,7 +211,7 @@ export async function PUT(req: NextRequest) {
         value,
         type: PUBLIC_KEYS.has(key) ? 'plain' : 'encrypted',
         target: ['production', 'preview', 'development'],
-        comment: 'Updated from /admin/settings',
+        comment: 'Updated from admin settings surfaces',
       }),
     });
 

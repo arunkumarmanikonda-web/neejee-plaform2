@@ -12,6 +12,7 @@ import {
   Store,
   FileText,
   AlertCircle,
+  Mail,
 } from 'lucide-react';
 
 type SellerRow = {
@@ -34,6 +35,11 @@ type SellerRow = {
   phoneVerified: boolean;
   emailVerified: boolean;
   autoKycPassed: boolean;
+  liveKycOverallStatus?: string | null;
+  liveKycReviewRequired?: boolean;
+  liveKycHttpStatus?: number | null;
+  liveKycSummary?: Record<string, any> | null;
+  liveKycStatuses?: any[];
   canActivate: boolean;
   blockers?: string[];
   warnings?: string[];
@@ -96,6 +102,17 @@ function kycPill(status: SellerRow['kycStatus']) {
   return map[status] || 'bg-beige text-mitti';
 }
 
+function liveKycPill(status?: string | null) {
+  const map: Record<string, string> = {
+    VERIFIED: 'bg-neem/20 text-neem',
+    REVIEW_REQUIRED: 'bg-haldi/20 text-mitti',
+    FAILED: 'bg-madder/15 text-madder',
+    ERROR: 'bg-madder/15 text-madder',
+    PENDING: 'bg-banarasi/20 text-banarasi',
+  };
+  return map[String(status || '').toUpperCase()] || 'bg-ivory text-mitti';
+}
+
 function inventoryPill(status: string) {
   const map: Record<string, string> = {
     SUBMITTED: 'bg-banarasi/20 text-banarasi',
@@ -149,6 +166,8 @@ export default function SellerOnboardingPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [busySellerId, setBusySellerId] = useState<string | null>(null);
+  const [rejectSellerId, setRejectSellerId] = useState<string | null>(null);
+  const [rejectNote, setRejectNote] = useState('');
 
   async function patchSeller(id: string, body: any) {
     setBusySellerId(id);
@@ -218,16 +237,63 @@ export default function SellerOnboardingPage() {
         <div className="rounded-xl border border-madder/20 bg-madder/5 px-4 py-3 text-sm text-madder">{error}</div>
       ) : null}
 
+      {rejectSellerId ? (
+        <div className="mb-6 rounded-2xl border border-madder/20 bg-madder/5 p-4 shadow-sm">
+          <div className="text-[10px] uppercase tracking-[0.28em] text-madder">Reject seller</div>
+          <p className="mt-2 text-sm text-kohl">Optional note to include with the rejection.</p>
+          <textarea
+            value={rejectNote}
+            onChange={e => setRejectNote(e.target.value)}
+            rows={3}
+            placeholder="Optional - brief and kind"
+            className="mt-3 w-full rounded-lg border border-madder/20 bg-white px-3 py-2 text-sm text-kohl outline-none"
+          />
+          <div className="mt-3 flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                void patchSeller(rejectSellerId, { kycStatus: 'REJECTED', rejectionNote: rejectNote }).finally(() => {
+                  setRejectSellerId(null);
+                  setRejectNote('');
+                });
+              }}
+              disabled={busySellerId === rejectSellerId}
+              className="inline-flex items-center gap-2 rounded-lg bg-madder px-3 py-2 text-xs text-white hover:bg-madder/90 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {busySellerId === rejectSellerId ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : null}
+              Confirm reject
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setRejectSellerId(null);
+                setRejectNote('');
+              }}
+              className="inline-flex items-center rounded-lg border border-kohl/15 bg-white px-3 py-2 text-xs text-kohl hover:bg-ivory"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      ) : null}
+
       {loading ? (
         <div className="flex min-h-[280px] items-center justify-center rounded-2xl border border-kohl/10 bg-white">
           <Loader2 className="h-5 w-5 animate-spin text-kohl" />
         </div>
       ) : !data ? null : (
         <>
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-9">
             <Metric label="Seller applications" value={data.summary.sellersPending} hint="Pending KYC intake" icon={Store} />
             <Metric label="Under review" value={data.summary.sellersUnderReview} hint="Needs admin decision" icon={Clock3} />
+            <Metric label="Approved" value={data.summary.sellersApproved} hint="Approved seller accounts" icon={CheckCircle2} />
+            <Metric label="Rejected" value={data.summary.sellersRejected} hint="Rejected seller accounts" icon={AlertCircle} />
             <Metric label="Change requests" value={data.summary.changeRequestsPending} hint="Profile edits awaiting review" icon={FileText} />
+            <Metric label="Inventory submitted" value={data.summary.inventorySubmitted} hint="Submissions awaiting queue action" icon={Package} />
+            <Metric label="Inventory under review" value={data.summary.inventoryUnderReview} hint="Submissions in active review" icon={Clock3} />
+            <Metric label="Inventory needs info" value={data.summary.inventoryNeedsInfo} hint="Submissions waiting on seller updates" icon={Mail} />
             <Metric label="Activation ready" value={data.summary.activationReady} hint="Approved + bank + PAN ready" icon={ShieldCheck} />
           </div>
 
@@ -259,14 +325,60 @@ export default function SellerOnboardingPage() {
                       <tr key={seller.id} className="border-b border-mitti/10 align-top hover:bg-beige/20">
                         <td className="px-3 py-3">
                           <div className="font-display text-kohl">{seller.businessName}</div>
+                          {seller.slug ? (
+                            <div className="mt-1 text-[11px] text-mitti">/{seller.slug}</div>
+                          ) : null}
+                          <div className="mt-1 font-mono text-[11px] text-mitti/80">ID: {seller.id}</div>
                           <div className="mt-1 text-xs text-mitti">
-                            {seller.contactName} · {seller.craft || '—'} · {seller.region || '—'}
+                            {seller.contactName}{' · '}{seller.craft || '—'}{' · '}{seller.region || '—'}
+                          </div>
+                          <div className="mt-1 text-xs text-mitti">
+                            {seller.email}{' · '}{seller.phone}
+                          </div>
+                          <div className="mt-1 text-[11px] text-mitti">
+                            {seller.productCount} {seller.productCount === 1 ? 'product' : 'products'}
+                          </div>
+                          <div className="mt-1 text-[11px] text-mitti">
+                            {(seller.blockers?.length || 0)} {(seller.blockers?.length || 0) === 1 ? 'blocker' : 'blockers'}{' · '}
+                            {(seller.warnings?.length || 0)} {(seller.warnings?.length || 0) === 1 ? 'warning' : 'warnings'}
                           </div>
                         </td>
                         <td className="px-3 py-3">
-                          <span className={`inline-flex rounded px-2 py-1 text-[10px] tracking-widest uppercase ${kycPill(seller.kycStatus)}`}>
-                            {seller.kycStatus.replace(/_/g, ' ')}
-                          </span>
+                          <div className="flex flex-col gap-2">
+                            <span className={`inline-flex w-fit rounded px-2 py-1 text-[10px] tracking-widest uppercase ${kycPill(seller.kycStatus)}`}>
+                              {seller.kycStatus.replace(/_/g, ' ')}
+                            </span>
+                            <span
+                              className={`inline-flex w-fit rounded px-2 py-1 text-[10px] tracking-widest uppercase ${
+                                seller.canActivate ? 'bg-neem/15 text-neem' : 'bg-haldi/20 text-mitti'
+                              }`}
+                            >
+                              {seller.canActivate ? 'Ready to approve' : 'Needs checks'}
+                            </span>
+                            {seller.liveKycOverallStatus ? (
+                              <span
+                                className={`inline-flex w-fit rounded px-2 py-1 text-[10px] tracking-widest uppercase ${liveKycPill(
+                                  seller.liveKycOverallStatus,
+                                )}`}
+                              >
+                                AI {seller.liveKycOverallStatus.replace(/_/g, ' ')}
+                              </span>
+                            ) : null}
+                            {typeof seller.liveKycReviewRequired === 'boolean' ? (
+                              <span
+                                className={`inline-flex w-fit rounded px-2 py-1 text-[10px] tracking-widest uppercase ${
+                                  seller.liveKycReviewRequired ? 'bg-madder/10 text-madder' : 'bg-neem/15 text-neem'
+                                }`}
+                              >
+                                {seller.liveKycReviewRequired ? 'AI review required' : 'AI clear'}
+                              </span>
+                            ) : null}
+                            {typeof seller.liveKycHttpStatus === 'number' ? (
+                              <span className="inline-flex w-fit rounded bg-ivory px-2 py-1 text-[10px] tracking-widest uppercase text-mitti">
+                                KYC HTTP {seller.liveKycHttpStatus}
+                              </span>
+                            ) : null}
+                          </div>
                         </td>
                         <td className="px-3 py-3">
                           <div className="flex flex-wrap gap-2">
@@ -279,12 +391,153 @@ export default function SellerOnboardingPage() {
                             <Gate ok={seller.emailVerified} label="Email OTP" />
                             <Gate ok={seller.autoKycPassed} label="Auto KYC" />
                           </div>
+                          {seller.liveKycSummary ? (
+                            <div className="mt-2 rounded-lg bg-ivory/60 px-3 py-2 text-[11px] text-mitti">
+                              <div className="font-medium text-kohl">AI review summary</div>
+                              <div className="mt-1">
+                                Total: {seller.liveKycSummary?.totalChecks ?? 0}{'  '}
+                                Passed: {seller.liveKycSummary?.okCount ?? 0}{'  '}
+                                Failed: {seller.liveKycSummary?.failedCount ?? 0}{'  '}
+                                Review: {seller.liveKycSummary?.reviewRequiredCount ?? 0}
+                              </div>
+                            </div>
+                          ) : null}
+                          {seller.liveKycStatuses?.length ? (
+                            <div className="mt-2 flex flex-wrap gap-2">
+                              {seller.liveKycStatuses.slice(0, 6).map((item: any, idx: number) => (
+                                <span
+                                  key={`${seller.id}-live-${idx}`}
+                                  className={`inline-flex rounded px-2 py-1 text-[10px] tracking-wide ${
+                                    item?.reviewRequired
+                                      ? 'bg-haldi/20 text-mitti'
+                                      : String(item?.status || '').toUpperCase() === 'VERIFIED'
+                                        ? 'bg-neem/15 text-neem'
+                                        : 'bg-ivory text-kohl'
+                                  }`}
+                                >
+                                  {String(item?.kind || 'check').replace(/_/g, ' ')}:{' '}
+                                  {String(item?.status || 'unknown').replace(/_/g, ' ')}
+                                  {item?.provider ? ` (${item.provider})` : ''}
+                                </span>
+                              ))}
+                            </div>
+                          ) : null}
+                          {seller.blockers?.length ? (
+                            <div className="mt-2 flex flex-wrap gap-2">
+                              {seller.blockers.map((item, idx) => (
+                                <span
+                                  key={`${seller.id}-blocker-${idx}`}
+                                  className="inline-flex rounded px-2 py-1 text-[10px] tracking-wide bg-madder/10 text-madder"
+                                >
+                                  Blocker: {item}
+                                </span>
+                              ))}
+                            </div>
+                          ) : null}
+                          {seller.warnings?.length ? (
+                            <div className="mt-2 flex flex-wrap gap-2">
+                              {seller.warnings.map((item, idx) => (
+                                <span
+                                  key={`${seller.id}-warning-${idx}`}
+                                  className="inline-flex rounded px-2 py-1 text-[10px] tracking-wide bg-haldi/20 text-mitti"
+                                >
+                                  Warning: {item}
+                                </span>
+                              ))}
+                            </div>
+                          ) : null}
                         </td>
                         <td className="px-3 py-3 text-xs text-mitti">{fmtDate(seller.createdAt)}</td>
-                        <td className="px-3 py-3 text-right">
-                          <Link href={`/admin/sellers/${seller.id}`} className="text-sm text-madder hover:text-kohl">
-                            Review →
-                          </Link>
+                        <td className="px-3 py-3">
+                          <div className="flex justify-end gap-2">
+                            <button
+                              type="button"
+                              onClick={() => patchSeller(seller.id, { kycStatus: 'UNDER_REVIEW' })}
+                              disabled={
+                                busySellerId === seller.id ||
+                                seller.kycStatus === 'UNDER_REVIEW' ||
+                                seller.kycStatus === 'APPROVED'
+                              }
+                              title={
+                                seller.kycStatus === 'UNDER_REVIEW'
+                                  ? 'Seller already under review'
+                                  : seller.kycStatus === 'APPROVED'
+                                    ? 'Approved seller cannot be moved to under review from queue'
+                                    : 'Mark seller under review'
+                              }
+                              className="inline-flex items-center gap-2 rounded-lg border border-banarasi/30 bg-white px-3 py-2 text-xs text-banarasi hover:bg-banarasi/5 disabled:cursor-not-allowed disabled:opacity-60"
+                            >
+                              {busySellerId === seller.id ? (
+                                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                              ) : null}
+                              UNDER REVIEW
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => patchSeller(seller.id, { kycStatus: 'APPROVED', rejectionNote: null })}
+                              disabled={busySellerId === seller.id || !seller.canActivate}
+                              title={
+                                !seller.canActivate && Array.isArray(seller.blockers) && seller.blockers.length
+                                  ? seller.blockers.join(', ')
+                                  : 'Approve seller'
+                              }
+                              className="inline-flex items-center gap-2 rounded-lg bg-neem px-3 py-2 text-xs text-white hover:bg-neem/90 disabled:cursor-not-allowed disabled:opacity-60"
+                            >
+                              {busySellerId === seller.id ? (
+                                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                              ) : null}
+                              APPROVE
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setRejectSellerId(seller.id);
+                                setRejectNote('');
+                              }}
+                              disabled={busySellerId === seller.id || seller.kycStatus === 'REJECTED'}
+                              title={seller.kycStatus === 'REJECTED' ? 'Seller already rejected' : 'Reject seller'}
+                              className="inline-flex items-center gap-2 rounded-lg border border-madder/30 bg-white px-3 py-2 text-xs text-madder hover:bg-madder/5 disabled:cursor-not-allowed disabled:opacity-60"
+                            >
+                              {busySellerId === seller.id ? (
+                                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                              ) : null}
+                              REJECT
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => patchSeller(seller.id, { resendApplicationEmail: true })}
+                              disabled={busySellerId === seller.id}
+                              className="inline-flex items-center gap-2 rounded-lg border border-kohl/15 bg-white px-3 py-2 text-xs text-kohl hover:bg-ivory disabled:cursor-not-allowed disabled:opacity-60"
+                            >
+                              {busySellerId === seller.id ? (
+                                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                              ) : (
+                                <Mail className="h-3.5 w-3.5" />
+                              )}
+                              Resend email
+                            </button>
+                            <Link
+                              href={`/agreement/admin/sellers/${seller.id}`}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="inline-flex items-center gap-1 rounded-lg border border-kohl/15 bg-white px-3 py-2 text-xs text-kohl hover:bg-ivory"
+                            >
+                              <FileText className="h-3.5 w-3.5" />
+                              Legal preview
+                            </Link>
+                            <Link
+                              href={`/admin/sellers/${seller.id}/agreement-workbench`}
+                              className="inline-flex items-center rounded-lg border border-kohl/15 bg-white px-3 py-2 text-xs text-kohl hover:bg-ivory"
+                            >
+                              Workbench
+                            </Link>
+                            <Link
+                              href={`/admin/sellers/${seller.id}`}
+                              className="inline-flex items-center rounded-lg bg-kohl px-3 py-2 text-xs text-white hover:bg-kohl/90"
+                            >
+                              Review
+                            </Link>
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -314,8 +567,20 @@ export default function SellerOnboardingPage() {
                         <div className="flex items-start justify-between gap-3">
                           <div>
                             <div className="font-medium text-kohl">{row.seller.businessName}</div>
+                            {row.seller.slug ? (
+                              <div className="mt-1 text-[11px] text-mitti">/{row.seller.slug}</div>
+                            ) : null}
+                            <div className="mt-1 font-mono text-[11px] text-mitti/80">ID: {row.seller.id}</div>
+                            <div className="mt-1 font-mono text-[11px] text-mitti/80">Submission ID: {row.id}</div>
+                            <div className="mt-1 font-mono text-[11px] text-mitti/80">Top-level Seller ID: {row.sellerId}</div>
+                            <div className="mt-1 text-[11px] uppercase tracking-widest text-mitti/80">
+                              Status: {row.status.replace(/_/g, ' ')}
+                            </div>
+                            {row.reason ? (
+                              <div className="mt-1 text-xs text-mitti/90">Reason: {row.reason}</div>
+                            ) : null}
                             <div className="mt-1 text-xs text-mitti">
-                              {row.changedFieldCount} changed fields · {row.supportingDocCount} docs · {fmtDate(row.createdAt)}
+                              {row.changedFieldCount} changed fields{' · '}{row.supportingDocCount} docs{' · '}{fmtDate(row.createdAt)}
                             </div>
                           </div>
                           <Link href="/admin/seller-change-requests" className="text-xs uppercase tracking-widest text-madder hover:text-kohl">
@@ -363,8 +628,25 @@ export default function SellerOnboardingPage() {
                         <div className="flex items-start justify-between gap-3">
                           <div>
                             <div className="font-medium text-kohl">{row.product?.name || 'Untitled submission'}</div>
+                            {row.product?.sku ? (
+                              <div className="mt-1 font-mono text-[11px] text-mitti/80">SKU: {row.product.sku}</div>
+                            ) : null}
+                            {row.product?.status ? (
+                              <div className="mt-1 font-mono text-[11px] text-mitti/80">
+                                Product status: {row.product.status.replace(/_/g, ' ')}
+                              </div>
+                            ) : null}
+                            {row.product?.id ? (
+                              <div className="mt-1 font-mono text-[11px] text-mitti/80">Product ID: {row.product.id}</div>
+                            ) : null}
+                            {row.seller.slug ? (
+                              <div className="mt-1 text-[11px] text-mitti">/{row.seller.slug}</div>
+                            ) : null}
+                            <div className="mt-1 font-mono text-[11px] text-mitti/80">ID: {row.seller.id}</div>
+                            <div className="mt-1 font-mono text-[11px] text-mitti/80">Submission ID: {row.id}</div>
+                            <div className="mt-1 font-mono text-[11px] text-mitti/80">Top-level Seller ID: {row.sellerId}</div>
                             <div className="mt-1 text-xs text-mitti">
-                              {row.seller.businessName} · {row.submissionType.replace(/_/g, ' ')} · {fmtDate(row.createdAt)}
+                              {row.seller.businessName}{' · '}{row.submissionType.replace(/_/g, ' ')}{' · '}{fmtDate(row.createdAt)}
                             </div>
                           </div>
                           <span className={`inline-flex rounded px-2 py-1 text-[10px] tracking-widest uppercase ${inventoryPill(row.status)}`}>
@@ -396,3 +678,5 @@ export default function SellerOnboardingPage() {
     </div>
   );
 }
+
+
