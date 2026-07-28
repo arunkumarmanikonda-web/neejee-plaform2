@@ -123,6 +123,11 @@ export default function AdminSellerDetail() {
   const liveKyc = seller?.autoKycSummary?.liveVerification || null;
   const liveKycSummary = liveKyc?.summary || null;
   const activationSnapshot = seller?.activationSnapshot || null;
+  const approveBlocked = !!activationSnapshot && !activationSnapshot?.canApprove;
+  const approveBlockedReason =
+    Array.isArray(activationSnapshot?.blockers) && activationSnapshot.blockers.length
+      ? activationSnapshot.blockers.join(' • ')
+      : 'Seller is not approval-ready';
   const liveKycVerifications = Array.isArray(liveKyc?.verifications) ? liveKyc.verifications : [];
   const liveKycOverallStatus = seller?.autoKycSummary?.overallStatus || null;
   const liveKycReviewRequired =
@@ -171,7 +176,8 @@ export default function AdminSellerDetail() {
           {seller.kycStatus !== 'APPROVED' && (
             <button
               onClick={() => patch({ kycStatus: 'APPROVED', rejectionNote: null })}
-              disabled={saving}
+              disabled={saving || approveBlocked}
+              title={approveBlocked ? approveBlockedReason : 'Approve seller'}
               className="px-4 py-2 bg-neem text-ivory text-xs tracking-wider hover:bg-neem/90 disabled:opacity-50 inline-flex items-center gap-1.5"
             >
               <Check className="w-4 h-4" /> {seller.kycStatus === 'REJECTED' ? 'RE-APPROVE' : 'APPROVE'}
@@ -206,6 +212,12 @@ export default function AdminSellerDetail() {
           >
             RESEND CONFIRMATION
           </button>
+
+          {approveBlocked ? (
+            <div className="w-full rounded border border-madder/30 bg-madder/5 px-3 py-2 text-[11px] text-madder">
+              <span className="font-medium">Approval blocked:</span> {approveBlockedReason}
+            </div>
+          ) : null}
 
           <Link
             href={`/admin/sellers/${id}/agreement-workbench`}
