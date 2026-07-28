@@ -671,7 +671,7 @@ Create an account with this number to continue.`);
           <>
             <div className="flex items-center gap-2 my-4">
               <div className="flex-1 h-px bg-mitti/20"></div>
-              <span className="text-[10px] uppercase tracking-[0.32em] text-mitti/55">Or continue with</span>
+              <span className="text-[10px] uppercase tracking-[0.28em] text-mitti/50">Or continue with</span>
               <div className="flex-1 h-px bg-mitti/20"></div>
             </div>
 
@@ -684,12 +684,12 @@ Create an account with this number to continue.`);
                     onClick={startFacebook}
                     disabled={loading}
                     type="button"
-                    className="w-full bg-transparent border-0 border-b border-mitti/20 px-2 py-3 text-kohl text-[11px] font-ui tracking-[0.18em] uppercase transition duration-150 hover:text-madder hover:border-madder/35 inline-flex items-center justify-center gap-2"
+                    className="w-full max-w-[292px] mx-auto rounded-full border border-mitti/15 bg-white/90 px-5 py-3 text-kohl text-sm font-ui tracking-[0.02em] transition duration-150 hover:border-madder/25 hover:text-madder inline-flex items-center justify-center gap-2.5"
                     aria-label="Continue with Meta"
                   >
                     <span className="inline-flex items-center gap-2">
                       <span
-                        className="inline-flex items-center justify-center text-mitti"
+                        className="inline-flex items-center justify-center text-mitti opacity-90"
                         aria-hidden="true"
                       >
                         <svg className="h-3 w-3" viewBox="0 0 24 24" fill="currentColor">
@@ -697,7 +697,7 @@ Create an account with this number to continue.`);
                         </svg>
                       </span>
                       <span
-                        className="inline-flex items-center justify-center opacity-90"
+                        className="inline-flex items-center justify-center opacity-80"
                         aria-hidden="true"
                       >
                         <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none">
