@@ -676,48 +676,66 @@ Create an account with this number to continue.`);
             </div>
 
             <div className="space-y-3">
-              {socialAvailable.google && <div ref={googleBtnRef} className="flex justify-center" />}
+              {socialAvailable.google && (
+                <div className="relative mx-auto w-[340px] max-w-full">
+                  <div
+                    aria-hidden="true"
+                    className="pointer-events-none flex min-h-[48px] items-center rounded-full border border-[#D9D4CB] bg-white px-5 py-[11px] text-[#3C342D]"
+                  >
+                    <span className="inline-flex w-[44px] shrink-0 items-center justify-start">
+                      <svg className="h-[18px] w-[18px]" viewBox="0 0 24 24" aria-hidden="true">
+                        <path fill="#EA4335" d="M12.24 10.285V14.4h5.88c-.259 1.329-1.79 3.898-5.88 3.898-3.54 0-6.424-2.93-6.424-6.538s2.884-6.538 6.424-6.538c2.014 0 3.365.86 4.14 1.604l2.82-2.728C17.36 2.387 15.056 1.5 12.24 1.5 6.987 1.5 2.73 5.757 2.73 11.01s4.257 9.51 9.51 9.51c5.49 0 9.51-3.86 9.51-9.307 0-.625-.068-1.1-.151-1.928H12.24z"/>
+                        <path fill="#34A853" d="M2.73 11.01c0 1.697.406 3.298 1.126 4.71l3.694-2.872c-.191-.57-.298-1.178-.298-1.838 0-.66.107-1.268.298-1.838L3.856 6.3A9.45 9.45 0 0 0 2.73 11.01z"/>
+                        <path fill="#FBBC05" d="M12.24 20.52c2.816 0 5.181-.926 6.908-2.514l-3.36-2.596c-.925.644-2.11 1.092-3.548 1.092-2.998 0-5.54-1.998-6.444-4.822l-3.72 2.872c1.71 3.392 5.234 5.968 10.164 5.968z"/>
+                        <path fill="#4285F4" d="M19.148 18.006c1.992-1.834 3.102-4.53 3.102-7 0-.703-.061-1.22-.151-1.721H12.24V13.4h5.664c-.199 1.016-.809 2.422-2.116 3.49l3.36 2.596z"/>
+                      </svg>
+                    </span>
+                    <span className="flex-1 pr-[44px] text-center font-ui text-[16px] font-medium leading-none normal-case tracking-[0]">
+                      Continue with Google
+                    </span>
+                  </div>
+
+                  <div
+                    ref={googleBtnRef}
+                    className="absolute inset-0 z-10 overflow-hidden rounded-full opacity-0"
+                  />
+                </div>
+              )}
 
               {socialAvailable.facebook && (
-                <div className="space-y-3">
-                  <button
-                    onClick={startFacebook}
-                    disabled={loading}
-                    type="button"
-                    className="mx-auto flex w-[340px] max-w-full items-center rounded-full border border-[#D9D4CB] bg-white px-5 py-[11px] text-[#3C342D]"
-                    aria-label="Continue with Meta"
-                  >
-                    <span className="inline-flex w-[44px] shrink-0 items-center justify-start gap-2">
-                      <span
-                        className="inline-flex items-center justify-center text-mitti opacity-90"
-                        aria-hidden="true"
-                      >
-                        <svg className="h-3 w-3" viewBox="0 0 24 24" fill="currentColor">
-                          <path d="M24 12.073c0-6.627-5.373-12-12-12S0 5.446 0 12.073c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
-                        </svg>
-                      </span>
-                      <span
-                        className="inline-flex items-center justify-center opacity-80"
-                        aria-hidden="true"
-                      >
-                        <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none">
-                          <defs>
-                            <linearGradient id="igMetaLogin" x1="0%" y1="100%" x2="100%" y2="0%">
-                              <stop offset="0%" stopColor="#F58529" />
-                              <stop offset="35%" stopColor="#DD2A7B" />
-                              <stop offset="70%" stopColor="#8134AF" />
-                              <stop offset="100%" stopColor="#515BD4" />
-                            </linearGradient>
-                          </defs>
-                          <rect x="4" y="4" width="16" height="16" rx="5" stroke="url(#igMetaLogin)" strokeWidth="2" />
-                          <circle cx="12" cy="12" r="3.5" stroke="url(#igMetaLogin)" strokeWidth="2" />
-                          <circle cx="17.2" cy="6.8" r="1.2" fill="url(#igMetaLogin)" />
-                        </svg>
-                      </span>
+                <button
+                  onClick={startFacebook}
+                  disabled={loading}
+                  type="button"
+                  className="mx-auto flex w-[340px] max-w-full items-center rounded-full border border-[#D9D4CB] bg-white px-5 py-[11px] text-[#3C342D] disabled:opacity-60"
+                  aria-label="Continue with Meta"
+                >
+                  <span className="inline-flex w-[44px] shrink-0 items-center justify-start gap-2">
+                    <span className="inline-flex items-center justify-center text-mitti opacity-90" aria-hidden="true">
+                      <svg className="h-[14px] w-[14px]" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M24 12.073c0-6.627-5.373-12-12-12S0 5.446 0 12.073c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
+                      </svg>
                     </span>
-                    <span className="flex-1 pr-[44px] text-center font-ui text-[16px] font-medium leading-none normal-case tracking-[0]">Continue with Meta</span>
-                  </button>
-                </div>
+                    <span className="inline-flex items-center justify-center opacity-80" aria-hidden="true">
+                      <svg className="h-[14px] w-[14px]" viewBox="0 0 24 24" fill="none">
+                        <defs>
+                          <linearGradient id="igMetaLogin" x1="0%" y1="100%" x2="100%" y2="0%">
+                            <stop offset="0%" stopColor="#F58529" />
+                            <stop offset="35%" stopColor="#DD2A7B" />
+                            <stop offset="70%" stopColor="#8134AF" />
+                            <stop offset="100%" stopColor="#515BD4" />
+                          </linearGradient>
+                        </defs>
+                        <rect x="4" y="4" width="16" height="16" rx="5" stroke="url(#igMetaLogin)" strokeWidth="2" />
+                        <circle cx="12" cy="12" r="3.5" stroke="url(#igMetaLogin)" strokeWidth="2" />
+                        <circle cx="17.2" cy="6.8" r="1.2" fill="url(#igMetaLogin)" />
+                      </svg>
+                    </span>
+                  </span>
+                  <span className="flex-1 pr-[44px] text-center font-ui text-[16px] font-medium leading-none normal-case tracking-[0]">
+                    Continue with Meta
+                  </span>
+                </button>
               )}
             </div>
           </>
