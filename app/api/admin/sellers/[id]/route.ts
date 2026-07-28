@@ -191,11 +191,13 @@ export async function PATCH(request: Request, { params }: { params: { id: string
     const seller = await prisma.seller.update({ where: { id: existing.id }, data });
 
     // If approved, promote the linked user to SELLER role
-    if (statusChange === 'APPROVED' && existing.userId) {
-      await prisma.user.update({
-        where: { id: existing.userId },
-        data: { role: 'SELLER' },
-      }).catch(() => {});
+    if ((statusChange === 'APPROVED' || statusChange === 'REAPPROVED') && existing.userId) {
+      await prisma.user
+        .update({
+          where: { id: existing.userId },
+          data: { role: 'SELLER' },
+        })
+        .catch(() => {});
     }
 
     // Status-change emails
