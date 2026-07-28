@@ -120,6 +120,28 @@ export default function AdminSellerDetail() {
 
   const update = (key: string, value: any) => setSeller({ ...seller, [key]: value });
 
+  const liveKyc = seller?.autoKycSummary?.liveVerification || null;
+  const liveKycSummary = liveKyc?.summary || null;
+  const liveKycVerifications = Array.isArray(liveKyc?.verifications) ? liveKyc.verifications : [];
+  const liveKycOverallStatus = seller?.autoKycSummary?.overallStatus || null;
+  const liveKycReviewRequired =
+    typeof seller?.autoKycSummary?.reviewRequired === 'boolean' ? seller.autoKycSummary.reviewRequired : null;
+  const liveKycHttpStatus =
+    typeof seller?.autoKycSummary?.kycPackageHttpStatus === 'number'
+      ? seller.autoKycSummary.kycPackageHttpStatus
+      : null;
+
+  const liveKycPill = (status?: string | null) => {
+    const map: Record<string, string> = {
+      VERIFIED: 'bg-neem/15 text-neem',
+      REVIEW_REQUIRED: 'bg-haldi/20 text-mitti',
+      FAILED: 'bg-madder/10 text-madder',
+      ERROR: 'bg-madder/10 text-madder',
+      PENDING: 'bg-banarasi/15 text-ivory',
+    };
+    return map[String(status || '').toUpperCase()] || 'bg-mitti/10 text-mitti';
+  };
+
   return (
     <>
       <Link href="/admin/sellers" className="text-xs tracking-wider text-mitti hover:text-kohl flex items-center gap-1">
@@ -336,7 +358,85 @@ export default function AdminSellerDetail() {
             <KvRow k="Bank name" v={seller.bankName} />
             <KvRow k="Years of practice" v={seller.yearsOfPractice} />
             <KvRow k="Cluster" v={seller.cluster} />
-          </section>
+          
+            {seller.autoKycSummary ? (
+              <div className="mt-5 border-t border-mitti/15 pt-4">
+                <p className="label text-madder mb-3">LIVE KYC REVIEW</p>
+
+                <div className="flex flex-wrap gap-2 mb-3">
+                  {liveKycOverallStatus ? (
+                    <span className={`inline-flex rounded px-2 py-1 text-[10px] tracking-widest uppercase ${liveKycPill(liveKycOverallStatus)}`}>
+                      AI {String(liveKycOverallStatus).replace(/_/g, ' ')}
+                    </span>
+                  ) : null}
+
+                  {typeof liveKycReviewRequired === 'boolean' ? (
+                    <span
+                      className={`inline-flex rounded px-2 py-1 text-[10px] tracking-widest uppercase ${
+                        liveKycReviewRequired ? 'bg-madder/10 text-madder' : 'bg-neem/15 text-neem'
+                      }`}
+                    >
+                      {liveKycReviewRequired ? 'AI review required' : 'AI clear'}
+                    </span>
+                  ) : null}
+
+                  {typeof liveKycHttpStatus === 'number' ? (
+                    <span className="inline-flex rounded bg-ivory px-2 py-1 text-[10px] tracking-widest uppercase text-mitti">
+                      KYC HTTP {liveKycHttpStatus}
+                    </span>
+                  ) : null}
+                </div>
+
+                <KvRow k="Live overall status" v={liveKycOverallStatus ? String(liveKycOverallStatus).replace(/_/g, ' ') : '—'} />
+                <KvRow
+                  k="Live review flag"
+                  v={
+                    typeof liveKycReviewRequired === 'boolean'
+                      ? (liveKycReviewRequired ? 'REVIEW REQUIRED' : 'CLEAR')
+                      : '—'
+                  }
+                />
+                <KvRow k="Live verification checks" v={liveKycVerifications.length || '0'} />
+                <KvRow k="Package HTTP status" v={typeof liveKycHttpStatus === 'number' ? String(liveKycHttpStatus) : '—'} />
+
+                {liveKycSummary ? (
+                  <div className="mt-3 rounded-lg bg-ivory/70 p-3 text-xs text-kohl">
+                    <div className="font-medium text-kohl">AI review summary</div>
+                    <div className="mt-2 grid sm:grid-cols-4 gap-2">
+                      <div>Total: {liveKycSummary?.totalChecks ?? 0}</div>
+                      <div>Passed: {liveKycSummary?.okCount ?? 0}</div>
+                      <div>Failed: {liveKycSummary?.failedCount ?? 0}</div>
+                      <div>Review: {liveKycSummary?.reviewRequiredCount ?? 0}</div>
+                    </div>
+                  </div>
+                ) : null}
+
+                {liveKycVerifications.length ? (
+                  <div className="mt-3">
+                    <p className="label text-mitti mb-2">VERIFICATION BREAKDOWN</p>
+                    <div className="flex flex-wrap gap-2">
+                      {liveKycVerifications.slice(0, 12).map((item: any, idx: number) => (
+                        <span
+                          key={`live-kyc-${idx}`}
+                          className={`inline-flex rounded px-2 py-1 text-[10px] tracking-wide ${
+                            item?.reviewRequired
+                              ? 'bg-haldi/20 text-mitti'
+                              : String(item?.status || '').toUpperCase() === 'VERIFIED'
+                                ? 'bg-neem/15 text-neem'
+                                : 'bg-ivory text-kohl'
+                          }`}
+                        >
+                          {String(item?.kind || 'check').replace(/_/g, ' ')}:{' '}
+                          {String(item?.status || 'unknown').replace(/_/g, ' ')}
+                          {item?.provider ? ` (${item.provider})` : ''}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
+</section>
 
           <section className="bg-beige p-5">
             <div className="flex items-center justify-between gap-3 mb-3 flex-wrap">
