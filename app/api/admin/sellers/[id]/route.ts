@@ -54,6 +54,8 @@ export async function GET(request: Request, { params }: { params: { id: string }
       return NextResponse.json({ error: 'Not found' }, { status: 404 });
     }
 
+    const activationSnapshot = await getSellerActivationSnapshot(params.id);
+
     const documents = await prisma.sellerDocument.findMany({
       where: { sellerId: params.id },
       orderBy: { createdAt: 'desc' },
@@ -101,6 +103,8 @@ export async function GET(request: Request, { params }: { params: { id: string }
         bankAccount: seller.bankAccount ?? '',
         ifsc: seller.ifsc ?? '',
         bankName: seller.bankName ?? '',
+        autoKycSummary: seller.autoKycSummary ?? null,
+        activationSnapshot,
         user: seller.user,
         products: Array.isArray(seller.products) ? seller.products : [],
         payouts: Array.isArray(seller.payouts) ? seller.payouts : [],
