@@ -166,6 +166,8 @@ export default function SellerOnboardingPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [busySellerId, setBusySellerId] = useState<string | null>(null);
+  const [rejectSellerId, setRejectSellerId] = useState<string | null>(null);
+  const [rejectNote, setRejectNote] = useState('');
 
   async function patchSeller(id: string, body: any) {
     setBusySellerId(id);
@@ -233,6 +235,48 @@ export default function SellerOnboardingPage() {
 
       {error ? (
         <div className="rounded-xl border border-madder/20 bg-madder/5 px-4 py-3 text-sm text-madder">{error}</div>
+      ) : null}
+
+      {rejectSellerId ? (
+        <div className="mb-6 rounded-2xl border border-madder/20 bg-madder/5 p-4 shadow-sm">
+          <div className="text-[10px] uppercase tracking-[0.28em] text-madder">Reject seller</div>
+          <p className="mt-2 text-sm text-kohl">Optional note to include with the rejection.</p>
+          <textarea
+            value={rejectNote}
+            onChange={e => setRejectNote(e.target.value)}
+            rows={3}
+            placeholder="Optional - brief and kind"
+            className="mt-3 w-full rounded-lg border border-madder/20 bg-white px-3 py-2 text-sm text-kohl outline-none"
+          />
+          <div className="mt-3 flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                void patchSeller(rejectSellerId, { kycStatus: 'REJECTED', rejectionNote: rejectNote }).finally(() => {
+                  setRejectSellerId(null);
+                  setRejectNote('');
+                });
+              }}
+              disabled={busySellerId === rejectSellerId}
+              className="inline-flex items-center gap-2 rounded-lg bg-madder px-3 py-2 text-xs text-white hover:bg-madder/90 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {busySellerId === rejectSellerId ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : null}
+              Confirm reject
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setRejectSellerId(null);
+                setRejectNote('');
+              }}
+              className="inline-flex items-center rounded-lg border border-kohl/15 bg-white px-3 py-2 text-xs text-kohl hover:bg-ivory"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
       ) : null}
 
       {loading ? (
@@ -447,9 +491,8 @@ export default function SellerOnboardingPage() {
                             <button
                               type="button"
                               onClick={() => {
-                                const rejectionNote = window.prompt('Optional rejection note for seller:', '');
-                                if (rejectionNote === null) return;
-                                void patchSeller(seller.id, { kycStatus: 'REJECTED', rejectionNote });
+                                setRejectSellerId(seller.id);
+                                setRejectNote('');
                               }}
                               disabled={busySellerId === seller.id || seller.kycStatus === 'REJECTED'}
                               title={seller.kycStatus === 'REJECTED' ? 'Seller already rejected' : 'Reject seller'}
