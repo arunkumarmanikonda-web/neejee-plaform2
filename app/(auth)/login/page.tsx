@@ -386,7 +386,7 @@ Create an account with this number to continue.`);
           text: 'continue_with',
           shape: 'pill',
           logo_alignment: 'left',
-          width: 320,
+          width: 292,
         });
       } catch (e: any) {
         console.warn('[google] renderButton failed:', e?.message);
@@ -671,12 +671,12 @@ Create an account with this number to continue.`);
           <>
             <div className="flex items-center gap-2 my-4">
               <div className="flex-1 h-px bg-mitti/20"></div>
-              <span className="text-[10px] uppercase tracking-[0.28em] text-mitti/70">Or continue with</span>
+              <span className="text-[10px] uppercase tracking-[0.32em] text-mitti/55">Or continue with</span>
               <div className="flex-1 h-px bg-mitti/20"></div>
             </div>
 
             <div className="space-y-3">
-              {socialAvailable.google && (<div className="rounded-2xl border border-mitti/15 bg-white/90 shadow-[0_8px_24px_rgba(44,36,28,0.06)] px-3 py-2"><div ref={googleBtnRef} className="flex justify-center" /></div>)}
+              {socialAvailable.google && <div ref={googleBtnRef} className="flex justify-center" />}
 
               {socialAvailable.facebook && (
                 <div className="space-y-3">
@@ -684,12 +684,12 @@ Create an account with this number to continue.`);
                     onClick={startFacebook}
                     disabled={loading}
                     type="button"
-                    className="w-full rounded-2xl border border-[#0F5FD7]/20 bg-gradient-to-r from-[#1877F2] to-[#0F5FD7] px-4 py-3 text-white text-sm font-ui shadow-[0_10px_24px_rgba(24,119,242,0.22)] transition duration-150 hover:brightness-[1.03] inline-flex items-center justify-center gap-3"
+                    className="w-full bg-transparent border-0 border-b border-mitti/20 px-2 py-3 text-kohl text-[11px] font-ui tracking-[0.18em] uppercase transition duration-150 hover:text-madder hover:border-madder/35 inline-flex items-center justify-center gap-2"
                     aria-label="Continue with Meta"
                   >
                     <span className="inline-flex items-center gap-2">
                       <span
-                        className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-white text-[#1877F2]"
+                        className="inline-flex items-center justify-center text-mitti"
                         aria-hidden="true"
                       >
                         <svg className="h-3 w-3" viewBox="0 0 24 24" fill="currentColor">
@@ -697,7 +697,7 @@ Create an account with this number to continue.`);
                         </svg>
                       </span>
                       <span
-                        className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-white"
+                        className="inline-flex items-center justify-center opacity-90"
                         aria-hidden="true"
                       >
                         <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none">
