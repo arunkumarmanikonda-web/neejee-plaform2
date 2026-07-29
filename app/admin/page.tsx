@@ -23,77 +23,77 @@ export default async function AdminDashboard() {
       title: 'Products',
       description: 'Go directly into product CRUD, pricing, media, and day-to-day catalog edits.',
       href: '/admin/products',
-      cta: 'OPEN PRODUCTS â†’',
+      cta: 'OPEN PRODUCTS Ã¢â€ â€™',
     },
     {
       eyebrow: 'OPERATIONS',
       title: 'Orders',
       description: 'Resume order review, fulfillment checks, and operational exceptions quickly.',
       href: '/admin/orders',
-      cta: 'OPEN ORDERS â†’',
+      cta: 'OPEN ORDERS Ã¢â€ â€™',
     },
     {
       eyebrow: 'OPERATIONS',
       title: 'Customers',
       description: 'Search customer accounts, investigate support context, and resume account-level follow-up.',
       href: '/admin/customers',
-      cta: 'OPEN CUSTOMERS â†’',
+      cta: 'OPEN CUSTOMERS Ã¢â€ â€™',
     },
     {
       eyebrow: 'CATALOG',
       title: 'Categories',
       description: 'Jump into taxonomy and storefront category controls when navigation or classification needs attention.',
       href: '/admin/categories',
-      cta: 'OPEN CATEGORIES â†’',
+      cta: 'OPEN CATEGORIES Ã¢â€ â€™',
     },
     {
       eyebrow: 'GROWTH',
       title: 'Analytics',
       description: 'Open reporting and KPI surfaces quickly when operators need performance context without live dashboard widgets.',
       href: '/admin/analytics',
-      cta: 'OPEN ANALYTICS â†’',
+      cta: 'OPEN ANALYTICS Ã¢â€ â€™',
     },
     {
       eyebrow: 'MARKETPLACE',
       title: 'Sellers',
       description: 'Continue seller review, onboarding, and marketplace control workflows.',
       href: '/admin/sellers',
-      cta: 'OPEN SELLERS â†’',
+      cta: 'OPEN SELLERS Ã¢â€ â€™',
     },
     {
       eyebrow: 'CONTENT',
       title: 'SEO',
       description: 'Reach the SEO control plane for metadata, canonical, and indexation work.',
       href: '/admin/seo',
-      cta: 'OPEN SEO â†’',
+      cta: 'OPEN SEO Ã¢â€ â€™',
     },
     {
       eyebrow: 'ERP',
       title: 'ERP',
       description: 'Jump into ERP monitoring, reconciliation, and failure-handling surfaces.',
       href: '/admin/erp',
-      cta: 'OPEN ERP â†’',
+      cta: 'OPEN ERP Ã¢â€ â€™',
     },
     {
       eyebrow: 'FINANCE',
       title: 'P&L',
       description: 'Open finance reporting fast when live dashboard metrics are unavailable.',
       href: '/admin/finance/pnl',
-      cta: 'OPEN P&L â†’',
+      cta: 'OPEN P&L Ã¢â€ â€™',
     },
     {
       eyebrow: 'GROWTH',
       title: 'Campaigns',
       description: 'Keep campaign planning and execution close while broader growth tooling evolves.',
       href: '/admin/campaigns',
-      cta: 'OPEN CAMPAIGNS â†’',
+      cta: 'OPEN CAMPAIGNS Ã¢â€ â€™',
     },
     {
       eyebrow: 'ADMIN',
       title: 'Settings',
       description: 'Access platform controls, integration settings, and operational configuration.',
       href: '/admin/settings',
-      cta: 'OPEN SETTINGS â†’',
+      cta: 'OPEN SETTINGS Ã¢â€ â€™',
     },
   ] as const;
 
@@ -574,7 +574,7 @@ export default async function AdminDashboard() {
 
   return (
     <>
-      <p className="label text-madder">DASHBOARD Â· SAFE MODE</p>
+      <p className="label text-madder">DASHBOARD Ã‚Â· SAFE MODE</p>
       <h1 className="font-display text-4xl text-kohl mt-2">
         {greeting}, {displayName}.
       </h1>
