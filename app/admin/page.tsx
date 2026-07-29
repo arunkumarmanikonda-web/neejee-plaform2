@@ -23,77 +23,77 @@ export default async function AdminDashboard() {
       title: 'Products',
       description: 'Go directly into product CRUD, pricing, media, and day-to-day catalog edits.',
       href: '/admin/products',
-      cta: 'OPEN PRODUCTS →',
+      cta: 'OPEN PRODUCTS â†’',
     },
     {
       eyebrow: 'OPERATIONS',
       title: 'Orders',
       description: 'Resume order review, fulfillment checks, and operational exceptions quickly.',
       href: '/admin/orders',
-      cta: 'OPEN ORDERS →',
+      cta: 'OPEN ORDERS â†’',
     },
     {
       eyebrow: 'OPERATIONS',
       title: 'Customers',
       description: 'Search customer accounts, investigate support context, and resume account-level follow-up.',
       href: '/admin/customers',
-      cta: 'OPEN CUSTOMERS →',
+      cta: 'OPEN CUSTOMERS â†’',
     },
     {
       eyebrow: 'CATALOG',
       title: 'Categories',
       description: 'Jump into taxonomy and storefront category controls when navigation or classification needs attention.',
       href: '/admin/categories',
-      cta: 'OPEN CATEGORIES →',
+      cta: 'OPEN CATEGORIES â†’',
     },
     {
       eyebrow: 'GROWTH',
       title: 'Analytics',
       description: 'Open reporting and KPI surfaces quickly when operators need performance context without live dashboard widgets.',
       href: '/admin/analytics',
-      cta: 'OPEN ANALYTICS →',
+      cta: 'OPEN ANALYTICS â†’',
     },
     {
       eyebrow: 'MARKETPLACE',
       title: 'Sellers',
       description: 'Continue seller review, onboarding, and marketplace control workflows.',
       href: '/admin/sellers',
-      cta: 'OPEN SELLERS →',
+      cta: 'OPEN SELLERS â†’',
     },
     {
       eyebrow: 'CONTENT',
       title: 'SEO',
       description: 'Reach the SEO control plane for metadata, canonical, and indexation work.',
       href: '/admin/seo',
-      cta: 'OPEN SEO →',
+      cta: 'OPEN SEO â†’',
     },
     {
       eyebrow: 'ERP',
       title: 'ERP',
       description: 'Jump into ERP monitoring, reconciliation, and failure-handling surfaces.',
       href: '/admin/erp',
-      cta: 'OPEN ERP →',
+      cta: 'OPEN ERP â†’',
     },
     {
       eyebrow: 'FINANCE',
       title: 'P&L',
       description: 'Open finance reporting fast when live dashboard metrics are unavailable.',
       href: '/admin/finance/pnl',
-      cta: 'OPEN P&L →',
+      cta: 'OPEN P&L â†’',
     },
     {
       eyebrow: 'GROWTH',
       title: 'Campaigns',
       description: 'Keep campaign planning and execution close while broader growth tooling evolves.',
       href: '/admin/campaigns',
-      cta: 'OPEN CAMPAIGNS →',
+      cta: 'OPEN CAMPAIGNS â†’',
     },
     {
       eyebrow: 'ADMIN',
       title: 'Settings',
       description: 'Access platform controls, integration settings, and operational configuration.',
       href: '/admin/settings',
-      cta: 'OPEN SETTINGS →',
+      cta: 'OPEN SETTINGS â†’',
     },
   ] as const;
 
@@ -103,6 +103,24 @@ export default async function AdminDashboard() {
     { label: 'Inventory', href: '/admin/inventory' },
     { label: 'Trial Balance', href: '/admin/finance/trial-balance' },
     { label: 'Marketing Studio', href: '/admin/marketing-studio' },
+    { label: 'Team & Roles', href: '/admin/team' },
+  ] as const;
+
+  const popularStarts = [
+    { label: 'Reports', href: '/admin/finance/pnl' },
+    { label: 'Settings', href: '/admin/settings' },
+    { label: 'SEO', href: '/admin/seo' },
+    { label: 'Sellers', href: '/admin/sellers' },
+    { label: 'Products', href: '/admin/products' },
+    { label: 'Orders', href: '/admin/orders' },
+  ] as const;
+
+  const recentDevelopmentStarts = [
+    { label: 'CMS Pages', href: '/admin/cms' },
+    { label: 'Taxonomy', href: '/admin/taxonomy' },
+    { label: 'ERP Home', href: '/admin/erp' },
+    { label: 'Sync Dashboard', href: '/admin/erp/dashboard' },
+    { label: 'Analytics', href: '/admin/analytics' },
     { label: 'Team & Roles', href: '/admin/team' },
   ] as const;
 
@@ -556,7 +574,7 @@ export default async function AdminDashboard() {
 
   return (
     <>
-      <p className="label text-madder">DASHBOARD · SAFE MODE</p>
+      <p className="label text-madder">DASHBOARD Â· SAFE MODE</p>
       <h1 className="font-display text-4xl text-kohl mt-2">
         {greeting}, {displayName}.
       </h1>
@@ -564,6 +582,38 @@ export default async function AdminDashboard() {
         The database pool is saturated in production, so this overview page is temporarily running without live metrics to keep admin access usable.
       </p>
       <div className="madder-divider mt-4"></div>
+
+      <div className="mt-6 space-y-4">
+        <div className="bg-white border border-mitti/15 rounded-xl px-5 py-4">
+          <p className="label text-madder">POPULAR STARTS</p>
+          <div className="flex flex-wrap gap-3 mt-4">
+            {popularStarts.map((item) => (
+              <Link
+                key={item.href}
+                href={item.href}
+                className="px-4 py-3 rounded-xl border border-mitti/15 bg-ivory font-ui text-sm text-kohl hover:text-madder hover:border-madder/25 transition-colors"
+              >
+                {item.label}
+              </Link>
+            ))}
+          </div>
+        </div>
+
+        <div className="bg-white border border-mitti/15 rounded-xl px-5 py-4">
+          <p className="label text-madder">RECENT DEVELOPMENT SURFACES</p>
+          <div className="flex flex-wrap gap-3 mt-4">
+            {recentDevelopmentStarts.map((item) => (
+              <Link
+                key={item.href}
+                href={item.href}
+                className="px-4 py-3 rounded-xl border border-mitti/15 bg-white font-ui text-sm text-kohl hover:text-madder hover:border-madder/25 transition-colors"
+              >
+                {item.label}
+              </Link>
+            ))}
+          </div>
+        </div>
+      </div>
 
       <div className="grid lg:grid-cols-2 gap-6 mt-6">
         <div className="bg-white border border-mitti/15 rounded-xl px-5 py-4 flex flex-wrap items-center justify-between gap-4">
