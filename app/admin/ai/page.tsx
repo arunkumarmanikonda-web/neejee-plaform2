@@ -104,7 +104,7 @@ export default async function AdminAI() {
         <div className="rounded-2xl border border-mitti/15 bg-white p-5">
           <p className="label text-madder">IMAGE BREAKDOWN</p>
           <p className="font-display text-kohl text-3xl mt-2">{stats.mirror + stats.space}</p>
-          <p className="font-ui text-xs text-mitti mt-2">Mirror: {stats.mirror} · Space: {stats.space}</p>
+          <p className="font-ui text-xs text-mitti mt-2">Mirror: {stats.mirror} Â· Space: {stats.space}</p>
         </div>
       </section>
 
@@ -135,6 +135,13 @@ export default async function AdminAI() {
             desc="Scaffold draft landing pages from a brief, audience, and goal, then push directly into CMS editing."
             href="/admin/cms"
             status="LIVE AI SCAFFOLD"
+          />
+          <SurfaceCard
+            eyebrow="CONTENT"
+            title="Taxonomy AI Planner"
+            desc="Plan new category nodes with suggested parent placement, starter SEO, and child ideas before creating the branch."
+            href="/admin/taxonomy/ai"
+            status="LIVE AI TAXONOMY PLANNING"
           />
           <SurfaceCard
             eyebrow="CREATIVE"
@@ -217,7 +224,7 @@ export default async function AdminAI() {
                 {stats.recent.map((r: any) => (
                   <tr key={r.id} className="border-b border-mitti/10">
                     <td className="p-3 text-sm text-kohl">{new Date(r.createdAt).toLocaleString('en-IN', { dateStyle: 'short', timeStyle: 'short' })}</td>
-                    <td className="p-3 text-sm text-mitti">{r.user?.email || r.user?.name || '—'}</td>
+                    <td className="p-3 text-sm text-mitti">{r.user?.email || r.user?.name || 'â€”'}</td>
                     <td className="p-3 text-sm text-kohl">{r.type}</td>
                     <td className="p-3 text-sm">{r.consentLogged ? <Check className="w-4 h-4 text-neem" /> : <X className="w-4 h-4 text-madder" />}</td>
                     <td className="p-3 text-sm text-mitti">{new Date(r.deleteAt).toLocaleDateString('en-IN')}</td>

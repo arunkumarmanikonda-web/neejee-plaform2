@@ -1,6 +1,7 @@
 'use client';
-// v23.40.26.0 — Taxonomy admin tree
+// v23.40.26.0 â€” Taxonomy admin tree
 // Three-level hierarchical UI with toggle on/off, rename, drag-reorder, add new.
+import Link from 'next/link';
 import { useEffect, useState, useCallback } from 'react';
 import { ChevronRight, ChevronDown, Plus, Eye, EyeOff, Pencil, Save, X, Trash2, Sparkles } from 'lucide-react';
 
@@ -78,7 +79,7 @@ export default function TaxonomyAdminPage() {
 
   const tree = buildTree(cats);
 
-  if (loading) return <div className="p-8">Loading taxonomy…</div>;
+  if (loading) return <div className="p-8">Loading taxonomyâ€¦</div>;
 
   return (
     <div className="max-w-6xl mx-auto p-6">
@@ -86,12 +87,15 @@ export default function TaxonomyAdminPage() {
         <div>
           <h1 className="font-display text-3xl text-kohl">Taxonomy</h1>
           <p className="text-sm text-mitti mt-1">
-            {cats.length} categories · {cats.filter(c => c.level === 1).length} main · {cats.filter(c => c.level === 2).length} sub · {cats.filter(c => c.level === 3).length} leaf
+            {cats.length} categories Â· {cats.filter(c => c.level === 1).length} main Â· {cats.filter(c => c.level === 2).length} sub Â· {cats.filter(c => c.level === 3).length} leaf
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <a
-            href="/admin/taxonomy/migrate"
+          <Link href="/admin/taxonomy/ai" className="bg-kohl text-ivory px-4 py-2 rounded-sm flex items-center gap-2 hover:bg-kohl/90 text-xs tracking-wider">
+            <Sparkles className="w-4 h-4" />
+            AI PLANNER
+          </Link>
+          <a href="/admin/taxonomy/migrate"
             className="bg-madder text-ivory px-4 py-2 rounded-sm flex items-center gap-2 hover:bg-madder/90 text-xs tracking-widest"
           >
             <Sparkles className="w-4 h-4" /> AI MIGRATE PRODUCTS
@@ -235,14 +239,14 @@ function AddForm({ name, setName, gender, setGender, onCreate, onCancel, showGen
   return (
     <div className="flex items-center gap-2 my-2 p-2 bg-beige/50 border-l-2 border-madder">
       <input value={name} onChange={e => setName(e.target.value)}
-        placeholder="Category name…"
+        placeholder="Category nameâ€¦"
         className="flex-1 px-2 py-1 border border-kohl/20 text-sm bg-ivory" autoFocus
         onKeyDown={e => { if (e.key === 'Enter') onCreate(); if (e.key === 'Escape') onCancel(); }}
       />
       {showGender && (
         <select value={gender} onChange={e => setGender(e.target.value)}
           className="px-2 py-1 border border-kohl/20 text-sm bg-ivory">
-          <option value="">— gender —</option>
+          <option value="">â€” gender â€”</option>
           <option value="women">Women</option>
           <option value="men">Men</option>
           <option value="unisex">Unisex</option>
