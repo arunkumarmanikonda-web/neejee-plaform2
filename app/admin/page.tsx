@@ -23,77 +23,77 @@ export default async function AdminDashboard() {
       title: 'Products',
       description: 'Go directly into product CRUD, pricing, media, and day-to-day catalog edits.',
       href: '/admin/products',
-      cta: 'OPEN PRODUCTS Ã¢â€ â€™',
+      cta: 'OPEN PRODUCTS ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢',
     },
     {
       eyebrow: 'OPERATIONS',
       title: 'Orders',
       description: 'Resume order review, fulfillment checks, and operational exceptions quickly.',
       href: '/admin/orders',
-      cta: 'OPEN ORDERS Ã¢â€ â€™',
+      cta: 'OPEN ORDERS ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢',
     },
     {
       eyebrow: 'OPERATIONS',
       title: 'Customers',
       description: 'Search customer accounts, investigate support context, and resume account-level follow-up.',
       href: '/admin/customers',
-      cta: 'OPEN CUSTOMERS Ã¢â€ â€™',
+      cta: 'OPEN CUSTOMERS ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢',
     },
     {
       eyebrow: 'CATALOG',
       title: 'Categories',
       description: 'Jump into taxonomy and storefront category controls when navigation or classification needs attention.',
       href: '/admin/categories',
-      cta: 'OPEN CATEGORIES Ã¢â€ â€™',
+      cta: 'OPEN CATEGORIES ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢',
     },
     {
       eyebrow: 'GROWTH',
       title: 'Analytics',
       description: 'Open reporting and KPI surfaces quickly when operators need performance context without live dashboard widgets.',
       href: '/admin/analytics',
-      cta: 'OPEN ANALYTICS Ã¢â€ â€™',
+      cta: 'OPEN ANALYTICS ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢',
     },
     {
       eyebrow: 'MARKETPLACE',
       title: 'Sellers',
       description: 'Continue seller review, onboarding, and marketplace control workflows.',
       href: '/admin/sellers',
-      cta: 'OPEN SELLERS Ã¢â€ â€™',
+      cta: 'OPEN SELLERS ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢',
     },
     {
       eyebrow: 'CONTENT',
       title: 'SEO',
       description: 'Reach the SEO control plane for metadata, canonical, and indexation work.',
       href: '/admin/seo',
-      cta: 'OPEN SEO Ã¢â€ â€™',
+      cta: 'OPEN SEO ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢',
     },
     {
       eyebrow: 'ERP',
       title: 'ERP',
       description: 'Jump into ERP monitoring, reconciliation, and failure-handling surfaces.',
       href: '/admin/erp',
-      cta: 'OPEN ERP Ã¢â€ â€™',
+      cta: 'OPEN ERP ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢',
     },
     {
       eyebrow: 'FINANCE',
       title: 'P&L',
       description: 'Open finance reporting fast when live dashboard metrics are unavailable.',
       href: '/admin/finance/pnl',
-      cta: 'OPEN P&L Ã¢â€ â€™',
+      cta: 'OPEN P&L ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢',
     },
     {
       eyebrow: 'GROWTH',
       title: 'Campaigns',
       description: 'Keep campaign planning and execution close while broader growth tooling evolves.',
       href: '/admin/campaigns',
-      cta: 'OPEN CAMPAIGNS Ã¢â€ â€™',
+      cta: 'OPEN CAMPAIGNS ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢',
     },
     {
       eyebrow: 'ADMIN',
       title: 'Settings',
       description: 'Access platform controls, integration settings, and operational configuration.',
       href: '/admin/settings',
-      cta: 'OPEN SETTINGS Ã¢â€ â€™',
+      cta: 'OPEN SETTINGS ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢',
     },
   ] as const;
 
@@ -242,6 +242,7 @@ export default async function AdminDashboard() {
       detail: 'Retain content visibility and a clear search fallback when operators need broader admin reach quickly.',
       routes: [
         { label: 'SEO', href: '/admin/seo' },
+                { label: 'Meta Accounts', href: '/admin/integrations/meta' },
         { label: 'Ctrl / Cmd + K', href: '/admin' },
       ],
     },
@@ -574,7 +575,7 @@ export default async function AdminDashboard() {
 
   return (
     <>
-      <p className="label text-madder">DASHBOARD Ã‚Â· SAFE MODE</p>
+      <p className="label text-madder">DASHBOARD ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â· SAFE MODE</p>
       <h1 className="font-display text-4xl text-kohl mt-2">
         {greeting}, {displayName}.
       </h1>

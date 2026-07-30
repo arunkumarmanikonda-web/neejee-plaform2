@@ -26,7 +26,8 @@ export const ADMIN_COMMAND_ITEMS: AdminCommandItem[] = [
   { href: '/admin/marketing', label: 'Email Broadcasts', group: 'Growth', desc: 'Email broadcast and messaging workflows.', keywords: ['email', 'broadcasts', 'newsletter'] },
   { href: '/admin/abandoned', label: 'Abandoned Carts', group: 'Growth', desc: 'Recovery flows and abandoned-cart monitoring.', keywords: ['abandoned', 'carts', 'recovery'] },
   { href: '/admin/marketing-studio', label: 'Marketing Studio', group: 'Growth', desc: 'Creative drafting and campaign production.', keywords: ['studio', 'creative', 'assets'] },
-  { href: '/admin/marketing-approvals', label: 'Marketing Approvals', group: 'Growth', desc: 'Approval queue for marketing outputs.', keywords: ['approvals', 'marketing', 'review'] },
+    { href: '/admin/integrations/meta', label: 'Meta Accounts', group: 'Growth', desc: 'Facebook Pages and Instagram business account linking, readiness, and connection health.', keywords: ['meta', 'facebook', 'instagram', 'business manager', 'pages', 'social accounts'], aliases: ['facebook accounts', 'instagram accounts', 'meta integration'], boost: 2 },
+{ href: '/admin/marketing-approvals', label: 'Marketing Approvals', group: 'Growth', desc: 'Approval queue for marketing outputs.', keywords: ['approvals', 'marketing', 'review'] },
 
   { href: '/admin/products', label: 'Products', group: 'Catalog', desc: 'Product CRUD, pricing, media, and edits.', keywords: ['products', 'catalog', 'sku', 'pricing'] },
   { href: '/admin/catalogues', label: 'Catalogues', group: 'Catalog', desc: 'Catalogue generation and exports.', keywords: ['catalogues', 'catalogs', 'exports', 'pdf'] },
