@@ -21,6 +21,7 @@
     "node_modules",
     ".next",
     "_phase0",
-    "_phase0/**/*"
+    "_phase0/**/*",
+    "hardening_reports"
   ]
 }
