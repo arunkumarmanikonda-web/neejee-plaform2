@@ -230,7 +230,7 @@ export default function AdminSeoControlPlanePage() {
     <div className="space-y-8">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <p className="label text-madder">SEO-001 · CONTROL PLANE</p>
+          <p className="label text-madder">SEO-001 Â· CONTROL PLANE</p>
           <h1 className="font-display text-4xl text-kohl mt-2">Search metadata control center</h1>
           <p className="font-ui text-sm text-mitti mt-3 max-w-4xl leading-7">
             Centralize the default search footprint for the storefront: title, description, keywords, canonical base,
@@ -239,6 +239,12 @@ export default function AdminSeoControlPlanePage() {
         </div>
 
         <div className="flex flex-wrap gap-2">
+          <Link
+            href="/admin/ai"
+            className="inline-flex items-center rounded-full border border-kohl/15 bg-white px-4 py-2 font-ui text-xs tracking-[0.18em] text-kohl transition hover:border-kohl/40 hover:bg-beige/40"
+          >
+            AI MANAGER
+          </Link>
           <Link
             href="/admin/integrations/meta"
             className="inline-flex items-center rounded-full border border-kohl/15 bg-white px-4 py-2 font-ui text-xs tracking-[0.18em] text-kohl transition hover:border-kohl/40 hover:bg-beige/40"

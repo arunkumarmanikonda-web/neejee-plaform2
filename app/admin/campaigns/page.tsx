@@ -171,10 +171,13 @@ export default function AdminCampaigns() {
         <div>
           <p className="label text-madder">GENERIC CODES</p>
           <h1 className="font-display text-4xl text-kohl">Campaigns</h1>
-          <p className="font-italic italic text-mitti mt-1">Codes that travel — for newsletters, influencers, founders.</p>
+          <p className="font-italic italic text-mitti mt-1">Codes that travel â€” for newsletters, influencers, founders.</p>
         </div>
 
         <div className="flex flex-wrap gap-2">
+          <Link href="/admin/ai" className="px-4 py-2 border border-kohl/15 bg-white text-kohl text-sm tracking-wider hover:bg-beige/40">
+            AI MANAGER
+          </Link>
           <Link href="/admin/marketing-studio" className="px-4 py-2 border border-kohl/15 bg-white text-kohl text-sm tracking-wider hover:bg-beige/40">
             MARKETING STUDIO
           </Link>
@@ -366,7 +369,7 @@ export default function AdminCampaigns() {
                   <td className="p-3 text-right font-ui">{formatINR(c.revenue)}</td>
                   <td className="p-3 text-xs text-mitti">
                     {new Date(c.validFrom).toISOString().slice(0, 10)}
-                    {c.validTo && <> → {new Date(c.validTo).toISOString().slice(0, 10)}</>}
+                    {c.validTo && <> â†’ {new Date(c.validTo).toISOString().slice(0, 10)}</>}
                   </td>
                   <td className="p-3">
                     <span className={`text-xs px-2 py-1 rounded-full ${c.active ? 'bg-neem/20 text-neem' : 'bg-mitti/20 text-mitti'}`}>
@@ -526,7 +529,7 @@ function CreateModal({ onClose, seed }: { onClose: () => void; seed: CampaignSee
                 ]}
               />
               <Field
-                label={form.type === 'PERCENT' ? 'VALUE (%)' : form.type === 'FLAT' ? 'VALUE (₹)' : 'VALUE'}
+                label={form.type === 'PERCENT' ? 'VALUE (%)' : form.type === 'FLAT' ? 'VALUE (â‚¹)' : 'VALUE'}
                 type="number"
                 disabled={form.type === 'FREE_SHIPPING'}
                 value={String(form.value)}
@@ -535,8 +538,8 @@ function CreateModal({ onClose, seed }: { onClose: () => void; seed: CampaignSee
             </div>
 
             <div className="grid grid-cols-3 gap-3">
-              <Field label="MIN CART (₹)" type="number" value={String(form.minCart)} onChange={v => setForm({ ...form, minCart: Number(v || 0) })} />
-              <Field label="MAX DISCOUNT (₹)" type="number" value={form.maxDiscount} onChange={v => setForm({ ...form, maxDiscount: v })} placeholder="optional" />
+              <Field label="MIN CART (â‚¹)" type="number" value={String(form.minCart)} onChange={v => setForm({ ...form, minCart: Number(v || 0) })} />
+              <Field label="MAX DISCOUNT (â‚¹)" type="number" value={form.maxDiscount} onChange={v => setForm({ ...form, maxDiscount: v })} placeholder="optional" />
               <Field label="MAX USES" type="number" value={form.maxUses} onChange={v => setForm({ ...form, maxUses: v })} placeholder="optional" />
             </div>
 
