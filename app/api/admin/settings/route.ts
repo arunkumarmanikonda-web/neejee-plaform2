@@ -20,6 +20,9 @@ const EDITABLE_KEYS = [
   'OPENAI_API_KEY',
   'FAL_KEY',
   'REPLICATE_API_TOKEN',
+  'FACEBOOK_APP_ID',
+  'FACEBOOK_APP_SECRET',
+  'SOCIAL_TOKEN_SECRET',
   'FAST2SMS_API_KEY',
   'FAST2SMS_SENDER_ID',
   'FAST2SMS_ENTITY_ID',
@@ -142,6 +145,8 @@ function buildRuntimeStatus() {
     fal: !!process.env.FAL_KEY,
     replicate: !!process.env.REPLICATE_API_TOKEN,
     sms: !!(process.env.FAST2SMS_API_KEY && process.env.FAST2SMS_SENDER_ID && process.env.FAST2SMS_ENTITY_ID),
+    meta: !!(process.env.FACEBOOK_APP_ID && process.env.FACEBOOK_APP_SECRET),
+    socialTokenSecret: !!process.env.SOCIAL_TOKEN_SECRET,
   };
 }
 
