@@ -14,7 +14,7 @@ type BatchItem = {
   goal?: string;
 };
 
-const VALID_TYPES = new Set(SECTION_TYPES.map(s => s.type));
+const VALID_TYPES = new Set(SECTION_TYPES.map((s) => s.type));
 
 function cuid(): string {
   return 'sec_' + Math.random().toString(36).slice(2, 12);
@@ -22,6 +22,27 @@ function cuid(): string {
 
 function slugify(s: string): string {
   return s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 60) || 'untitled';
+}
+
+async function listRecentDrafts() {
+  const pages = await prisma.cmsPage.findMany({
+    take: 20,
+    orderBy: { updatedAt: 'desc' },
+    select: {
+      id: true,
+      title: true,
+      slug: true,
+      status: true,
+      updatedAt: true,
+      seoTitle: true,
+      seoDesc: true,
+    },
+  });
+
+  return pages.map((page) => ({
+    ...page,
+    updatedAt: page.updatedAt.toISOString(),
+  }));
 }
 
 async function makeUniqueSlug(base: string) {
@@ -121,6 +142,24 @@ Scaffold the page now.`;
   };
 }
 
+export async function GET() {
+  const user = await getSession();
+  if (!requireRole(user, ['ADMIN', 'SUPER_ADMIN', 'CONTENT_EDITOR'])) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  try {
+    const recent = await listRecentDrafts();
+    return NextResponse.json({
+      ok: true,
+      configured: aiTextConfigured(),
+      recent,
+    });
+  } catch (e: any) {
+    return NextResponse.json({ error: e.message }, { status: 500 });
+  }
+}
+
 export async function POST(request: Request) {
   const user = await getSession();
   if (!requireRole(user, ['ADMIN', 'SUPER_ADMIN', 'CONTENT_EDITOR'])) {
@@ -129,15 +168,15 @@ export async function POST(request: Request) {
 
   try {
     const body = await request.json();
-    const items = Array.isArray(body?.items) ? body.items as BatchItem[] : [];
+    const items = Array.isArray(body?.items) ? (body.items as BatchItem[]) : [];
 
     const cleaned = items
       .map((item) => ({
         brief: typeof item?.brief === 'string' ? item.brief.trim() : '',
-        audience: typeof item?.audience === 'string' ? item.audience.trim() : '',
-        goal: typeof item?.goal === 'string' ? item.goal.trim() : '',
+        audience: typeof item?.audience === 'string' ? item.audience.trim() : 'NEEJEE customers',
+        goal: typeof item?.goal === 'string' ? item.goal.trim() : 'inform and invite',
       }))
-      .filter(item => item.brief.length >= 5)
+      .filter((item) => item.brief.length >= 5)
       .slice(0, 8);
 
     if (cleaned.length === 0) {
@@ -172,21 +211,27 @@ export async function POST(request: Request) {
           slug: page.slug,
           status: page.status,
           configured,
+          updatedAt: page.updatedAt.toISOString(),
         });
       } catch (e: any) {
         failed.push({
           index: i,
           brief: item.brief,
+          audience: item.audience || 'NEEJEE customers',
+          goal: item.goal || 'inform and invite',
           error: e?.message || 'Batch item failed',
         });
       }
     }
+
+    const recent = await listRecentDrafts();
 
     return NextResponse.json({
       ok: true,
       configured,
       created,
       failed,
+      recent,
     });
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: 500 });
