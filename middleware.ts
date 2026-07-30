@@ -1,5 +1,5 @@
-// v26.3e — Edge middleware:
-//   (1) Bare-root legacy redirects (e.g. /sarees → /categories/women/sarees)
+// v26.3e Ã¢â‚¬â€ Edge middleware:
+//   (1) Bare-root legacy redirects (e.g. /sarees Ã¢â€ â€™ /categories/women/sarees)
 //   (2) Existing slug-rename redirects under /categories/* via DB lookup
 //
 // Both paths return 308 (permanent) so search engines reindex.
@@ -10,7 +10,7 @@ import { NextResponse, NextRequest } from 'next/server';
 
 const TRAILING_SLASH = /\/+$/;
 
-// Hardcoded bare-root legacy redirects. Keep this list small —
+// Hardcoded bare-root legacy redirects. Keep this list small Ã¢â‚¬â€
 // new admin-driven redirects should use CategoryRedirect table instead.
 // Destinations verified against live DB (Category table) on 2026-06-21.
 const BARE_ROOT_REDIRECTS: Record<string, string> = {
@@ -34,7 +34,7 @@ const BARE_ROOT_REDIRECTS: Record<string, string> = {
   '/wall-art': '/categories/home/home-decor',
   '/decor': '/categories/home/home-decor',
 
-  // Defunct/missing L2 — point to nearest live ancestor
+  // Defunct/missing L2 Ã¢â‚¬â€ point to nearest live ancestor
   '/jewellery': '/categories/accessories',
   '/jewelry': '/categories/accessories',
   '/kurtas': '/categories/women',
@@ -49,7 +49,7 @@ const BARE_ROOT_REDIRECTS: Record<string, string> = {
   '/attars': '/categories/fragrance',
   '/perfumes': '/categories/fragrance',
 
-  // Craft-fallbacks — resolver handles these natively via craft match
+  // Craft-fallbacks Ã¢â‚¬â€ resolver handles these natively via craft match
   '/banarasi': '/categories/banarasi',
   '/phulkari': '/categories/phulkari',
   '/chikankari': '/categories/chikankari',
@@ -60,7 +60,32 @@ const BARE_ROOT_REDIRECTS: Record<string, string> = {
 export async function middleware(request: NextRequest) {
   const { pathname, origin } = request.nextUrl;
 
-  // ── (1) Bare-root legacy redirect — check hardcoded map first ──
+  // â”€â”€ (0) Admin surface recovery redirect â€” intercept blocked direct routes before app resolution â”€â”€
+  if (
+    pathname === '/admin/taxonomy/ai' ||
+    pathname === '/admin/taxonomy-ai'
+  ) {
+    const url = new URL('/admin/ai', request.url);
+    for (const [key, value] of request.nextUrl.searchParams.entries()) {
+      if (key !== 'surface') url.searchParams.set(key, value);
+    }
+    url.searchParams.set('surface', 'taxonomy');
+    return NextResponse.redirect(url, 307);
+  }
+
+  if (
+    pathname === '/admin/integrations/meta' ||
+    pathname === '/admin/meta-accounts'
+  ) {
+    const url = new URL('/admin/ai', request.url);
+    for (const [key, value] of request.nextUrl.searchParams.entries()) {
+      if (key !== 'surface') url.searchParams.set(key, value);
+    }
+    url.searchParams.set('surface', 'meta');
+    return NextResponse.redirect(url, 307);
+  }
+
+  // Ã¢â€â‚¬Ã¢â€â‚¬ (1) Bare-root legacy redirect Ã¢â‚¬â€ check hardcoded map first Ã¢â€â‚¬Ã¢â€â‚¬
   // Normalise: lowercase, strip trailing slash
   const normalised = pathname.toLowerCase().replace(TRAILING_SLASH, '') || '/';
   const bareDest = BARE_ROOT_REDIRECTS[normalised];
@@ -68,7 +93,7 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL(bareDest, request.url), 308);
   }
 
-  // ── (2) Existing logic — /categories/<oldSlug> rename via DB lookup ──
+  // Ã¢â€â‚¬Ã¢â€â‚¬ (2) Existing logic Ã¢â‚¬â€ /categories/<oldSlug> rename via DB lookup Ã¢â€â‚¬Ã¢â€â‚¬
   if (!pathname.startsWith('/categories/')) return NextResponse.next();
 
   const slug = pathname.replace('/categories/', '').replace(TRAILING_SLASH, '');
@@ -89,7 +114,7 @@ export async function middleware(request: NextRequest) {
       return NextResponse.redirect(new URL(newPath, request.url), status);
     }
   } catch {
-    // Silent fail — never break the user's request
+    // Silent fail Ã¢â‚¬â€ never break the user's request
   }
   return NextResponse.next();
 }
