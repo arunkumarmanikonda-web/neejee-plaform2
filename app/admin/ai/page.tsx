@@ -200,10 +200,10 @@ export default async function AdminAI({
           />
           <SurfaceCard
             eyebrow="CONTENT"
-            title="Taxonomy AI Planner"
-            desc="Plan new category nodes with suggested parent placement, starter SEO, and child ideas before creating the branch."
+            title="Taxonomy AI Workbench"
+            desc="Batch-plan taxonomy nodes, review parent placement and starter SEO, then approve and create only the categories you want."
             href={taxonomyHref}
-            status="RECOVERY VIA AI MANAGER"
+            status="LIVE WORKBENCH VIA AI MANAGER"
           />
           <SurfaceCard
             eyebrow="CREATIVE"
@@ -217,7 +217,7 @@ export default async function AdminAI({
             title="Meta Account Center"
             desc="Review connected Facebook Pages and Instagram business accounts, posting readiness, and operating links."
             href={metaHref}
-            status="RECOVERY VIA AI MANAGER"
+            status="LIVE WORKBENCH VIA AI MANAGER"
           />
           <SurfaceCard
             eyebrow="CONFIG"

@@ -66,7 +66,7 @@ export const ADMIN_COMMAND_ITEMS: AdminCommandItem[] = [
   { href: '/admin/cms', label: 'CMS Pages', group: 'Content', desc: 'CMS page management.', keywords: ['cms', 'pages', 'content'] },
   { href: '/admin/seo', label: 'SEO Control Plane', group: 'Content', desc: 'Default metadata, social preview, canonical, and robots controls.', keywords: ['seo', 'metadata', 'open graph', 'twitter', 'canonical', 'robots'], aliases: ['seo settings', 'metadata settings', 'open graph'], boost: 2 },
   { href: '/admin/taxonomy', label: 'Taxonomy', group: 'Content', desc: 'Taxonomy management tools.', keywords: ['taxonomy', 'content', 'hierarchy'] },
-    { href: '/admin/ai?surface=taxonomy', label: 'Taxonomy AI Planner', group: 'Content', desc: 'AI-assisted taxonomy planning and suggested parent/category generation.', keywords: ['taxonomy ai', 'category planner', 'category ai', 'taxonomy planner'], aliases: ['ai taxonomy', 'category planning'], boost: 2 },
+    { href: '/admin/ai?surface=taxonomy', label: 'Taxonomy AI Workbench', group: 'Content', desc: 'Batch taxonomy planning, review, and approval with AI-assisted parent/category suggestions.', keywords: ['taxonomy ai', 'taxonomy batch', 'category planner', 'category ai', 'taxonomy planner'], aliases: ['ai taxonomy', 'category planning', 'taxonomy workbench'], boost: 2 },
 { href: '/admin/journal', label: 'Journal (auto)', group: 'Content', desc: 'Journal automation workspace.', keywords: ['journal', 'editorial', 'content'] },
   { href: '/admin/banners', label: 'Banners', group: 'Content', desc: 'Banner asset management.', keywords: ['banners', 'hero', 'creative'] },
   { href: '/admin/badges', label: 'Seals & Badges', group: 'Content', desc: 'Badge asset management.', keywords: ['badges', 'seals', 'labels'] },
