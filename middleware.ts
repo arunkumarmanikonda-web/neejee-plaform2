@@ -1,5 +1,5 @@
-// v26.3e Ã¢â‚¬â€ Edge middleware:
-//   (1) Bare-root legacy redirects (e.g. /sarees Ã¢â€ â€™ /categories/women/sarees)
+// v26.3e ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Edge middleware:
+//   (1) Bare-root legacy redirects (e.g. /sarees ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ /categories/women/sarees)
 //   (2) Existing slug-rename redirects under /categories/* via DB lookup
 //
 // Both paths return 308 (permanent) so search engines reindex.
@@ -10,7 +10,7 @@ import { NextResponse, NextRequest } from 'next/server';
 
 const TRAILING_SLASH = /\/+$/;
 
-// Hardcoded bare-root legacy redirects. Keep this list small Ã¢â‚¬â€
+// Hardcoded bare-root legacy redirects. Keep this list small ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â
 // new admin-driven redirects should use CategoryRedirect table instead.
 // Destinations verified against live DB (Category table) on 2026-06-21.
 const BARE_ROOT_REDIRECTS: Record<string, string> = {
@@ -34,7 +34,7 @@ const BARE_ROOT_REDIRECTS: Record<string, string> = {
   '/wall-art': '/categories/home/home-decor',
   '/decor': '/categories/home/home-decor',
 
-  // Defunct/missing L2 Ã¢â‚¬â€ point to nearest live ancestor
+  // Defunct/missing L2 ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â point to nearest live ancestor
   '/jewellery': '/categories/accessories',
   '/jewelry': '/categories/accessories',
   '/kurtas': '/categories/women',
@@ -49,7 +49,7 @@ const BARE_ROOT_REDIRECTS: Record<string, string> = {
   '/attars': '/categories/fragrance',
   '/perfumes': '/categories/fragrance',
 
-  // Craft-fallbacks Ã¢â‚¬â€ resolver handles these natively via craft match
+  // Craft-fallbacks ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â resolver handles these natively via craft match
   '/banarasi': '/categories/banarasi',
   '/phulkari': '/categories/phulkari',
   '/chikankari': '/categories/chikankari',
@@ -60,7 +60,7 @@ const BARE_ROOT_REDIRECTS: Record<string, string> = {
 export async function middleware(request: NextRequest) {
   const { pathname, origin } = request.nextUrl;
 
-  // â”€â”€ (0) Admin surface recovery redirect â€” intercept blocked direct routes before app resolution â”€â”€
+  // Ã¢â€â‚¬Ã¢â€â‚¬ (0) Admin surface recovery redirect Ã¢â‚¬â€ intercept blocked direct routes before app resolution Ã¢â€â‚¬Ã¢â€â‚¬
   if (
     pathname === '/admin/taxonomy/ai' ||
     pathname === '/admin/taxonomy-ai'
@@ -85,7 +85,7 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(url, 307);
   }
 
-  // Ã¢â€â‚¬Ã¢â€â‚¬ (1) Bare-root legacy redirect Ã¢â‚¬â€ check hardcoded map first Ã¢â€â‚¬Ã¢â€â‚¬
+  // ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ (1) Bare-root legacy redirect ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â check hardcoded map first ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬
   // Normalise: lowercase, strip trailing slash
   const normalised = pathname.toLowerCase().replace(TRAILING_SLASH, '') || '/';
   const bareDest = BARE_ROOT_REDIRECTS[normalised];
@@ -93,7 +93,7 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL(bareDest, request.url), 308);
   }
 
-  // Ã¢â€â‚¬Ã¢â€â‚¬ (2) Existing logic Ã¢â‚¬â€ /categories/<oldSlug> rename via DB lookup Ã¢â€â‚¬Ã¢â€â‚¬
+  // ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ (2) Existing logic ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â /categories/<oldSlug> rename via DB lookup ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬
   if (!pathname.startsWith('/categories/')) return NextResponse.next();
 
   const slug = pathname.replace('/categories/', '').replace(TRAILING_SLASH, '');
@@ -114,7 +114,7 @@ export async function middleware(request: NextRequest) {
       return NextResponse.redirect(new URL(newPath, request.url), status);
     }
   } catch {
-    // Silent fail Ã¢â‚¬â€ never break the user's request
+    // Silent fail ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â never break the user's request
   }
   return NextResponse.next();
 }
@@ -124,6 +124,10 @@ export async function middleware(request: NextRequest) {
 export const config = {
   matcher: [
     '/categories/:path*',
+    '/admin/taxonomy/ai',
+    '/admin/integrations/meta',
+    '/admin/taxonomy-ai',
+    '/admin/meta-accounts',
     // Bare-root legacy URLs
     '/women', '/men', '/accessories', '/home', '/fragrance', '/gifting',
     '/sarees', '/saree', '/banarasi-sarees',
