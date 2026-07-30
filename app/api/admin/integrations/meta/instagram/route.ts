@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+﻿import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getSession } from '@/lib/auth';
 
@@ -7,13 +7,26 @@ export const runtime = 'nodejs';
 
 const ALLOWED = ['ADMIN', 'SUPER_ADMIN', 'MARKETING_MANAGER', 'MARKETING_OPERATOR'];
 
+function socialDbAvailable(db: any) {
+  return typeof db?.instagramBusinessConnection?.findMany === 'function';
+}
+
 export async function GET() {
   const session = await getSession();
   if (!session || !ALLOWED.includes(session.role as any)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const accounts = await prisma.instagramBusinessConnection.findMany({
+  const db = prisma as any;
+  if (!socialDbAvailable(db)) {
+    return NextResponse.json({
+      accounts: [],
+      degraded: true,
+      warning: 'Meta social connection tables are not available in this deployment yet.',
+    });
+  }
+
+  const accounts = await db.instagramBusinessConnection.findMany({
     where: {
       socialConnection: { status: 'ACTIVE' },
     },
@@ -25,5 +38,5 @@ export async function GET() {
     },
   });
 
-  return NextResponse.json({ accounts });
+  return NextResponse.json({ accounts, degraded: false });
 }
