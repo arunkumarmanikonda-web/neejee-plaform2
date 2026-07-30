@@ -1,4 +1,4 @@
-import Link from 'next/link';
+﻿import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import type { LucideIcon } from 'lucide-react';
 import {
@@ -114,7 +114,7 @@ const NAV_GROUPS: NavGroup[] = [
       { href: '/admin/categories', label: 'Categories', icon: TagIcon },
       { href: '/admin/crafts', label: 'Crafts', icon: Sparkles },
       { href: '/admin/ai-photo-studio', label: 'AI Photo Studio', icon: Camera },
-      { href: '/admin/ai-photo-requests', label: 'Vendor Photo Queue', icon: Camera },
+      { href: '/admin/ai-photo-requests', label: 'AI Photo Requests', icon: Camera },
       { href: '/admin/inventory', label: 'Inventory', icon: Warehouse },
       { href: '/admin/drops', label: 'Drops', icon: Sparkles },
       { href: '/admin/waitlist', label: 'Waitlist', icon: TagIcon },
@@ -149,7 +149,7 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { href: '/admin/cms', label: 'CMS Pages', icon: FileText },
       { href: '/admin/taxonomy', label: 'Taxonomy', icon: FileSpreadsheet },
-      { href: '/admin/journal', label: 'Journal (auto)', icon: Sparkles },
+      { href: '/admin/journal', label: 'Journal', icon: Sparkles },
       { href: '/admin/banners', label: 'Banners', icon: TagIcon },
       { href: '/admin/badges', label: 'Seals & Badges', icon: TagIcon },
       { href: '/admin/assets', label: 'Asset Library', icon: ImageIcon },
@@ -280,3 +280,4 @@ export default async function AdminLayout({
     </div>
   );
 }
+
