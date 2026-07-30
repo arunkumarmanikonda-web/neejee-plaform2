@@ -193,10 +193,10 @@ export default async function AdminAI({
           />
           <SurfaceCard
             eyebrow="CONTENT"
-            title="CMS AI Mode"
-            desc="Scaffold draft landing pages from a brief, audience, and goal, then push directly into CMS editing."
-            href="/admin/cms"
-            status="LIVE AI SCAFFOLD"
+            title="CMS AI Workbench"
+            desc="Create one or many AI-drafted CMS pages from structured briefs, then open each draft in CMS editing."
+            href="/admin/cms/ai"
+            status="LIVE AI BATCH WORKBENCH"
           />
           <SurfaceCard
             eyebrow="CONTENT"

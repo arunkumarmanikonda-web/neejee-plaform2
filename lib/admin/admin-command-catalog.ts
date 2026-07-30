@@ -90,4 +90,5 @@ export const ADMIN_FEATURED_HREFS = [
   '/admin/seo',
   '/admin/erp',
   '/admin/sellers',
+    { href: '/admin/cms/ai', label: 'CMS AI Batch', group: 'Content', desc: 'Batch-generate multiple CMS draft pages from structured briefs and save them directly as drafts.', keywords: ['cms ai batch', 'batch cms', 'bulk page generation', 'cms workbench'], aliases: ['cms batch ai', 'ai page batch', 'bulk cms pages'], boost: 2 },
 ];
