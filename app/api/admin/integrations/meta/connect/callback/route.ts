@@ -1,4 +1,4 @@
-﻿import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getSession } from '@/lib/auth';
 import { encryptToken } from '@/lib/social/token-crypto';
@@ -20,16 +20,6 @@ const ALLOWED = ['ADMIN', 'SUPER_ADMIN', 'MARKETING_MANAGER', 'MARKETING_OPERATO
 
 function redirectWithError(req: NextRequest, code: string) {
   return NextResponse.redirect(new URL(`/admin/integrations/meta?error=${encodeURIComponent(code)}`, req.url));
-}
-
-function socialDbAvailable(db: any) {
-  return Boolean(
-    db?.socialConnection?.upsert &&
-    db?.socialPageConnection?.deleteMany &&
-    db?.socialPageConnection?.createMany &&
-    db?.instagramBusinessConnection?.deleteMany &&
-    db?.instagramBusinessConnection?.createMany
-  );
 }
 
 export async function GET(req: NextRequest) {
@@ -56,19 +46,6 @@ export async function GET(req: NextRequest) {
     return redirectWithError(req, 'state_mismatch');
   }
 
-  const db = prisma as any;
-  if (!socialDbAvailable(db)) {
-    const response = redirectWithError(req, 'schema_unavailable');
-    response.cookies.set('neejee-meta-oauth', '', {
-      httpOnly: true,
-      sameSite: 'lax',
-      secure: process.env.NODE_ENV === 'production',
-      path: '/',
-      expires: new Date(0),
-    });
-    return response;
-  }
-
   try {
     const shortLived = await exchangeCodeForShortLivedUserToken(code, kind);
     const longLived = await exchangeForLongLivedUserToken(shortLived.access_token);
@@ -90,7 +67,7 @@ export async function GET(req: NextRequest) {
         ? new Date(Date.now() + shortLived.expires_in * 1000)
         : null;
 
-    const connection = await db.socialConnection.upsert({
+    const connection = await prisma.socialConnection.upsert({
       where: {
         provider_providerUserId: {
           provider,
@@ -125,12 +102,12 @@ export async function GET(req: NextRequest) {
       },
     });
 
-    await db.socialPageConnection.deleteMany({
+    await prisma.socialPageConnection.deleteMany({
       where: { socialConnectionId: connection.id },
     });
 
     if (pages.length) {
-      await db.socialPageConnection.createMany({
+      await prisma.socialPageConnection.createMany({
         data: pages.map((page: any, index: number) => ({
           socialConnectionId: connection.id,
           pageId: String(page.id),
@@ -151,12 +128,12 @@ export async function GET(req: NextRequest) {
       });
     }
 
-    await db.instagramBusinessConnection.deleteMany({
+    await prisma.instagramBusinessConnection.deleteMany({
       where: { socialConnectionId: connection.id },
     });
 
     if (instagramAccounts.length) {
-      await db.instagramBusinessConnection.createMany({
+      await prisma.instagramBusinessConnection.createMany({
         data: instagramAccounts.map((ig: any) => ({
           socialConnectionId: connection.id,
           instagramBusinessId: ig.instagramBusinessId,
