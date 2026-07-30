@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+﻿import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getSession } from '@/lib/auth';
 import { encryptToken } from '@/lib/social/token-crypto';
@@ -18,10 +18,24 @@ export const runtime = 'nodejs';
 
 const ALLOWED = ['ADMIN', 'SUPER_ADMIN', 'MARKETING_MANAGER', 'MARKETING_OPERATOR'];
 
+function redirectWithError(req: NextRequest, code: string) {
+  return NextResponse.redirect(new URL(`/admin/integrations/meta?error=${encodeURIComponent(code)}`, req.url));
+}
+
+function socialDbAvailable(db: any) {
+  return Boolean(
+    db?.socialConnection?.upsert &&
+    db?.socialPageConnection?.deleteMany &&
+    db?.socialPageConnection?.createMany &&
+    db?.instagramBusinessConnection?.deleteMany &&
+    db?.instagramBusinessConnection?.createMany
+  );
+}
+
 export async function GET(req: NextRequest) {
   const session = await getSession();
   if (!session || !ALLOWED.includes(session.role as any)) {
-    return NextResponse.redirect(new URL('/admin/integrations/meta?error=unauthorized', req.url));
+    return redirectWithError(req, 'unauthorized');
   }
 
   const code = req.nextUrl.searchParams.get('code') || '';
@@ -31,7 +45,7 @@ export async function GET(req: NextRequest) {
     : 'facebook') as MetaConnectKind;
 
   if (!code || !state) {
-    return NextResponse.redirect(new URL('/admin/integrations/meta?error=missing_code_or_state', req.url));
+    return redirectWithError(req, 'missing_code_or_state');
   }
 
   const cookie = req.cookies.get('neejee-meta-oauth')?.value || '';
@@ -39,7 +53,20 @@ export async function GET(req: NextRequest) {
   try { parsed = cookie ? JSON.parse(cookie) : null; } catch {}
 
   if (!parsed || parsed.state !== state || parsed.userId !== session.id) {
-    return NextResponse.redirect(new URL('/admin/integrations/meta?error=state_mismatch', req.url));
+    return redirectWithError(req, 'state_mismatch');
+  }
+
+  const db = prisma as any;
+  if (!socialDbAvailable(db)) {
+    const response = redirectWithError(req, 'schema_unavailable');
+    response.cookies.set('neejee-meta-oauth', '', {
+      httpOnly: true,
+      sameSite: 'lax',
+      secure: process.env.NODE_ENV === 'production',
+      path: '/',
+      expires: new Date(0),
+    });
+    return response;
   }
 
   try {
@@ -63,7 +90,7 @@ export async function GET(req: NextRequest) {
         ? new Date(Date.now() + shortLived.expires_in * 1000)
         : null;
 
-    const connection = await prisma.socialConnection.upsert({
+    const connection = await db.socialConnection.upsert({
       where: {
         provider_providerUserId: {
           provider,
@@ -98,13 +125,13 @@ export async function GET(req: NextRequest) {
       },
     });
 
-    await prisma.socialPageConnection.deleteMany({
+    await db.socialPageConnection.deleteMany({
       where: { socialConnectionId: connection.id },
     });
 
     if (pages.length) {
-      await prisma.socialPageConnection.createMany({
-        data: pages.map((page, index) => ({
+      await db.socialPageConnection.createMany({
+        data: pages.map((page: any, index: number) => ({
           socialConnectionId: connection.id,
           pageId: String(page.id),
           pageName: page.name || 'Untitled Page',
@@ -112,7 +139,9 @@ export async function GET(req: NextRequest) {
           category: page.category || null,
           pictureUrl: page.picture?.data?.url || null,
           tasks: Array.isArray(page.tasks) ? page.tasks : [],
-          canPost: Array.isArray(page.tasks) ? (page.tasks.includes('CREATE_CONTENT') || page.tasks.includes('MODERATE') || page.tasks.includes('MANAGE')) : false,
+          canPost: Array.isArray(page.tasks)
+            ? (page.tasks.includes('CREATE_CONTENT') || page.tasks.includes('MODERATE') || page.tasks.includes('MANAGE'))
+            : false,
           canRead: true,
           isPrimary: index === 0,
           linkedInstagramId: page.instagram_business_account?.id || null,
@@ -122,13 +151,13 @@ export async function GET(req: NextRequest) {
       });
     }
 
-    await prisma.instagramBusinessConnection.deleteMany({
+    await db.instagramBusinessConnection.deleteMany({
       where: { socialConnectionId: connection.id },
     });
 
     if (instagramAccounts.length) {
-      await prisma.instagramBusinessConnection.createMany({
-        data: instagramAccounts.map((ig) => ({
+      await db.instagramBusinessConnection.createMany({
+        data: instagramAccounts.map((ig: any) => ({
           socialConnectionId: connection.id,
           instagramBusinessId: ig.instagramBusinessId,
           username: ig.username || null,
@@ -159,9 +188,7 @@ export async function GET(req: NextRequest) {
     return response;
   } catch (error: any) {
     console.error('[meta.callback]', error);
-    const response = NextResponse.redirect(
-      new URL(`/admin/integrations/meta?error=${encodeURIComponent(error?.message || 'meta_callback_failed')}`, req.url),
-    );
+    const response = redirectWithError(req, error?.message || 'meta_callback_failed');
     response.cookies.set('neejee-meta-oauth', '', {
       httpOnly: true,
       sameSite: 'lax',
