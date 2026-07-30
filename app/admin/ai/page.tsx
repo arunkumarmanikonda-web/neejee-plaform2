@@ -1,9 +1,13 @@
 import Link from 'next/link';
 import { Sparkles, Check, X, Wand2, PenSquare, Megaphone, Link2, Settings2, ArrowRight } from 'lucide-react';
 import { prisma } from '@/lib/prisma';
+import TaxonomyAiPlannerPage from '../taxonomy/ai/page';
+import AdminMetaIntegrationsPage from '../integrations/meta/page';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
+
+type SurfaceKey = 'taxonomy' | 'meta' | null;
 
 async function getStats() {
   try {
@@ -58,7 +62,24 @@ function SurfaceCard({
   );
 }
 
-export default async function AdminAI() {
+function resolveSurface(raw: string | string[] | undefined): SurfaceKey {
+  const value = Array.isArray(raw) ? raw[0] : raw;
+  if (value === 'taxonomy') return 'taxonomy';
+  if (value === 'meta') return 'meta';
+  return null;
+}
+
+export default async function AdminAI({
+  searchParams,
+}: {
+  searchParams?: Promise<{ surface?: string | string[] }> | { surface?: string | string[] };
+}) {
+  const resolvedSearchParams = await Promise.resolve(searchParams);
+  const surface = resolveSurface(resolvedSearchParams?.surface);
+
+  const taxonomyHref = '/admin/ai?surface=taxonomy';
+  const metaHref = '/admin/ai?surface=meta';
+
   const falOn = !!process.env.FAL_KEY;
   const replicateOn = !!process.env.REPLICATE_API_TOKEN;
   const imageOn = falOn || replicateOn;
@@ -75,7 +96,7 @@ export default async function AdminAI() {
           </h1>
           <p className="font-ui text-sm text-mitti mt-3 max-w-4xl leading-7">
             One place to monitor the live AI stack and jump straight into the admin surfaces that already use AI:
-            SEO drafting, campaign planning, CMS scaffolding, creative generation, and Meta-linked marketing operations.
+            SEO drafting, campaign planning, CMS scaffolding, creative generation, taxonomy planning, and Meta-linked marketing operations.
           </p>
         </div>
 
@@ -85,11 +106,52 @@ export default async function AdminAI() {
         </div>
       </div>
 
+      {surface ? (
+        <section className="rounded-2xl border border-madder/20 bg-madder/5 p-6">
+          <p className="label text-madder">RECOVERY ACCESS SURFACE</p>
+          <h2 className="font-display text-3xl text-kohl mt-2">
+            {surface === 'taxonomy' ? 'Taxonomy AI Planner' : 'Meta Account Center'}
+          </h2>
+          <p className="font-ui text-sm text-mitti mt-3 leading-7 max-w-4xl">
+            This surface is being served through the known-live AI Manager route so admin users can keep operating while direct route exposure is verified in production.
+          </p>
+          <div className="flex flex-wrap gap-3 mt-5">
+            <Link href="/admin/ai" className="bg-kohl text-ivory px-4 py-2 rounded-sm text-sm font-medium">
+              AI MANAGER HOME
+            </Link>
+            <Link href={taxonomyHref} className="border border-kohl/20 px-4 py-2 rounded-sm text-sm font-medium text-kohl bg-white">
+              OPEN TAXONOMY PLANNER
+            </Link>
+            <Link href={metaHref} className="border border-kohl/20 px-4 py-2 rounded-sm text-sm font-medium text-kohl bg-white">
+              OPEN META CENTER
+            </Link>
+            <Link href="/admin/taxonomy" className="border border-kohl/20 px-4 py-2 rounded-sm text-sm font-medium text-kohl bg-white">
+              OPEN TAXONOMY ROOT
+            </Link>
+            <Link href="/admin/marketing-studio" className="border border-kohl/20 px-4 py-2 rounded-sm text-sm font-medium text-kohl bg-white">
+              OPEN MARKETING STUDIO
+            </Link>
+          </div>
+        </section>
+      ) : null}
+
+      {surface === 'taxonomy' ? (
+        <section className="rounded-2xl border border-mitti/15 bg-white p-4">
+          <TaxonomyAiPlannerPage />
+        </section>
+      ) : null}
+
+      {surface === 'meta' ? (
+        <section className="rounded-2xl border border-mitti/15 bg-white p-4">
+          <AdminMetaIntegrationsPage />
+        </section>
+      ) : null}
+
       <section className="grid md:grid-cols-2 xl:grid-cols-4 gap-4">
         <div className="rounded-2xl border border-mitti/15 bg-beige p-5">
           <p className="label text-madder">TEXT AI</p>
           <p className="font-display text-kohl text-3xl mt-2">{openaiOn ? 'ON' : 'OFF'}</p>
-          <p className="font-ui text-xs text-mitti mt-2">Used by SEO draft, SEO audit, campaign planning, and CMS scaffold.</p>
+          <p className="font-ui text-xs text-mitti mt-2">Used by SEO draft, SEO audit, campaign planning, taxonomy planning, and CMS scaffold.</p>
         </div>
         <div className="rounded-2xl border border-mitti/15 bg-beige p-5">
           <p className="label text-madder">IMAGE AI</p>
@@ -104,7 +166,7 @@ export default async function AdminAI() {
         <div className="rounded-2xl border border-mitti/15 bg-white p-5">
           <p className="label text-madder">IMAGE BREAKDOWN</p>
           <p className="font-display text-kohl text-3xl mt-2">{stats.mirror + stats.space}</p>
-          <p className="font-ui text-xs text-mitti mt-2">Mirror: {stats.mirror} Ã‚Â· Space: {stats.space}</p>
+          <p className="font-ui text-xs text-mitti mt-2">Mirror: {stats.mirror}  Space: {stats.space}</p>
         </div>
       </section>
 
@@ -140,8 +202,8 @@ export default async function AdminAI() {
             eyebrow="CONTENT"
             title="Taxonomy AI Planner"
             desc="Plan new category nodes with suggested parent placement, starter SEO, and child ideas before creating the branch."
-            href="/admin/taxonomy-ai"
-            status="LIVE AI TAXONOMY PLANNING"
+            href={taxonomyHref}
+            status="RECOVERY VIA AI MANAGER"
           />
           <SurfaceCard
             eyebrow="CREATIVE"
@@ -154,8 +216,8 @@ export default async function AdminAI() {
             eyebrow="SOCIAL"
             title="Meta Account Center"
             desc="Review connected Facebook Pages and Instagram business accounts, posting readiness, and operating links."
-            href="/admin/meta-accounts"
-            status="ACCOUNT READINESS"
+            href={metaHref}
+            status="RECOVERY VIA AI MANAGER"
           />
           <SurfaceCard
             eyebrow="CONFIG"
@@ -176,7 +238,7 @@ export default async function AdminAI() {
         <div className="grid md:grid-cols-2 xl:grid-cols-4 gap-4 mt-5">
           <div className={`rounded-xl border p-4 ${openaiOn ? 'border-neem/30 bg-neem/5' : 'border-mitti/20 bg-beige/40'}`}>
             <p className="font-display text-xl text-kohl">OpenAI</p>
-            <p className="text-xs text-mitti mt-2">SEO draft/audit, campaign planning, CMS scaffold</p>
+            <p className="text-xs text-mitti mt-2">SEO draft/audit, campaign planning, taxonomy planning, CMS scaffold</p>
             <p className={`text-xs mt-3 tracking-[0.18em] ${openaiOn ? 'text-neem' : 'text-mitti'}`}>{openaiOn ? 'CONFIGURED' : 'MISSING'}</p>
           </div>
           <div className={`rounded-xl border p-4 ${falOn ? 'border-neem/30 bg-neem/5' : 'border-mitti/20 bg-beige/40'}`}>
@@ -224,7 +286,7 @@ export default async function AdminAI() {
                 {stats.recent.map((r: any) => (
                   <tr key={r.id} className="border-b border-mitti/10">
                     <td className="p-3 text-sm text-kohl">{new Date(r.createdAt).toLocaleString('en-IN', { dateStyle: 'short', timeStyle: 'short' })}</td>
-                    <td className="p-3 text-sm text-mitti">{r.user?.email || r.user?.name || 'Ã¢â‚¬â€'}</td>
+                    <td className="p-3 text-sm text-mitti">{r.user?.email || r.user?.name || ''}</td>
                     <td className="p-3 text-sm text-kohl">{r.type}</td>
                     <td className="p-3 text-sm">{r.consentLogged ? <Check className="w-4 h-4 text-neem" /> : <X className="w-4 h-4 text-madder" />}</td>
                     <td className="p-3 text-sm text-mitti">{new Date(r.deleteAt).toLocaleDateString('en-IN')}</td>
@@ -242,7 +304,7 @@ export default async function AdminAI() {
           <p className="label text-madder">CURRENT AI STACK</p>
         </div>
         <p className="font-ui text-sm text-mitti mt-3 leading-7">
-          SEO draft and audit, campaign planner, CMS scaffold, and creative generation are now grouped into one AI operations entrypoint.
+          SEO draft and audit, campaign planner, CMS scaffold, taxonomy planning, and Meta account operations are grouped behind one AI operations entrypoint.
           Settings remains the runtime source of truth for keys and service health.
         </p>
       </section>

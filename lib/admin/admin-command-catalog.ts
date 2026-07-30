@@ -26,7 +26,7 @@ export const ADMIN_COMMAND_ITEMS: AdminCommandItem[] = [
   { href: '/admin/marketing', label: 'Email Broadcasts', group: 'Growth', desc: 'Email broadcast and messaging workflows.', keywords: ['email', 'broadcasts', 'newsletter'] },
   { href: '/admin/abandoned', label: 'Abandoned Carts', group: 'Growth', desc: 'Recovery flows and abandoned-cart monitoring.', keywords: ['abandoned', 'carts', 'recovery'] },
   { href: '/admin/marketing-studio', label: 'Marketing Studio', group: 'Growth', desc: 'Creative drafting and campaign production.', keywords: ['studio', 'creative', 'assets'] },
-    { href: '/admin/meta-accounts', label: 'Meta Accounts', group: 'Growth', desc: 'Facebook Pages and Instagram business account linking, readiness, and connection health.', keywords: ['meta', 'facebook', 'instagram', 'business manager', 'pages', 'social accounts'], aliases: ['facebook accounts', 'instagram accounts', 'meta integration'], boost: 2 },
+    { href: '/admin/ai?surface=meta', label: 'Meta Accounts', group: 'Growth', desc: 'Facebook Pages and Instagram business account linking, readiness, and connection health.', keywords: ['meta', 'facebook', 'instagram', 'business manager', 'pages', 'social accounts'], aliases: ['facebook accounts', 'instagram accounts', 'meta integration'], boost: 2 },
 { href: '/admin/marketing-approvals', label: 'Marketing Approvals', group: 'Growth', desc: 'Approval queue for marketing outputs.', keywords: ['approvals', 'marketing', 'review'] },
 
   { href: '/admin/products', label: 'Products', group: 'Catalog', desc: 'Product CRUD, pricing, media, and edits.', keywords: ['products', 'catalog', 'sku', 'pricing'] },
@@ -66,7 +66,7 @@ export const ADMIN_COMMAND_ITEMS: AdminCommandItem[] = [
   { href: '/admin/cms', label: 'CMS Pages', group: 'Content', desc: 'CMS page management.', keywords: ['cms', 'pages', 'content'] },
   { href: '/admin/seo', label: 'SEO Control Plane', group: 'Content', desc: 'Default metadata, social preview, canonical, and robots controls.', keywords: ['seo', 'metadata', 'open graph', 'twitter', 'canonical', 'robots'], aliases: ['seo settings', 'metadata settings', 'open graph'], boost: 2 },
   { href: '/admin/taxonomy', label: 'Taxonomy', group: 'Content', desc: 'Taxonomy management tools.', keywords: ['taxonomy', 'content', 'hierarchy'] },
-    { href: '/admin/taxonomy-ai', label: 'Taxonomy AI Planner', group: 'Content', desc: 'AI-assisted taxonomy planning and suggested parent/category generation.', keywords: ['taxonomy ai', 'category planner', 'category ai', 'taxonomy planner'], aliases: ['ai taxonomy', 'category planning'], boost: 2 },
+    { href: '/admin/ai?surface=taxonomy', label: 'Taxonomy AI Planner', group: 'Content', desc: 'AI-assisted taxonomy planning and suggested parent/category generation.', keywords: ['taxonomy ai', 'category planner', 'category ai', 'taxonomy planner'], aliases: ['ai taxonomy', 'category planning'], boost: 2 },
 { href: '/admin/journal', label: 'Journal (auto)', group: 'Content', desc: 'Journal automation workspace.', keywords: ['journal', 'editorial', 'content'] },
   { href: '/admin/banners', label: 'Banners', group: 'Content', desc: 'Banner asset management.', keywords: ['banners', 'hero', 'creative'] },
   { href: '/admin/badges', label: 'Seals & Badges', group: 'Content', desc: 'Badge asset management.', keywords: ['badges', 'seals', 'labels'] },
