@@ -48,7 +48,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       }),
       prisma.category.findMany({
         where: { active: true, hidden: false },
-        select: { slug: true, path: true, updatedAt: true },
+        select: { slug: true, updatedAt: true },
         take: 5000,
       }),
       prisma.cmsPage.findMany({
@@ -66,7 +66,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     }));
 
     categoryRoutes = categories.map((category) => ({
-      url: `${base}/categories/${category.path || category.slug}`,
+      url: `${base}/categories/${encodeURIComponent(category.slug)}`,
       lastModified: category.updatedAt || now,
       changeFrequency: 'weekly',
       priority: 0.8,

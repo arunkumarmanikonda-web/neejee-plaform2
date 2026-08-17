@@ -11,7 +11,7 @@ import { getCategoryTree } from '@/lib/client/category-tree';
 
 interface Me { id: string; email: string; name?: string | null; role?: string }
 
-type MobileMain = { slug: string; name: string; path: string | null; subs: any[] };
+type MobileMain = { slug: string; name: string; subs: any[] };
 
 export function Header() {
   const [open, setOpen] = useState(false);
@@ -32,7 +32,6 @@ export function Header() {
           .map((c: any) => ({
             slug: c.slug,
             name: c.name,
-            path: c.path,
             subs: (c.children || []).filter((s: any) => s.active !== false && !s.hidden),
           }));
         if (mains.length > 0) setMobileMains(mains);
@@ -138,19 +137,19 @@ export function Header() {
           <div className="lg:hidden border-t border-beige bg-ivory max-h-[80vh] overflow-y-auto">
             <nav className="flex flex-col py-2 font-ui text-sm tracking-wide">
               {(mobileMains.length > 0 ? mobileMains : [
-                { slug: 'women', name: 'Women', path: 'women', subs: [] },
-                { slug: 'men', name: 'Men', path: 'men', subs: [] },
-                { slug: 'accessories', name: 'Accessories', path: 'accessories', subs: [] },
-                { slug: 'home', name: 'Home', path: 'home', subs: [] },
-                { slug: 'fragrance', name: 'Fragrance', path: 'fragrance', subs: [] },
-                { slug: 'gifting', name: 'Gifting', path: 'gifting', subs: [] },
+                { slug: 'women', name: 'Women', subs: [] },
+                { slug: 'men', name: 'Men', subs: [] },
+                { slug: 'accessories', name: 'Accessories', subs: [] },
+                { slug: 'home', name: 'Home', subs: [] },
+                { slug: 'fragrance', name: 'Fragrance', subs: [] },
+                { slug: 'gifting', name: 'Gifting', subs: [] },
               ]).map(main => {
                 const isOpen = mobileOpenMain === main.slug;
                 const hasSubs = main.subs.length > 0;
                 return (
                   <div key={main.slug} className="border-b border-beige/60 last:border-0">
                     <div className="flex items-stretch">
-                      <Link href={`/categories/${main.path || main.slug}`} onClick={() => setOpen(false)} className="flex-1 px-6 py-3 hover:bg-beige hover:text-madder transition-colors">
+                      <Link href={`/categories/${encodeURIComponent(main.slug)}`} onClick={() => setOpen(false)} className="flex-1 px-6 py-3 hover:bg-beige hover:text-madder transition-colors">
                         {main.name.toUpperCase()}
                       </Link>
                       {hasSubs && (
@@ -162,7 +161,7 @@ export function Header() {
                     {isOpen && hasSubs && (
                       <div className="bg-beige/30 px-6 py-2 pb-3">
                         {main.subs.map((sub: any) => (
-                          <Link key={sub.id} href={`/categories/${sub.path || sub.slug}`} onClick={() => setOpen(false)} className="block py-1.5 text-xs text-mitti hover:text-madder font-ui tracking-wider">
+                          <Link key={sub.id} href={`/categories/${encodeURIComponent(sub.slug)}`} onClick={() => setOpen(false)} className="block py-1.5 text-xs text-mitti hover:text-madder font-ui tracking-wider">
                             {sub.name}
                           </Link>
                         ))}

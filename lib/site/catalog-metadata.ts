@@ -147,8 +147,7 @@ export async function buildCategoryMetadata(pathOrSlug: string): Promise<Metadat
   }
 
   const seo = getSiteSeoConfig();
-  const categoryPath = category.path || category.slug;
-  const canonical = `${seo.baseUrl.replace(/\/$/, '')}/categories/${categoryPath}`;
+  const canonical = `${seo.baseUrl.replace(/\/$/, '')}/categories/${encodeURIComponent(category.slug)}`;
   const description = cleanDescription(
     category.seoDesc || category.description,
     `Discover ${category.name}, personally chosen by NEEJEE.`,

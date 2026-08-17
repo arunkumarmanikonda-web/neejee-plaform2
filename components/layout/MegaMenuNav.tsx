@@ -20,8 +20,8 @@ const FALLBACK_MAINS: NavNode[] = [
   { id: 'fallback-gifting', slug: 'gifting', name: 'GIFTING', level: 1, path: 'gifting', parentId: null, children: [] },
 ];
 
-function hrefFor(node: Pick<NavNode, 'path'>) {
-  return '/categories/' + node.path;
+function hrefFor(node: Pick<NavNode, 'slug'>) {
+  return '/categories/' + encodeURIComponent(node.slug);
 }
 
 function orderRoots(nodes: NavNode[]) {
