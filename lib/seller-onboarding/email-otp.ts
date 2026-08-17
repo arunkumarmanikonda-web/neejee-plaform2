@@ -9,6 +9,7 @@ import { sellerDocumentAdminUrl } from '@/lib/seller-onboarding/document-storage
 
 const EMAIL_OTP_TTL_MIN = 10;
 const EMAIL_OTP_MAX_PER_HOUR = 5;
+const EMAIL_OTP_MAX_ATTEMPTS = 5;
 const PURPOSE = 'EMAIL_VERIFY_OTP';
 const LINKABLE_ROLES = new Set<Role>([Role.CUSTOMER, Role.SELLER]);
 
@@ -22,6 +23,10 @@ type PendingSellerDocument = {
   storageKey: string;
 };
 
+type VerificationResult =
+  | { ok: true; role: Role; sellerId: string }
+  | { ok: false; reason: string };
+
 function generateCode() {
   let code = '';
   for (let i = 0; i < 6; i += 1) code += String(randomInt(0, 10));
@@ -30,6 +35,15 @@ function generateCode() {
 
 function normalizeEmail(value: string) {
   return String(value || '').trim().toLowerCase();
+}
+
+function escapeHtml(value: unknown) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 }
 
 function pendingDocumentsFromSummary(summary: any): PendingSellerDocument[] {
@@ -84,8 +98,9 @@ export async function requestSellerEmailOtp(input: {
     data: { consumedAt: now },
   });
 
-  await prisma.sellerMagicToken.create({
+  const token = await prisma.sellerMagicToken.create({
     data: { sellerId: input.sellerId, tokenHash, purpose: PURPOSE, expiresAt },
+    select: { id: true },
   });
 
   const sent = await sendEmail({
@@ -94,10 +109,10 @@ export async function requestSellerEmailOtp(input: {
     html: `
       <div style="font-family:Arial,sans-serif;color:#1f1c18;line-height:1.6">
         <h2>Verify your seller application email</h2>
-        <p>Hello ${String(input.recipientName || 'there')},</p>
+        <p>Hello ${escapeHtml(input.recipientName || 'there')},</p>
         <p>Your verification code is:</p>
         <p style="font-size:28px;font-weight:700;letter-spacing:6px">${code}</p>
-        <p>This code expires in ${EMAIL_OTP_TTL_MIN} minutes.</p>
+        <p>This code expires in ${EMAIL_OTP_TTL_MIN} minutes and allows ${EMAIL_OTP_MAX_ATTEMPTS} attempts.</p>
         <p>Do not share this code with anyone.</p>
         <p style="margin-top:28px;font-size:12px;color:#6b6258">NEEJEE · FOUND. PERSONAL.</p>
       </div>
@@ -105,21 +120,53 @@ export async function requestSellerEmailOtp(input: {
   });
 
   if (!sent.ok) {
-    await prisma.sellerMagicToken.updateMany({
-      where: { sellerId: input.sellerId, purpose: PURPOSE, consumedAt: null },
+    await prisma.sellerMagicToken.update({
+      where: { id: token.id },
       data: { consumedAt: new Date() },
     });
     throw new Error('Email verification code could not be delivered');
   }
 
-  return { ok: true as const, expiresInMin: EMAIL_OTP_TTL_MIN };
+  return {
+    ok: true as const,
+    expiresInMin: EMAIL_OTP_TTL_MIN,
+    maxAttempts: EMAIL_OTP_MAX_ATTEMPTS,
+  };
+}
+
+async function emailOtpAttempts(tokenId: string) {
+  const rows = await prisma.$queryRaw<Array<{ attempts: number }>>`
+    select "attempts"
+    from public."SellerMagicToken"
+    where "id" = ${tokenId}
+    limit 1
+  `;
+  return Number(rows[0]?.attempts || 0);
+}
+
+async function recordWrongEmailOtpAttempt(tokenId: string, now: Date) {
+  const rows = await prisma.$queryRaw<Array<{ attempts: number }>>`
+    update public."SellerMagicToken"
+    set "attempts" = "attempts" + 1
+    where "id" = ${tokenId}
+      and "consumedAt" is null
+    returning "attempts"
+  `;
+  const attempts = Number(rows[0]?.attempts || EMAIL_OTP_MAX_ATTEMPTS);
+  if (attempts >= EMAIL_OTP_MAX_ATTEMPTS) {
+    await prisma.sellerMagicToken.updateMany({
+      where: { id: tokenId, consumedAt: null },
+      data: { consumedAt: now },
+    });
+  }
+  return attempts;
 }
 
 export async function verifySellerEmailOtp(input: {
   sellerId: string;
   code: string;
   verifiedPhone: string;
-}) {
+}): Promise<VerificationResult> {
   const now = new Date();
 
   const token = await prisma.sellerMagicToken.findFirst({
@@ -127,136 +174,166 @@ export async function verifySellerEmailOtp(input: {
     orderBy: { createdAt: 'desc' },
   });
 
-  if (!token) return { ok: false as const, reason: 'no_active_otp' };
+  if (!token) return { ok: false, reason: 'no_active_otp' };
 
   if (token.expiresAt.getTime() <= now.getTime()) {
     await prisma.sellerMagicToken.update({ where: { id: token.id }, data: { consumedAt: now } });
-    return { ok: false as const, reason: 'expired' };
+    return { ok: false, reason: 'expired' };
+  }
+
+  const attempts = await emailOtpAttempts(token.id);
+  if (attempts >= EMAIL_OTP_MAX_ATTEMPTS) {
+    await prisma.sellerMagicToken.updateMany({
+      where: { id: token.id, consumedAt: null },
+      data: { consumedAt: now },
+    });
+    return { ok: false, reason: 'max_attempts' };
   }
 
   const matches = await bcrypt.compare(String(input.code || '').trim(), token.tokenHash);
-  if (!matches) return { ok: false as const, reason: 'wrong_code' };
-
-  const seller = await prisma.seller.findUnique({
-    where: { id: input.sellerId },
-    select: {
-      id: true,
-      userId: true,
-      email: true,
-      phone: true,
-      contactName: true,
-      autoKycSummary: true,
-    },
-  });
-
-  if (!seller) return { ok: false as const, reason: 'seller_not_found' };
-  if (seller.phone !== input.verifiedPhone) {
-    return { ok: false as const, reason: 'phone_session_mismatch' };
+  if (!matches) {
+    const nextAttempts = await recordWrongEmailOtpAttempt(token.id, now);
+    return {
+      ok: false,
+      reason: nextAttempts >= EMAIL_OTP_MAX_ATTEMPTS ? 'max_attempts' : 'wrong_code',
+    };
   }
 
-  const email = normalizeEmail(seller.email);
-  const matchingUsers = await prisma.user.findMany({
-    where: {
-      OR: [
-        { email },
-        { phone: seller.phone },
-        ...(seller.userId ? [{ id: seller.userId }] : []),
-      ],
-    },
-    select: { id: true, email: true, phone: true, role: true },
-  });
+  const result = await prisma.$transaction(async (tx): Promise<VerificationResult> => {
+    const claimed = await tx.$queryRaw<Array<{ id: string }>>`
+      update public."SellerMagicToken"
+      set "consumedAt" = ${now}
+      where "id" = ${token.id}
+        and "sellerId" = ${input.sellerId}
+        and "purpose" = ${PURPOSE}
+        and "consumedAt" is null
+        and "expiresAt" > ${now}
+        and "attempts" < ${EMAIL_OTP_MAX_ATTEMPTS}
+      returning "id"
+    `;
+    if (!claimed.length) return { ok: false, reason: 'no_active_otp' };
 
-  const distinctIds = Array.from(new Set(matchingUsers.map((user) => user.id)));
-  if (distinctIds.length > 1) {
-    await prisma.sellerMagicToken.update({ where: { id: token.id }, data: { consumedAt: now } });
-    return { ok: false as const, reason: 'account_identity_conflict' };
-  }
-
-  const existingUser = matchingUsers[0] || null;
-  if (existingUser && !LINKABLE_ROLES.has(existingUser.role)) {
-    await prisma.sellerMagicToken.update({ where: { id: token.id }, data: { consumedAt: now } });
-    return { ok: false as const, reason: 'protected_account_conflict' };
-  }
-
-  const summary = seller.autoKycSummary && typeof seller.autoKycSummary === 'object'
-    ? (seller.autoKycSummary as any)
-    : {};
-  const pendingDocuments = pendingDocumentsFromSummary(summary);
-  if (!pendingDocuments.length) {
-    return { ok: false as const, reason: 'pending_documents_missing' };
-  }
-
-  const user = existingUser
-    ? await prisma.user.update({
-        where: { id: existingUser.id },
-        data: {
-          name: seller.contactName,
-          email,
-          phone: seller.phone,
-          emailVerified: now,
-          phoneVerified: true,
-          phoneVerifiedAt: now,
-        },
-        select: { id: true, role: true },
-      })
-    : await prisma.user.create({
-        data: {
-          email,
-          name: seller.contactName,
-          phone: seller.phone,
-          role: Role.CUSTOMER,
-          emailVerified: now,
-          phoneVerified: true,
-          phoneVerifiedAt: now,
-        },
-        select: { id: true, role: true },
-      });
-
-  const docTypes = Array.from(new Set<SellerDocType>(pendingDocuments.map((doc: PendingSellerDocument) => doc.docType)));
-  if (docTypes.length) {
-    await prisma.sellerDocument.updateMany({
-      where: {
-        sellerId: seller.id,
-        docType: { in: docTypes },
-        status: SellerDocStatus.SUBMITTED,
-      },
-      data: {
-        status: SellerDocStatus.SUPERSEDED,
-        reviewedAt: now,
-        reviewNote: 'Superseded by a newly verified seller application',
+    const seller = await tx.seller.findUnique({
+      where: { id: input.sellerId },
+      select: {
+        id: true,
+        userId: true,
+        email: true,
+        phone: true,
+        contactName: true,
+        autoKycSummary: true,
       },
     });
-  }
 
-  await prisma.sellerDocument.createMany({
-    data: pendingDocuments.map((doc: PendingSellerDocument) => ({
-      sellerId: seller.id,
-      docType: doc.docType,
-      title: doc.title,
-      fileName: doc.fileName,
-      fileUrl: sellerDocumentAdminUrl(doc.storageKey, doc.fileName),
-      fileSize: doc.fileSize,
-      mimeType: doc.mimeType,
-      status: SellerDocStatus.SUBMITTED,
-      uploadedByUserId: user.id,
-      uploadedOnBehalf: false,
-    })),
+    if (!seller) return { ok: false, reason: 'seller_not_found' };
+    if (seller.phone !== input.verifiedPhone) {
+      return { ok: false, reason: 'phone_session_mismatch' };
+    }
+
+    const email = normalizeEmail(seller.email);
+    const matchingUsers = await tx.user.findMany({
+      where: {
+        OR: [
+          { email },
+          { phone: seller.phone },
+          ...(seller.userId ? [{ id: seller.userId }] : []),
+        ],
+      },
+      select: { id: true, email: true, phone: true, role: true },
+    });
+
+    const distinctIds = Array.from(new Set(matchingUsers.map((user) => user.id)));
+    if (distinctIds.length > 1) {
+      return { ok: false, reason: 'account_identity_conflict' };
+    }
+
+    const existingUser = matchingUsers[0] || null;
+    if (existingUser && !LINKABLE_ROLES.has(existingUser.role)) {
+      return { ok: false, reason: 'protected_account_conflict' };
+    }
+
+    const summary = seller.autoKycSummary && typeof seller.autoKycSummary === 'object'
+      ? (seller.autoKycSummary as any)
+      : {};
+    const pendingDocuments = pendingDocumentsFromSummary(summary);
+    if (!pendingDocuments.length) {
+      return { ok: false, reason: 'pending_documents_missing' };
+    }
+
+    const user = existingUser
+      ? await tx.user.update({
+          where: { id: existingUser.id },
+          data: {
+            name: seller.contactName,
+            email,
+            phone: seller.phone,
+            emailVerified: now,
+            phoneVerified: true,
+            phoneVerifiedAt: now,
+          },
+          select: { id: true, role: true },
+        })
+      : await tx.user.create({
+          data: {
+            email,
+            name: seller.contactName,
+            phone: seller.phone,
+            role: Role.CUSTOMER,
+            emailVerified: now,
+            phoneVerified: true,
+            phoneVerifiedAt: now,
+          },
+          select: { id: true, role: true },
+        });
+
+    const docTypes = Array.from(
+      new Set<SellerDocType>(pendingDocuments.map((doc: PendingSellerDocument) => doc.docType)),
+    );
+    if (docTypes.length) {
+      await tx.sellerDocument.updateMany({
+        where: {
+          sellerId: seller.id,
+          docType: { in: docTypes },
+          status: SellerDocStatus.SUBMITTED,
+        },
+        data: {
+          status: SellerDocStatus.SUPERSEDED,
+          reviewedAt: now,
+          reviewNote: 'Superseded by a newly verified seller application',
+        },
+      });
+    }
+
+    await tx.sellerDocument.createMany({
+      data: pendingDocuments.map((doc: PendingSellerDocument) => ({
+        sellerId: seller.id,
+        docType: doc.docType,
+        title: doc.title,
+        fileName: doc.fileName,
+        fileUrl: sellerDocumentAdminUrl(doc.storageKey, doc.fileName),
+        fileSize: doc.fileSize,
+        mimeType: doc.mimeType,
+        status: SellerDocStatus.SUBMITTED,
+        uploadedByUserId: user.id,
+        uploadedOnBehalf: false,
+      })),
+    });
+
+    const { pendingDocuments: _pending, pendingDocumentsCreatedAt: _pendingAt, ...restSummary } = summary;
+    await tx.seller.update({
+      where: { id: seller.id },
+      data: {
+        userId: user.id,
+        autoKycSummary: {
+          ...restSummary,
+          documentsVerifiedAt: now.toISOString(),
+        } as any,
+      },
+    });
+
+    return { ok: true, role: user.role, sellerId: seller.id };
   });
 
-  const { pendingDocuments: _pending, pendingDocumentsCreatedAt: _pendingAt, ...restSummary } = summary;
-  await prisma.seller.update({
-    where: { id: seller.id },
-    data: {
-      userId: user.id,
-      autoKycSummary: {
-        ...restSummary,
-        documentsVerifiedAt: now.toISOString(),
-      } as any,
-    },
-  });
-
-  await prisma.sellerMagicToken.update({ where: { id: token.id }, data: { consumedAt: now } });
-  await syncSellerKycStatus(seller.id);
-
-  return { ok: true as const, role: user.role, sellerId: seller.id };
+  if (result.ok) await syncSellerKycStatus(result.sellerId);
+  return result;
 }
