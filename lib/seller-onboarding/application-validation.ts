@@ -35,6 +35,7 @@ async function callOptionalProvider(envName: string, payload: any): Promise<Prov
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
+      cache: 'no-store',
     });
 
     const data = await res.json().catch(() => null);
@@ -123,42 +124,60 @@ export async function validateSellerApplicationPackage(input: {
   if (manual.pan && extracted.pan && manual.pan !== extracted.pan) {
     errors.push('PAN mismatch between manual entry and uploaded PAN card');
   }
+  if (manual.pan && panDoc && !extracted.pan) {
+    warnings.push('PAN could not be confidently extracted from the uploaded PAN card; manual review is required');
+  }
 
   if (manual.gstin && extracted.gstin && manual.gstin !== extracted.gstin) {
     errors.push('GSTIN mismatch between manual entry and uploaded GST certificate');
+  }
+  if (manual.gstin && gstDoc && !extracted.gstin) {
+    warnings.push('GSTIN could not be confidently extracted from the uploaded GST certificate; manual review is required');
   }
 
   if (manual.gstin && manual.pan && !gstMatchesPan(manual.gstin, manual.pan)) {
     errors.push('Manual GSTIN and PAN do not match each other');
   }
 
-  if (manual.gstin && gstDoc && !includesNormalized(gstDoc.extractedTextPreview, manual.businessName)) {
+  if (manual.gstin && gstDoc && gstDoc.extractedTextPreview && !includesNormalized(gstDoc.extractedTextPreview, manual.businessName)) {
     warnings.push('Business name not confidently found in GST certificate OCR/text');
   }
 
   if (manual.msmeNumber && extracted.msmeNumber && manual.msmeNumber !== extracted.msmeNumber) {
     errors.push('MSME number mismatch between manual entry and uploaded MSME certificate');
   }
+  if (manual.msmeNumber && msmeDoc && !extracted.msmeNumber) {
+    warnings.push('MSME number could not be confidently extracted; manual review is required');
+  }
 
   if (manual.cin && extracted.cin && manual.cin !== extracted.cin) {
     errors.push('CIN mismatch between manual entry and uploaded CIN certificate');
+  }
+  if (manual.cin && cinDoc && !extracted.cin) {
+    warnings.push('CIN could not be confidently extracted; manual review is required');
   }
 
   const allAccountCandidates = Array.from(
     new Set([...(extracted.chequeAccounts || []), ...(extracted.bankAccounts || [])]),
   );
+  const allIfscCandidates = Array.from(
+    new Set([extracted.chequeIfsc, extracted.bankIfsc].filter(Boolean) as string[]),
+  );
 
-  const accountMatched = manual.bankAccount ? allAccountCandidates.includes(manual.bankAccount) : false;
-  const ifscMatched = [extracted.chequeIfsc, extracted.bankIfsc]
-    .filter(Boolean)
-    .includes(manual.ifsc);
-
-  if (!accountMatched) {
-    errors.push('Bank account does not match uploaded cancelled cheque / statement');
+  if (allAccountCandidates.length > 0) {
+    if (!allAccountCandidates.includes(manual.bankAccount)) {
+      errors.push('Bank account does not match uploaded cancelled cheque / statement');
+    }
+  } else if (chequeDoc || bankDoc) {
+    warnings.push('Bank account number could not be confidently extracted; manual review is required');
   }
 
-  if (!ifscMatched) {
-    errors.push('IFSC does not match uploaded cancelled cheque / statement');
+  if (allIfscCandidates.length > 0) {
+    if (!allIfscCandidates.includes(manual.ifsc)) {
+      errors.push('IFSC does not match uploaded cancelled cheque / statement');
+    }
+  } else if (chequeDoc || bankDoc) {
+    warnings.push('IFSC could not be confidently extracted; manual review is required');
   }
 
   const provider = {
@@ -190,64 +209,36 @@ export async function validateSellerApplicationPackage(input: {
   };
 
   if (provider.gst.available && provider.gst.ok && provider.gst.data) {
-    const remoteGstin = String(
-      provider.gst.data.gstin || provider.gst.data.gstNumber || '',
-    ).toUpperCase();
-    const remoteName =
-      provider.gst.data.legalName || provider.gst.data.tradeName || provider.gst.data.name || '';
-
-    if (remoteGstin && manual.gstin && remoteGstin !== manual.gstin) {
-      errors.push('GST provider response does not match entered GSTIN');
-    }
-
-    if (remoteName && !includesNormalized(remoteName, manual.businessName)) {
-      errors.push('GST provider legal/trade name does not match manual business name');
-    }
+    const remoteGstin = String(provider.gst.data.gstin || provider.gst.data.gstNumber || '').toUpperCase();
+    const remoteName = provider.gst.data.legalName || provider.gst.data.tradeName || provider.gst.data.name || '';
+    if (remoteGstin && manual.gstin && remoteGstin !== manual.gstin) errors.push('GST provider response does not match entered GSTIN');
+    if (remoteName && !includesNormalized(remoteName, manual.businessName)) errors.push('GST provider legal/trade name does not match manual business name');
   }
 
   if (provider.pan.available && provider.pan.ok && provider.pan.data) {
     const remotePan = String(provider.pan.data.pan || '').toUpperCase();
     const remoteName = provider.pan.data.name || provider.pan.data.legalName || '';
-
-    if (remotePan && manual.pan && remotePan !== manual.pan) {
-      errors.push('PAN provider response does not match entered PAN');
-    }
-
-    if (remoteName && !includesNormalized(remoteName, manual.businessName)) {
-      warnings.push('PAN provider name does not closely match manual business name');
-    }
+    if (remotePan && manual.pan && remotePan !== manual.pan) errors.push('PAN provider response does not match entered PAN');
+    if (remoteName && !includesNormalized(remoteName, manual.businessName)) warnings.push('PAN provider name does not closely match manual business name');
   }
 
   if (provider.cin.available && provider.cin.ok && provider.cin.data) {
     const remoteCin = String(provider.cin.data.cin || '').toUpperCase();
     const remoteName = provider.cin.data.companyName || provider.cin.data.name || '';
-
-    if (remoteCin && manual.cin && remoteCin !== manual.cin) {
-      errors.push('CIN provider response does not match entered CIN');
-    }
-
-    if (remoteName && !includesNormalized(remoteName, manual.businessName)) {
-      errors.push('CIN provider company name does not match manual business name');
-    }
+    if (remoteCin && manual.cin && remoteCin !== manual.cin) errors.push('CIN provider response does not match entered CIN');
+    if (remoteName && !includesNormalized(remoteName, manual.businessName)) errors.push('CIN provider company name does not match manual business name');
   }
 
   if (provider.bank.available && provider.bank.ok && provider.bank.data) {
     const remoteIfsc = String(provider.bank.data.ifsc || '').toUpperCase();
-    const remoteLast4 = String(
-      provider.bank.data.accountLast4 || provider.bank.data.last4 || '',
-    );
-
-    if (remoteIfsc && manual.ifsc && remoteIfsc !== manual.ifsc) {
-      errors.push('Bank provider response does not match entered IFSC');
-    }
-
-    if (remoteLast4 && manual.bankAccount && !manual.bankAccount.endsWith(remoteLast4)) {
-      errors.push('Bank provider response does not match entered account number');
-    }
+    const remoteLast4 = String(provider.bank.data.accountLast4 || provider.bank.data.last4 || '');
+    if (remoteIfsc && manual.ifsc && remoteIfsc !== manual.ifsc) errors.push('Bank provider response does not match entered IFSC');
+    if (remoteLast4 && manual.bankAccount && !manual.bankAccount.endsWith(remoteLast4)) errors.push('Bank provider response does not match entered account number');
   }
 
   return {
     overallPass: errors.length === 0,
+    reviewRequired: warnings.length > 0,
     errors: Array.from(new Set(errors)),
     warnings: Array.from(new Set(warnings)),
     checks: baseChecks.checks,
