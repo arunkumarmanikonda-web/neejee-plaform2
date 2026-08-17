@@ -7,14 +7,13 @@
 //
 // Webhook responsibilities:
 //   - Verify Razorpay webhook signature
-//   - Reconcile payment/refund status onto existing rows only
+//   - Reconcile payment/refund status onto existing rows
+//   - Recover snapshot-based prepaid checkout if the browser never reaches
+//     /api/razorpay/verify after a successful capture
 //   - Ingest gateway fee idempotently on payment.captured
 //
-// IMPORTANT:
-//   - Do NOT create NEEJEE orders here
-//   - Do NOT send ORDER_CONFIRMED here
-//   - Do NOT run loyalty/finance posting here
-// Those belong to /api/razorpay/verify in the prepaid flow.
+// Snapshot recovery deliberately reuses /api/razorpay/verify rather than
+// duplicating its atomic inventory/coupon/loyalty/order/refund logic.
 
 import { NextResponse } from 'next/server';
 import crypto from 'crypto';
@@ -202,6 +201,126 @@ async function reconcileCapturedPayment(payment: any) {
   return { ok: true, order: updated };
 }
 
+async function recoverCapturedSnapshot(payment: any, requestUrl: string) {
+  const snapshotId = asNonEmptyString(payment?.notes?.snapshotId);
+  const paymentId = asNonEmptyString(payment?.id);
+  const razorpayOrderId = asNonEmptyString(payment?.order_id);
+
+  if (!snapshotId || !paymentId || !razorpayOrderId) {
+    return { skipped: 'snapshot_gateway_refs_missing' };
+  }
+
+  const snapshot = await findSnapshotForGatewayRefs(snapshotId, razorpayOrderId);
+  if (!snapshot) return { skipped: 'snapshot_not_found' };
+
+  if (snapshot.recoveredOrderId) {
+    return { idempotent: true, snapshotId: snapshot.id, orderId: snapshot.recoveredOrderId };
+  }
+
+  if (snapshot.razorpayOrderId && snapshot.razorpayOrderId !== razorpayOrderId) {
+    return {
+      conflict: 'snapshot_gateway_order_mismatch',
+      snapshotId: snapshot.id,
+    };
+  }
+
+  await prisma.abandonedCart.update({
+    where: { id: snapshot.id },
+    data: {
+      lastSeenStep: 'payment_captured_webhook_reconciling',
+      telecallerStatus: 'payment_reconciliation',
+      telecallerNotes: `Captured payment ${paymentId} received by Razorpay webhook; automatic order finalization started.`,
+    } as any,
+  });
+
+  const keySecret = process.env.RAZORPAY_KEY_SECRET;
+  if (!keySecret) {
+    await prisma.abandonedCart.update({
+      where: { id: snapshot.id },
+      data: {
+        lastSeenStep: 'payment_captured_reconciliation_blocked',
+        telecallerStatus: 'urgent_payment_exception',
+        telecallerNotes: `Captured payment ${paymentId} requires reconciliation because RAZORPAY_KEY_SECRET is unavailable.`,
+      } as any,
+    }).catch(() => {});
+    throw new Error('RAZORPAY_KEY_SECRET unavailable for captured snapshot reconciliation');
+  }
+
+  const checkoutSignature = crypto
+    .createHmac('sha256', keySecret)
+    .update(`${razorpayOrderId}|${paymentId}`)
+    .digest('hex');
+  const verifyUrl = new URL('/api/razorpay/verify', requestUrl).toString();
+
+  let response: Response;
+  try {
+    response = await fetch(verifyUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-NEEJEE-Reconcile-Source': 'razorpay-webhook',
+      },
+      body: JSON.stringify({
+        razorpay_order_id: razorpayOrderId,
+        razorpay_payment_id: paymentId,
+        razorpay_signature: checkoutSignature,
+        snapshotId: snapshot.id,
+      }),
+      cache: 'no-store',
+    });
+  } catch (error: any) {
+    await prisma.abandonedCart.update({
+      where: { id: snapshot.id },
+      data: {
+        lastSeenStep: 'payment_captured_reconciliation_retry',
+        telecallerStatus: 'payment_reconciliation',
+        telecallerNotes: `Captured payment ${paymentId}; automatic finalization transport failed and will retry via webhook.`,
+      } as any,
+    }).catch(() => {});
+    throw new Error(`Captured snapshot finalization transport failed: ${error?.message || 'unknown error'}`);
+  }
+
+  const result = await response.json().catch(() => ({}));
+
+  // 409 from the verifier can be the intentional, already-initiated integrity
+  // refund path. Acknowledge the gateway event rather than repeatedly asking
+  // Razorpay to deliver the same capture event.
+  if (response.ok || (response.status === 409 && String(result?.code || '').startsWith('PAYMENT_REFUNDED_'))) {
+    return {
+      ok: response.ok,
+      snapshotId: snapshot.id,
+      status: response.status,
+      code: result?.code || null,
+      orderNumber: result?.order?.orderNumber || null,
+      idempotent: !!result?.idempotent,
+    };
+  }
+
+  await prisma.abandonedCart.update({
+    where: { id: snapshot.id },
+    data: {
+      lastSeenStep:
+        response.status >= 500
+          ? 'payment_captured_reconciliation_retry'
+          : 'payment_captured_reconciliation_exception',
+      telecallerStatus:
+        response.status >= 500 ? 'payment_reconciliation' : 'urgent_payment_exception',
+      telecallerNotes: `Captured payment ${paymentId}; verifier returned ${response.status} (${result?.code || result?.error || 'unknown'}).`,
+    } as any,
+  }).catch(() => {});
+
+  if (response.status >= 500) {
+    throw new Error(`Captured snapshot finalization returned ${response.status}`);
+  }
+
+  return {
+    error: 'snapshot_finalization_rejected',
+    snapshotId: snapshot.id,
+    status: response.status,
+    code: result?.code || null,
+  };
+}
+
 async function reconcileFailedPayment(payment: any) {
   const paymentId = asNonEmptyString(payment?.id);
   const razorpayOrderId = asNonEmptyString(payment?.order_id);
@@ -380,10 +499,16 @@ export async function POST(req: Request) {
         reconcileCapturedPayment(payment),
       ]);
 
+      const snapshotResult =
+        (orderResult as any)?.skipped === 'order_not_found'
+          ? await recoverCapturedSnapshot(payment, req.url)
+          : { skipped: 'existing_order_reconciled' };
+
       return NextResponse.json({
         event: eventName,
         fee: feeResult,
         order: orderResult,
+        snapshot: snapshotResult,
       });
     }
 
@@ -425,7 +550,7 @@ export async function POST(req: Request) {
   } catch (err: any) {
     console.error('[razorpay.webhook]', err);
     return NextResponse.json(
-      { error: err?.message || 'Server error', event: eventName },
+      { error: 'Webhook processing failed', event: eventName },
       { status: 500 }
     );
   }

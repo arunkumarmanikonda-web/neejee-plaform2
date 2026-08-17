@@ -1,140 +1,174 @@
-// Cross-sell recommendations — "Complete the Look" / "Pairs Well With"
-//
-// Given a product (or cart contents), returns 4-6 complementary pieces from the catalogue.
-// Uses a simple rule engine: each seed category maps to a list of paired categories/keywords.
+// Cross-sell recommendations — catalogue-backed and inventory-aware.
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
-// Pairings — what goes with what. Tuned for Indian craft commerce.
-const PAIRINGS: Array<{
-  seeds: string[];           // keywords that match the seed product (name/craft/material/category)
-  recommend: string[];        // keywords to find paired pieces
-  label: string;              // section heading shown to customer
-}> = [
-  {
-    seeds: ['saree', 'sari'],
-    recommend: ['jhumka', 'bangle', 'necklace', 'earring', 'maang', 'pendant', 'blouse', 'clutch', 'stole'],
-    label: 'Pairs beautifully with',
-  },
-  {
-    seeds: ['kurta', 'kurti', 'lehenga', 'sherwani'],
-    recommend: ['jhumka', 'jutti', 'mojari', 'pocket square', 'stole', 'dupatta', 'pagri', 'necklace'],
-    label: 'To wear with this',
-  },
-  {
-    seeds: ['necklace', 'jhumka', 'earring', 'bangle', 'pendant', 'choker'],
-    recommend: ['saree', 'kurta', 'lehenga', 'maang tikka', 'anklet', 'ring'],
-    label: 'Wear it with',
-  },
-  {
-    seeds: ['console', 'table', 'desk'],
-    recommend: ['vase', 'lamp', 'tray', 'planter', 'mirror', 'art', 'incense'],
-    label: 'For your console',
-  },
-  {
-    seeds: ['sofa', 'lounge', 'chair', 'armchair', 'bench'],
-    recommend: ['cushion', 'throw', 'rug', 'dhurrie', 'side table', 'lamp'],
-    label: 'Soften your seating',
-  },
-  {
-    seeds: ['cushion', 'throw', 'rug', 'dhurrie'],
-    recommend: ['vase', 'lamp', 'cushion', 'wall', 'art'],
-    label: 'Lives well with',
-  },
-  {
-    seeds: ['lamp', 'lantern', 'candle'],
-    recommend: ['vase', 'tray', 'incense', 'art', 'mirror'],
-    label: 'For warm corners',
-  },
-  {
-    seeds: ['attar', 'perfume', 'incense', 'agarbatti'],
-    recommend: ['attar', 'incense', 'pouch', 'gift'],
-    label: 'A complete sensory ritual',
-  },
+const PAIRINGS: Array<{ seeds: string[]; recommend: string[]; label: string }> = [
+  { seeds: ['saree', 'sari'], recommend: ['jhumka', 'bangle', 'necklace', 'earring', 'maang', 'pendant', 'brooch', 'pin', 'clutch', 'potli', 'jutti', 'attar'], label: 'Complete your look' },
+  { seeds: ['kurta', 'kurti', 'lehenga', 'sherwani'], recommend: ['jhumka', 'earring', 'jutti', 'mojari', 'pocket square', 'stole', 'dupatta', 'pagri', 'necklace', 'potli'], label: 'Style the look' },
+  { seeds: ['necklace', 'jhumka', 'earring', 'bangle', 'pendant', 'choker'], recommend: ['saree', 'kurta', 'lehenga', 'maang tikka', 'anklet', 'ring', 'potli'], label: 'Wear it with' },
+  { seeds: ['console', 'chester', 'sideboard', 'desk'], recommend: ['vase', 'lamp', 'tray', 'planter', 'mirror', 'frame', 'art', 'sculpture', 'incense'], label: 'Complete this setting' },
+  { seeds: ['side table', 'bedside table'], recommend: ['lamp', 'frame', 'vase', 'tray', 'candle', 'incense'], label: 'For this table' },
+  { seeds: ['sofa', 'lounge', 'chair', 'armchair', 'bench'], recommend: ['cushion', 'throw', 'rug', 'dhurrie', 'side table', 'lamp', 'floor lamp'], label: 'Complete this corner' },
+  { seeds: ['dining table'], recommend: ['tableware', 'runner', 'vase', 'centre', 'candle', 'pendant', 'lamp'], label: 'Set the table' },
+  { seeds: ['bed'], recommend: ['bedsheet', 'duvet', 'dohar', 'quilt', 'cushion', 'throw', 'bedside table', 'lamp'], label: 'Complete the room' },
+  { seeds: ['cushion', 'throw', 'rug', 'dhurrie'], recommend: ['vase', 'lamp', 'cushion', 'wall', 'art', 'side table'], label: 'Lives well with' },
+  { seeds: ['lamp', 'lantern', 'candle'], recommend: ['vase', 'tray', 'incense', 'art', 'mirror', 'side table', 'console'], label: 'For warm corners' },
+  { seeds: ['attar', 'perfume', 'incense', 'agarbatti'], recommend: ['attar', 'incense', 'pouch', 'gift', 'candle'], label: 'A complete sensory ritual' },
 ];
 
-function pickPairing(haystack: string): { recommend: string[]; label: string } | null {
-  const h = haystack.toLowerCase();
-  for (const p of PAIRINGS) {
-    if (p.seeds.some(s => h.includes(s))) {
-      return { recommend: p.recommend, label: p.label };
+type Pairing = { recommend: string[]; label: string };
+
+function pickPairing(haystack: string): Pairing | null {
+  const normalized = haystack.toLowerCase();
+  for (const pairing of PAIRINGS) {
+    if (pairing.seeds.some((seed) => normalized.includes(seed))) {
+      return { recommend: pairing.recommend, label: pairing.label };
     }
   }
   return null;
 }
 
+function parseIds(url: URL): string[] {
+  const single = url.searchParams.get('productId');
+  const many = url.searchParams.get('productIds');
+  return Array.from(new Set([
+    ...(single ? [single] : []),
+    ...(many ? many.split(',') : []),
+  ].map((id) => id.trim()).filter(Boolean)))
+    .filter((id) => id.length <= 120)
+    .slice(0, 20);
+}
+
+const recommendationSelect = {
+  id: true,
+  slug: true,
+  name: true,
+  poeticLine: true,
+  craft: true,
+  region: true,
+  mrp: true,
+  sellingPrice: true,
+  salePrice: true,
+  saleStartsAt: true,
+  saleEndsAt: true,
+  images: true,
+  badges: true,
+  aiTryOnEligible: true,
+  aiRoomEligible: true,
+  variants: {
+    select: { id: true, size: true, color: true, inventory: true },
+  },
+} as const;
+
+function cachedJson(body: unknown) {
+  const response = NextResponse.json(body);
+  response.headers.set('Cache-Control', 'public, s-maxage=30, stale-while-revalidate=120');
+  return response;
+}
+
 export async function GET(request: Request) {
   const url = new URL(request.url);
-  const productId = url.searchParams.get('productId');
-  const limit = Math.min(parseInt(url.searchParams.get('limit') || '6'), 12);
-
-  if (!productId) return NextResponse.json({ products: [], label: null });
+  const seedIds = parseIds(url);
+  const limit = Math.min(Math.max(Number.parseInt(url.searchParams.get('limit') || '6', 10) || 6, 1), 12);
+  if (seedIds.length === 0) return cachedJson({ products: [], label: null });
 
   try {
-    const seed = await prisma.product.findUnique({
-      where: { id: productId },
-      select: { name: true, craft: true, material: true, category: { select: { name: true, slug: true } } },
+    const seeds = await prisma.product.findMany({
+      where: { id: { in: seedIds }, status: 'ACTIVE', catalogueExclude: false },
+      select: { id: true, name: true, craft: true, material: true, category: { select: { name: true, slug: true } } },
     });
-    if (!seed) return NextResponse.json({ products: [], label: null });
+    if (seeds.length === 0) return cachedJson({ products: [], label: null });
 
-    const haystack = [seed.name, seed.craft, seed.material, seed.category?.name].filter(Boolean).join(' ');
-    const pairing = pickPairing(haystack);
-    if (!pairing) {
-      // Fallback: same category, different product
+    const pairings = seeds
+      .map((seed) => pickPairing([seed.name, seed.craft, seed.material, seed.category?.name].filter(Boolean).join(' ')))
+      .filter((value): value is Pairing => Boolean(value));
+
+    const recommendedKeywords = Array.from(new Set(pairings.flatMap((pairing) => pairing.recommend)));
+    const label = seeds.length > 1 ? 'Complete your edit' : pairings[0]?.label || 'You may also like';
+
+    if (recommendedKeywords.length === 0) {
+      const categorySlug = seeds[0].category?.slug;
+      if (!categorySlug) return cachedJson({ products: [], label });
+
       const fallback = await prisma.product.findMany({
         where: {
           status: 'ACTIVE',
-          NOT: { id: productId },
-          category: { slug: seed.category?.slug },
+          catalogueExclude: false,
+          id: { notIn: seedIds },
+          category: { slug: categorySlug },
+          variants: { some: { inventory: { gt: 0 } } },
         },
         take: limit,
-        orderBy: { createdAt: 'desc' },
-        include: { variants: { select: { inventory: true } } },
+        orderBy: [{ catalogueFeatured: 'desc' }, { createdAt: 'desc' }],
+        select: recommendationSelect,
       });
-      return NextResponse.json({
-        label: 'You may also like',
-        products: shape(fallback),
-      });
+      return cachedJson({ label, products: shape(fallback) });
     }
 
-    // Build OR query across the paired keywords
-    const orClauses = pairing.recommend.flatMap(kw => [
-      { name: { contains: kw, mode: 'insensitive' as const } },
-      { craft: { contains: kw, mode: 'insensitive' as const } },
-      { material: { contains: kw, mode: 'insensitive' as const } },
+    const orClauses = recommendedKeywords.flatMap((keyword) => [
+      { name: { contains: keyword, mode: 'insensitive' as const } },
+      { craft: { contains: keyword, mode: 'insensitive' as const } },
+      { material: { contains: keyword, mode: 'insensitive' as const } },
+      { category: { name: { contains: keyword, mode: 'insensitive' as const } } },
     ]);
 
     const matches = await prisma.product.findMany({
       where: {
         status: 'ACTIVE',
-        NOT: { id: productId },
+        catalogueExclude: false,
+        id: { notIn: seedIds },
+        variants: { some: { inventory: { gt: 0 } } },
         OR: orClauses,
       },
       take: limit,
-      orderBy: { createdAt: 'desc' },
-      include: { variants: { select: { inventory: true } } },
+      orderBy: [{ catalogueFeatured: 'desc' }, { catalogueBestseller: 'desc' }, { createdAt: 'desc' }],
+      select: recommendationSelect,
     });
 
-    return NextResponse.json({
-      label: pairing.label,
+    return cachedJson({
+      label,
       products: shape(matches),
+      context: { seedCount: seeds.length, basketAware: seeds.length > 1 },
     });
-  } catch (e: any) {
-    return NextResponse.json({ products: [], label: null, error: e.message }, { status: 500 });
+  } catch (error: any) {
+    console.error('[recommendations] failed', { message: error?.message });
+    return NextResponse.json({ products: [], label: null, error: 'Recommendations are temporarily unavailable' }, { status: 500 });
   }
 }
 
-function shape(arr: any[]) {
-  return arr.map(p => ({
-    id: p.id, slug: p.slug, name: p.name,
-    poeticLine: p.poeticLine, craft: p.craft, region: p.region,
-    mrp: p.mrp, sellingPrice: p.sellingPrice, salePrice: p.salePrice,
-    saleStartsAt: p.saleStartsAt, saleEndsAt: p.saleEndsAt,
-    images: Array.isArray(p.images) ? p.images : [],
-    badges: Array.isArray(p.badges) ? p.badges : [],
-    inventory: (p.variants || []).reduce((s: number, v: any) => s + (v.inventory || 0), 0),
-  }));
+function shape(products: any[]) {
+  return products
+    .map((product) => {
+      const inStockVariants = (product.variants || []).filter((variant: any) => Number(variant.inventory || 0) > 0);
+      const singleVariant = inStockVariants.length === 1 ? inStockVariants[0] : null;
+      return {
+        id: product.id,
+        slug: product.slug,
+        name: product.name,
+        poeticLine: product.poeticLine,
+        craft: product.craft,
+        region: product.region,
+        mrp: product.mrp,
+        sellingPrice: product.sellingPrice,
+        salePrice: product.salePrice,
+        saleStartsAt: product.saleStartsAt,
+        saleEndsAt: product.saleEndsAt,
+        images: Array.isArray(product.images) ? product.images : [],
+        badges: Array.isArray(product.badges) ? product.badges : [],
+        inventory: inStockVariants.reduce((sum: number, variant: any) => sum + Math.max(0, variant.inventory || 0), 0),
+        aiTryOnEligible: !!product.aiTryOnEligible,
+        aiRoomEligible: !!product.aiRoomEligible,
+        requiresChoice: inStockVariants.length > 1,
+        quickAddVariant: singleVariant ? {
+          id: singleVariant.id,
+          size: singleVariant.size || null,
+          color: singleVariant.color || null,
+          label: [singleVariant.size, singleVariant.color].filter(Boolean).join(' · ') || null,
+        } : null,
+      };
+    })
+    .filter((product) => product.inventory > 0);
 }

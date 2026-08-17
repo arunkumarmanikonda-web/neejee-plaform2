@@ -21,10 +21,10 @@ const config: Config = {
         stoneware: '#9C8B7A',
       },
       fontFamily: {
-        display: ['Playfair Display', 'Cormorant Garamond', 'Georgia', 'serif'],
-        body: ['Cormorant Garamond', 'Georgia', 'serif'],
-        ui: ['Inter', 'system-ui', 'sans-serif'],
-        italic: ['Cormorant Garamond', 'Georgia', 'serif'],
+        display: ['var(--font-display)', 'var(--font-body)', 'Georgia', 'serif'],
+        body: ['var(--font-body)', 'Georgia', 'serif'],
+        ui: ['var(--font-ui)', 'system-ui', 'sans-serif'],
+        italic: ['var(--font-body)', 'Georgia', 'serif'],
       },
       letterSpacing: {
         widest: '0.25em',

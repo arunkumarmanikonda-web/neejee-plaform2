@@ -1,4 +1,4 @@
-﻿import Link from 'next/link';
+import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import type { LucideIcon } from 'lucide-react';
 import {
@@ -38,6 +38,7 @@ import {
   Lock,
   BookOpen,
   Banknote,
+  Menu,
 } from 'lucide-react';
 import { NeejeeLogo } from '@/components/brand/Logo';
 import AdminCommandPalette from '@/components/admin/AdminCommandPalette';
@@ -199,6 +200,64 @@ const NAV_GROUPS: NavGroup[] = [
   },
 ];
 
+function AdminNavigation({
+  navGroups,
+  displayName,
+  roleLabel,
+  email,
+  canSeeFinance,
+}: {
+  navGroups: NavGroup[];
+  displayName: string;
+  roleLabel: string;
+  email: string;
+  canSeeFinance: boolean;
+}) {
+  return (
+    <>
+      <nav className="space-y-6 flex-1 font-ui text-sm" aria-label="Admin navigation">
+        {navGroups.map((g) => (
+          <div key={g.label}>
+            <p className="label text-banarasi mb-2">{g.label}</p>
+            <div className="space-y-1">
+              {g.items.map((item) => (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className="flex items-center gap-3 px-3 py-2 rounded text-beige/80 hover:bg-mitti/40 hover:text-ivory transition-colors"
+                >
+                  <item.icon className="w-4 h-4 shrink-0" />
+                  <span>{item.label}</span>
+                </Link>
+              ))}
+            </div>
+          </div>
+        ))}
+      </nav>
+
+      <div className="pt-6 border-t border-mitti/30 mt-6">
+        <p className="label text-banarasi">SIGNED IN AS</p>
+        <p className="font-italic italic text-beige mt-1 truncate">{displayName}</p>
+        <p className="font-ui text-[10px] text-beige/60 tracking-widest mt-1">{roleLabel}</p>
+        <p className="font-ui text-[10px] text-beige/40 tracking-widest mt-1 truncate">{email}</p>
+        {!canSeeFinance && (
+          <p className="font-ui text-[10px] text-haldi tracking-wider mt-2 leading-relaxed">
+            Finance tools are hidden for this role.
+          </p>
+        )}
+        <form action="/api/auth/logout" method="POST" className="mt-3">
+          <button
+            type="submit"
+            className="flex items-center gap-2 font-ui text-xs text-beige/70 hover:text-madder transition-colors"
+          >
+            <LogOut className="w-3 h-3" /> SIGN OUT
+          </button>
+        </form>
+      </div>
+    </>
+  );
+}
+
 export default async function AdminLayout({
   children,
 }: {
@@ -221,63 +280,41 @@ export default async function AdminLayout({
 
   const canSeeFinance = hasFinancePerm(user, 'finance.read');
   const navGroups = NAV_GROUPS.filter((group) => !group.financeOnly || canSeeFinance);
-
   const displayName = user.name?.trim() || user.email.split('@')[0];
   const roleLabel = user.role.replace(/_/g, ' ');
+  const navProps = { navGroups, displayName, roleLabel, email: user.email, canSeeFinance };
 
   return (
-    <div className="min-h-screen grid grid-cols-[260px_1fr] bg-ivory">
-      <aside className="bg-kohl text-ivory p-6 sticky top-0 h-screen overflow-y-auto flex flex-col">
+    <div className="min-h-screen bg-ivory lg:grid lg:grid-cols-[260px_minmax(0,1fr)]">
+      <aside className="hidden lg:flex bg-kohl text-ivory p-6 sticky top-0 h-screen overflow-y-auto flex-col">
         <Link href="/" aria-label="NEEJEE Home">
           <NeejeeLogo size="md" variant="ivory" />
         </Link>
-        <p className="font-italic italic text-beige text-sm mt-2">Admin</p>
-
-        <nav className="mt-8 space-y-6 flex-1 font-ui text-sm">
-          {navGroups.map((g) => (
-            <div key={g.label}>
-              <p className="label text-banarasi mb-2">{g.label}</p>
-              <div className="space-y-1">
-                {g.items.map((item) => (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    className="flex items-center gap-3 px-3 py-2 rounded text-beige/80 hover:bg-mitti/40 hover:text-ivory transition-colors"
-                  >
-                    <item.icon className="w-4 h-4" />
-                    <span>{item.label}</span>
-                  </Link>
-                ))}
-              </div>
-            </div>
-          ))}
-        </nav>
-
-        <div className="pt-6 border-t border-mitti/30 mt-6">
-          <p className="label text-banarasi">SIGNED IN AS</p>
-          <p className="font-italic italic text-beige mt-1 truncate">{displayName}</p>
-          <p className="font-ui text-[10px] text-beige/60 tracking-widest mt-1">{roleLabel}</p>
-          <p className="font-ui text-[10px] text-beige/40 tracking-widest mt-1 truncate">{user.email}</p>
-          {!canSeeFinance && (
-            <p className="font-ui text-[10px] text-haldi tracking-wider mt-2 leading-relaxed">
-              Finance tools are hidden for this role.
-            </p>
-          )}
-          <form action="/api/auth/logout" method="POST" className="mt-3">
-            <button
-              type="submit"
-              className="flex items-center gap-2 font-ui text-xs text-beige/70 hover:text-madder transition-colors"
-            >
-              <LogOut className="w-3 h-3" /> SIGN OUT
-            </button>
-          </form>
-        </div>
+        <p className="font-italic italic text-beige text-sm mt-2 mb-8">Admin</p>
+        <AdminNavigation {...navProps} />
       </aside>
-      <main className="p-6 md:p-10 xl:p-12 overflow-x-auto">
+
+      <header className="lg:hidden sticky top-0 z-50 bg-kohl text-ivory border-b border-mitti/40">
+        <div className="px-4 py-3 flex items-center justify-between gap-4">
+          <Link href="/" aria-label="NEEJEE Home" className="shrink-0">
+            <NeejeeLogo size="sm" variant="ivory" />
+          </Link>
+          <details className="group relative">
+            <summary className="list-none [&::-webkit-details-marker]:hidden cursor-pointer flex items-center gap-2 rounded border border-mitti/50 px-3 py-2 font-ui text-xs tracking-widest text-beige hover:text-ivory">
+              <Menu className="w-4 h-4" /> MENU
+            </summary>
+            <div className="fixed inset-x-0 top-[61px] max-h-[calc(100vh-61px)] overflow-y-auto overscroll-contain bg-kohl p-5 border-t border-mitti/30 shadow-2xl">
+              <p className="font-italic italic text-beige text-sm mb-6">Admin</p>
+              <AdminNavigation {...navProps} />
+            </div>
+          </details>
+        </div>
+      </header>
+
+      <main className="min-w-0 overflow-x-auto p-4 sm:p-6 md:p-8 xl:p-12">
         <AdminCommandPalette user={user} />
         {children}
       </main>
     </div>
   );
 }
-

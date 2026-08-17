@@ -1,4 +1,3 @@
-// Public CMS endpoint - fetch published pages by slug
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
@@ -7,22 +6,42 @@ export const runtime = 'nodejs';
 
 export async function GET(request: Request) {
   const url = new URL(request.url);
-  const slug = url.searchParams.get('slug');
+  const slug = String(url.searchParams.get('slug') || '').trim().slice(0, 220);
+  if (!slug) return NextResponse.json({ error: 'slug required' }, { status: 400 });
+
   try {
-    if (slug) {
-      const page = await prisma.cmsPage.findUnique({ where: { slug } });
-      if (!page || page.status !== 'PUBLISHED') {
-        return NextResponse.json({ error: 'Not found' }, { status: 404 });
-      }
-      return NextResponse.json({ page });
-    }
-    const pages = await prisma.cmsPage.findMany({
-      where: { status: 'PUBLISHED' },
-      select: { slug: true, title: true, seoTitle: true, seoDesc: true, updatedAt: true },
-      orderBy: { updatedAt: 'desc' },
+    const page = await prisma.cmsPage.findUnique({
+      where: { slug },
+      select: {
+        id: true,
+        slug: true,
+        title: true,
+        template: true,
+        sections: true,
+        status: true,
+        publishedAt: true,
+        seoTitle: true,
+        seoDesc: true,
+        ogImage: true,
+        pageType: true,
+        tags: true,
+        featured: true,
+        excerpt: true,
+        coverImage: true,
+        author: true,
+        updatedAt: true,
+      },
     });
-    return NextResponse.json({ pages });
-  } catch (e: any) {
-    return NextResponse.json({ pages: [], error: e.message }, { status: 500 });
+
+    if (!page || page.status !== 'PUBLISHED') {
+      return NextResponse.json({ error: 'Page not found' }, { status: 404 });
+    }
+
+    const response = NextResponse.json({ page });
+    response.headers.set('Cache-Control', 'public, s-maxage=60, stale-while-revalidate=300');
+    return response;
+  } catch (error: any) {
+    console.error('[cms.public] failed', { message: error?.message });
+    return NextResponse.json({ error: 'Page is temporarily unavailable' }, { status: 500 });
   }
 }

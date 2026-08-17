@@ -7,8 +7,12 @@ export const runtime = 'nodejs';
 
 export async function GET(request: Request) {
   const url = new URL(request.url);
-  const position = url.searchParams.get('position');
-  if (!position) return NextResponse.json({ banners: [] });
+  const position = String(url.searchParams.get('position') || '').trim().slice(0, 64);
+  if (!position) {
+    const response = NextResponse.json({ banners: [] });
+    response.headers.set('Cache-Control', 'public, s-maxage=60, stale-while-revalidate=300');
+    return response;
+  }
 
   try {
     const now = new Date();
@@ -22,9 +26,34 @@ export async function GET(request: Request) {
         ],
       },
       orderBy: { order: 'asc' },
+      select: {
+        id: true,
+        position: true,
+        title: true,
+        subtitle: true,
+        image: true,
+        video: true,
+        ctaText: true,
+        ctaUrl: true,
+        textColor: true,
+        bgColor: true,
+        linkType: true,
+        linkProductId: true,
+        linkCategoryId: true,
+        linkCollectionTag: true,
+        linkDropSlug: true,
+        linkPageSlug: true,
+        startsAt: true,
+        endsAt: true,
+        order: true,
+        updatedAt: true,
+      },
     });
-    return NextResponse.json({ banners });
-  } catch (e: any) {
-    return NextResponse.json({ banners: [], error: e.message }, { status: 200 });
+    const response = NextResponse.json({ banners });
+    response.headers.set('Cache-Control', 'public, s-maxage=60, stale-while-revalidate=300');
+    return response;
+  } catch (error: any) {
+    console.error('[banners.public] failed', { message: error?.message });
+    return NextResponse.json({ error: 'Banners are temporarily unavailable', banners: [] }, { status: 500 });
   }
 }

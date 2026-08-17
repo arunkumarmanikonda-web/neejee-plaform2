@@ -1,995 +1,400 @@
 'use client';
-
+import { useEffect, useState, Suspense } from 'react';
+import { useParams, useRouter } from 'next/navigation';
+import Image from 'next/image';
 import Link from 'next/link';
-import { Suspense, useEffect, useMemo, useState } from 'react';
-import { useParams } from 'next/navigation';
-import { ProductCard, type ProductCardData } from '@/components/product/ProductCard';
+import { Header } from '@/components/layout/Header';
+import { Footer } from '@/components/layout/Footer';
+import { Heart, Sparkles, Truck, RotateCcw, ShieldCheck, Plus, Minus, ChevronDown, Check, Home } from 'lucide-react';
+import { formatINR, effectivePricePaise, discountPct } from '@/lib/money';
+import { isPreorder, isSoldOut, fulfilmentStatusLine, buyCtaLabel, checkoutPaise } from '@/lib/fulfilment';
+import { useCart } from '@/lib/cart-store';
+import { WaitlistSignup } from '@/components/product/WaitlistSignup';
+import { ReviewsSection } from '@/components/product/ReviewsSection';
+import { BadgeRow } from '@/components/ui/Badge';
+import { track } from '@/lib/analytics';
+import { CompleteTheLook } from '@/components/product/CompleteTheLook';
 
 export const dynamic = 'force-dynamic';
 
-type ProductImage = {
-  url: string;
-  alt: string;
-};
-
-type Breadcrumb = {
-  name: string;
-  href: string;
-};
-
-type VariantState = {
-  id: string;
-  sku: string | null;
-  title: string;
-  color: string | null;
-  size: string | null;
-  images: ProductImage[];
-  inventory: number;
-  mrp: number | null;
-  sellingPrice: number | null;
-  salePrice: number | null;
-  badges: string[];
-};
-
-type ProductState = {
-  id: string;
-  slug: string;
-  name: string;
-  subtitle: string | null;
-  poeticLine: string | null;
-  description: string | null;
-  shortDescription: string | null;
-  craft: string | null;
-  region: string | null;
-  material: string | null;
-  categoryName: string | null;
-  categorySlug: string | null;
-  breadcrumbs: Breadcrumb[];
-  badges: string[];
-  images: ProductImage[];
-  inventory: number;
-  visibleInventory: number;
-  stockLabel: string | null;
-  stockVisibility: string | null;
-  isInStock: boolean;
-  lowStock: boolean;
-  mrp: number | null;
-  sellingPrice: number | null;
-  salePrice: number | null;
-  saleStartAt: string | null;
-  saleEndAt: string | null;
-  aiTryOnEligible: boolean;
-  arEnabled: boolean;
-  variants: VariantState[];
-  craftStory: string | null;
-  artisanStory: string | null;
-  careInstructions: string | null;
-  deliveryInfo: string | null;
-  storyTitle: string | null;
-  storyBody: string | null;
-};
-
-type NormalizedResponse = {
-  product: ProductState | null;
-  relatedProducts: unknown[];
-  error: string | null;
-};
-
-type RecommendationsResponse = {
-  label: string | null;
-  products: ProductCardData[];
-};
-
-function asString(value: unknown): string | null {
-  return typeof value === 'string' && value.trim() ? value.trim() : null;
-}
-
-function asNumber(value: unknown): number | null {
-  return typeof value === 'number' && Number.isFinite(value) ? value : null;
-}
-
-function asBoolean(value: unknown): boolean {
-  return value === true;
-}
-
-function toStringArray(value: unknown): string[] {
-  if (!Array.isArray(value)) return [];
-  return value
-    .map((item) => asString(item))
-    .filter((item): item is string => Boolean(item));
-}
-
-function dedupeStrings(values: string[]): string[] {
-  const seen = new Set<string>();
-  const out: string[] = [];
-
-  for (const value of values) {
-    const key = value.trim().toLowerCase();
-    if (!key || seen.has(key)) continue;
-    seen.add(key);
-    out.push(value.trim());
-  }
-
-  return out;
-}
-
-function isObject(value: unknown): value is Record<string, unknown> {
-  return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
-}
-
-function normalizeImageCandidate(value: unknown): ProductImage | null {
-  if (typeof value === "string" && value.trim()) {
-    return { url: value.trim(), alt: 'Product image' };
-  }
-
-  if (!isObject(value)) return null;
-
-  const url =
-    asString(value.url) ??
-    asString(value.src) ??
-    asString(value.image) ??
-    asString(value.imageUrl) ??
-    asString(value.secure_url);
-
-  if (!url) return null;
-
-  return {
-    url,
-    alt:
-      asString(value.alt) ??
-      asString(value.label) ??
-      asString(value.caption) ??
-      'Product image',
-  };
-}
-
-function normalizeImages(value: unknown): ProductImage[] {
-  if (!Array.isArray(value)) return [];
-  const seen = new Set<string>();
-  const out: ProductImage[] = [];
-
-  for (const item of value) {
-    const normalized = normalizeImageCandidate(item);
-    if (!normalized) continue;
-    if (seen.has(normalized.url)) continue;
-    seen.add(normalized.url);
-    out.push(normalized);
-  }
-
-  return out;
-}
-
-function formatINR(paise: number | null): string {
-  if (paise == null || !Number.isFinite(paise)) return '—';
-  return new Intl.NumberFormat('en-IN', {
-    style: 'currency',
-    currency: 'INR',
-    maximumFractionDigits: 0,
-  }).format(paise / 100);
-}
-
-function isSaleLive(
-  salePrice: number | null,
-  saleStartAt: string | null,
-  saleEndAt: string | null,
-): boolean {
-  if (salePrice == null) return false;
-
-  const now = Date.now();
-  const startsAt = saleStartAt ? Date.parse(saleStartAt) : Number.NaN;
-  const endsAt = saleEndAt ? Date.parse(saleEndAt) : Number.NaN;
-
-  if (Number.isFinite(startsAt) && startsAt > now) return false;
-  if (Number.isFinite(endsAt) && endsAt < now) return false;
-
-  return true;
-}
-
-function effectivePrice(
-  mrp: number | null,
-  sellingPrice: number | null,
-  salePrice: number | null,
-  saleStartAt: string | null,
-  saleEndAt: string | null,
-): number | null {
-  if (isSaleLive(salePrice, saleStartAt, saleEndAt)) return salePrice;
-  if (sellingPrice != null) return sellingPrice;
-  return mrp;
-}
-
-function discountPct(
-  mrp: number | null,
-  sellingPrice: number | null,
-  salePrice: number | null,
-  saleStartAt: string | null,
-  saleEndAt: string | null,
-): number {
-  const base = mrp;
-  const current = effectivePrice(mrp, sellingPrice, salePrice, saleStartAt, saleEndAt);
-  if (base == null || current == null || base <= 0 || current >= base) return 0;
-  return Math.round(((base - current) / base) * 100);
-}
-
-function totalInventoryFromVariants(variants: VariantState[]): number {
-  return variants.reduce((sum, variant) => sum + Math.max(0, variant.inventory), 0);
-}
-
-function normalizeBreadcrumbs(
-  raw: unknown,
-  fallbackCategoryName: string | null,
-  fallbackCategorySlug: string | null,
-): Breadcrumb[] {
-  const breadcrumbs: Breadcrumb[] = [
-    { name: 'Home', href: '/' },
-    { name: 'Products', href: '/products' },
-  ];
-
-  if (Array.isArray(raw)) {
-    for (const item of raw) {
-      if (!isObject(item)) continue;
-      const name = asString(item.name) ?? asString(item.label);
-      const href =
-        asString(item.href) ??
-        asString(item.path) ??
-        (asString(item.slug) ? `/categories/${asString(item.slug)}` : null);
-
-      if (!name || !href) continue;
-      breadcrumbs.push({ name, href });
-    }
-  } else if (fallbackCategoryName && fallbackCategorySlug) {
-    breadcrumbs.push({
-      name: fallbackCategoryName,
-      href: `/categories/${fallbackCategorySlug}`,
-    });
-  }
-
-  return breadcrumbs;
-}
-
-function normalizeVariant(raw: unknown): VariantState | null {
-  if (!isObject(raw)) return null;
-
-  const id = asString(raw.id);
-  if (!id) return null;
-
-  const fallbackTitle = [asString(raw.color), asString(raw.size)]
-    .filter((value): value is string => Boolean(value))
-    .join(' / ');
-
-  const title =
-    asString(raw.title) ??
-    asString(raw.name) ??
-    (fallbackTitle || 'Variant');
-
-  return {
-    id,
-    sku: asString(raw.sku),
-    title,
-    color: asString(raw.color),
-    size: asString(raw.size),
-    images: normalizeImages(raw.images),
-    inventory:
-      asNumber(raw.inventory) ??
-      asNumber(raw.inventoryCount) ??
-      asNumber(raw.stock) ??
-      0,
-    mrp: asNumber(raw.mrp),
-    sellingPrice: asNumber(raw.sellingPrice),
-    salePrice: asNumber(raw.salePrice),
-    badges: dedupeStrings([
-      ...toStringArray(raw.badges),
-      ...toStringArray(raw.merchandisingBadges),
-    ]),
-  };
-}
-
-function normalizeVariants(raw: unknown): VariantState[] {
-  if (!Array.isArray(raw)) return [];
-  return raw
-    .map((item) => normalizeVariant(item))
-    .filter((item): item is VariantState => Boolean(item));
-}
-
-function normalizeProduct(raw: unknown): ProductState | null {
-  if (!isObject(raw)) return null;
-
-  const id = asString(raw.id);
-  const slug = asString(raw.slug);
-  const name = asString(raw.name);
-
-  if (!id || !slug || !name) return null;
-
-  const variants = normalizeVariants(raw.variants);
-  const productImages = normalizeImages(raw.images);
-  const variantImages = variants.flatMap((variant) => variant.images);
-
-  const combinedImages = [...productImages, ...variantImages].filter(
-    (image, index, arr) =>
-      arr.findIndex((candidate) => candidate.url === image.url) === index,
-  );
-
-  const inventoryFromProduct =
-    asNumber(raw.inventory) ??
-    asNumber(raw.inventoryCount) ??
-    asNumber(raw.stock) ??
-    null;
-
-  const visibleInventory =
-    asNumber(raw.visibleInventory) ??
-    asNumber(raw.stockVisibleQuantity) ??
-    inventoryFromProduct ??
-    totalInventoryFromVariants(variants);
-
-  const inventory =
-    inventoryFromProduct ??
-    totalInventoryFromVariants(variants);
-
-  const categoryName =
-    asString(raw.categoryName) ??
-    (isObject(raw.category) ? asString(raw.category.name) : null);
-
-  const categorySlug =
-    asString(raw.categorySlug) ??
-    (isObject(raw.category) ? asString(raw.category.slug) : null);
-
-  const craftStory =
-    asString(raw.craftStory) ??
-    asString(raw.story) ??
-    asString(raw.craftNotes);
-
-  const artisanStory =
-    asString(raw.artisanStory) ??
-    asString(raw.artisanNotes);
-
-  const careInstructions =
-    asString(raw.careInstructions) ??
-    asString(raw.care) ??
-    asString(raw.careGuide);
-
-  const deliveryInfo =
-    asString(raw.deliveryInfo) ??
-    asString(raw.delivery) ??
-    asString(raw.shippingInfo);
-
-  const storyTitle =
-    asString(raw.storyTitle) ??
-    asString(raw.editorialTitle);
-
-  const storyBody =
-    asString(raw.storyBody) ??
-    asString(raw.editorialStory) ??
-    asString(raw.longDescription);
-
-  const stockLabel =
-    asString(raw.stockLabel) ??
-    asString(raw.availabilityLabel);
-
-  const isInStock =
-    asBoolean(raw.isInStock) ||
-    asBoolean(raw.inStock) ||
-    visibleInventory > 0 ||
-    inventory > 0;
-
-  const lowStock =
-    asBoolean(raw.lowStock) ||
-    asBoolean(raw.isLowStock) ||
-    (visibleInventory > 0 && visibleInventory <= 3);
-
-  return {
-    id,
-    slug,
-    name,
-    subtitle: asString(raw.subtitle),
-    poeticLine: asString(raw.poeticLine),
-    description: asString(raw.description) ?? asString(raw.shortDescription),
-    shortDescription: asString(raw.shortDescription),
-    craft: asString(raw.craft),
-    region: asString(raw.region),
-    material: asString(raw.material),
-    categoryName,
-    categorySlug,
-    breadcrumbs: normalizeBreadcrumbs(raw.breadcrumbs, categoryName, categorySlug),
-    badges: dedupeStrings([
-      ...toStringArray(raw.badges),
-      ...toStringArray(raw.merchandisingBadges),
-    ]),
-    images: combinedImages,
-    inventory,
-    visibleInventory,
-    stockLabel,
-    stockVisibility: asString(raw.stockVisibility),
-    isInStock,
-    lowStock,
-    mrp: asNumber(raw.mrp),
-    sellingPrice: asNumber(raw.sellingPrice),
-    salePrice: asNumber(raw.salePrice),
-    saleStartAt: asString(raw.saleStartAt) ?? asString(raw.saleStartsAt),
-    saleEndAt: asString(raw.saleEndAt) ?? asString(raw.saleEndsAt),
-    aiTryOnEligible: asBoolean(raw.aiTryOnEligible),
-    arEnabled: asBoolean(raw.arEnabled) || asBoolean(raw.arTryOnEligible),
-    variants,
-    craftStory,
-    artisanStory,
-    careInstructions,
-    deliveryInfo,
-    storyTitle,
-    storyBody,
-  };
-}
-
-function normalizeResponse(raw: unknown): NormalizedResponse {
-  if (!isObject(raw)) {
-    return { product: null, relatedProducts: [], error: 'Invalid response' };
-  }
-
-  const product =
-    normalizeProduct(raw.product) ??
-    normalizeProduct(raw.data) ??
-    normalizeProduct(raw.item) ??
-    normalizeProduct(raw);
-
-  const relatedProducts = Array.isArray(raw.relatedProducts)
-    ? raw.relatedProducts
-    : Array.isArray(raw.related)
-      ? raw.related
-      : [];
-
-  const error = asString(raw.error);
-
-  return { product, relatedProducts, error };
-}
-
-function normalizeRecommendationProduct(raw: unknown): ProductCardData | null {
-  if (!isObject(raw)) return null;
-
-  const id = asString(raw.id);
-  const slug = asString(raw.slug);
-  const name = asString(raw.name);
-
-  if (!id || !slug || !name) return null;
-
-  const images = Array.isArray(raw.images)
-    ? raw.images
-        .map((item) => {
-          if (typeof item === 'string') return item.trim();
-          if (isObject(item)) return asString(item.url) ?? asString(item.src) ?? '';
-          return '';
-        })
-        .filter(Boolean)
-    : [];
-
-  return {
-    id,
-    slug,
-    name,
-    poeticLine: asString(raw.poeticLine),
-    craft: asString(raw.craft),
-    region: asString(raw.region),
-    mrp: asNumber(raw.mrp) ?? 0,
-    sellingPrice: asNumber(raw.sellingPrice) ?? asNumber(raw.mrp) ?? 0,
-    salePrice: asNumber(raw.salePrice),
-    saleStartsAt: asString(raw.saleStartsAt) ?? asString(raw.saleStartAt),
-    saleEndsAt: asString(raw.saleEndsAt) ?? asString(raw.saleEndAt),
-    images,
-    badges: toStringArray(raw.badges),
-    inventory: asNumber(raw.inventory) ?? undefined,
-    aiTryOnEligible: asBoolean(raw.aiTryOnEligible),
-  };
-}
-
-function normalizeRecommendationsResponse(raw: unknown): RecommendationsResponse {
-  if (!isObject(raw)) {
-    return { label: null, products: [] };
-  }
-
-  const label = asString(raw.label);
-  const products = Array.isArray(raw.products)
-    ? raw.products
-        .map((item) => normalizeRecommendationProduct(item))
-        .filter((item): item is ProductCardData => Boolean(item))
-    : [];
-
-  return { label, products };
-}
-
-function LoadingState() {
-  return (
-    <div className="min-h-screen bg-stone-50">
-      <div className="mx-auto max-w-7xl px-6 py-10 lg:px-10">
-        <div className="h-5 w-48 animate-pulse rounded bg-stone-200" />
-        <div className="mt-8 grid gap-8 lg:grid-cols-[1.1fr_0.9fr]">
-          <div className="aspect-[4/5] animate-pulse rounded-3xl bg-stone-200" />
-          <div className="space-y-4">
-            <div className="h-4 w-24 animate-pulse rounded bg-stone-200" />
-            <div className="h-10 w-3/4 animate-pulse rounded bg-stone-200" />
-            <div className="h-6 w-40 animate-pulse rounded bg-stone-200" />
-            <div className="h-24 w-full animate-pulse rounded bg-stone-200" />
-            <div className="h-12 w-full animate-pulse rounded bg-stone-200" />
-            <div className="h-12 w-full animate-pulse rounded bg-stone-200" />
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function EmptyState({ message }: { message: string }) {
-  return (
-    <div className="min-h-screen bg-stone-50">
-      <div className="mx-auto max-w-3xl px-6 py-16 text-center lg:px-10">
-        <p className="text-sm font-medium uppercase tracking-[0.28em] text-stone-500">
-          Product
-        </p>
-        <h1 className="mt-4 text-3xl font-semibold tracking-tight text-stone-900">
-          Unable to load product
-        </h1>
-        <p className="mt-4 text-base text-stone-600">{message}</p>
-        <div className="mt-8 flex items-center justify-center gap-3">
-          <Link
-            href="/products"
-            className="rounded-full bg-stone-900 px-5 py-3 text-sm font-medium text-white transition hover:bg-stone-800"
-          >
-            Back to products
-          </Link>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function DetailSection({
-  title,
-  content,
-}: {
-  title: string;
-  content: string | null;
-}) {
-  if (!content) return null;
-
-  return (
-    <section className="rounded-3xl border border-stone-200 bg-white p-6">
-      <h2 className="text-lg font-semibold text-stone-900">{title}</h2>
-      <p className="mt-3 whitespace-pre-line text-sm leading-7 text-stone-700">
-        {content}
-      </p>
-    </section>
-  );
-}
-
 function PDPInner() {
-  const params = useParams<{ slug: string }>();
-  const slug = Array.isArray(params?.slug) ? params.slug[0] : params?.slug;
+  const params = useParams();
+  const router = useRouter();
+  const slug = params?.slug as string;
+  const { addItem } = useCart();
 
-  const [product, setProduct] = useState<ProductState | null>(null);
+  const [product, setProduct] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [activeImage, setActiveImage] = useState<string | null>(null);
-  const [selectedVariantId, setSelectedVariantId] = useState<string | null>(null);
-  const [quantity, setQuantity] = useState(1);
-
-  const [recommendationLabel, setRecommendationLabel] = useState<string | null>(null);
-  const [recommendationProducts, setRecommendationProducts] = useState<ProductCardData[]>([]);
-  const [recommendationsLoading, setRecommendationsLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [activeImage, setActiveImage] = useState(0);
+  const [activeVariant, setActiveVariant] = useState<any>(null);
+  const [qty, setQty] = useState(1);
+  const [added, setAdded] = useState(false);
+  const [openTab, setOpenTab] = useState<string>('craft');
+  const [inWishlist, setInWishlist] = useState(false);
+  const [wishlistBusy, setWishlistBusy] = useState(false);
+  const [wishlistMessage, setWishlistMessage] = useState('');
 
   useEffect(() => {
-    let cancelled = false;
-
-    async function load() {
-      if (!slug) return;
-
-      setLoading(true);
-      setError(null);
-
-      try {
-        const response = await fetch(`/api/products/${encodeURIComponent(slug)}`, {
-          cache: 'no-store',
-        });
-
-        const json = await response.json().catch(() => null);
-        const normalized = normalizeResponse(json);
-
-        if (!response.ok) {
-          throw new Error(normalized.error ?? 'Failed to load product');
-        }
-
-        if (!cancelled) {
-          setProduct(normalized.product);
-          setSelectedVariantId(null);
-        }
-      } catch (err) {
-        if (!cancelled) {
-          setProduct(null);
-          setError(err instanceof Error ? err.message : 'Failed to load product');
-        }
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    }
-
-    void load();
-
-    return () => {
-      cancelled = true;
-    };
+    if (!slug) return;
+    setLoading(true); setError('');
+    fetch(`/api/products/${slug}`)
+      .then(r => r.json())
+      .then(d => {
+        if (d.error) { setError(d.error); return; }
+        setProduct(d.product);
+        const firstInStock = d.product.variants?.find((v: any) => v.inStock) || d.product.variants?.[0];
+        setActiveVariant(firstInStock);
+        track({ type: 'PRODUCT_VIEW', productId: d.product.id, value: d.product.sellingPrice });
+      })
+      .catch(e => setError(e.message))
+      .finally(() => setLoading(false));
   }, [slug]);
 
   useEffect(() => {
+    if (!product?.id) return;
     let cancelled = false;
-
-    async function loadRecommendations() {
-      if (!product?.id) {
-        setRecommendationLabel(null);
-        setRecommendationProducts([]);
-        return;
-      }
-
-      setRecommendationsLoading(true);
-
-      try {
-        const response = await fetch(
-          `/api/recommendations?productId=${encodeURIComponent(product.id)}&limit=4`,
-          { cache: 'no-store' },
-        );
-
-        const json = await response.json().catch(() => null);
-        const normalized = normalizeRecommendationsResponse(json);
-
-        if (!cancelled) {
-          setRecommendationLabel(normalized.label);
-          setRecommendationProducts(
-            normalized.products.filter((item) => item.id !== product.id),
-          );
-        }
-      } catch {
-        if (!cancelled) {
-          setRecommendationLabel(null);
-          setRecommendationProducts([]);
-        }
-      } finally {
-        if (!cancelled) setRecommendationsLoading(false);
-      }
-    }
-
-    void loadRecommendations();
-
-    return () => {
-      cancelled = true;
-    };
+    fetch('/api/wishlist', { credentials: 'include', cache: 'no-store' })
+      .then(r => r.ok ? r.json() : null)
+      .then(d => {
+        if (cancelled || !d?.loggedIn) return;
+        const ids = Array.isArray(d.productIds) ? d.productIds : [];
+        setInWishlist(ids.includes(product.id));
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
   }, [product?.id]);
 
-  const selectedVariant = useMemo(() => {
-    if (!product?.variants.length) return null;
-    if (selectedVariantId) {
-      return product.variants.find((variant) => variant.id === selectedVariantId) ?? null;
+  if (loading) return <><Header /><div className="max-w-8xl mx-auto px-6 py-20 text-mitti">Loading...</div><Footer /></>;
+  if (error || !product) return <><Header /><div className="max-w-8xl mx-auto px-6 py-20"><p className="font-display text-2xl">Product not found.</p><Link href="/" className="btn-outline mt-6">BACK HOME</Link></div><Footer /></>;
+
+  const eff = effectivePricePaise(product.sellingPrice, product.salePrice, product.saleStartsAt, product.saleEndsAt);
+  const dp = discountPct(product.mrp, eff.price);
+  const inStock = (activeVariant?.inventory ?? product.totalInventory) > 0;
+  const stockLeft = activeVariant?.inventory ?? product.totalInventory;
+
+  const handleAdd = () => {
+    addItem({
+      id: product.id,
+      slug: product.slug,
+      name: product.name,
+      sellingPrice: eff.price,
+      mrp: product.mrp,
+      images: product.images,
+      inventory: stockLeft,
+      variantId: activeVariant?.id,
+      variantLabel: [activeVariant?.size, activeVariant?.color].filter(Boolean).join(' · ') || null,
+    } as any, qty);
+    setAdded(true);
+    setTimeout(() => setAdded(false), 2000);
+  };
+
+  const handleBuyNow = () => { handleAdd(); router.push('/cart'); };
+
+  const handleWishlist = async () => {
+    if (wishlistBusy) return;
+    setWishlistBusy(true);
+    setWishlistMessage('');
+    try {
+      const response = await fetch('/api/wishlist', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ productId: product.id }),
+      });
+      if (response.status === 401) {
+        router.push(`/login?next=${encodeURIComponent(`/products/${product.slug}`)}`);
+        return;
+      }
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || 'Unable to update wishlist');
+      setInWishlist(!!data.inWishlist);
+      setWishlistMessage(data.inWishlist ? 'Saved personally.' : 'Removed from your saved pieces.');
+      setTimeout(() => setWishlistMessage(''), 2200);
+    } catch {
+      setWishlistMessage('Could not update your wishlist. Please try again.');
+    } finally {
+      setWishlistBusy(false);
     }
-    return product.variants.find((variant) => variant.inventory > 0) ?? product.variants[0] ?? null;
-  }, [product, selectedVariantId]);
+  };
 
-  const gallery = useMemo(() => {
-    const variantImages = selectedVariant?.images ?? [];
-    const combined = [...variantImages, ...(product?.images ?? [])];
-    return combined.filter(
-      (image, index, arr) =>
-        arr.findIndex((candidate) => candidate.url === image.url) === index,
-    );
-  }, [product, selectedVariant]);
+  const TABS = [
+    { id: 'craft', label: 'CRAFT STORY', body: product.story || product.description },
+    { id: 'artisan', label: 'ARTISAN', body: product.artisanName
+      ? `${product.artisanName} · ${product.region}${product.cluster ? ', ' + product.cluster : ''}. ${product.craftNote || ''}`
+      : (product.craftNote || product.seller?.businessName || 'Crafted by NEEJEE-verified makers.')
+    },
+    { id: 'care', label: 'CARE', body: product.careInstructions || 'Care guidance will be confirmed with your piece.' },
+    { id: 'delivery', label: 'DELIVERY & RETURNS', body: [
+      product.deliveryInfo || 'Delivery timing is confirmed at checkout.',
+      product.returnPolicy || (product.returnEligible ? 'Eligible for return under the NEEJEE returns policy.' : 'Please review the product-specific return terms before purchase.'),
+    ].filter(Boolean).join(' ') },
+  ];
 
-  useEffect(() => {
-    setActiveImage(gallery[0]?.url ?? null);
-  }, [gallery]);
+  const variants = Array.isArray(product.variants) ? product.variants : [];
+  const sizes = Array.from(new Set(variants.map((v: any) => v.size).filter(Boolean)));
+  const colors = Array.from(new Set(variants.map((v: any) => v.color).filter(Boolean)));
 
-  const displayPrice = useMemo(() => {
-    const mrp = selectedVariant?.mrp ?? product?.mrp ?? null;
-    const sellingPrice = selectedVariant?.sellingPrice ?? product?.sellingPrice ?? null;
-    const salePrice = selectedVariant?.salePrice ?? product?.salePrice ?? null;
-    const saleStartAt = product?.saleStartAt ?? null;
-    const saleEndAt = product?.saleEndAt ?? null;
-
-    return {
-      mrp,
-      sellingPrice,
-      salePrice,
-      effective: effectivePrice(mrp, sellingPrice, salePrice, saleStartAt, saleEndAt),
-      onSale: isSaleLive(salePrice, saleStartAt, saleEndAt),
-      discount: discountPct(mrp, sellingPrice, salePrice, saleStartAt, saleEndAt),
-    };
-  }, [product, selectedVariant]);
-
-  const visibleInventory = selectedVariant?.inventory ?? product?.visibleInventory ?? 0;
-  const isInStock = selectedVariant ? selectedVariant.inventory > 0 : (product?.isInStock ?? false);
-  const lowStock = selectedVariant
-    ? selectedVariant.inventory > 0 && selectedVariant.inventory <= 3
-    : (product?.lowStock ?? false);
-
-  if (loading) return <LoadingState />;
-  if (error) return <EmptyState message={error} />;
-  if (!product) return <EmptyState message="This product could not be found." />;
-
-  const primaryImage = activeImage ?? gallery[0]?.url ?? null;
-  const badges = dedupeStrings([
-    ...(product.badges || []),
-    ...(selectedVariant?.badges || []),
-    ...(displayPrice.onSale ? ['On Sale'] : []),
-    ...(lowStock ? ['Low Stock'] : []),
-    ...(!isInStock ? ['Sold Out'] : []),
-  ]);
+  const galleryImages: string[] =
+    Array.isArray(activeVariant?.images) && activeVariant.images.length > 0
+      ? activeVariant.images
+      : (Array.isArray(product.images) ? product.images : []);
 
   return (
-    <div className="min-h-screen bg-stone-50 text-stone-900">
-      <div className="mx-auto max-w-7xl px-6 py-8 lg:px-10 lg:py-10">
-        <nav className="flex flex-wrap items-center gap-2 text-sm text-stone-500">
-          {product.breadcrumbs.map((crumb, index) => (
-            <span key={`${crumb.href}-${index}`} className="flex items-center gap-2">
-              {index > 0 ? <span>/</span> : null}
-              <Link href={crumb.href} className="transition hover:text-stone-900">
-                {crumb.name}
-              </Link>
-            </span>
-          ))}
-          <span>/</span>
-          <span className="text-stone-900">{product.name}</span>
-        </nav>
+    <>
+      <Header />
 
-        <section className="mt-8 grid gap-10 lg:grid-cols-[1.1fr_0.9fr]">
-          <div>
-            <div className="overflow-hidden rounded-[28px] border border-stone-200 bg-white">
-              {primaryImage ? (
-                <img
-                  src={primaryImage}
-                  alt={product.name}
-                  className="aspect-[4/5] w-full object-cover"
-                />
-              ) : (
-                <div className="flex aspect-[4/5] items-center justify-center bg-stone-100 text-sm text-stone-500">
-                  No image available
-                </div>
-              )}
-            </div>
+      <nav className="max-w-8xl mx-auto px-6 lg:px-12 pt-6 font-ui text-xs tracking-widest text-mitti">
+        <Link href="/" className="hover:text-madder">HOME</Link> ·
+        {product.category && <> <Link href={`/categories/${product.category.path || product.category.slug}`} className="hover:text-madder"> {product.category.name.toUpperCase()}</Link> · </>}
+        <span> {product.name.toUpperCase()}</span>
+      </nav>
 
-            {gallery.length > 1 ? (
-              <div className="mt-4 grid grid-cols-5 gap-3">
-                {gallery.map((image) => (
-                  <button
-                    key={image.url}
-                    type="button"
-                    onClick={() => setActiveImage(image.url)}
-                    className={`overflow-hidden rounded-2xl border bg-white ${
-                      activeImage === image.url
-                        ? 'border-stone-900 ring-1 ring-stone-900'
-                        : 'border-stone-200'
-                    }`}
-                  >
-                    <img
-                      src={image.url}
-                      alt={image.alt}
-                      className="aspect-square w-full object-cover"
-                    />
-                  </button>
-                ))}
-              </div>
-            ) : null}
+      <article className="max-w-8xl mx-auto px-6 lg:px-12 py-8 grid lg:grid-cols-2 gap-12">
+        <section>
+          <div className="aspect-[4/5] bg-beige relative overflow-hidden">
+            {galleryImages?.[activeImage] ? (
+              <Image src={galleryImages[activeImage]} alt={product.name} fill priority sizes="(min-width:1024px) 50vw, 100vw" className="object-cover" />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center text-mitti italic">No image</div>
+            )}
+            {eff.onSale && (
+              <span className="absolute top-4 left-4 badge-founder">ON SALE · -{dp}%</span>
+            )}
+            {product.aiTryOnEligible && (
+              <span className="absolute top-4 right-4 bg-kohl/80 text-ivory text-[10px] px-3 py-1 font-ui tracking-widest">✦ MIRROR ELIGIBLE</span>
+            )}
+            {product.aiRoomEligible && (
+              <span className={`absolute ${product.aiTryOnEligible ? 'top-12' : 'top-4'} right-4 bg-mitti/90 text-ivory text-[10px] px-3 py-1 font-ui tracking-widest`}>✦ SPACE ELIGIBLE</span>
+            )}
+            {product.arTryOnEligible && (
+              <span className="absolute top-20 right-4 bg-madder/85 text-ivory text-[10px] px-3 py-1 font-ui tracking-widest">✦ AR TRY-ON</span>
+            )}
           </div>
-
-          <div>
-            <div className="flex flex-wrap gap-2">
-              {badges.map((badge) => (
-                <span
-                  key={badge}
-                  className="rounded-full border border-stone-300 bg-white px-3 py-1 text-xs font-medium uppercase tracking-[0.16em] text-stone-700"
-                >
-                  {badge}
-                </span>
+          {galleryImages?.length > 1 && (
+            <div className="grid grid-cols-5 gap-2 mt-2">
+              {galleryImages.slice(0, 5).map((img: string, i: number) => (
+                <button key={i} onClick={() => setActiveImage(i)}
+                  className={`aspect-square overflow-hidden bg-beige ${activeImage === i ? 'ring-2 ring-madder' : ''}`}>
+                  <Image src={img} alt={`View ${i + 1}`} width={150} height={150} className="w-full h-full object-cover" />
+                </button>
               ))}
-              {product.aiTryOnEligible ? (
-                <span className="rounded-full border border-emerald-300 bg-emerald-50 px-3 py-1 text-xs font-medium uppercase tracking-[0.16em] text-emerald-700">
-                  Mirror
-                </span>
-              ) : null}
-              {product.arEnabled ? (
-                <span className="rounded-full border border-sky-300 bg-sky-50 px-3 py-1 text-xs font-medium uppercase tracking-[0.16em] text-sky-700">
-                  AR
-                </span>
-              ) : null}
             </div>
+          )}
+        </section>
 
-            <div className="mt-5">
-              {product.craft || product.region ? (
-                <p className="text-sm uppercase tracking-[0.24em] text-stone-500">
-                  {[product.craft, product.region].filter(Boolean).join(' · ')}
-                </p>
-              ) : null}
+        <section>
+          {product.badges && product.badges.length > 0 && (
+            <BadgeRow badges={product.badges} size="md" className="mb-4" />
+          )}
+          <h1 className="font-display text-4xl lg:text-5xl text-kohl mt-4">{product.name}</h1>
+          {product.poeticLine && (
+            <p className="font-italic italic text-mitti text-lg mt-2">{product.poeticLine}</p>
+          )}
 
-              <h1 className="mt-2 text-4xl font-semibold tracking-tight text-stone-900">
-                {product.name}
-              </h1>
+          {fulfilmentStatusLine(product) && (
+            <p className="font-display text-lg text-madder mt-3 tracking-wide">
+              {fulfilmentStatusLine(product)}
+            </p>
+          )}
 
-              {product.poeticLine ? (
-                <p className="mt-3 text-lg text-stone-600">{product.poeticLine}</p>
-              ) : null}
+          <div className="mt-6 flex items-baseline gap-3 flex-wrap">
+            <span className={`font-display text-3xl ${eff.onSale ? 'text-madder' : 'text-kohl'}`}>{formatINR(eff.price)}</span>
+            {eff.onSale && <span className="font-ui text-mitti line-through">{formatINR(product.sellingPrice)}</span>}
+            {!eff.onSale && product.mrp > product.sellingPrice && (
+              <span className="font-ui text-mitti line-through">{formatINR(product.mrp)}</span>
+            )}
+            {dp > 0 && <span className="font-ui text-sm text-madder">-{dp}% off</span>}
+          </div>
+          <p className="font-ui text-xs text-mitti mt-1">Inclusive of all taxes</p>
 
-              {product.subtitle ? (
-                <p className="mt-2 text-base text-stone-600">{product.subtitle}</p>
-              ) : null}
-            </div>
-
-            <div className="mt-6 rounded-3xl border border-stone-200 bg-white p-5">
-              <div className="flex flex-wrap items-end gap-3">
-                <span className="text-3xl font-semibold text-stone-900">
-                  {formatINR(displayPrice.effective)}
-                </span>
-
-                {displayPrice.mrp != null &&
-                displayPrice.effective != null &&
-                displayPrice.mrp > displayPrice.effective ? (
-                  <>
-                    <span className="text-lg text-stone-400 line-through">
-                      {formatINR(displayPrice.mrp)}
-                    </span>
-                    <span className="rounded-full bg-rose-50 px-3 py-1 text-sm font-medium text-rose-700">
-                      Save {displayPrice.discount}%
-                    </span>
-                  </>
-                ) : null}
+          {colors.length > 0 && (
+            <div className="mt-8">
+              <p className="label text-mitti mb-3">COLOR · {(activeVariant?.color || '').toUpperCase()}</p>
+              <div className="flex gap-2 flex-wrap items-center">
+                {colors.map((c: any) => {
+                  const variant = variants.find((v: any) => v.color === c);
+                  const hex = variant?.colorHex;
+                  return (
+                    <button key={c} onClick={() => { setActiveVariant(variant); setActiveImage(0); }}
+                      className={`flex items-center gap-2 px-4 py-2 font-ui text-xs tracking-widest border transition-colors ${activeVariant?.color === c ? 'border-madder bg-madder text-ivory' : 'border-mitti/30 text-kohl hover:border-kohl'}`}>
+                      {hex && (
+                        <span className="inline-block w-3 h-3 rounded-full border border-mitti/30" style={{ backgroundColor: hex }} aria-hidden />
+                      )}
+                      {c}
+                    </button>
+                  );
+                })}
               </div>
-
-              {product.stockLabel ? (
-                <p className="mt-4 text-sm font-medium text-stone-700">{product.stockLabel}</p>
-              ) : (
-                <p className="mt-4 text-sm font-medium text-stone-700">
-                  {!isInStock
-                    ? 'Currently unavailable'
-                    : lowStock
-                      ? `Only ${visibleInventory} left`
-                      : 'Available'}
-                </p>
-              )}
-
-              {product.description || product.shortDescription ? (
-                <p className="mt-4 text-sm leading-7 text-stone-600">
-                  {product.shortDescription ?? product.description}
-                </p>
-              ) : null}
             </div>
+          )}
 
-            {product.variants.length ? (
-              <div className="mt-6 rounded-3xl border border-stone-200 bg-white p-5">
-                <p className="text-sm font-semibold uppercase tracking-[0.18em] text-stone-500">
-                  Variants
-                </p>
-                <div className="mt-4 flex flex-wrap gap-3">
-                  {product.variants.map((variant) => {
-                    const label =
-                      variant.title ||
-                      [variant.color, variant.size].filter(Boolean).join(' / ') ||
-                      'Variant';
-
-                    const active = selectedVariant?.id === variant.id;
-
-                    return (
-                      <button
-                        key={variant.id}
-                        type="button"
-                        onClick={() => setSelectedVariantId(variant.id)}
-                        className={`rounded-2xl border px-4 py-3 text-left text-sm transition ${
-                          active
-                            ? 'border-stone-900 bg-stone-900 text-white'
-                            : 'border-stone-300 bg-white text-stone-800 hover:border-stone-500'
-                        }`}
-                      >
-                        <div className="font-medium">{label}</div>
-                        <div className={`mt-1 text-xs ${active ? 'text-stone-200' : 'text-stone-500'}`}>
-                          {variant.inventory > 0 ? `${variant.inventory} available` : 'Sold out'}
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
+          {sizes.length > 0 && (
+            <div className="mt-6">
+              <p className="label text-mitti mb-3">SIZE · {(activeVariant?.size || 'FREE SIZE').toUpperCase()}</p>
+              <div className="flex gap-2 flex-wrap">
+                {sizes.map((s: any) => {
+                  const variant = variants.find((v: any) => v.size === s && (!activeVariant?.color || v.color === activeVariant.color));
+                  return (
+                    <button key={s} onClick={() => { if (variant) { setActiveVariant(variant); setActiveImage(0); } }}
+                      disabled={!variant || variant.inventory === 0}
+                      className={`px-4 py-2 font-ui text-xs tracking-widest border transition-colors ${activeVariant?.id === variant?.id ? 'border-madder bg-madder text-ivory' : 'border-mitti/30 text-kohl hover:border-kohl'} disabled:opacity-30 disabled:line-through`}>
+                      {s}
+                    </button>
+                  );
+                })}
               </div>
-            ) : null}
+            </div>
+          )}
 
-            <div className="mt-6 rounded-3xl border border-stone-200 bg-white p-5">
-              <p className="text-sm font-semibold uppercase tracking-[0.18em] text-stone-500">
-                Quantity
+          <div className="mt-8 space-y-3">
+            <div className="flex items-center gap-4">
+              <div className="flex items-center border border-mitti/20">
+                <button onClick={() => setQty(Math.max(1, qty - 1))} className="p-3 hover:bg-beige" aria-label="Decrease">
+                  <Minus className="w-3 h-3" />
+                </button>
+                <span className="px-6 font-ui text-sm w-12 text-center">{qty}</span>
+                <button onClick={() => setQty(Math.min(stockLeft || 10, qty + 1))} className="p-3 hover:bg-beige" aria-label="Increase">
+                  <Plus className="w-3 h-3" />
+                </button>
+              </div>
+              <p className="font-italic italic text-mitti text-sm">
+                {fulfilmentStatusLine(product)
+                  ? null
+                  : (inStock
+                      ? (stockLeft <= 3 ? `Only ${stockLeft} left · found personally` : 'Ready to ship')
+                      : 'Sold out')}
               </p>
+            </div>
 
-              <div className="mt-4 flex items-center gap-3">
-                <button
-                  type="button"
-                  onClick={() => setQuantity((value) => Math.max(1, value - 1))}
-                  className="h-10 w-10 rounded-full border border-stone-300 bg-white text-lg"
-                >
-                  −
+            {isPreorder(product) && (
+              <div className="mb-3 p-3 bg-beige/40 border border-mitti/20 text-xs text-mitti">
+                Deposit today: <strong className="text-madder">{formatINR(checkoutPaise(product))}</strong>
+                {' '}· Balance billed when piece is ready.
+              </div>
+            )}
+
+            {isSoldOut(product) ? (
+              <WaitlistSignup productId={product.id} productName={product.name} source="pdp" />
+            ) : (
+              <div className="flex gap-3">
+                <button onClick={handleAdd} disabled={!inStock || added}
+                  className="btn-primary flex-1 disabled:opacity-50 flex items-center justify-center gap-2">
+                  {added ? (<><Check className="w-4 h-4" /> ADDED TO TRUNK</>) : buyCtaLabel(product).toUpperCase()}
                 </button>
-                <div className="min-w-12 text-center text-base font-medium">{quantity}</div>
-                <button
-                  type="button"
-                  onClick={() => setQuantity((value) => value + 1)}
-                  className="h-10 w-10 rounded-full border border-stone-300 bg-white text-lg"
-                >
-                  +
+                <button onClick={handleBuyNow} disabled={!inStock} className="btn-outline flex-1 disabled:opacity-50">
+                  {isPreorder(product) ? 'RESERVE NOW' : 'BUY NOW'}
                 </button>
               </div>
+            )}
 
-              <div className="mt-6 grid gap-3 sm:grid-cols-2">
-                <button
-                  type="button"
-                  disabled={!isInStock}
-                  className="rounded-full bg-stone-900 px-5 py-3 text-sm font-medium text-white transition hover:bg-stone-800 disabled:cursor-not-allowed disabled:bg-stone-300"
-                >
-                  {isInStock ? 'Add to Cart' : 'Sold Out'}
-                </button>
-                <button
-                  type="button"
-                  className="rounded-full border border-stone-300 bg-white px-5 py-3 text-sm font-medium text-stone-900 transition hover:border-stone-500"
-                >
-                  Save to Wishlist
-                </button>
-              </div>
+            <button
+              type="button"
+              onClick={handleWishlist}
+              disabled={wishlistBusy}
+              aria-pressed={inWishlist}
+              className={`w-full mt-2 font-ui text-xs tracking-widest flex items-center justify-center gap-2 transition-colors ${inWishlist ? 'text-madder' : 'text-mitti hover:text-madder'} disabled:opacity-50`}
+            >
+              <Heart className={`w-4 h-4 ${inWishlist ? 'fill-current' : ''}`} />
+              {wishlistBusy ? 'SAVING…' : inWishlist ? 'SAVED TO WISHLIST' : 'ADD TO WISHLIST'}
+            </button>
+            {wishlistMessage && <p className="text-center font-italic italic text-xs text-mitti">{wishlistMessage}</p>}
+          </div>
 
-              {product.material || product.categoryName || product.stockVisibility ? (
-                <dl className="mt-6 grid gap-3 text-sm text-stone-600">
-                  {product.material ? (
-                    <div className="flex justify-between gap-4">
-                      <dt className="text-stone-500">Material</dt>
-                      <dd className="font-medium text-stone-900">{product.material}</dd>
-                    </div>
-                  ) : null}
-                  {product.categoryName ? (
-                    <div className="flex justify-between gap-4">
-                      <dt className="text-stone-500">Category</dt>
-                      <dd className="font-medium text-stone-900">{product.categoryName}</dd>
-                    </div>
-                  ) : null}
-                  {product.stockVisibility ? (
-                    <div className="flex justify-between gap-4">
-                      <dt className="text-stone-500">Stock visibility</dt>
-                      <dd className="font-medium text-stone-900">{product.stockVisibility}</dd>
-                    </div>
-                  ) : null}
-                </dl>
-              ) : null}
+          <div className="mt-8 pt-6 border-t border-mitti/15 grid grid-cols-3 gap-4 text-center">
+            <div>
+              <Truck className="w-5 h-5 mx-auto text-madder" />
+              <p className="font-ui text-[10px] tracking-widest text-kohl mt-2">DELIVERY</p>
+              <p className="font-italic italic text-mitti text-xs">Calculated at checkout</p>
+            </div>
+            <div>
+              <RotateCcw className="w-5 h-5 mx-auto text-madder" />
+              <p className="font-ui text-[10px] tracking-widest text-kohl mt-2">RETURNS</p>
+              <p className="font-italic italic text-mitti text-xs">
+                {product.returnEligible ? (product.returnPolicy || 'Eligible') : (product.returnPolicy || 'Product-specific')}
+              </p>
+            </div>
+            <div>
+              <ShieldCheck className="w-5 h-5 mx-auto text-madder" />
+              <p className="font-ui text-[10px] tracking-widest text-kohl mt-2">AUTHENTICITY</p>
+              <p className="font-italic italic text-mitti text-xs">NEEJEE verified</p>
             </div>
           </div>
-        </section>
 
-        <section className="mt-10 grid gap-6 lg:grid-cols-2">
-          <DetailSection
-            title={product.storyTitle ?? 'Craft story'}
-            content={product.storyBody ?? product.craftStory}
-          />
-          <DetailSection title="Artisan notes" content={product.artisanStory} />
-          <DetailSection title="Care instructions" content={product.careInstructions} />
-          <DetailSection title="Delivery & fulfilment" content={product.deliveryInfo} />
-        </section>
-
-        {!recommendationsLoading && recommendationProducts.length > 0 ? (
-          <section className="mt-12">
-            <div className="flex items-end justify-between gap-4">
-              <div>
-                <p className="text-sm font-medium uppercase tracking-[0.24em] text-stone-500">
-                  Recommendations
-                </p>
-                <h2 className="mt-2 text-2xl font-semibold tracking-tight text-stone-900">
-                  {recommendationLabel ?? 'Complete the look'}
-                </h2>
+          {product.aiTryOnEligible && (
+            <Link href={`/ai/mirror?product=${product.id}`}
+              className="mt-6 block bg-kohl text-ivory p-5 hover:bg-mitti transition-colors">
+              <div className="flex items-center gap-3">
+                <Sparkles className="w-5 h-5 text-banarasi" />
+                <div>
+                  <p className="font-ui text-[10px] tracking-widest text-banarasi">THE NEEJEE MIRROR</p>
+                  <p className="font-display text-lg">See how it may live on you</p>
+                  <p className="font-italic italic text-xs text-ivory/70 mt-1">Preview the mood, personally rendered.</p>
+                </div>
               </div>
-            </div>
+            </Link>
+          )}
 
-            <div className="mt-6 grid grid-cols-2 gap-5 lg:grid-cols-4">
-              {recommendationProducts.map((item) => (
-                <ProductCard key={item.id} product={item} />
-              ))}
-            </div>
-          </section>
-        ) : null}
-      </div>
-    </div>
+          {product.aiRoomEligible && (
+            <Link href={`/ai/space?product=${product.id}`}
+              className="mt-3 block bg-mitti text-ivory p-5 hover:bg-kohl transition-colors">
+              <div className="flex items-center gap-3">
+                <Home className="w-5 h-5 text-banarasi" />
+                <div>
+                  <p className="font-ui text-[10px] tracking-widest text-banarasi">THE NEEJEE SPACE</p>
+                  <p className="font-display text-lg">Place it personally</p>
+                  <p className="font-italic italic text-xs text-ivory/70 mt-1">See this piece within your own room.</p>
+                </div>
+              </div>
+            </Link>
+          )}
+
+          {product.arTryOnEligible && (
+            <Link href={`/ai/tryon?product=${product.id}`}
+              className="mt-3 block bg-madder text-ivory p-5 hover:bg-kohl transition-colors">
+              <div className="flex items-center gap-3">
+                <Sparkles className="w-5 h-5 text-banarasi" />
+                <div>
+                  <p className="font-ui text-[10px] tracking-widest text-banarasi">AR TRY-ON</p>
+                  <p className="font-display text-lg">See this piece on you</p>
+                </div>
+              </div>
+            </Link>
+          )}
+
+          <div className="mt-10 border-t border-mitti/15">
+            {TABS.map(t => (
+              <div key={t.id} className="border-b border-mitti/15">
+                <button onClick={() => setOpenTab(openTab === t.id ? '' : t.id)}
+                  className="w-full flex items-center justify-between py-4 text-left">
+                  <span className="label text-kohl">{t.label}</span>
+                  <ChevronDown className={`w-4 h-4 transition-transform ${openTab === t.id ? 'rotate-180' : ''}`} />
+                </button>
+                {openTab === t.id && (
+                  <div className="pb-5 font-body text-kohl/85 text-sm">
+                    {t.body}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </section>
+      </article>
+
+      <CompleteTheLook productId={product.id} limit={4} />
+
+      <section className="max-w-8xl mx-auto px-6 lg:px-12 pb-20">
+        <ReviewsSection productSlug={product.slug} />
+      </section>
+
+      <Footer />
+    </>
   );
 }
 
-export default function ProductDetailPage() {
+export default function PDPPage() {
   return (
-    <Suspense fallback={<LoadingState />}>
+    <Suspense fallback={<div className="p-12 text-mitti">Loading...</div>}>
       <PDPInner />
     </Suspense>
   );

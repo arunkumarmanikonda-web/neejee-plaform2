@@ -1,26 +1,70 @@
-// Supabase Storage helper — uses service role key for server-side uploads
-// Bucket: 'neejee-media' (must exist in Supabase, public read)
+// Supabase Storage helper.
+// Public catalogue/admin media stays in `neejee-media` for CDN delivery.
+// Customer AI portraits/room photos live in a separate private bucket.
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || '';
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
-const BUCKET = process.env.SUPABASE_STORAGE_BUCKET || 'neejee-media';
+export const PUBLIC_STORAGE_BUCKET = process.env.SUPABASE_STORAGE_BUCKET || 'neejee-media';
+export const PRIVATE_AI_STORAGE_BUCKET = process.env.SUPABASE_PRIVATE_AI_BUCKET || 'neejee-private-ai';
+const PRIVATE_MARKER = 'private-ai:';
 
-/** Get public URL for a stored file path. */
-export function publicUrl(filePath: string): string {
-  if (!SUPABASE_URL) return filePath;
-  return `${SUPABASE_URL}/storage/v1/object/public/${BUCKET}/${filePath}`;
+function safeObjectPath(value: string): string | null {
+  const decoded = String(value || '').trim().replace(/^\/+/, '');
+  if (!decoded || decoded.includes('..') || decoded.includes('\\') || decoded.includes('\0')) return null;
+  return decoded;
 }
 
-/** Upload binary file to Supabase Storage. Returns public URL. */
-export async function uploadFile(
+/** Get public URL for a stored public-media file path. */
+export function publicUrl(filePath: string, bucket = PUBLIC_STORAGE_BUCKET): string {
+  if (!SUPABASE_URL) return filePath;
+  return `${SUPABASE_URL}/storage/v1/object/public/${encodeURIComponent(bucket)}/${filePath}`;
+}
+
+/**
+ * Return a deletion reference for locally stored media.
+ * Historical/public URLs return the plain path. Private AI proxy URLs return
+ * a `private-ai:` marker consumed only by deleteFile().
+ */
+export function storagePathFromPublicUrl(value: string | null | undefined): string | null {
+  if (!value) return null;
+  try {
+    const parsed = new URL(value);
+
+    if (parsed.pathname === '/api/ai/media') {
+      const path = safeObjectPath(parsed.searchParams.get('path') || '');
+      return path ? `${PRIVATE_MARKER}${path}` : null;
+    }
+
+    if (!SUPABASE_URL) return null;
+    const configured = new URL(SUPABASE_URL);
+    if (parsed.origin !== configured.origin) return null;
+
+    const prefix = `/storage/v1/object/public/${encodeURIComponent(PUBLIC_STORAGE_BUCKET)}/`;
+    const rawPath = parsed.pathname.startsWith(prefix)
+      ? parsed.pathname.slice(prefix.length)
+      : null;
+    if (!rawPath) return null;
+
+    const path = safeObjectPath(decodeURIComponent(rawPath));
+    return path;
+  } catch {
+    return null;
+  }
+}
+
+async function uploadToBucket(
+  bucket: string,
   filePath: string,
   data: Buffer | ArrayBuffer | Uint8Array,
-  contentType: string
-): Promise<{ url: string; path: string }> {
+  contentType: string,
+): Promise<void> {
   if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
     throw new Error('Supabase storage not configured. Set NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY.');
   }
-  const uploadUrl = `${SUPABASE_URL}/storage/v1/object/${BUCKET}/${filePath}`;
+  const safePath = safeObjectPath(filePath);
+  if (!safePath) throw new Error('Invalid storage path');
+
+  const uploadUrl = `${SUPABASE_URL}/storage/v1/object/${encodeURIComponent(bucket)}/${safePath}`;
   const res = await fetch(uploadUrl, {
     method: 'POST',
     headers: {
@@ -32,48 +76,94 @@ export async function uploadFile(
   });
   if (!res.ok) {
     const text = await res.text().catch(() => '');
-    throw new Error(`Supabase upload failed (${res.status}): ${text}`);
+    throw new Error(`Supabase upload failed (${res.status}): ${text.slice(0, 300)}`);
   }
+}
+
+/** Upload public catalogue/admin media. */
+export async function uploadFile(
+  filePath: string,
+  data: Buffer | ArrayBuffer | Uint8Array,
+  contentType: string,
+): Promise<{ url: string; path: string }> {
+  await uploadToBucket(PUBLIC_STORAGE_BUCKET, filePath, data, contentType);
   return { url: publicUrl(filePath), path: filePath };
 }
 
-/** Delete a file from storage. */
-export async function deleteFile(filePath: string): Promise<void> {
-  if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) return;
-  const delUrl = `${SUPABASE_URL}/storage/v1/object/${BUCKET}/${filePath}`;
-  await fetch(delUrl, {
+/** Upload sensitive customer AI media into the private bucket. */
+export async function uploadPrivateAiFile(
+  filePath: string,
+  data: Buffer | ArrayBuffer | Uint8Array,
+  contentType: string,
+): Promise<{ path: string }> {
+  await uploadToBucket(PRIVATE_AI_STORAGE_BUCKET, filePath, data, contentType);
+  return { path: filePath };
+}
+
+function resolveDeleteTarget(fileRef: string): { bucket: string; path: string } {
+  if (fileRef.startsWith(PRIVATE_MARKER)) {
+    const path = safeObjectPath(fileRef.slice(PRIVATE_MARKER.length));
+    if (!path) throw new Error('Invalid private storage path');
+    return { bucket: PRIVATE_AI_STORAGE_BUCKET, path };
+  }
+  const path = safeObjectPath(fileRef);
+  if (!path) throw new Error('Invalid storage path');
+  return { bucket: PUBLIC_STORAGE_BUCKET, path };
+}
+
+/** Delete a file from local Supabase Storage. Missing objects are already deleted. */
+export async function deleteFile(fileRef: string): Promise<void> {
+  if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
+    throw new Error('Supabase storage not configured');
+  }
+  const { bucket, path } = resolveDeleteTarget(fileRef);
+  const delUrl = `${SUPABASE_URL}/storage/v1/object/${encodeURIComponent(bucket)}/${path}`;
+  const res = await fetch(delUrl, {
     method: 'DELETE',
     headers: { Authorization: `Bearer ${SUPABASE_SERVICE_KEY}` },
   });
+  if (!res.ok && res.status !== 404) {
+    const text = await res.text().catch(() => '');
+    throw new Error(`Supabase delete failed (${res.status}): ${text.slice(0, 300)}`);
+  }
 }
 
 /** Generate a unique path within a folder. */
 export function makeUploadPath(folder: string, filename: string): string {
+  const safeFolder = String(folder || 'uploads')
+    .replace(/[^a-zA-Z0-9/_-]/g, '_')
+    .replace(/\.{2,}/g, '_')
+    .replace(/^\/+|\/+$/g, '');
   const safeName = filename.replace(/[^a-zA-Z0-9.\-_]/g, '_').toLowerCase();
   const ts = Date.now();
-  const rand = Math.random().toString(36).slice(2, 8);
-  return `${folder}/${ts}-${rand}-${safeName}`;
+  const rand = cryptoRandomToken();
+  return `${safeFolder || 'uploads'}/${ts}-${rand}-${safeName}`;
 }
 
-/** Status check used by /admin/settings. */
+function cryptoRandomToken(): string {
+  try {
+    const bytes = new Uint8Array(8);
+    globalThis.crypto.getRandomValues(bytes);
+    return Array.from(bytes, (value) => value.toString(16).padStart(2, '0')).join('');
+  } catch {
+    return Math.random().toString(36).slice(2, 14);
+  }
+}
+
 export function storageConfigured(): boolean {
   return !!(SUPABASE_URL && SUPABASE_SERVICE_KEY);
 }
 
-/**
- * Create a signed upload URL the browser can PUT to directly.
- * This bypasses Vercel's 4.5 MB serverless body limit — customers upload
- * straight to Supabase Storage from the browser.
- *
- * Returns { signedUrl, token, path, publicUrl } — the browser PUTs the file
- * to `signedUrl` with the `Authorization: Bearer <token>` header, then uses
- * `publicUrl` for downstream AI generation.
- */
-export async function createSignedUploadUrl(filePath: string): Promise<{ signedUrl: string; token: string; path: string; publicUrl: string }> {
-  if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
-    throw new Error('Supabase storage not configured');
-  }
-  const url = `${SUPABASE_URL}/storage/v1/object/upload/sign/${BUCKET}/${filePath}`;
+/** Create a signed browser upload URL for the chosen bucket. */
+export async function createSignedUploadUrl(
+  filePath: string,
+  bucket = PUBLIC_STORAGE_BUCKET,
+): Promise<{ signedUrl: string; token: string; path: string; bucket: string; publicUrl?: string }> {
+  if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) throw new Error('Supabase storage not configured');
+  const safePath = safeObjectPath(filePath);
+  if (!safePath) throw new Error('Invalid storage path');
+
+  const url = `${SUPABASE_URL}/storage/v1/object/upload/sign/${encodeURIComponent(bucket)}/${safePath}`;
   const res = await fetch(url, {
     method: 'POST',
     headers: {
@@ -84,17 +174,32 @@ export async function createSignedUploadUrl(filePath: string): Promise<{ signedU
   });
   if (!res.ok) {
     const text = await res.text().catch(() => '');
-    throw new Error(`Failed to create signed upload URL (${res.status}): ${text}`);
+    throw new Error(`Failed to create signed upload URL (${res.status}): ${text.slice(0, 300)}`);
   }
   const data = await res.json();
-  // Supabase returns { url, token } — the `url` is relative.
   const signedUrl = data.url?.startsWith('http')
     ? data.url
     : `${SUPABASE_URL}/storage/v1${data.url}`;
   return {
     signedUrl,
     token: data.token,
-    path: filePath,
-    publicUrl: publicUrl(filePath),
+    path: safePath,
+    bucket,
+    ...(bucket === PUBLIC_STORAGE_BUCKET ? { publicUrl: publicUrl(safePath, bucket) } : {}),
   };
+}
+
+/** Fetch one private AI object server-side using the service role. */
+export async function fetchPrivateAiObject(filePath: string): Promise<Response> {
+  if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) throw new Error('Supabase storage not configured');
+  const safePath = safeObjectPath(filePath);
+  if (!safePath) throw new Error('Invalid private storage path');
+
+  return fetch(
+    `${SUPABASE_URL}/storage/v1/object/authenticated/${encodeURIComponent(PRIVATE_AI_STORAGE_BUCKET)}/${safePath}`,
+    {
+      headers: { Authorization: `Bearer ${SUPABASE_SERVICE_KEY}` },
+      cache: 'no-store',
+    },
+  );
 }

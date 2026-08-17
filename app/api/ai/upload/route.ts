@@ -1,14 +1,25 @@
 // Customer-facing image upload for AI Mirror / AI Space.
-// Lighter than the admin upload (single file, smaller max size, customer auth).
+// Small files pass through Vercel; large files use /api/ai/sign-upload.
+// Customer media is stored in the private AI bucket and exposed only through
+// a short-lived signed NEEJEE media URL.
 import { NextResponse } from 'next/server';
 import { getSession } from '@/lib/auth';
-import { uploadFile, makeUploadPath, storageConfigured } from '@/lib/storage';
+import { uploadPrivateAiFile, makeUploadPath, storageConfigured } from '@/lib/storage';
+import { createPrivateAiMediaUrl } from '@/lib/ai/private-media';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
 const ALLOWED = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif']);
-const MAX_SIZE = 4 * 1024 * 1024; // 4 MB — anything bigger should use /api/ai/sign-upload instead
+const MAX_SIZE = 4 * 1024 * 1024;
+
+function safeAiFolder(value: unknown): string {
+  const normalized = String(value || 'ai-user-uploads')
+    .toLowerCase()
+    .replace(/[^a-z0-9_-]/g, '_')
+    .slice(0, 48);
+  return normalized.startsWith('ai-') ? normalized : 'ai-user-uploads';
+}
 
 export async function POST(request: Request) {
   const session = await getSession();
@@ -16,14 +27,12 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Please sign in to use AI surfaces' }, { status: 401 });
   }
   if (!storageConfigured()) {
-    return NextResponse.json({
-      error: 'Image storage not configured. Please contact NEEJEE.',
-    }, { status: 500 });
+    return NextResponse.json({ error: 'Image storage not configured. Please contact NEEJEE.' }, { status: 500 });
   }
 
   try {
     const form = await request.formData();
-    const folder = (form.get('folder') as string | null) || 'ai-user-uploads';
+    const folder = safeAiFolder(form.get('folder'));
     const file = form.get('file') as File | null;
 
     if (!file) return NextResponse.json({ error: 'No file provided' }, { status: 400 });
@@ -31,17 +40,18 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Only JPG / PNG / WebP / HEIC images allowed' }, { status: 400 });
     }
     if (file.size > MAX_SIZE) {
-      return NextResponse.json({ error: 'Image larger than 8 MB' }, { status: 400 });
+      return NextResponse.json({ error: 'Image larger than 4 MB. Please retry the direct upload.' }, { status: 413 });
     }
 
-    // Path: ai-user-uploads/<userId>/<timestamp>-<filename>
     const userScopedFolder = `${folder}/${session.id}`;
     const path = makeUploadPath(userScopedFolder, file.name || 'upload.jpg');
     const buf = Buffer.from(await file.arrayBuffer());
 
-    const { url } = await uploadFile(path, buf, file.type);
+    await uploadPrivateAiFile(path, buf, file.type);
+    const url = createPrivateAiMediaUrl(new URL(request.url).origin, path);
     return NextResponse.json({ ok: true, url, path });
   } catch (e: any) {
-    return NextResponse.json({ error: e.message }, { status: 500 });
+    console.error('[ai.upload] failed', { userId: session.id, message: e?.message });
+    return NextResponse.json({ error: 'Unable to upload this image right now' }, { status: 500 });
   }
 }

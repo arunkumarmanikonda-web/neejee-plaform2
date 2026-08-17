@@ -1,6 +1,4 @@
 'use client';
-// v23.40.25 — Reads contact info + top categories from the public site-config
-// endpoint so admin edits in /admin/legal-entity propagate without redeploy.
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { CurrencySwitcher } from '@/components/i18n/CurrencySwitcher';
@@ -22,17 +20,17 @@ interface FooterCategory { slug: string; name: string }
 
 const FALLBACK_CONTACT: PublicContact = {
   email: 'hello@neejee.com',
-  phone: '+91 98765 12345',
-  whatsappUrl: 'https://wa.me/919876512345',
-  telUrl: 'tel:+919876512345',
+  phone: '',
+  whatsappUrl: '',
+  telUrl: '',
   mailUrl: 'mailto:hello@neejee.com',
   brandName: 'NEEJEE',
-  socialInstagram: 'https://instagram.com/neejee',
+  socialInstagram: '',
 };
 
 const FALLBACK_CATEGORIES: FooterCategory[] = [
-  { slug: 'sarees', name: 'Sarees' },
-  { slug: 'jewellery', name: 'Jewellery' },
+  { slug: 'women/sarees', name: 'Sarees' },
+  { slug: 'accessories/jewellery', name: 'Jewellery' },
   { slug: 'fragrance', name: 'Fragrance' },
   { slug: 'home', name: 'Home' },
   { slug: 'gifting', name: 'Gifting' },
@@ -43,13 +41,21 @@ export function Footer() {
   const [categories, setCategories] = useState<FooterCategory[]>(FALLBACK_CATEGORIES);
 
   useEffect(() => {
-    fetch('/api/public/site-config', { cache: 'no-store' })
-      .then(r => r.json())
+    let active = true;
+    fetch('/api/public/site-config')
+      .then(async r => {
+        const body = await r.json().catch(() => ({}));
+        if (!r.ok) throw new Error(body?.error || 'Site configuration unavailable');
+        return body;
+      })
       .then(d => {
+        if (!active) return;
         if (d.contact) setContact({ ...FALLBACK_CONTACT, ...d.contact });
         if (Array.isArray(d.categories) && d.categories.length > 0) setCategories(d.categories);
       })
-      .catch(() => { /* keep fallbacks */ });
+      .catch(() => {});
+
+    return () => { active = false; };
   }, []);
 
   const year = new Date().getFullYear();
@@ -68,7 +74,7 @@ export function Footer() {
           <div className="mt-8">
             <p className="label text-madder mb-3">JOIN THE TRUNK</p>
             <p className="font-italic italic text-beige/70 text-sm mb-3">Founder&apos;s edits, craft stories, early access.</p>
-            <NewsletterForm darkMode />
+            <NewsletterForm darkMode source="footer" />
           </div>
         </div>
 
@@ -78,12 +84,7 @@ export function Footer() {
             {categories.map(c => (
               <li key={c.slug}><Link href={`/categories/${c.slug}`} className="hover:text-ivory">{c.name}</Link></li>
             ))}
-            <li className="pt-2 border-t border-mitti/20 mt-2">
-              <Link href="/collections/wedding" className="hover:text-ivory">The Wedding Edit</Link>
-            </li>
-            <li><Link href="/collections/founders-edit" className="hover:text-ivory">Founder&apos;s Edit</Link></li>
-            <li><Link href="/collections/gifting" className="hover:text-ivory">Gifting</Link></li>
-            <li><Link href="/ai/mirror" className="hover:text-ivory text-madder">AI Mirror ✦</Link></li>
+            <li className="pt-2 border-t border-mitti/20 mt-2"><Link href="/ai/mirror" className="hover:text-ivory text-madder">AI Mirror ✦</Link></li>
             <li><Link href="/ai/gift" className="hover:text-ivory text-madder">Gift Concierge ✦</Link></li>
           </ul>
         </div>
@@ -98,7 +99,6 @@ export function Footer() {
             <li><Link href="/sellers" className="hover:text-ivory">Sell with us</Link></li>
             <li><Link href="/vendor" className="hover:text-ivory">Vendor portal</Link></li>
             <li><Link href="/seller" className="hover:text-ivory">Seller studio</Link></li>
-            <li><Link href="/careers" className="hover:text-ivory">Careers</Link></li>
           </ul>
         </div>
 
@@ -110,13 +110,19 @@ export function Footer() {
             <li><Link href="/help/track" className="hover:text-ivory">Track Order</Link></li>
             <li><Link href="/help/faq" className="hover:text-ivory">FAQ</Link></li>
             <li><Link href="/help/contact" className="hover:text-ivory">Contact</Link></li>
-            <li><a href={contact.whatsappUrl} className="hover:text-ivory" target="_blank" rel="noopener">WhatsApp Support</a></li>
-            <li className="pt-2 border-t border-mitti/20 mt-2 text-beige/60">
-              <a href={contact.mailUrl} className="hover:text-ivory">{contact.email}</a>
-            </li>
-            <li className="text-beige/60">
-              <a href={contact.telUrl} className="hover:text-ivory">{contact.phone}</a>
-            </li>
+            {contact.whatsappUrl && (
+              <li><a href={contact.whatsappUrl} className="hover:text-ivory" target="_blank" rel="noopener noreferrer">WhatsApp Support</a></li>
+            )}
+            {contact.mailUrl && contact.email && (
+              <li className="pt-2 border-t border-mitti/20 mt-2 text-beige/60">
+                <a href={contact.mailUrl} className="hover:text-ivory">{contact.email}</a>
+              </li>
+            )}
+            {contact.telUrl && contact.phone && (
+              <li className="text-beige/60">
+                <a href={contact.telUrl} className="hover:text-ivory">{contact.phone}</a>
+              </li>
+            )}
           </ul>
         </div>
       </div>
@@ -129,12 +135,9 @@ export function Footer() {
           <div className="flex items-center gap-6 font-ui text-[10px] tracking-widest text-beige/60">
             <CurrencySwitcher compact />
             {contact.socialInstagram && (
-              <a href={contact.socialInstagram} aria-label="Instagram" className="hover:text-ivory" target="_blank" rel="noopener"><Instagram className="w-4 h-4" /></a>
+              <a href={contact.socialInstagram} aria-label="Instagram" className="hover:text-ivory" target="_blank" rel="noopener noreferrer"><Instagram className="w-4 h-4" /></a>
             )}
             <Link href="/legal/privacy">PRIVACY</Link>
-            <Link href="/legal/terms">TERMS</Link>
-            <Link href="/legal/dpdp">DPDP</Link>
-            <Link href="/legal/cookie">COOKIES</Link>
           </div>
         </div>
       </div>

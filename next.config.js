@@ -23,58 +23,49 @@ const nextConfig = {
 
   async redirects() {
     return [
-      {
-        source: '/sellers/apply',
-        destination: '/sell/apply',
-        permanent: true,
-      },
+      { source: '/sellers/apply', destination: '/sell/apply', permanent: true },
+      { source: '/stories', destination: '/journal', permanent: true },
+      { source: '/legal/shipping', destination: '/help/shipping', permanent: true },
+      { source: '/legal/returns', destination: '/help/returns', permanent: true },
 
-      // Admin route recovery shims: route all blocked/exposed surfaces through the known-live AI Manager surface.
-      {
-        source: '/admin/taxonomy-ai',
-        destination: '/admin/ai?surface=taxonomy',
-        permanent: false,
-      },
-      {
-        source: '/admin/taxonomy/ai',
-        destination: '/admin/ai?surface=taxonomy',
-        permanent: false,
-      },
-      {
-        source: '/admin/meta-accounts',
-        destination: '/admin/ai?surface=meta',
-        permanent: false,
-      },
-      {
-        source: '/admin/integrations/meta',
-        destination: '/admin/ai?surface=meta',
-        permanent: false,
-      },
+      { source: '/admin/taxonomy-ai', destination: '/admin/ai?surface=taxonomy', permanent: false },
+      { source: '/admin/taxonomy/ai', destination: '/admin/ai?surface=taxonomy', permanent: false },
+      { source: '/admin/meta-accounts', destination: '/admin/ai?surface=meta', permanent: false },
+      { source: '/admin/integrations/meta', destination: '/admin/ai?surface=meta', permanent: false },
     ];
   },
 
   async headers() {
+    const securityHeaders = [
+      { key: 'X-Content-Type-Options', value: 'nosniff' },
+      { key: 'X-Frame-Options', value: 'SAMEORIGIN' },
+      { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
+      { key: 'Permissions-Policy', value: 'camera=(self), microphone=(), geolocation=(self), payment=(self)' },
+      { key: 'Cross-Origin-Opener-Policy', value: 'same-origin-allow-popups' },
+      { key: 'X-Permitted-Cross-Domain-Policies', value: 'none' },
+      { key: 'Strict-Transport-Security', value: 'max-age=63072000; includeSubDomains; preload' },
+      {
+        key: 'Content-Security-Policy',
+        value: "base-uri 'self'; object-src 'none'; frame-ancestors 'self'; upgrade-insecure-requests",
+      },
+    ];
+
     return [
       {
         source: '/brand/:path*',
-        headers: [
-          { key: 'Cache-Control', value: 'public, max-age=31536000, immutable' },
-        ],
+        headers: [{ key: 'Cache-Control', value: 'public, max-age=31536000, immutable' }],
       },
       {
         source: '/manifest.json',
-        headers: [
-          { key: 'Cache-Control', value: 'public, max-age=3600' },
-        ],
+        headers: [{ key: 'Cache-Control', value: 'public, max-age=3600' }],
+      },
+      {
+        source: '/api/facets',
+        headers: [{ key: 'Cache-Control', value: 'public, s-maxage=45, stale-while-revalidate=180' }],
       },
       {
         source: '/(.*)',
-        headers: [
-          { key: 'X-Content-Type-Options', value: 'nosniff' },
-          { key: 'X-Frame-Options', value: 'SAMEORIGIN' },
-          { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
-          { key: 'Permissions-Policy', value: 'camera=(self), microphone=(), geolocation=(self), payment=(self)' },
-        ],
+        headers: securityHeaders,
       },
     ];
   },

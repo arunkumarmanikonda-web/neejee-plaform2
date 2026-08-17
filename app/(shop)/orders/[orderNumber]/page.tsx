@@ -3,6 +3,7 @@
 // Requires authenticated session (customer's own order).
 import { notFound, redirect } from 'next/navigation';
 import Link from 'next/link';
+import Image from 'next/image';
 import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
 import { prisma } from '@/lib/prisma';
@@ -74,9 +75,12 @@ export default async function OrderDetailsPage({
           {order.items.map((item: any) => (
             <div key={item.id} className="flex gap-4 py-4 border-b border-mitti/15">
               {item.product?.images?.[0] && (
-                <img
+                <Image
                   src={item.product.images[0]}
                   alt={item.product.name}
+                  width={80}
+                  height={80}
+                  sizes="80px"
                   className="w-20 h-20 object-cover bg-beige"
                 />
               )}

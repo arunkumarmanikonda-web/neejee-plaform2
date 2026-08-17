@@ -1,18 +1,17 @@
-// app/api/razorpay/create-order/route.ts
-// v26.3a — Now accepts snapshotId (AbandonedCart row id) instead of an
-// already-created NEEJEE order. No NEEJEE Order is created here either —
-// only the Razorpay order. The NEEJEE Order is materialized by
-// /api/razorpay/verify once the signature is verified.
-//
-// Backward compat: also accepts { orderNumber } for legacy clients still on
-// the COD-style flow (which DOES have an Order). If both are sent, snapshotId
-// wins.
+// Creates a Razorpay order for a prepaid checkout snapshot.
+// The NEEJEE Order is still materialized only after verified payment.
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import Razorpay from 'razorpay';
+import { reserveInventory } from '@/lib/inventory/reservations';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
+
+function inventoryChanged(error: any): boolean {
+  const message = String(error?.message || '');
+  return message.includes('INSUFFICIENT_INVENTORY') || message.includes('VARIANT_NOT_FOUND');
+}
 
 export async function POST(request: Request) {
   try {
@@ -22,41 +21,57 @@ export async function POST(request: Request) {
     const keyId = process.env.RAZORPAY_KEY_ID;
     const keySecret = process.env.RAZORPAY_KEY_SECRET;
     if (!keyId || !keySecret) {
-      return NextResponse.json({
-        error: 'Razorpay not configured. Add RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET.',
-      }, { status: 500 });
+      console.error('[razorpay.create-order] credentials not configured');
+      return NextResponse.json({ error: 'Payment service is temporarily unavailable' }, { status: 503 });
     }
     const rzp = new Razorpay({ key_id: keyId, key_secret: keySecret });
 
-    // ─── New path: snapshot-based prepaid flow ──────────────────────────
     if (snapshotId) {
-      const snapshot = await prisma.abandonedCart.findUnique({
-        where: { id: snapshotId },
-      });
-      if (!snapshot) {
-        return NextResponse.json({ error: 'Cart snapshot not found' }, { status: 404 });
-      }
-      if (snapshot.recoveredOrderId) {
-        return NextResponse.json({ error: 'Already converted to order' }, { status: 400 });
-      }
+      const snapshot = await prisma.abandonedCart.findUnique({ where: { id: snapshotId } });
+      if (!snapshot) return NextResponse.json({ error: 'Cart snapshot not found' }, { status: 404 });
+      if (snapshot.recoveredOrderId) return NextResponse.json({ error: 'Already converted to order' }, { status: 409 });
 
       const data: any = snapshot.itemsJson ? JSON.parse(snapshot.itemsJson) : {};
-const verifiedItems = Array.isArray(data?.verifiedItems) ? data.verifiedItems : [];
+      const verifiedItems = Array.isArray(data?.verifiedItems) ? data.verifiedItems : [];
+      if (verifiedItems.length === 0) {
+        return NextResponse.json({ error: 'Saved trunk has no verified items', code: 'SNAPSHOT_EMPTY' }, { status: 422 });
+      }
 
-if (verifiedItems.length === 0) {
-  return NextResponse.json(
-    {
-      ok: false,
-      code: 'snapshot_empty_items',
-      message: 'Snapshot has no verified items',
-    },
-    { status: 422 }
-  );
-}
+      const reservationItems = verifiedItems
+        .filter((item: any) => item?.variantId && Number.isInteger(Number(item?.quantity)) && Number(item.quantity) > 0)
+        .map((item: any) => ({ variantId: String(item.variantId), quantity: Number(item.quantity) }));
+      if (reservationItems.length !== verifiedItems.length) {
+        return NextResponse.json({ error: 'A selected piece is no longer purchasable', code: 'PRODUCT_UNAVAILABLE' }, { status: 409 });
+      }
 
-const totalPaise = data?.pricing?.total || snapshot.subtotal;
-      if (!totalPaise || totalPaise <= 0) {
+      // Revalidate and refresh the hold immediately before opening Razorpay.
+      try {
+        await reserveInventory(prisma as any, snapshot.id, reservationItems, 30);
+      } catch (error: any) {
+        if (inventoryChanged(error)) {
+          return NextResponse.json({
+            error: 'One of your selected pieces is no longer available. Please return to your trunk.',
+            code: 'INVENTORY_CHANGED',
+          }, { status: 409 });
+        }
+        throw error;
+      }
+
+      const totalPaise = Number(data?.pricing?.total || snapshot.subtotal);
+      if (!Number.isInteger(totalPaise) || totalPaise <= 0) {
         return NextResponse.json({ error: 'Invalid cart total' }, { status: 400 });
+      }
+
+      // Idempotent application behavior: reuse an already-linked gateway order.
+      if (snapshot.razorpayOrderId) {
+        return NextResponse.json({
+          razorpayOrderId: snapshot.razorpayOrderId,
+          amount: totalPaise,
+          currency: 'INR',
+          keyId,
+          snapshotId: snapshot.id,
+          reused: true,
+        });
       }
 
       const rzpOrder = await rzp.orders.create({
@@ -77,17 +92,24 @@ const totalPaise = data?.pricing?.total || snapshot.subtotal;
         currency: rzpOrder.currency,
         keyId,
         snapshotId: snapshot.id,
-        // No orderNumber yet — created on /verify success
       });
     }
 
-    // ─── Legacy path: order-based (kept for backward compatibility, but
-    //     should not be hit by new clients after v26.3a is deployed) ─────
+    // Legacy order-based path retained for old clients.
     if (orderNumber) {
       const order = await prisma.order.findUnique({ where: { orderNumber } });
       if (!order) return NextResponse.json({ error: 'Order not found' }, { status: 404 });
-      if (order.paymentStatus === 'PAID') {
-        return NextResponse.json({ error: 'Already paid' }, { status: 400 });
+      if (order.paymentStatus === 'PAID') return NextResponse.json({ error: 'Already paid' }, { status: 409 });
+
+      if (order.razorpayOrderId) {
+        return NextResponse.json({
+          razorpayOrderId: order.razorpayOrderId,
+          amount: order.total,
+          currency: 'INR',
+          keyId,
+          orderNumber: order.orderNumber,
+          reused: true,
+        });
       }
 
       const rzpOrder = await rzp.orders.create({
@@ -112,7 +134,8 @@ const totalPaise = data?.pricing?.total || snapshot.subtotal;
     }
 
     return NextResponse.json({ error: 'snapshotId or orderNumber required' }, { status: 400 });
-  } catch (e: any) {
-    return NextResponse.json({ error: e.message || 'Razorpay error' }, { status: 500 });
+  } catch (error: any) {
+    console.error('[razorpay.create-order]', error);
+    return NextResponse.json({ error: 'Unable to start payment right now' }, { status: 500 });
   }
 }

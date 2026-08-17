@@ -2,7 +2,7 @@
 // Enforces:
 //   - active, dates, total uses, min cart
 //   - userId binding (if coupon.userId is set, only that user can redeem)
-//   - perUserOnce (if true, blocks if this user already redeemed via CouponRedemption ledger)
+//   - perUserOnce requires an authenticated user and blocks prior redemption
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getSession } from '@/lib/auth';
@@ -13,14 +13,17 @@ export const runtime = 'nodejs';
 export async function POST(request: Request) {
   try {
     const { code, subtotal } = await request.json();
-    if (!code) return NextResponse.json({ error: 'Code is required' }, { status: 400 });
-    const sub = parseInt(subtotal || 0); // paise
+    const normalizedCode = String(code || '').toUpperCase().trim();
+    if (!normalizedCode) return NextResponse.json({ error: 'Code is required' }, { status: 400 });
+
+    const sub = Number.parseInt(String(subtotal ?? 0), 10);
+    if (!Number.isFinite(sub) || sub < 0) {
+      return NextResponse.json({ error: 'Invalid cart subtotal' }, { status: 400 });
+    }
 
     const session = await getSession();
+    const coupon = await prisma.coupon.findUnique({ where: { code: normalizedCode } });
 
-    const coupon = await prisma.coupon.findUnique({
-      where: { code: String(code).toUpperCase().trim() },
-    });
     if (!coupon) return NextResponse.json({ error: 'Coupon not found' }, { status: 404 });
     if (!coupon.active) return NextResponse.json({ error: 'Coupon is inactive' }, { status: 400 });
 
@@ -31,16 +34,15 @@ export async function POST(request: Request) {
     if (coupon.validTo && coupon.validTo < now) {
       return NextResponse.json({ error: 'Coupon has expired' }, { status: 400 });
     }
-    if (coupon.maxUses && coupon.usedCount >= coupon.maxUses) {
+    if (coupon.maxUses != null && coupon.usedCount >= coupon.maxUses) {
       return NextResponse.json({ error: 'Coupon usage limit reached' }, { status: 400 });
     }
-    if (coupon.minCart && sub < coupon.minCart) {
+    if (coupon.minCart != null && sub < coupon.minCart) {
       return NextResponse.json({
         error: `Minimum cart of ₹${(coupon.minCart / 100).toLocaleString('en-IN')} required`,
       }, { status: 400 });
     }
 
-    // User-bound coupon (e.g. welcome coupon) — only the named user can use it
     if (coupon.userId) {
       if (!session?.id) {
         return NextResponse.json({ error: 'Please sign in to use this code' }, { status: 401 });
@@ -50,8 +52,10 @@ export async function POST(request: Request) {
       }
     }
 
-    // Per-user once (for future generic coupons like WELCOME10)
-    if (coupon.perUserOnce && session?.id) {
+    if (coupon.perUserOnce) {
+      if (!session?.id) {
+        return NextResponse.json({ error: 'Please sign in to use this one-time code' }, { status: 401 });
+      }
       const used = await prisma.couponRedemption.findUnique({
         where: { couponId_userId: { couponId: coupon.id, userId: session.id } },
       });
@@ -68,8 +72,6 @@ export async function POST(request: Request) {
       }
     } else if (coupon.type === 'FLAT') {
       discountPaise = Math.min(coupon.value, sub);
-    } else if (coupon.type === 'FREE_SHIPPING') {
-      discountPaise = 0;
     }
 
     return NextResponse.json({
@@ -78,8 +80,10 @@ export async function POST(request: Request) {
       discountPaise,
       freeShipping: coupon.type === 'FREE_SHIPPING',
       personalised: !!coupon.userId,
+      requiresAccount: !!coupon.userId || coupon.perUserOnce,
     });
   } catch (e: any) {
-    return NextResponse.json({ error: e.message }, { status: 500 });
+    console.error('[coupons.validate] failed:', e?.message);
+    return NextResponse.json({ error: 'Unable to validate coupon right now' }, { status: 500 });
   }
 }

@@ -1,70 +1,71 @@
 'use client';
-import { useState, Suspense } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { Suspense, useState } from 'react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
-import { Check } from 'lucide-react';
-
-export const dynamic = 'force-dynamic';
 
 function UnsubscribeInner() {
   const params = useSearchParams();
-  const email = params.get('email') || '';
-  const cartId = params.get('cart') || '';
-  const [status, setStatus] = useState<'idle' | 'submitting' | 'done' | 'error'>('idle');
-  const [err, setErr] = useState('');
+  const email = String(params.get('email') || '').trim().toLowerCase();
+  const token = String(params.get('token') || '').trim();
+  const [loading, setLoading] = useState(false);
+  const [done, setDone] = useState(false);
+  const [error, setError] = useState('');
 
-  const confirm = async () => {
-    setStatus('submitting');
+  const validLinkShape = /^\S+@\S+\.\S+$/.test(email) && token.length >= 32;
+
+  const unsubscribe = async () => {
+    if (!validLinkShape || loading) return;
+    setLoading(true);
+    setError('');
     try {
-      const res = await fetch('/api/unsubscribe', {
+      const response = await fetch('/api/unsubscribe', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, cartId }),
+        body: JSON.stringify({ email, token }),
       });
-      const d = await res.json();
-      if (!res.ok) throw new Error(d.error || 'Failed');
-      setStatus('done');
-    } catch (e: any) { setErr(e.message); setStatus('error'); }
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(body?.error || 'Unable to unsubscribe');
+      setDone(true);
+    } catch (e: any) {
+      setError(e?.message || 'Unable to unsubscribe right now.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
-    <section className="max-w-xl mx-auto px-6 py-20 text-center">
-      <p className="label text-madder">UNSUBSCRIBE</p>
-      <h1 className="font-display text-4xl text-kohl mt-4">A quiet goodbye.</h1>
+    <main className="max-w-xl mx-auto px-6 py-20 text-center">
+      <p className="label text-madder">EMAIL PREFERENCES</p>
+      <h1 className="font-display text-4xl text-kohl mt-3">Leave the trunk</h1>
+      <p className="font-italic italic text-mitti mt-3">
+        You can stop NEEJEE marketing messages without affecting transactional order updates.
+      </p>
+      <div className="madder-divider mx-auto mt-6" />
 
-      {status === 'done' ? (
-        <div className="mt-12 space-y-6">
-          <div className="w-16 h-16 bg-neem text-ivory rounded-full mx-auto flex items-center justify-center">
-            <Check className="w-8 h-8" />
-          </div>
-          <p className="font-italic italic text-mitti text-lg">
-            Done. You will not receive marketing emails from us.
-          </p>
-          <p className="text-sm text-mitti">
-            Transactional updates (order confirmations, shipping) will still reach you when you make a purchase.
-          </p>
-          <div className="pt-4">
-            <Link href="/" className="btn-outline">RETURN HOME</Link>
-          </div>
+      {done ? (
+        <div className="mt-10 bg-beige p-8">
+          <p className="font-display text-2xl text-kohl">Preference updated.</p>
+          <p className="font-body text-mitti mt-3">Marketing messages have been switched off for this address.</p>
+          <Link href="/" className="btn-primary mt-6">RETURN HOME</Link>
+        </div>
+      ) : validLinkShape ? (
+        <div className="mt-10 bg-beige p-8">
+          <p className="font-body text-kohl break-all">{email}</p>
+          <button type="button" onClick={unsubscribe} disabled={loading} className="btn-primary mt-6 disabled:opacity-50">
+            {loading ? 'UPDATING…' : 'UNSUBSCRIBE'}
+          </button>
+          {error && <p role="alert" className="font-ui text-sm text-madder mt-4">{error}</p>}
         </div>
       ) : (
-        <div className="mt-12 space-y-6">
-          {email && <p className="font-italic italic text-mitti">For: <strong>{email}</strong></p>}
-          <p className="text-kohl">
-            We will not be sad to let you go, only quietly so. Confirm and we will remove you from our marketing list right away.
-          </p>
-          <button onClick={confirm} disabled={status === 'submitting'} className="btn-primary">
-            {status === 'submitting' ? 'PROCESSING...' : 'CONFIRM UNSUBSCRIBE'}
-          </button>
-          {err && <p className="text-madder text-sm">{err}</p>}
-          <p className="pt-4 text-xs text-mitti">
-            Or <Link href="/account" className="underline">manage preferences</Link> if you would like to adjust what we send instead.
-          </p>
+        <div className="mt-10 border border-mitti/20 p-8">
+          <p className="font-body text-kohl">This unsubscribe link is incomplete or no longer valid.</p>
+          <p className="font-body text-sm text-mitti mt-3">Use the unsubscribe link from a NEEJEE marketing email, or contact us to update your preferences.</p>
+          <Link href="/help/contact" className="btn-outline mt-6">CONTACT NEEJEE</Link>
         </div>
       )}
-    </section>
+    </main>
   );
 }
 
@@ -72,7 +73,7 @@ export default function UnsubscribePage() {
   return (
     <>
       <Header />
-      <Suspense fallback={<div className="p-20 text-center text-mitti">Loading...</div>}>
+      <Suspense fallback={<div className="py-20 text-center font-italic italic text-mitti">Loading…</div>}>
         <UnsubscribeInner />
       </Suspense>
       <Footer />
