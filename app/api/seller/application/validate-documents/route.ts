@@ -2,36 +2,17 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { validateSellerApplicationPackage } from '@/lib/seller-onboarding/application-validation';
 import type { UploadedApplicationDocument } from '@/lib/seller-onboarding/document-intel';
+import {
+  readSellerOnboardingSession,
+  verifySellerDocumentProof,
+} from '@/lib/seller-onboarding/application-session';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
 const DocSchema = z.object({
-  docType: z.enum([
-    'PAN_CARD',
-    'GST_CERTIFICATE',
-    'MSME_CERTIFICATE',
-    'CANCELLED_CHEQUE',
-    'BANK_STATEMENT',
-    'CERTIFICATION',
-    'OTHER',
-  ]),
-  title: z.string().nullable().optional(),
-  fileUrl: z.string(),
-  fileName: z.string(),
-  fileSize: z.number(),
-  mimeType: z.string(),
-  storageKey: z.string(),
-  extractedTextPreview: z.string().default(''),
-  extractedFields: z.object({
-    pans: z.array(z.string()).default([]),
-    gstins: z.array(z.string()).default([]),
-    cins: z.array(z.string()).default([]),
-    ifscs: z.array(z.string()).default([]),
-    bankAccounts: z.array(z.string()).default([]),
-    msmeNumbers: z.array(z.string()).default([]),
-  }),
-});
+  uploadProof: z.string().min(20),
+}).passthrough();
 
 const BodySchema = z.object({
   businessName: z.string().min(2),
@@ -41,7 +22,7 @@ const BodySchema = z.object({
   msmeNumber: z.string().optional().nullable(),
   bankAccount: z.string().min(6),
   ifsc: z.string().min(5),
-  phone: z.string().optional().nullable(),
+  phone: z.string().min(8),
   includeLiveVerification: z.boolean().optional().default(true),
   documents: z.array(DocSchema).default([]),
 });
@@ -62,7 +43,7 @@ async function postPackageVerification(request: NextRequest, body: {
   gstin: string | null;
   bankAccount: string;
   ifsc: string;
-  phone: string | null;
+  phone: string;
 }) {
   const url = new URL('/api/kyc/verify/package', request.url);
   const cookie = request.headers.get('cookie');
@@ -90,49 +71,56 @@ async function postPackageVerification(request: NextRequest, body: {
     try {
       payload = await response.json();
     } catch {
-      payload = {
-        ok: false,
-        error: 'invalid_package_verification_response',
-      };
+      payload = { ok: false, error: 'invalid_package_verification_response' };
     }
 
-    return {
-      httpStatus: response.status,
-      payload,
-    };
+    return { httpStatus: response.status, payload };
   } catch (error) {
+    console.error('[seller.application.validate] package verification failed', {
+      message: error instanceof Error ? error.message : 'unknown_error',
+    });
     return {
       httpStatus: 500,
-      payload: {
-        ok: false,
-        error: error instanceof Error ? error.message : 'kyc_package_fetch_failed',
-      },
+      payload: { ok: false, error: 'kyc_package_unavailable' } as KycPackageVerification,
     };
   }
+}
+
+function publicProviderSummary(provider: Record<string, any>) {
+  return Object.fromEntries(
+    Object.entries(provider || {}).map(([key, value]: [string, any]) => [
+      key,
+      {
+        available: Boolean(value?.available),
+        ok: typeof value?.ok === 'boolean' ? value.ok : null,
+        error: value?.error ? 'Provider review required' : null,
+      },
+    ]),
+  );
 }
 
 export async function POST(request: NextRequest) {
   try {
     const body = BodySchema.parse(await request.json());
+    const onboarding = await readSellerOnboardingSession(body.phone);
+    if (!onboarding) {
+      return NextResponse.json(
+        { error: 'Your verified mobile session has expired. Please verify the mobile OTP again.' },
+        { status: 401 },
+      );
+    }
 
-    const documents: UploadedApplicationDocument[] = body.documents.map((doc) => ({
-      docType: doc.docType,
-      title: doc.title ?? null,
-      fileUrl: doc.fileUrl,
-      fileName: doc.fileName,
-      fileSize: doc.fileSize,
-      mimeType: doc.mimeType,
-      storageKey: doc.storageKey,
-      extractedTextPreview: doc.extractedTextPreview,
-      extractedFields: {
-        pans: doc.extractedFields.pans,
-        gstins: doc.extractedFields.gstins,
-        cins: doc.extractedFields.cins,
-        ifscs: doc.extractedFields.ifscs,
-        bankAccounts: doc.extractedFields.bankAccounts,
-        msmeNumbers: doc.extractedFields.msmeNumbers,
-      },
-    }));
+    const documents: UploadedApplicationDocument[] = [];
+    for (const submitted of body.documents) {
+      const trusted = await verifySellerDocumentProof(submitted.uploadProof, onboarding.phone);
+      if (!trusted) {
+        return NextResponse.json(
+          { error: 'One or more uploaded documents could not be verified. Please upload them again.' },
+          { status: 400 },
+        );
+      }
+      documents.push(trusted);
+    }
 
     const result = await validateSellerApplicationPackage({
       businessName: body.businessName,
@@ -155,45 +143,50 @@ export async function POST(request: NextRequest) {
         gstin: body.gstin || null,
         bankAccount: body.bankAccount,
         ifsc: body.ifsc,
-        phone: body.phone || null,
+        phone: onboarding.phone,
       });
-
       kycPackageVerification = packageResult.payload;
       kycPackageHttpStatus = packageResult.httpStatus;
     }
 
     const reviewRequired =
       !result.overallPass ||
+      Boolean(result.reviewRequired) ||
       Boolean(kycPackageVerification?.reviewRequired) ||
       Boolean(kycPackageVerification && kycPackageVerification.ok === false);
 
-    const overallStatus = reviewRequired
-      ? 'REVIEW_REQUIRED'
-      : 'VERIFIED';
+    const overallStatus = !result.overallPass
+      ? 'FAILED'
+      : reviewRequired
+        ? 'REVIEW_REQUIRED'
+        : 'VERIFIED';
 
     return NextResponse.json({
       ok: result.overallPass,
-      ...result,
+      overallPass: result.overallPass,
+      overallStatus,
+      reviewRequired,
+      errors: result.errors,
+      warnings: result.warnings,
+      checks: result.checks,
+      extracted: result.extracted,
+      documentsPresent: result.documentsPresent,
+      provider: publicProviderSummary(result.provider as Record<string, any>),
       includeLiveVerification: body.includeLiveVerification,
       kycPackageHttpStatus,
       kycPackageVerification,
-      reviewRequired,
-      overallStatus,
     });
-  } catch (e: any) {
-    if (e?.issues) {
+  } catch (error: any) {
+    if (error?.issues) {
       return NextResponse.json(
-        {
-          error: 'Invalid validation payload',
-          issues: e.issues,
-        },
+        { error: 'Invalid validation payload', issues: error.issues },
         { status: 400 },
       );
     }
 
-    return NextResponse.json(
-      { error: e?.message || 'Validation failed' },
-      { status: 500 },
-    );
+    console.error('[seller.application.validate] failed', {
+      message: error instanceof Error ? error.message : 'unknown_error',
+    });
+    return NextResponse.json({ error: 'Unable to validate the application right now' }, { status: 500 });
   }
 }
