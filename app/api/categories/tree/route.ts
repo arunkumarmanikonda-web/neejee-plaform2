@@ -294,6 +294,14 @@ export async function GET(req: NextRequest) {
       CATALOGUE_STOCK_VISIBILITY.join(',')
     );
 
+    if (visibleOnly) {
+      response.headers.set('Cache-Control', 'public, max-age=0, s-maxage=60, stale-while-revalidate=300');
+      response.headers.set('CDN-Cache-Control', 'max-age=60, stale-while-revalidate=300');
+      response.headers.set('Vercel-CDN-Cache-Control', 'max-age=60, stale-while-revalidate=300');
+    } else {
+      response.headers.set('Cache-Control', 'private, no-store, max-age=0');
+    }
+
     return response;
   } catch (error: any) {
     return NextResponse.json(
