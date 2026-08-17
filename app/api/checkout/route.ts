@@ -1,40 +1,78 @@
 // app/api/checkout/route.ts
-// v26.3a — Checkout correctness fix (NEEJEE-263)
-//
-// CRITICAL CHANGE FROM v26.2.x:
-//   - COD path: Order is created here, ORDER_PLACED email fires here (UNCHANGED).
-//   - PREPAID (Razorpay) path: NO ORDER CREATED HERE. Instead, an AbandonedCart
-//     snapshot is written. Order is created ONLY by /api/razorpay/verify on
-//     verified signature. ORDER_CONFIRMED email also fires only there.
-//
-// Why: before this fix, abandoning at the Razorpay modal left a real Order
-// row in /admin/orders with status=PLACED, paymentStatus=PENDING, and the
-// customer received an "Order received" email. That's wrong on both counts.
-//
+// Checkout integrity:
+// - server recomputes price and eligibility
+// - guest OTP policy remains server-authoritative
+// - COD order + inventory consumption are one transaction
+// - prepaid checkout creates a 30-minute inventory reservation with its snapshot
+// - prepaid Order is still created only after verified Razorpay signature
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getSession } from '@/lib/auth';
 import { generateOrderNumber, calculateGST } from '@/lib/utils';
 import { sendEmail, orderPlacedEmail } from '@/lib/email';
 import { resolveShipping } from '@/lib/shipping/resolve';
+import {
+  consumeUnreservedInventory,
+  reserveInventory,
+  type ReservationItem,
+} from '@/lib/inventory/reservations';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
 const GIFT_WRAP_PAISE = 15000;
+const MAX_LINE_QUANTITY = 50;
+const COD_MAX_PAISE = 2500000;
+
+function safeCheckoutFailure(error: any) {
+  const message = String(error?.message || '');
+  if (
+    message.includes('INSUFFICIENT_INVENTORY') ||
+    message.includes('INSUFFICIENT_UNRESERVED_INVENTORY')
+  ) {
+    return NextResponse.json(
+      { error: 'One of your selected pieces was just reserved or sold. Please review your trunk and try again.', code: 'INVENTORY_CHANGED' },
+      { status: 409 },
+    );
+  }
+  if (
+    message.includes('VARIANT_NOT_FOUND') ||
+    message.includes('NO_VARIANTS_TO_RESERVE') ||
+    message.includes('NO_VARIANTS_TO_CONSUME')
+  ) {
+    return NextResponse.json(
+      { error: 'One of your selected pieces is not currently available for checkout.', code: 'PRODUCT_UNAVAILABLE' },
+      { status: 409 },
+    );
+  }
+  return NextResponse.json({ error: 'Unable to complete checkout right now.' }, { status: 500 });
+}
 
 export async function POST(request: Request) {
   try {
     const body = await request.json();
     const {
-      items, contact, address,
+      items,
+      contact,
+      address,
       shipping = 'STANDARD',
       payment = 'RAZORPAY',
-      giftWrap, personalNote, couponCode, gstinCustomer,
-      utm, pointsToRedeem, phoneVerified,
+      giftWrap,
+      personalNote,
+      couponCode,
+      gstinCustomer,
+      utm,
+      pointsToRedeem,
+      phoneVerified,
     } = body;
 
-    // ─── OTP gate (unchanged) ────────────────────────────────────────────
+    if (!['STANDARD', 'EXPRESS'].includes(String(shipping))) {
+      return NextResponse.json({ error: 'Invalid shipping method' }, { status: 400 });
+    }
+    if (!['RAZORPAY', 'COD'].includes(String(payment))) {
+      return NextResponse.json({ error: 'Invalid payment method' }, { status: 400 });
+    }
+
     const guestSession = await getSession();
     if (process.env.CHECKOUT_OTP_REQUIRED === 'true' && !guestSession) {
       if (!phoneVerified || !contact?.phone) {
@@ -61,6 +99,24 @@ export async function POST(request: Request) {
       }
     }
 
+    if (!Array.isArray(items) || items.length === 0) {
+      return NextResponse.json({ error: 'No items in order' }, { status: 400 });
+    }
+    if (!contact?.email || !contact?.phone) {
+      return NextResponse.json({ error: 'Email and phone are required' }, { status: 400 });
+    }
+    const normalizedEmail = String(contact.email).trim().toLowerCase();
+    if (!/^\S+@\S+\.\S+$/.test(normalizedEmail)) {
+      return NextResponse.json({ error: 'Invalid email address' }, { status: 400 });
+    }
+    if (!address?.name || !address?.line1 || !address?.city || !address?.state || !address?.pincode) {
+      return NextResponse.json({ error: 'Incomplete address' }, { status: 400 });
+    }
+    if (!/^\d{6}$/.test(String(address.pincode))) {
+      return NextResponse.json({ error: 'Invalid pincode' }, { status: 400 });
+    }
+
+    const session = guestSession;
     const attribution = {
       utmSource: utm?.source || null,
       utmMedium: utm?.medium || null,
@@ -71,24 +127,8 @@ export async function POST(request: Request) {
       landingPage: utm?.landingPage || null,
     };
 
-    // ─── Validation (unchanged) ──────────────────────────────────────────
-    if (!Array.isArray(items) || items.length === 0) {
-      return NextResponse.json({ error: 'No items in order' }, { status: 400 });
-    }
-    if (!contact?.email || !contact?.phone) {
-      return NextResponse.json({ error: 'Email/phone required' }, { status: 400 });
-    }
-    if (!address?.name || !address?.line1 || !address?.city || !address?.state || !address?.pincode) {
-      return NextResponse.json({ error: 'Incomplete address' }, { status: 400 });
-    }
-    if (!/^\d{6}$/.test(address.pincode)) {
-      return NextResponse.json({ error: 'Invalid pincode' }, { status: 400 });
-    }
-
-    const session = guestSession;
-
-    // ─── Price recomputation (unchanged) ─────────────────────────────────
     let subtotal = 0;
+    let allCodEligible = true;
     const verifiedItems: Array<{
       productId: string;
       variantId: string | null;
@@ -100,41 +140,72 @@ export async function POST(request: Request) {
       region?: string | null;
     }> = [];
 
-    for (const item of items) {
+    for (const rawItem of items) {
+      const productId = String(rawItem?.productId || '').trim();
+      const quantity = Number(rawItem?.quantity);
+      if (!productId || !Number.isInteger(quantity) || quantity < 1 || quantity > MAX_LINE_QUANTITY) {
+        return NextResponse.json({ error: 'Invalid cart quantity' }, { status: 400 });
+      }
+
       const product: any = await prisma.product.findUnique({
-        where: { id: item.productId },
+        where: { id: productId },
         include: { variants: true },
       });
-      if (!product) return NextResponse.json({ error: `Product ${item.productId} not found` }, { status: 400 });
-      if (product.status !== 'ACTIVE') return NextResponse.json({ error: `Product ${product.name} unavailable` }, { status: 400 });
+      if (!product) {
+        return NextResponse.json({ error: 'A selected product could not be found' }, { status: 400 });
+      }
+      if (product.status !== 'ACTIVE') {
+        return NextResponse.json({ error: `${product.name} is currently unavailable` }, { status: 409 });
+      }
+      if (product.codEligible === false) allCodEligible = false;
 
       const now = new Date();
-      let price = product.sellingPrice;
-      if (product.salePrice && (!product.saleStartsAt || product.saleStartsAt <= now) && (!product.saleEndsAt || product.saleEndsAt >= now)) {
-        price = product.salePrice;
+      let price = Number(product.sellingPrice || 0);
+      if (
+        product.salePrice &&
+        (!product.saleStartsAt || product.saleStartsAt <= now) &&
+        (!product.saleEndsAt || product.saleEndsAt >= now)
+      ) {
+        price = Number(product.salePrice);
+      }
+      if (!Number.isInteger(price) || price < 0) {
+        return NextResponse.json({ error: `${product.name} has invalid pricing` }, { status: 409 });
       }
 
       let variantId: string | null = null;
-      if (item.variantId) {
-        const variant = product.variants.find((v: any) => v.id === item.variantId);
-        if (!variant) return NextResponse.json({ error: 'Variant not found' }, { status: 400 });
-        if (variant.inventory < item.quantity) {
-          return NextResponse.json({ error: `Only ${variant.inventory} left of ${product.name}` }, { status: 400 });
+      if (rawItem.variantId) {
+        const variant = product.variants.find((v: any) => v.id === rawItem.variantId);
+        if (!variant) return NextResponse.json({ error: 'Selected variant not found' }, { status: 409 });
+        if (variant.inventory < quantity) {
+          return NextResponse.json({ error: `Only ${variant.inventory} left of ${product.name}`, code: 'INVENTORY_CHANGED' }, { status: 409 });
         }
         variantId = variant.id;
-        if (variant.sellingPrice) price = variant.sellingPrice;
+        if (variant.sellingPrice != null) price = Number(variant.sellingPrice);
       } else if (product.variants.length > 0) {
-        const v = product.variants.find((vv: any) => vv.inventory >= item.quantity);
-        if (!v) return NextResponse.json({ error: `Out of stock: ${product.name}` }, { status: 400 });
-        variantId = v.id;
+        const availableVariants = product.variants.filter((v: any) => v.inventory >= quantity);
+        if (availableVariants.length !== 1) {
+          return NextResponse.json({
+            error: availableVariants.length === 0
+              ? `Out of stock: ${product.name}`
+              : `Please choose the exact option for ${product.name}`,
+            code: availableVariants.length === 0 ? 'INVENTORY_CHANGED' : 'VARIANT_REQUIRED',
+          }, { status: 409 });
+        }
+        variantId = availableVariants[0].id;
+        if (availableVariants[0].sellingPrice != null) price = Number(availableVariants[0].sellingPrice);
+      } else {
+        return NextResponse.json({
+          error: `${product.name} is not configured with a purchasable variant`,
+          code: 'PRODUCT_UNAVAILABLE',
+        }, { status: 409 });
       }
 
-      const lineTotal = price * item.quantity;
+      const lineTotal = price * quantity;
       subtotal += lineTotal;
       verifiedItems.push({
         productId: product.id,
         variantId,
-        quantity: item.quantity,
+        quantity,
         price,
         total: lineTotal,
         name: product.name,
@@ -143,8 +214,12 @@ export async function POST(request: Request) {
       });
     }
 
-    const wrap = giftWrap ? GIFT_WRAP_PAISE : 0;
+    const inventoryItems: ReservationItem[] = verifiedItems.map((item) => ({
+      variantId: item.variantId!,
+      quantity: item.quantity,
+    }));
 
+    const wrap = giftWrap ? GIFT_WRAP_PAISE : 0;
     const shippingResolved = await resolveShipping({
       pincode: address.pincode,
       state: address.state,
@@ -153,7 +228,6 @@ export async function POST(request: Request) {
     });
     const shippingPaise = shippingResolved.shippingPaise;
 
-    // ─── Coupon (unchanged) ──────────────────────────────────────────────
     let discountPaise = 0;
     let appliedCouponId: string | null = null;
     if (couponCode) {
@@ -185,7 +259,6 @@ export async function POST(request: Request) {
       }
     }
 
-    // ─── Loyalty points (unchanged) ──────────────────────────────────────
     let pointsRedeemed = 0;
     let pointsValuePaise = 0;
     if (pointsToRedeem && pointsToRedeem > 0 && session) {
@@ -208,112 +281,113 @@ export async function POST(request: Request) {
     const tax = calculateGST(totalBeforeTax, 5);
     const total = totalBeforeTax;
 
-    // =====================================================================
-    // BRANCH: COD vs PREPAID
-    // =====================================================================
-
     if (payment === 'COD') {
-      // ─── COD path (unchanged behaviour) ─────────────────────────────────
-      let addressId: string | null = null;
-      if (session) {
-        const addr = await prisma.address.create({
+      if (!allCodEligible || total > COD_MAX_PAISE) {
+        return NextResponse.json({
+          error: !allCodEligible
+            ? 'Cash on Delivery is not available for one or more selected pieces.'
+            : 'Cash on Delivery is available only for eligible orders below ₹25,000.',
+          code: 'COD_NOT_ELIGIBLE',
+        }, { status: 400 });
+      }
+
+      const order = await prisma.$transaction(async (tx: any) => {
+        // Respects all active prepaid holds and decrements stock under row locks.
+        await consumeUnreservedInventory(tx, inventoryItems);
+
+        let addressId: string | null = null;
+        if (session) {
+          const addr = await tx.address.create({
+            data: {
+              userId: session.id,
+              name: address.name,
+              phone: contact.phone,
+              line1: address.line1,
+              line2: address.line2 || null,
+              city: address.city,
+              state: address.state,
+              pincode: address.pincode,
+              country: 'IN',
+            },
+          });
+          addressId = addr.id;
+        }
+
+        const created = await tx.order.create({
           data: {
-            userId: session.id,
-            name: address.name, phone: contact.phone,
-            line1: address.line1, line2: address.line2 || null,
-            city: address.city, state: address.state, pincode: address.pincode,
-            country: 'IN',
+            orderNumber: generateOrderNumber(),
+            userId: session?.id || null,
+            addressId,
+            guestEmail: session ? null : normalizedEmail,
+            guestName: session ? null : address.name,
+            subtotal,
+            shipping: shippingPaise,
+            tax,
+            discount: discountPaise,
+            total,
+            pointsRedeemed,
+            pointsValue: pointsValuePaise,
+            paymentMethod: 'COD',
+            paymentStatus: 'PENDING' as any,
+            giftWrap: !!giftWrap,
+            personalNote: personalNote || null,
+            gstinCustomer: gstinCustomer || null,
+            source: 'WEB',
+            ...attribution,
+            items: {
+              create: verifiedItems.map((item) => ({
+                productId: item.productId,
+                variantId: item.variantId || undefined,
+                quantity: item.quantity,
+                price: item.price,
+                total: item.total,
+              })),
+            },
           },
         });
-        addressId = addr.id;
-      }
 
-      const orderNumber = generateOrderNumber();
+        if (appliedCouponId) {
+          await tx.coupon.update({
+            where: { id: appliedCouponId },
+            data: { usedCount: { increment: 1 } },
+          });
+          if (session?.id) {
+            await tx.couponRedemption.create({
+              data: { couponId: appliedCouponId, userId: session.id, orderId: created.id },
+            });
+          }
+        }
 
-      const order = await prisma.order.create({
-        data: {
-          orderNumber,
-          userId: session?.id || null,
-          addressId,
-          guestEmail: session ? null : contact.email,
-          guestName: session ? null : address.name,
-          subtotal,
-          shipping: shippingPaise,
-          tax,
-          discount: discountPaise,
-          total,
-          pointsRedeemed,
-          pointsValue: pointsValuePaise,
-          paymentMethod: 'COD',
-          paymentStatus: 'PENDING' as any,
-          giftWrap: !!giftWrap,
-          personalNote: personalNote || null,
-          gstinCustomer: gstinCustomer || null,
-          source: 'WEB',
-          ...attribution,
-          items: {
-            create: verifiedItems.map(i => ({
-              productId: i.productId,
-              variantId: i.variantId || undefined,
-              quantity: i.quantity,
-              price: i.price,
-              total: i.total,
-            })),
-          },
-        },
+        return created;
       });
 
-      // Coupon usage
-      if (appliedCouponId) {
-        await prisma.coupon.update({
-          where: { id: appliedCouponId },
-          data: { usedCount: { increment: 1 } },
-        }).catch(e => console.warn('[checkout] coupon usedCount failed:', e.message));
-        if (session?.id) {
-          await prisma.couponRedemption.create({
-            data: { couponId: appliedCouponId, userId: session.id, orderId: order.id },
-          }).catch(e => console.warn('[checkout] couponRedemption write failed:', e.message));
-        }
-      }
-
-      // Decrement inventory
-      for (const v of verifiedItems) {
-        if (v.variantId) {
-          await prisma.variant.update({
-            where: { id: v.variantId },
-            data: { inventory: { decrement: v.quantity } },
-          }).catch(e => console.warn('[checkout] variant decrement failed:', e.message));
-        }
-      }
-
-      // Mark any pending abandoned cart as RECOVERED
       prisma.abandonedCart.updateMany({
         where: {
-          email: contact.email.toLowerCase(),
+          email: normalizedEmail,
           recoveredOrderId: null,
           optedOut: false,
         },
         data: { recoveredOrderId: order.id, recoveredAt: new Date() },
-      }).catch(e => console.warn('[checkout] recovery mark failed:', e.message));
+      }).catch((e) => console.warn('[checkout] recovery mark failed:', e.message));
 
-      // Fire ORDER_PLACED email (COD only)
       const orderForEmail = {
         ...order,
         customerName: address.name,
-        items: verifiedItems.map(i => ({ ...i, subtotal: i.total })),
+        items: verifiedItems.map((item) => ({ ...item, subtotal: item.total })),
       };
+
       try {
         const { notify } = await import('@/lib/notifications');
         const recipients = order.userId
           ? { userId: order.userId }
-          : { recipients: [{ email: contact.email, phone: contact.phone, name: contact.name }] };
-        notify({
+          : { recipients: [{ email: normalizedEmail, phone: contact.phone, name: address.name }] };
+        await notify({
           event: 'ORDER_PLACED',
           ...recipients,
           data: {
             orderNumber: order.orderNumber,
             totalPaise: order.total,
-            customerName: contact.name,
+            customerName: address.name,
           },
           context: {
             type: 'ORDER',
@@ -323,11 +397,11 @@ export async function POST(request: Request) {
               total: Math.round((order.total || 0) / 100).toString(),
             },
           } as any,
-        }).catch(e => console.warn('[notify ORDER_PLACED]', e?.message));
+        });
       } catch (e: any) {
         console.warn('[checkout] notify failed:', e?.message);
         sendEmail({
-          to: contact.email,
+          to: normalizedEmail,
           subject: `Order received — ${order.orderNumber}`,
           html: orderPlacedEmail(orderForEmail),
         }).catch(() => {});
@@ -343,16 +417,9 @@ export async function POST(request: Request) {
       });
     }
 
-    // =====================================================================
-    // PREPAID PATH — NO ORDER CREATED. Snapshot only.
-    // =====================================================================
-
-    // Persist a cart snapshot so /api/razorpay/verify can materialize it on
-    // verified payment success. Also doubles as the abandonment row if the
-    // customer never completes payment — cron will pick it up at T+1h.
     const snapshotJson = JSON.stringify({
       verifiedItems,
-      contact,
+      contact: { ...contact, email: normalizedEmail },
       address,
       pricing: {
         subtotal,
@@ -372,33 +439,37 @@ export async function POST(request: Request) {
       session: session ? { id: session.id } : null,
     });
 
-    const snapshot = await prisma.abandonedCart.create({
-      data: {
-        email: contact.email.toLowerCase(),
-        userId: session?.id || null,
-        phone: contact.phone,
-        customerName: address.name,
-        itemsJson: snapshotJson,
-        subtotal,
-        itemCount: verifiedItems.reduce((s, i) => s + i.quantity, 0),
-        paymentMethodPicked: 'PREPAID',
-        lastSeenStep: 'payment',
-        recoveryStage: 0,
-        // grace period: cron will skip rows newer than abandonGraceMinutes
-        nextActionAt: new Date(Date.now() + 60 * 60 * 1000), // T+1h default
-      } as any,
+    const { snapshot, reservation } = await prisma.$transaction(async (tx: any) => {
+      const snapshot = await tx.abandonedCart.create({
+        data: {
+          email: normalizedEmail,
+          userId: session?.id || null,
+          phone: contact.phone,
+          customerName: address.name,
+          itemsJson: snapshotJson,
+          subtotal,
+          itemCount: verifiedItems.reduce((sum, item) => sum + item.quantity, 0),
+          paymentMethodPicked: 'PREPAID',
+          lastSeenStep: 'payment',
+          recoveryStage: 0,
+          nextActionAt: new Date(Date.now() + 60 * 60 * 1000),
+        } as any,
+      });
+
+      const reservation = await reserveInventory(tx, snapshot.id, inventoryItems, 30);
+      return { snapshot, reservation };
     });
 
     return NextResponse.json({
       success: true,
-      // No orderNumber yet — Razorpay flow uses snapshotId until verify
       snapshotId: snapshot.id,
       total,
       paymentMethod: 'RAZORPAY',
       next: 'payment',
+      reservationExpiresAt: reservation?.expiresAt || null,
     });
-  } catch (e: any) {
-    console.error('[checkout] error:', e);
-    return NextResponse.json({ error: e.message }, { status: 500 });
+  } catch (error: any) {
+    console.error('[checkout] error:', error);
+    return safeCheckoutFailure(error);
   }
 }
