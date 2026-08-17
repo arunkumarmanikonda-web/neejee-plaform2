@@ -63,7 +63,6 @@ export async function GET() {
         select: {
           id: true,
           status: true,
-          pointsAwarded: true,
           createdAt: true,
           rewardedAt: true,
           referee: { select: { name: true } },
@@ -86,9 +85,7 @@ export async function GET() {
     const pending = referrals.filter((referral) => referral.status === 'PENDING').length;
     const qualified = referrals.filter((referral) => referral.status === 'QUALIFIED').length;
     const rewarded = referrals.filter((referral) => referral.status === 'REWARDED').length;
-    const pointsEarned = referrals
-      .filter((referral) => referral.status === 'REWARDED')
-      .reduce((sum, referral) => sum + Number(referral.pointsAwarded || 0), 0);
+    const pointsEarned = rewarded * settings.referralRewardPoints;
 
     return NextResponse.json({
       user: {
@@ -119,7 +116,7 @@ export async function GET() {
         list: referrals.map((referral) => ({
           id: referral.id,
           status: referral.status,
-          pointsAwarded: referral.pointsAwarded,
+          pointsAwarded: referral.status === 'REWARDED' ? settings.referralRewardPoints : 0,
           createdAt: referral.createdAt,
           rewardedAt: referral.rewardedAt,
           refereeName: publicReferralName(referral.referee?.name),
