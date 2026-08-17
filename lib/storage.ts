@@ -11,6 +11,31 @@ export function publicUrl(filePath: string): string {
   return `${SUPABASE_URL}/storage/v1/object/public/${BUCKET}/${filePath}`;
 }
 
+/**
+ * Return the bucket-relative path only for URLs that point back to this
+ * configured Supabase Storage bucket. External provider/CDN URLs return null.
+ */
+export function storagePathFromPublicUrl(value: string | null | undefined): string | null {
+  if (!value || !SUPABASE_URL) return null;
+  try {
+    const configured = new URL(SUPABASE_URL);
+    const parsed = new URL(value);
+    if (parsed.origin !== configured.origin) return null;
+
+    const prefix = `/storage/v1/object/public/${encodeURIComponent(BUCKET)}/`;
+    const rawPath = parsed.pathname.startsWith(prefix)
+      ? parsed.pathname.slice(prefix.length)
+      : null;
+    if (!rawPath) return null;
+
+    const decoded = decodeURIComponent(rawPath);
+    if (!decoded || decoded.startsWith('/') || decoded.includes('..')) return null;
+    return decoded;
+  } catch {
+    return null;
+  }
+}
+
 /** Upload binary file to Supabase Storage. Returns public URL. */
 export async function uploadFile(
   filePath: string,
@@ -37,14 +62,20 @@ export async function uploadFile(
   return { url: publicUrl(filePath), path: filePath };
 }
 
-/** Delete a file from storage. */
+/** Delete a file from storage. Missing objects are treated as already deleted. */
 export async function deleteFile(filePath: string): Promise<void> {
-  if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) return;
+  if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
+    throw new Error('Supabase storage not configured');
+  }
   const delUrl = `${SUPABASE_URL}/storage/v1/object/${BUCKET}/${filePath}`;
-  await fetch(delUrl, {
+  const res = await fetch(delUrl, {
     method: 'DELETE',
     headers: { Authorization: `Bearer ${SUPABASE_SERVICE_KEY}` },
   });
+  if (!res.ok && res.status !== 404) {
+    const text = await res.text().catch(() => '');
+    throw new Error(`Supabase delete failed (${res.status}): ${text}`);
+  }
 }
 
 /** Generate a unique path within a folder. */
@@ -62,12 +93,8 @@ export function storageConfigured(): boolean {
 
 /**
  * Create a signed upload URL the browser can PUT to directly.
- * This bypasses Vercel's 4.5 MB serverless body limit — customers upload
+ * This bypasses Vercel's serverless body limit — customers upload
  * straight to Supabase Storage from the browser.
- *
- * Returns { signedUrl, token, path, publicUrl } — the browser PUTs the file
- * to `signedUrl` with the `Authorization: Bearer <token>` header, then uses
- * `publicUrl` for downstream AI generation.
  */
 export async function createSignedUploadUrl(filePath: string): Promise<{ signedUrl: string; token: string; path: string; publicUrl: string }> {
   if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
@@ -87,7 +114,6 @@ export async function createSignedUploadUrl(filePath: string): Promise<{ signedU
     throw new Error(`Failed to create signed upload URL (${res.status}): ${text}`);
   }
   const data = await res.json();
-  // Supabase returns { url, token } — the `url` is relative.
   const signedUrl = data.url?.startsWith('http')
     ? data.url
     : `${SUPABASE_URL}/storage/v1${data.url}`;
