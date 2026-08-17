@@ -19,6 +19,7 @@ export type ExtractedDocFields = {
 };
 
 export type UploadedApplicationDocument = {
+  pendingId: string;
   docType: ApplicationDocType;
   title: string | null;
   fileUrl: string;
