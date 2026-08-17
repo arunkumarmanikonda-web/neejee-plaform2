@@ -1,5 +1,6 @@
-// v23.40.25 — Guest order lookup. Given orderNumber + email, validates
-// the match and returns a tokenized URL to view the order/invoice.
+// Guest order lookup: order number + exact checkout email are required before
+// issuing a tokenized invoice URL. Responses intentionally do not reveal which
+// part of the lookup failed.
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { invoiceTokenFor } from '@/lib/finance/invoice-token';
@@ -7,37 +8,40 @@ import { invoiceTokenFor } from '@/lib/finance/invoice-token';
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
+const NOT_FOUND = 'No order matches those details. Please double-check.';
+
 export async function POST(req: Request) {
   try {
     const body = await req.json();
     const orderNumber = String(body.orderNumber || '').trim().toUpperCase();
     const email = String(body.email || '').trim().toLowerCase();
 
-    if (!orderNumber || !email) {
-      return NextResponse.json({ error: 'Order number and email are required' }, { status: 400 });
+    if (!orderNumber || !email || orderNumber.length > 80 || email.length > 320 || !/^\S+@\S+\.\S+$/.test(email)) {
+      return NextResponse.json({ error: 'Order number and a valid email are required' }, { status: 400 });
     }
 
     const order = await prisma.order.findFirst({
       where: { orderNumber },
-      select: { id: true, orderNumber: true, guestEmail: true, user: { select: { email: true } } },
+      select: {
+        id: true,
+        orderNumber: true,
+        guestEmail: true,
+        user: { select: { email: true } },
+      },
     });
 
-    if (!order) {
-      return NextResponse.json({ error: 'No order matches those details. Please double-check.' }, { status: 404 });
-    }
-
-    const ownerEmail = (order.user?.email || order.guestEmail || '').toLowerCase();
-    if (!ownerEmail || ownerEmail !== email) {
-      // Don't tell the attacker WHY it failed; same response either way.
-      return NextResponse.json({ error: 'No order matches those details. Please double-check.' }, { status: 404 });
+    const ownerEmail = String(order?.user?.email || order?.guestEmail || '').trim().toLowerCase();
+    if (!order || !ownerEmail || ownerEmail !== email) {
+      return NextResponse.json({ error: NOT_FOUND }, { status: 404 });
     }
 
     const token = invoiceTokenFor(order.id);
     return NextResponse.json({
-      url: `/api/orders/${encodeURIComponent(order.orderNumber)}/invoice?token=${token}`,
+      url: `/api/orders/${encodeURIComponent(order.orderNumber)}/invoice?token=${encodeURIComponent(token)}`,
       orderNumber: order.orderNumber,
     });
-  } catch (e: any) {
-    return NextResponse.json({ error: e?.message || 'Lookup failed' }, { status: 500 });
+  } catch (error: any) {
+    console.error('[orders.lookup] failed', { message: error?.message });
+    return NextResponse.json({ error: 'Unable to look up this order right now' }, { status: 500 });
   }
 }
