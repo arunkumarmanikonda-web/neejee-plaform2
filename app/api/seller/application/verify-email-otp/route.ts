@@ -16,12 +16,21 @@ const REASON_MESSAGES: Record<string, string> = {
   no_active_otp: 'No active email verification code was found. Please request a new code.',
   expired: 'This email verification code has expired. Please request a new code.',
   wrong_code: 'The email verification code is incorrect.',
+  max_attempts: 'Too many incorrect attempts. Please request a new email verification code.',
   seller_not_found: 'Seller application not found.',
   phone_session_mismatch: 'The verified mobile session does not match this application.',
   account_identity_conflict: 'This email or mobile number is already associated with another account. Please contact NEEJEE support.',
   protected_account_conflict: 'This email belongs to an internal NEEJEE account and cannot be converted into a seller account automatically.',
   pending_documents_missing: 'The application documents are no longer available. Please restart the document step.',
 };
+
+function reasonStatus(reason: string) {
+  if (reason === 'max_attempts') return 429;
+  if (reason === 'phone_session_mismatch') return 401;
+  if (['account_identity_conflict', 'protected_account_conflict', 'pending_documents_missing'].includes(reason)) return 409;
+  if (reason === 'seller_not_found') return 404;
+  return 400;
+}
 
 export async function POST(request: Request) {
   try {
@@ -55,7 +64,7 @@ export async function POST(request: Request) {
     if (!result.ok) {
       return NextResponse.json(
         { ...result, error: REASON_MESSAGES[result.reason] || 'Failed to verify email OTP' },
-        { status: 400 },
+        { status: reasonStatus(result.reason) },
       );
     }
 
