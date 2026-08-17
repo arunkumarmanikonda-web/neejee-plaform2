@@ -9,7 +9,6 @@ import {
   ensureReferralCode,
   TIER_LABELS,
   TIER_BLURBS,
-  TIER_ORDER,
   type LoyaltyTier,
 } from '@/lib/loyalty';
 
@@ -26,26 +25,24 @@ export async function GET() {
   if (!session) return NextResponse.json({ error: 'Not signed in' }, { status: 401 });
 
   try {
-    const [user, settings] = await Promise.all([
-      prisma.user.findUnique({
-        where: { id: session.id },
-        select: {
-          id: true,
-          email: true,
-          name: true,
-          loyaltyTier: true,
-          lifetimePoints: true,
-          lifetimeSpend: true,
-          referralCode: true,
-        },
-      }),
-      getSettings(),
-    ]);
+    const user = await prisma.user.findUnique({
+      where: { id: session.id },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        loyaltyTier: true,
+        lifetimePoints: true,
+        lifetimeSpend: true,
+        referralCode: true,
+      },
+    });
     if (!user) return NextResponse.json({ error: 'Account not found' }, { status: 404 });
 
-    const referralCode = user.referralCode || await ensureReferralCode(user.id);
-    const [balance, ledger, recentReferrals, referralCounts] = await Promise.all([
+    const [balance, settings, referralCode, ledger, referrals] = await Promise.all([
       getCurrentBalance(user.id),
+      getSettings(),
+      user.referralCode ? Promise.resolve(user.referralCode) : ensureReferralCode(user.id),
       prisma.loyaltyLedger.findMany({
         where: { userId: user.id },
         orderBy: { createdAt: 'desc' },
@@ -72,32 +69,26 @@ export async function GET() {
           referee: { select: { name: true } },
         },
       }),
-      prisma.referral.groupBy({
-        where: { referrerId: user.id },
-        by: ['status'],
-        _count: { _all: true },
-        _sum: { pointsAwarded: true },
-      }),
     ]);
 
     const tier = user.loyaltyTier as LoyaltyTier;
-    const tierIdx = TIER_ORDER.indexOf(tier);
-    const nextTier = tierIdx >= 0 && tierIdx < TIER_ORDER.length - 1 ? TIER_ORDER[tierIdx + 1] : null;
+    let nextTier: LoyaltyTier | null = null;
     let nextThreshold = 0;
-    if (nextTier === 'KNOWN') nextThreshold = settings.thresholdKnown;
-    else if (nextTier === 'PERSONAL') nextThreshold = settings.thresholdPersonal;
-    else if (nextTier === 'FAMILY') nextThreshold = settings.thresholdFamily;
+    if (tier === 'FOUND') { nextTier = 'KNOWN'; nextThreshold = settings.thresholdKnown; }
+    else if (tier === 'KNOWN') { nextTier = 'PERSONAL'; nextThreshold = settings.thresholdPersonal; }
+    else if (tier === 'PERSONAL') { nextTier = 'FAMILY'; nextThreshold = settings.thresholdFamily; }
+
     const progressPct = nextTier && nextThreshold > 0
       ? Math.min(100, Math.max(0, Math.round((user.lifetimeSpend / nextThreshold) * 100)))
       : 100;
     const spendToNext = nextTier ? Math.max(0, nextThreshold - user.lifetimeSpend) : 0;
 
-    const counts = new Map(referralCounts.map((row) => [String(row.status), row._count._all]));
-    const totalReferrals = referralCounts.reduce((sum, row) => sum + row._count._all, 0);
-    const pointsEarned = referralCounts.reduce(
-      (sum, row) => sum + (row.status === 'REWARDED' ? Number(row._sum.pointsAwarded || 0) : 0),
-      0,
-    );
+    const pending = referrals.filter((referral) => referral.status === 'PENDING').length;
+    const qualified = referrals.filter((referral) => referral.status === 'QUALIFIED').length;
+    const rewarded = referrals.filter((referral) => referral.status === 'REWARDED').length;
+    const pointsEarned = referrals
+      .filter((referral) => referral.status === 'REWARDED')
+      .reduce((sum, referral) => sum + Number(referral.pointsAwarded || 0), 0);
 
     return NextResponse.json({
       user: {
@@ -120,12 +111,12 @@ export async function GET() {
       },
       ledger,
       referrals: {
-        total: totalReferrals,
-        pending: counts.get('PENDING') || 0,
-        qualified: counts.get('QUALIFIED') || 0,
-        rewarded: counts.get('REWARDED') || 0,
+        total: referrals.length,
+        pending,
+        qualified,
+        rewarded,
         pointsEarned,
-        list: recentReferrals.map((referral) => ({
+        list: referrals.map((referral) => ({
           id: referral.id,
           status: referral.status,
           pointsAwarded: referral.pointsAwarded,
