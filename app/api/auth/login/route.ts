@@ -1,3 +1,4 @@
+import { createHash } from 'crypto';
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import bcrypt from 'bcryptjs';
@@ -24,6 +25,15 @@ const ADMIN_ROLES = new Set([
   'MARKETING_MANAGER',
   'TELECALLER',
 ]);
+
+const LOGIN_FAILURE_LIMIT = 12;
+const LOGIN_WINDOW_SECONDS = 15 * 60;
+const LOGIN_LOCK_SECONDS = 15 * 60;
+
+type LoginThrottleStatus = {
+  allowed: boolean;
+  retry_after: number;
+};
 
 function isAdminSideRole(role: unknown): role is string {
   return typeof role === 'string' && ADMIN_ROLES.has(role);
@@ -72,6 +82,36 @@ function maskPhone(phone: string | null | undefined) {
   return `${plus}${visiblePrefix}${maskedLocal}${last4}`;
 }
 
+function loginThrottleKey(email: string) {
+  return createHash('sha256').update(`neejee-login:${email}`, 'utf8').digest('hex');
+}
+
+async function getLoginThrottleStatus(keyHash: string): Promise<LoginThrottleStatus> {
+  const rows = await prisma.$queryRaw<LoginThrottleStatus[]>`
+    select allowed, retry_after
+    from private.auth_login_rate_status(${keyHash}, ${LOGIN_WINDOW_SECONDS})
+  `;
+  return rows[0] || { allowed: true, retry_after: 0 };
+}
+
+async function recordLoginFailure(keyHash: string) {
+  await prisma.$queryRaw`
+    select allowed, retry_after, attempts
+    from private.record_auth_login_failure(
+      ${keyHash},
+      ${LOGIN_FAILURE_LIMIT},
+      ${LOGIN_WINDOW_SECONDS},
+      ${LOGIN_LOCK_SECONDS}
+    )
+  `;
+}
+
+async function clearLoginFailures(keyHash: string) {
+  await prisma.$queryRaw`
+    select private.clear_auth_login_failures(${keyHash})
+  `;
+}
+
 export async function POST(request: Request) {
   try {
     const body = await request.json().catch(() => null);
@@ -86,6 +126,19 @@ export async function POST(request: Request) {
 
     const email = parsed.data.email.trim().toLowerCase();
     const password = parsed.data.password;
+    const throttleKey = loginThrottleKey(email);
+    const throttle = await getLoginThrottleStatus(throttleKey);
+
+    if (!throttle.allowed) {
+      const retryAfter = Math.max(1, Number(throttle.retry_after) || LOGIN_LOCK_SECONDS);
+      return NextResponse.json(
+        { error: 'Too many sign-in attempts. Please wait and try again.' },
+        {
+          status: 429,
+          headers: { 'Retry-After': String(retryAfter) },
+        },
+      );
+    }
 
     const user = await prisma.user.findFirst({
       where: { email },
@@ -100,6 +153,7 @@ export async function POST(request: Request) {
     });
 
     if (!user || !user.passwordHash) {
+      await recordLoginFailure(throttleKey);
       return NextResponse.json(
         { error: 'Invalid email or password' },
         { status: 401 },
@@ -109,11 +163,14 @@ export async function POST(request: Request) {
     const passwordOk = await bcrypt.compare(password, user.passwordHash);
 
     if (!passwordOk) {
+      await recordLoginFailure(throttleKey);
       return NextResponse.json(
         { error: 'Invalid email or password' },
         { status: 401 },
       );
     }
+
+    await clearLoginFailures(throttleKey);
 
     const role = user.role;
 
