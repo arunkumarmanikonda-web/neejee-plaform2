@@ -7,40 +7,44 @@ import { useCart } from '@/lib/cart-store';
 import { SearchBar } from '@/components/ui/SearchBar';
 import { AnnouncementBar } from '@/components/ui/AnnouncementBar';
 import { NeejeeLogo } from '@/components/brand/Logo';
+import { getCategoryTree } from '@/lib/client/category-tree';
 
 interface Me { id: string; email: string; name?: string | null; role?: string }
+
+type MobileMain = { slug: string; name: string; path: string | null; subs: any[] };
 
 export function Header() {
   const [open, setOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [accountMenu, setAccountMenu] = useState(false);
   const [me, setMe] = useState<Me | null>(null);
-  // v26.2a — taxonomy-driven mobile drawer
-  const [mobileMains, setMobileMains] = useState<{ slug: string; name: string; path: string | null; subs: any[] }[]>([]);
+  const [mobileMains, setMobileMains] = useState<MobileMain[]>([]);
   const [mobileOpenMain, setMobileOpenMain] = useState<string | null>(null);
   const count = useCart(s => s.itemCount());
 
   useEffect(() => {
-    fetch('/api/categories/tree?visible=true', { cache: 'no-store' })
-      .then(r => r.ok ? r.json() : { tree: [] })
-      .then(d => {
-        const mains = (d.tree || []).filter((c: any) => c.level === 1).map((c: any) => ({
-          slug: c.slug,
-          name: c.name,
-          path: c.path,
-          subs: (c.children || []).filter((s: any) => s.active && !s.hidden),
-        }));
-        setMobileMains(mains);
+    let alive = true;
+    getCategoryTree(false)
+      .then((tree) => {
+        if (!alive) return;
+        const mains = tree
+          .filter((c: any) => c.level === 1)
+          .map((c: any) => ({
+            slug: c.slug,
+            name: c.name,
+            path: c.path,
+            subs: (c.children || []).filter((s: any) => s.active !== false && !s.hidden),
+          }));
+        if (mains.length > 0) setMobileMains(mains);
       })
       .catch(() => {});
+    return () => { alive = false; };
   }, []);
 
   useEffect(() => {
     fetch('/api/me', { credentials: 'include', cache: 'no-store' })
       .then(async r => {
         if (r.ok) return r.json();
-        // 401 â€” either no session, or stale cookie was just cleared by getSession.
-        // Force a hard logout state so UI doesn't show a fake signed-in header.
         if (r.status === 401) setMe(null);
         return null;
       })
@@ -71,20 +75,16 @@ export function Header() {
             <NeejeeLogo size="md" />
           </Link>
 
-          {/* v23.40.26.1 â€” Mega-menu navigation, taxonomy-driven */}
           <MegaMenuNav />
 
           <div className="flex items-center gap-5">
-            <button onClick={() => setSearchOpen(true)} aria-label="Search" className="hover:text-madder transition-colors"><Search className="w-5 h-5" /></button>
+            <button onClick={() => setSearchOpen(true)} aria-label="Search" className="hover:text-madder transition-colors">
+              <Search className="w-5 h-5" />
+            </button>
 
-            {/* Account: dropdown when logged in, link when not */}
             {me ? (
               <div className="hidden sm:block relative">
-                <button
-                  onClick={() => setAccountMenu(!accountMenu)}
-                  className="flex items-center gap-1.5 hover:text-madder transition-colors"
-                  aria-label="Account menu"
-                >
+                <button onClick={() => setAccountMenu(!accountMenu)} className="flex items-center gap-1.5 hover:text-madder transition-colors" aria-label="Account menu">
                   <User className="w-5 h-5" />
                   <span className="text-xs tracking-wider hidden md:inline">{firstName ? firstName.toUpperCase() : 'ACCOUNT'}</span>
                 </button>
@@ -121,14 +121,14 @@ export function Header() {
             )}
 
             {!isAdmin && (
-              <Link href={me ? '/account?tab=wishlist' : '/login?next=%2Faccount%3Ftab%3Dwishlist'} aria-label="Wishlist" className="hidden sm:block hover:text-madder transition-colors"><Heart className="w-5 h-5" /></Link>
+              <Link href={me ? '/account?tab=wishlist' : '/login?next=%2Faccount%3Ftab%3Dwishlist'} aria-label="Wishlist" className="hidden sm:block hover:text-madder transition-colors">
+                <Heart className="w-5 h-5" />
+              </Link>
             )}
             <Link href="/cart" aria-label="Cart" className="relative hover:text-madder transition-colors">
               <ShoppingBag className="w-5 h-5" />
               {count > 0 && (
-                <span className="absolute -top-2 -right-2 bg-madder text-ivory text-[10px] rounded-full w-4 h-4 flex items-center justify-center font-ui">
-                  {count}
-                </span>
+                <span className="absolute -top-2 -right-2 bg-madder text-ivory text-[10px] rounded-full w-4 h-4 flex items-center justify-center font-ui">{count}</span>
               )}
             </Link>
           </div>
@@ -137,7 +137,6 @@ export function Header() {
         {open && (
           <div className="lg:hidden border-t border-beige bg-ivory max-h-[80vh] overflow-y-auto">
             <nav className="flex flex-col py-2 font-ui text-sm tracking-wide">
-              {/* v26.2a — taxonomy-driven mobile drawer */}
               {(mobileMains.length > 0 ? mobileMains : [
                 { slug: 'women', name: 'Women', path: 'women', subs: [] },
                 { slug: 'men', name: 'Men', path: 'men', subs: [] },
@@ -151,20 +150,11 @@ export function Header() {
                 return (
                   <div key={main.slug} className="border-b border-beige/60 last:border-0">
                     <div className="flex items-stretch">
-                      <Link
-                        href={`/categories/${main.path || main.slug}`}
-                        onClick={() => setOpen(false)}
-                        className="flex-1 px-6 py-3 hover:bg-beige hover:text-madder transition-colors"
-                      >
+                      <Link href={`/categories/${main.path || main.slug}`} onClick={() => setOpen(false)} className="flex-1 px-6 py-3 hover:bg-beige hover:text-madder transition-colors">
                         {main.name.toUpperCase()}
                       </Link>
                       {hasSubs && (
-                        <button
-                          type="button"
-                          onClick={() => setMobileOpenMain(isOpen ? null : main.slug)}
-                          aria-label={isOpen ? `Collapse ${main.name}` : `Expand ${main.name}`}
-                          className="px-5 text-mitti hover:text-madder text-lg"
-                        >
+                        <button type="button" onClick={() => setMobileOpenMain(isOpen ? null : main.slug)} aria-label={isOpen ? `Collapse ${main.name}` : `Expand ${main.name}`} className="px-5 text-mitti hover:text-madder text-lg">
                           {isOpen ? '−' : '+'}
                         </button>
                       )}
@@ -172,12 +162,7 @@ export function Header() {
                     {isOpen && hasSubs && (
                       <div className="bg-beige/30 px-6 py-2 pb-3">
                         {main.subs.map((sub: any) => (
-                          <Link
-                            key={sub.id}
-                            href={`/categories/${sub.path || sub.slug}`}
-                            onClick={() => setOpen(false)}
-                            className="block py-1.5 text-xs text-mitti hover:text-madder font-ui tracking-wider"
-                          >
+                          <Link key={sub.id} href={`/categories/${sub.path || sub.slug}`} onClick={() => setOpen(false)} className="block py-1.5 text-xs text-mitti hover:text-madder font-ui tracking-wider">
                             {sub.name}
                           </Link>
                         ))}
@@ -186,19 +171,13 @@ export function Header() {
                   </div>
                 );
               })}
-              <Link href="/journal" onClick={() => setOpen(false)} className="px-6 py-3 border-b border-beige/60 hover:bg-beige hover:text-madder transition-colors">
-                STORIES
-              </Link>
-              <Link href="/ai" onClick={() => setOpen(false)} className="px-6 py-3 text-madder hover:bg-beige transition-colors">
-                AI ✨
-              </Link>
+              <Link href="/journal" onClick={() => setOpen(false)} className="px-6 py-3 border-b border-beige/60 hover:bg-beige hover:text-madder transition-colors">STORIES</Link>
+              <Link href="/ai" onClick={() => setOpen(false)} className="px-6 py-3 text-madder hover:bg-beige transition-colors">AI ✨</Link>
               <div className="border-t border-beige mt-2 pt-2">
                 {me ? (
                   <>
-                    <p className="px-6 py-2 text-xs tracking-wider text-mitti">SIGNED IN Â· {firstName?.toUpperCase()}</p>
-                    <Link href={isAdmin ? '/admin' : '/account'} className="px-6 py-3 block hover:bg-beige" onClick={() => setOpen(false)}>
-                      {isAdmin ? 'Admin dashboard' : 'My account'}
-                    </Link>
+                    <p className="px-6 py-2 text-xs tracking-wider text-mitti">SIGNED IN · {firstName?.toUpperCase()}</p>
+                    <Link href={isAdmin ? '/admin' : '/account'} className="px-6 py-3 block hover:bg-beige" onClick={() => setOpen(false)}>{isAdmin ? 'Admin dashboard' : 'My account'}</Link>
                     <button onClick={logout} className="px-6 py-3 block text-left text-madder w-full">Sign out</button>
                   </>
                 ) : (

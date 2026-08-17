@@ -6,17 +6,18 @@ import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
 import { ProductCard, type ProductCardData } from '@/components/product/ProductCard';
 import { HeroCarousel } from '@/components/home/HeroCarousel';
+import { NewsletterForm } from '@/components/ui/NewsletterForm';
 import { Sparkles, ShieldCheck, Truck, RotateCcw, HandCoins } from 'lucide-react';
 
-export const dynamic = 'force-dynamic';
+// Public homepage data is CMS/catalogue driven, not user-specific. ISR keeps
+// edits fresh while removing a full database round-trip from every visit.
+export const revalidate = 60;
 export const runtime = 'nodejs';
 
 async function getHomeData() {
   try {
     const now = new Date();
     const [founderEdit, newArrivals, allActive, categories, heroBanner, founderNotePage] = await Promise.all([
-      // v23.40.22 — read latest active hero banner from CMS
-      // (added inside Promise.all below)
       prisma.product.findMany({
         where: { status: 'ACTIVE', badges: { has: "FOUNDER'S EDIT" } },
         take: 6, orderBy: { createdAt: 'desc' },
@@ -37,7 +38,6 @@ async function getHomeData() {
         select: { id: true, slug: true, name: true, products: { select: { id: true }, take: 1 } },
         take: 8,
       }),
-      // v23.40.23 — ALL active hero banners (scrollable carousel)
       prisma.banner.findMany({
         where: {
           position: 'hero',
@@ -49,15 +49,12 @@ async function getHomeData() {
         },
         orderBy: { order: 'asc' },
       }),
-      // v23.40.25.9 — CMS-driven founder note. Editable at /admin/cms (slug: home-founder-note)
       prisma.cmsPage.findUnique({
         where: { slug: 'home-founder-note' },
         select: { status: true, sections: true },
       }).catch(() => null),
     ]);
 
-    // Extract founder note paragraphs from CMS (if published).
-    // v23.40.26.0.6 — Capture title, body, and alignment from CMS.
     let founderNoteTitle: string | null = null;
     let founderNoteBody: string | null = null;
     let founderNoteAlign: 'left' | 'center' | 'justify' = 'center';
@@ -78,10 +75,8 @@ async function getHomeData() {
         }
       }
     }
+
     const mapCard = (p: any): ProductCardData => {
-      // v23.40.25.11 — fall back to variant images if Product.images is empty.
-      // Some admin upload flows save into Variant.images only; without this,
-      // the homepage shows a "No image" placeholder while the PDP looks fine.
       let imgs: string[] = Array.isArray(p.images) ? p.images.filter(Boolean) : [];
       if (imgs.length === 0 && Array.isArray(p.variants)) {
         for (const v of p.variants) {
@@ -102,17 +97,17 @@ async function getHomeData() {
         inventory: p.variants.reduce((s: number, v: any) => s + (v.inventory || 0), 0),
       };
     };
-    // Pick the best 'sarees-like' category for the hero CTA
+
     const primaryCat = categories.find((c: any) => /sare|women|textile/i.test(c.name + c.slug)) || categories[0];
     return {
       founder: founderEdit.length > 0 ? founderEdit.map(mapCard) : allActive.map(mapCard),
       newArrivals: newArrivals.map(mapCard),
       categories,
       primaryCatSlug: primaryCat?.slug || 'sarees',
-      heroBanners: heroBanner as any[],  // v23.40.23 — plural
-      founderNoteTitle,                  // v23.40.26.0.3 — CMS section.data.title (e.g. 'From the Founder')
-      founderNoteBody,                   // v23.40.26.0.3 — CMS section.data.body (full text with \n\n paragraph breaks)
-      founderNoteAlign,                  // v23.40.26.0.6 — 'left' | 'center' | 'justify' from CMS
+      heroBanners: heroBanner as any[],
+      founderNoteTitle,
+      founderNoteBody,
+      founderNoteAlign,
     };
   } catch (e: any) {
     console.warn('[home] DB query failed:', e.message);
@@ -120,7 +115,6 @@ async function getHomeData() {
   }
 }
 
-// Slugs MUST match either static stories in lib/data.ts or published CMS journal pages.
 const JOURNAL_FALLBACK = [
   { slug: 'why-we-built-neejee', title: 'Why we built NEEJEE', excerpt: 'I searched for years for the things I knew existed in India, and found nothing good enough online. So I built it.', image: 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=800&q=80' },
   { slug: 'fourteen-days-on-a-loom', title: 'Fourteen days on a loom', excerpt: 'Fourteen days of weaving. One saree. Three generations.', image: 'https://images.unsplash.com/photo-1583391733956-3750e0ff4e8b?w=800&q=80' },
@@ -134,19 +128,14 @@ export default async function HomePage() {
     <>
       <Header />
 
-      {/* HERO — v23.40.23: scrollable carousel of CMS-driven hero banners with default fallback */}
-      <HeroCarousel
-        banners={(data as any).heroBanners || []}
-        primaryCatSlug={data.primaryCatSlug || 'sarees'}
-      />
+      <HeroCarousel banners={(data as any).heroBanners || []} primaryCatSlug={data.primaryCatSlug || 'sarees'} />
 
-      {/* TRUST STRIP */}
       <section className="bg-beige border-y border-mitti/20">
         <div className="max-w-8xl mx-auto px-6 lg:px-12 py-6 grid grid-cols-2 md:grid-cols-4 gap-4">
           {[
             { icon: ShieldCheck, label: 'AUTHENTICITY GUARANTEED', sub: 'Founder-verified craft' },
             { icon: Truck, label: 'FREE SHIPPING', sub: 'Above ₹2,500 across India' },
-            { icon: RotateCcw, label: '7-DAY RETURNS', sub: 'No questions asked' },
+            { icon: RotateCcw, label: 'EASY RETURNS', sub: 'On eligible pieces' },
             { icon: HandCoins, label: 'FAIR TO MAKERS', sub: 'Direct artisan payouts' },
           ].map(t => (
             <div key={t.label} className="flex items-center gap-3">
@@ -160,7 +149,6 @@ export default async function HomePage() {
         </div>
       </section>
 
-      {/* FOUNDER'S EDIT — featured products */}
       {data.founder.length > 0 && (
         <section className="max-w-8xl mx-auto px-6 lg:px-12 py-20">
           <div className="flex items-baseline justify-between mb-10">
@@ -169,9 +157,7 @@ export default async function HomePage() {
               <h2 className="font-display text-4xl lg:text-5xl text-kohl mt-2">Founder's Edit</h2>
               <p className="font-italic italic text-mitti mt-2">Hand-picked by Nidhi · Limited drop</p>
             </div>
-            <Link href={`/categories/${data.primaryCatSlug || 'sarees'}`} className="font-ui text-xs tracking-widest text-madder hover:underline">
-              VIEW ALL →
-            </Link>
+            <Link href={`/categories/${data.primaryCatSlug || 'sarees'}`} className="font-ui text-xs tracking-widest text-madder hover:underline">VIEW ALL →</Link>
           </div>
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 lg:gap-8">
             {data.founder.slice(0, 4).map(p => <ProductCard key={p.id} product={p} />)}
@@ -179,7 +165,6 @@ export default async function HomePage() {
         </section>
       )}
 
-      {/* FOUNDER NOTE — CMS-driven. Headline always centered. Body alignment from CMS (default: center). */}
       <section className="bg-beige py-16 md:py-24">
         <div className="max-w-3xl mx-auto px-6">
           {data.founderNoteTitle && (
@@ -200,9 +185,7 @@ Nidhi Chauhan`;
               signature = last;
               paragraphs.pop();
             }
-            const alignClass = data.founderNoteAlign === 'justify' ? 'text-justify'
-                             : data.founderNoteAlign === 'left' ? 'text-left'
-                             : 'text-center';
+            const alignClass = data.founderNoteAlign === 'justify' ? 'text-justify' : data.founderNoteAlign === 'left' ? 'text-left' : 'text-center';
             return (
               <>
                 <div className={`font-body text-kohl/80 text-[15px] md:text-base leading-[1.85] space-y-5 ${alignClass}`} style={{ textAlign: data.founderNoteAlign || 'center' }}>
@@ -219,7 +202,6 @@ Nidhi Chauhan`;
         </div>
       </section>
 
-      {/* NEW ARRIVALS */}
       {data.newArrivals.length > 0 && (
         <section className="bg-beige py-20">
           <div className="max-w-8xl mx-auto px-6 lg:px-12">
@@ -228,9 +210,7 @@ Nidhi Chauhan`;
                 <p className="label text-madder">NEW IN</p>
                 <h2 className="font-display text-4xl text-kohl mt-2">Just arrived</h2>
               </div>
-              <Link href={`/categories/${data.primaryCatSlug || 'sarees'}?sort=newest`} className="font-ui text-xs tracking-widest text-madder hover:underline">
-                BROWSE ALL →
-              </Link>
+              <Link href={`/categories/${data.primaryCatSlug || 'sarees'}?sort=newest`} className="font-ui text-xs tracking-widest text-madder hover:underline">BROWSE ALL →</Link>
             </div>
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 lg:gap-8">
               {data.newArrivals.slice(0, 4).map(p => <ProductCard key={p.id} product={p} />)}
@@ -239,23 +219,16 @@ Nidhi Chauhan`;
         </section>
       )}
 
-      {/* AI TILE */}
       <section className="max-w-8xl mx-auto px-6 lg:px-12 py-20">
         <div className="bg-kohl text-ivory p-10 lg:p-16 relative overflow-hidden">
           <div className="grid lg:grid-cols-2 gap-10 items-center">
             <div>
-              <p className="label text-banarasi flex items-center gap-2">
-                <Sparkles className="w-4 h-4" /> NEEJEE AI
-              </p>
+              <p className="label text-banarasi flex items-center gap-2"><Sparkles className="w-4 h-4" /> NEEJEE AI</p>
               <h2 className="font-display text-4xl lg:text-5xl mt-4">See it on you.<br/>See it in your home.</h2>
-              <p className="font-italic italic text-beige/80 text-lg mt-4 max-w-md">
-                Try sarees on with the Mirror. Place stoneware in your room with Space. Find the perfect gift with the Concierge.
-              </p>
+              <p className="font-italic italic text-beige/80 text-lg mt-4 max-w-md">Try sarees on with the Mirror. Place stoneware in your room with Space. Find the perfect gift with the Concierge.</p>
               <div className="mt-8 flex flex-wrap gap-4">
                 <Link href="/ai/mirror" className="btn-primary">TRY THE MIRROR</Link>
-                <Link href="/ai/gift" className="font-ui text-xs tracking-widest text-ivory hover:text-banarasi self-center underline underline-offset-4">
-                  GIFT CONCIERGE →
-                </Link>
+                <Link href="/ai/gift" className="font-ui text-xs tracking-widest text-ivory hover:text-banarasi self-center underline underline-offset-4">GIFT CONCIERGE →</Link>
               </div>
             </div>
             <div className="grid grid-cols-3 gap-3">
@@ -269,7 +242,6 @@ Nidhi Chauhan`;
         </div>
       </section>
 
-      {/* STORIES / JOURNAL */}
       <section className="bg-beige py-20">
         <div className="max-w-8xl mx-auto px-6 lg:px-12">
           <div className="text-center mb-12">
@@ -280,8 +252,7 @@ Nidhi Chauhan`;
             {JOURNAL_FALLBACK.map(j => (
               <Link key={j.slug} href={`/journal/${j.slug}`} className="group">
                 <div className="aspect-[4/3] bg-ivory overflow-hidden">
-                  <Image src={j.image} alt={j.title} width={800} height={600}
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />
+                  <Image src={j.image} alt={j.title} width={800} height={600} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />
                 </div>
                 <h3 className="font-display text-xl text-kohl mt-4 group-hover:text-madder transition-colors">{j.title}</h3>
                 <p className="font-italic italic text-mitti text-sm mt-2">{j.excerpt}</p>
@@ -292,15 +263,11 @@ Nidhi Chauhan`;
         </div>
       </section>
 
-      {/* NEWSLETTER */}
       <section className="max-w-3xl mx-auto px-6 py-20 text-center">
         <p className="label text-madder">STAY IN THE TRUNK</p>
         <h2 className="font-display text-3xl text-kohl mt-3">Get our limited drops first.</h2>
-        <p className="font-italic italic text-mitti mt-3">No spam. Just craft, once a week.</p>
-        <form className="mt-8 flex gap-3 max-w-md mx-auto">
-          <input type="email" required placeholder="Your email" className="flex-1 p-3 bg-beige border border-mitti/20 font-ui text-sm" />
-          <button type="submit" className="btn-primary">SUBSCRIBE</button>
-        </form>
+        <p className="font-italic italic text-mitti mt-3 mb-8">No spam. Just craft, once a week.</p>
+        <div className="max-w-md mx-auto"><NewsletterForm /></div>
       </section>
 
       <Footer />

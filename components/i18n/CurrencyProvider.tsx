@@ -1,6 +1,8 @@
 'use client';
-// Currency context provider — auto-detects from country header on first visit,
-// allows manual override (persisted in localStorage).
+// Currency context provider.
+// Starts in INR so the root layout remains cacheable, then performs one
+// lightweight geo lookup on first visit unless the customer has chosen a
+// currency explicitly. Manual choice is persisted in localStorage.
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { CURRENCIES, DEFAULT_CURRENCY, formatCurrency as formatPaise, paiseToDisplay } from '@/lib/currency';
 
@@ -22,14 +24,31 @@ const CurrencyContext = createContext<CurrencyContextValue>({
   symbol: CURRENCIES[DEFAULT_CURRENCY].symbol,
 });
 
-export function CurrencyProvider({ children, initialCurrency }: { children: ReactNode; initialCurrency?: string }) {
-  const [currency, setCurrencyState] = useState(initialCurrency || DEFAULT_CURRENCY);
+export function CurrencyProvider({ children }: { children: ReactNode }) {
+  const [currency, setCurrencyState] = useState(DEFAULT_CURRENCY);
 
   useEffect(() => {
+    let cancelled = false;
+
     try {
       const stored = localStorage.getItem(STORAGE_KEY);
-      if (stored && CURRENCIES[stored]) setCurrencyState(stored);
+      if (stored && CURRENCIES[stored]) {
+        setCurrencyState(stored);
+        return () => { cancelled = true; };
+      }
     } catch {}
+
+    fetch('/api/geo/currency', { cache: 'no-store' })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        const detected = data?.currency;
+        if (!cancelled && typeof detected === 'string' && CURRENCIES[detected]) {
+          setCurrencyState(detected);
+        }
+      })
+      .catch(() => {});
+
+    return () => { cancelled = true; };
   }, []);
 
   const setCurrency = (code: string) => {

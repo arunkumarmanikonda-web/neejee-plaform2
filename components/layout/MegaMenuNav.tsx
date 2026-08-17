@@ -2,14 +2,10 @@
 
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
+import { getCategoryTree, type CategoryTreeNode } from '@/lib/client/category-tree';
 
-type NavNode = {
-  id: string;
-  slug: string;
-  name: string;
-  level: number;
+type NavNode = CategoryTreeNode & {
   path: string;
-  parentId: string | null;
   children: NavNode[];
 };
 
@@ -51,34 +47,34 @@ export default function MegaMenuNav() {
 
     async function loadTree() {
       try {
-        const menuPreview = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('menuPreview') === '1'
-        const treeUrl = menuPreview
-          ? '/api/categories/tree?visible=preview&cb=' + Date.now()
-          : '/api/categories/tree?visible=true&cb=' + Date.now()
-
-        const res = await fetch(treeUrl, {
-          cache: 'no-store',
-        });
-        if (!res.ok) return;
-
-        const data = await res.json();
-        const tree = Array.isArray(data?.tree) ? (data.tree as NavNode[]) : [];
-
+        const menuPreview = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('menuPreview') === '1';
+        const tree = await getCategoryTree(menuPreview);
         const fetchedBySlug = new Map(tree.map((n) => [n.slug, n]));
-        const merged = MAIN_ORDER.map((slug) => fetchedBySlug.get(slug)).filter(Boolean) as NavNode[];
+        const merged = MAIN_ORDER
+          .map((slug) => fetchedBySlug.get(slug))
+          .filter(Boolean)
+          .map((node) => ({
+            ...node!,
+            path: node!.path || node!.slug,
+            children: (node!.children || []).map((child) => ({
+              ...child,
+              path: child.path || child.slug,
+              children: (child.children || []).map((grandchild) => ({
+                ...grandchild,
+                path: grandchild.path || grandchild.slug,
+                children: (grandchild.children || []) as NavNode[],
+              })) as NavNode[],
+            })) as NavNode[],
+          })) as NavNode[];
 
-        if (alive && merged.length > 0) {
-          setMains(orderRoots(merged));
-        }
+        if (alive && merged.length > 0) setMains(orderRoots(merged));
       } catch {
-        // keep fallback mains silently
+        // Keep the stable fallback navigation if the taxonomy service is unavailable.
       }
     }
 
     loadTree();
-    return () => {
-      alive = false;
-    };
+    return () => { alive = false; };
   }, []);
 
   const orderedMains = useMemo(() => orderRoots(mains), [mains]);
@@ -108,34 +104,18 @@ export default function MegaMenuNav() {
                 <div className="grid grid-cols-4 gap-8">
                   {children.map((l2) => {
                     const l3s = Array.isArray(l2.children) ? orderChildren(l2.children) : [];
-
                     return (
                       <div key={l2.id} className="min-w-0">
-                        <Link
-                          href={hrefFor(l2)}
-                          className="mb-3 block text-[12px] font-semibold uppercase tracking-[0.16em] text-neutral-900 hover:text-black"
-                        >
+                        <Link href={hrefFor(l2)} className="mb-3 block text-[12px] font-semibold uppercase tracking-[0.16em] text-neutral-900 hover:text-black">
                           {l2.name}
                         </Link>
-
                         <div className="space-y-2">
-                          {l3s.length > 0 ? (
-                            l3s.map((l3) => (
-                              <Link
-                                key={l3.id}
-                                href={hrefFor(l3)}
-                                className="block text-sm text-neutral-600 hover:text-black"
-                              >
-                                {l3.name}
-                              </Link>
-                            ))
-                          ) : (
-                            <Link
-                              href={hrefFor(l2)}
-                              className="block text-sm text-neutral-600 hover:text-black"
-                            >
-                              View all
+                          {l3s.length > 0 ? l3s.map((l3) => (
+                            <Link key={l3.id} href={hrefFor(l3)} className="block text-sm text-neutral-600 hover:text-black">
+                              {l3.name}
                             </Link>
+                          )) : (
+                            <Link href={hrefFor(l2)} className="block text-sm text-neutral-600 hover:text-black">View all</Link>
                           )}
                         </div>
                       </div>
@@ -148,17 +128,10 @@ export default function MegaMenuNav() {
         );
       })}
 
-      <Link
-        href="/stories"
-        className="inline-flex items-center text-[13px] font-medium uppercase tracking-[0.18em] text-neutral-900 hover:text-black"
-      >
+      <Link href="/journal" className="inline-flex items-center text-[13px] font-medium uppercase tracking-[0.18em] text-neutral-900 hover:text-black">
         STORIES
       </Link>
-
-      <Link
-        href="/ai"
-        className="inline-flex items-center text-[13px] font-medium uppercase tracking-[0.18em] text-neutral-900 hover:text-black"
-      >
+      <Link href="/ai" className="inline-flex items-center text-[13px] font-medium uppercase tracking-[0.18em] text-neutral-900 hover:text-black">
         AI ✦
       </Link>
     </nav>

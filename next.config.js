@@ -23,33 +23,17 @@ const nextConfig = {
 
   async redirects() {
     return [
-      {
-        source: '/sellers/apply',
-        destination: '/sell/apply',
-        permanent: true,
-      },
+      { source: '/sellers/apply', destination: '/sell/apply', permanent: true },
+      // Confirmed legacy/customer-facing aliases. Keep inbound links alive.
+      { source: '/stories', destination: '/journal', permanent: true },
+      { source: '/legal/shipping', destination: '/help/shipping', permanent: true },
+      { source: '/legal/returns', destination: '/help/returns', permanent: true },
 
-      // Admin route recovery shims: route all blocked/exposed surfaces through the known-live AI Manager surface.
-      {
-        source: '/admin/taxonomy-ai',
-        destination: '/admin/ai?surface=taxonomy',
-        permanent: false,
-      },
-      {
-        source: '/admin/taxonomy/ai',
-        destination: '/admin/ai?surface=taxonomy',
-        permanent: false,
-      },
-      {
-        source: '/admin/meta-accounts',
-        destination: '/admin/ai?surface=meta',
-        permanent: false,
-      },
-      {
-        source: '/admin/integrations/meta',
-        destination: '/admin/ai?surface=meta',
-        permanent: false,
-      },
+      // Admin route recovery shims: route blocked/exposed surfaces through the known-live AI Manager surface.
+      { source: '/admin/taxonomy-ai', destination: '/admin/ai?surface=taxonomy', permanent: false },
+      { source: '/admin/taxonomy/ai', destination: '/admin/ai?surface=taxonomy', permanent: false },
+      { source: '/admin/meta-accounts', destination: '/admin/ai?surface=meta', permanent: false },
+      { source: '/admin/integrations/meta', destination: '/admin/ai?surface=meta', permanent: false },
     ];
   },
 
@@ -57,15 +41,11 @@ const nextConfig = {
     return [
       {
         source: '/brand/:path*',
-        headers: [
-          { key: 'Cache-Control', value: 'public, max-age=31536000, immutable' },
-        ],
+        headers: [{ key: 'Cache-Control', value: 'public, max-age=31536000, immutable' }],
       },
       {
         source: '/manifest.json',
-        headers: [
-          { key: 'Cache-Control', value: 'public, max-age=3600' },
-        ],
+        headers: [{ key: 'Cache-Control', value: 'public, max-age=3600' }],
       },
       {
         source: '/(.*)',
