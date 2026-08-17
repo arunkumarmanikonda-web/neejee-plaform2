@@ -1,5 +1,5 @@
 {
-  "name": "NEEJEE — Found. Personal.",
+  "name": "NEEJEE — FOUND. PERSONAL.",
   "short_name": "NEEJEE",
   "description": "India's finest craft, personally chosen. Hand-woven sarees, oxidised silver, mitti attars.",
   "start_url": "/?source=pwa",
@@ -7,7 +7,7 @@
   "display": "standalone",
   "orientation": "portrait",
   "background_color": "#F4EFE6",
-  "theme_color": "#7C2D2D",
+  "theme_color": "#0B0B0B",
   "lang": "en-IN",
   "categories": ["shopping", "lifestyle", "fashion"],
   "icons": [

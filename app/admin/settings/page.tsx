@@ -7,6 +7,7 @@ type ApiField = {
   key: string;
   value: string;
   configured: boolean;
+  source?: 'runtime' | 'vercel' | 'runtime+vercel' | 'missing';
   secret: boolean;
 };
 
@@ -173,20 +174,39 @@ export default function AdminSettingsPage() {
       const json = text ? JSON.parse(text) : {};
       if (!res.ok) throw new Error(json?.error || `Save failed (${res.status})`);
 
-      setOriginal((prev) => ({ ...prev, ...payload }));
+      const secretKeys = new Set(
+        (data?.fields || []).filter((field) => field.secret).map((field) => field.key),
+      );
+
+      setForm((prev) => {
+        const next = { ...prev };
+        for (const key of keys) {
+          if (secretKeys.has(key) && (payload[key] || '').trim()) next[key] = '';
+        }
+        return next;
+      });
+      setOriginal((prev) => {
+        const next = { ...prev };
+        for (const key of keys) {
+          next[key] = secretKeys.has(key) ? '' : (payload[key] || '');
+        }
+        return next;
+      });
       setData((prev) => {
         if (!prev) return prev;
         return {
           ...prev,
-          fields: prev.fields.map((field) =>
-            Object.prototype.hasOwnProperty.call(payload, field.key)
-              ? {
-                  ...field,
-                  value: payload[field.key] || '',
-                  configured: !!(payload[field.key] || '').trim(),
-                }
-              : field
-          ),
+          fields: prev.fields.map((field) => {
+            if (!Object.prototype.hasOwnProperty.call(payload, field.key)) return field;
+            const entered = (payload[field.key] || '').trim();
+            if (!entered) return field;
+            return {
+              ...field,
+              value: field.secret ? '' : payload[field.key],
+              configured: true,
+              source: 'vercel',
+            };
+          }),
         };
       });
       setNotice(json?.note || 'Saved to Vercel.');
@@ -239,6 +259,11 @@ export default function AdminSettingsPage() {
           <p className="label text-madder">AI MANAGER</p>
           <p className="font-display text-kohl mt-1">Recovery and surfaces</p>
           <p className="text-xs text-mitti mt-1 italic">Open live AI tools and recovery access routes</p>
+        </Link>
+        <Link href="/admin/releases" className="bg-beige p-5 hover:bg-madder/10 border border-mitti/15 hover:border-madder transition-colors">
+          <p className="label text-madder">RELEASE CONTROL</p>
+          <p className="font-display text-kohl mt-1">Evolution queue</p>
+          <p className="text-xs text-mitti mt-1 italic">Review autonomous proposals, evidence and rollback</p>
         </Link>
         <div className="bg-beige p-5 border border-mitti/15">
           <p className="label text-madder">VERCEL SYNC</p>
@@ -311,6 +336,9 @@ export default function AdminSettingsPage() {
             <Link href="/admin/ai" className="bg-kohl text-ivory px-4 py-2 rounded-sm text-sm font-medium">
               AI MANAGER
             </Link>
+            <Link href="/admin/releases" className="bg-madder text-ivory px-4 py-2 rounded-sm text-sm font-medium">
+              RELEASE CONTROL
+            </Link>
             <Link href="/admin/cms/ai" className="border border-kohl/20 px-4 py-2 rounded-sm text-sm font-medium text-kohl bg-white">
               CMS AI BATCH
             </Link>
@@ -328,6 +356,9 @@ export default function AdminSettingsPage() {
         <div className="flex flex-wrap gap-3 mt-5">
           <Link href="/admin/ai" className="border border-kohl/20 px-4 py-2 rounded-sm text-sm font-medium text-kohl bg-beige">
             OPEN AI MANAGER
+          </Link>
+          <Link href="/admin/releases" className="border border-madder/40 px-4 py-2 rounded-sm text-sm font-medium text-madder bg-beige">
+            OPEN RELEASE CONTROL
           </Link>
           <Link href="/admin/cms/ai" className="border border-kohl/20 px-4 py-2 rounded-sm text-sm font-medium text-kohl bg-beige">
             OPEN CMS AI BATCH
@@ -360,6 +391,9 @@ export default function AdminSettingsPage() {
                   <Link href="/admin/ai" className="bg-kohl text-ivory px-4 py-2 rounded-sm text-xs font-medium">
                     AI MANAGER
                   </Link>
+                  <Link href="/admin/releases" className="bg-madder text-ivory px-4 py-2 rounded-sm text-xs font-medium">
+                    RELEASE CONTROL
+                  </Link>
                   <Link href="/admin/cms/ai" className="border border-kohl/20 px-4 py-2 rounded-sm text-xs font-medium text-kohl bg-beige">
                     CMS AI BATCH
                   </Link>
@@ -378,6 +412,7 @@ export default function AdminSettingsPage() {
                 const meta = fieldMap.get(key);
                 const dirty = (form[key] || '') !== (original[key] || '');
                 const saving = savingKey === key || savingKey === '__bulk__';
+                const hasVisibleValue = !!(form[key] || '').trim();
 
                 return (
                   <div key={key} className="bg-white border border-kohl/10 p-4">
@@ -385,7 +420,7 @@ export default function AdminSettingsPage() {
                       <label className="font-ui text-sm text-kohl">{LABELS[key] || key}</label>
                       <div className="flex items-center gap-2">
                         <span className={`text-xs ${meta?.configured ? 'text-neem' : 'text-mitti'}`}>
-                          {saving ? 'Saving' : meta?.configured ? 'Configured' : 'Empty'}
+                          {saving ? 'Saving' : meta?.configured ? 'Configured' : 'Missing'}
                         </span>
                         {data?.canEdit ? (
                           <button
@@ -407,15 +442,22 @@ export default function AdminSettingsPage() {
                         setNotice('');
                       }}
                       disabled={!data?.canEdit}
-                      placeholder=""
+                      placeholder={meta?.secret && meta?.configured ? 'Configured value hidden' : ''}
+                      autoComplete="off"
                       className="w-full mt-3 border border-kohl/15 px-3 py-2 bg-white font-ui text-sm"
                     />
                     <p className="font-ui text-xs text-mitti mt-2">
-                      {data?.canEdit
-                        ? dirty
+                      {!data?.canEdit
+                        ? 'Read-only. SUPER_ADMIN required for editing.'
+                        : dirty
                           ? 'Unsaved change. Click Save to persist this field.'
-                          : 'Saved value loaded.'
-                        : 'Read-only. SUPER_ADMIN required for editing.'}
+                          : meta?.secret && meta?.configured
+                            ? 'Configured value is intentionally hidden. Enter a new value only to replace it.'
+                            : meta?.configured && !hasVisibleValue
+                              ? 'Configured in the runtime or Vercel. Enter a value only if you want to replace it.'
+                              : meta?.configured
+                                ? 'Configured value loaded.'
+                                : 'Not configured yet.'}
                     </p>
                   </div>
                 );
