@@ -13,7 +13,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import crypto from 'crypto';
-import { generateOrderNumber, calculateGST } from '@/lib/utils';
+import { generateOrderNumber } from '@/lib/utils';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -36,24 +36,27 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'snapshotId or orderNumber required' }, { status: 400 });
     }
 
-    const secret = process.env.RAZORPAY_KEY_SECRET || '';
-
-    // ─── Signature verification ─────────────────────────────────────────
-    let signatureOk = false;
-    if (secret) {
-      const expected = crypto
-        .createHmac('sha256', secret)
-        .update(`${razorpay_order_id}|${razorpay_payment_id}`)
-        .digest('hex');
-      signatureOk = expected === razorpay_signature;
-    } else {
-      // Dev mode — accept without signature
-      console.warn('[razorpay.verify] DEV MODE — no RAZORPAY_KEY_SECRET, accepting');
-      signatureOk = true;
+    const secret = process.env.RAZORPAY_KEY_SECRET;
+    if (!secret) {
+      console.error('[razorpay.verify] RAZORPAY_KEY_SECRET is not configured');
+      return NextResponse.json(
+        { error: 'Payment verification is temporarily unavailable' },
+        { status: 503 },
+      );
     }
 
+    // ─── Signature verification ─────────────────────────────────────────
+    const expected = crypto
+      .createHmac('sha256', secret)
+      .update(`${razorpay_order_id}|${razorpay_payment_id}`)
+      .digest('hex');
+
+    const supplied = String(razorpay_signature);
+    const signatureOk =
+      expected.length === supplied.length &&
+      crypto.timingSafeEqual(Buffer.from(expected, 'utf8'), Buffer.from(supplied, 'utf8'));
+
     if (!signatureOk) {
-      // Mark snapshot or order as failed
       if (snapshotId) {
         await prisma.abandonedCart.update({
           where: { id: snapshotId },
@@ -142,7 +145,6 @@ export async function POST(request: Request) {
       const pricing = data.pricing || {};
       const session = data.session || null;
 
-      // Create address row (if logged in user)
       let addressId: string | null = null;
       if (session?.id) {
         const addr = await prisma.address.create({
@@ -205,7 +207,6 @@ export async function POST(request: Request) {
         },
       });
 
-      // Decrement inventory
       for (const v of verifiedItems) {
         if (v.variantId) {
           await prisma.variant.update({
@@ -215,7 +216,6 @@ export async function POST(request: Request) {
         }
       }
 
-      // Coupon redemption
       if (data.appliedCouponId) {
         await prisma.coupon.update({
           where: { id: data.appliedCouponId },
@@ -228,7 +228,6 @@ export async function POST(request: Request) {
         }
       }
 
-      // Mark snapshot as RECOVERED
       await prisma.abandonedCart.update({
         where: { id: snapshot.id },
         data: {
@@ -237,7 +236,6 @@ export async function POST(request: Request) {
         },
       }).catch(e => console.warn('[verify] snapshot recovery mark failed:', e.message));
 
-      // Also catch any OTHER abandoned carts for this email (older sessions)
       await prisma.abandonedCart.updateMany({
         where: {
           email: snapshot.email,
@@ -248,7 +246,6 @@ export async function POST(request: Request) {
         data: { recoveredOrderId: order.id, recoveredAt: new Date() },
       }).catch(() => {});
 
-      // Points debit
       if (pricing.pointsRedeemed > 0 && session?.id) {
         try {
           const { redeemPoints } = await import('@/lib/loyalty');
@@ -262,7 +259,6 @@ export async function POST(request: Request) {
         }
       }
 
-      // Loyalty earn (idempotent)
       try {
         const { processOrderForLoyalty } = await import('@/lib/loyalty');
         await processOrderForLoyalty(order.id);
@@ -270,7 +266,6 @@ export async function POST(request: Request) {
         console.warn('[verify] loyalty processing failed:', e.message);
       }
 
-      // Auto-post to revenue ledger
       try {
         const { postOrderToInvoice } = await import('@/lib/finance/post-order');
         await postOrderToInvoice(order.id);
@@ -278,7 +273,6 @@ export async function POST(request: Request) {
         console.warn('[verify] invoice posting failed:', e.message);
       }
 
-      // ─── ORDER_CONFIRMED email (ONLY here for prepaid) ───────────────
       try {
         const { notify } = await import('@/lib/notifications');
         const { invoiceTokenFor } = await import('@/lib/finance/invoice-token');
@@ -401,6 +395,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ success: true, order });
   } catch (e: any) {
     console.error('[razorpay.verify]', e);
-    return NextResponse.json({ error: e.message }, { status: 500 });
+    return NextResponse.json({ error: 'Payment verification failed' }, { status: 500 });
   }
 }
