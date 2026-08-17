@@ -7,6 +7,7 @@ import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
 import { uploadAiImage } from '@/lib/client-upload';
 import { AiCommerceCompletion } from '@/components/ai/AiCommerceCompletion';
+import { DeleteAiPreviewButton } from '@/components/ai/DeleteAiPreviewButton';
 
 export const dynamic = 'force-dynamic';
 
@@ -26,6 +27,7 @@ function MirrorInner() {
   const [consent, setConsent] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [outputUrl, setOutputUrl] = useState<string>('');
+  const [previewId, setPreviewId] = useState<string>('');
   const [configured, setConfigured] = useState<boolean | null>(null);
   const [stubMessage, setStubMessage] = useState('');
   const [error, setError] = useState('');
@@ -108,6 +110,8 @@ function MirrorInner() {
         throw new Error(friendly);
       }
 
+      if (data.previewId) setPreviewId(String(data.previewId));
+
       if (data.done && data.outputUrl) {
         setOutputUrl(data.outputUrl);
         setConfigured(!!data.configured);
@@ -161,7 +165,16 @@ function MirrorInner() {
     setSelectedVariantId('');
     setConsent(false);
     setOutputUrl('');
+    setPreviewId('');
     setError('');
+    setStep('upload');
+  };
+
+  const afterDelete = () => {
+    setPersonImageUrl('');
+    setOutputUrl('');
+    setPreviewId('');
+    setConsent(false);
     setStep('upload');
   };
 
@@ -219,7 +232,7 @@ function MirrorInner() {
               )}
             </label>
             <p className="text-[11px] text-mitti/70 mt-6 max-w-md mx-auto leading-relaxed">
-              Your image is used for this private preview. Retention and deletion are governed by the NEEJEE privacy controls and policy.
+              Your image is used for this private preview. You can delete the uploaded image and preview directly after generation.
             </p>
           </div>
         )}
@@ -322,6 +335,7 @@ function MirrorInner() {
                   </Link>
                 )}
               </div>
+              <DeleteAiPreviewButton previewId={previewId} onDeleted={afterDelete} />
             </div>
 
             {selectedProduct && (
