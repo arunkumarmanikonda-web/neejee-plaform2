@@ -1,5 +1,5 @@
 // Verify Razorpay signature, bind it to the exact stored gateway order,
-// consume reserved inventory, and materialize the paid NEEJEE Order atomically.
+// consume all checkout reservations, and materialize the paid NEEJEE Order atomically.
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import crypto from 'crypto';
@@ -9,13 +9,30 @@ import {
   consumeUnreservedInventory,
   releaseInventoryReservation,
 } from '@/lib/inventory/reservations';
-import { refundPaymentForInventoryFailure } from '@/lib/payments/razorpay-refund';
+import {
+  consumeCouponReservation,
+  consumeLoyaltyReservation,
+  redeemCouponNow,
+  redeemLoyaltyPointsNow,
+  releaseCouponReservation,
+  releaseLoyaltyReservation,
+} from '@/lib/checkout/reservations';
+import { refundCapturedPayment } from '@/lib/payments/razorpay-refund';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
+type IntegrityRefundReason =
+  | 'inventory_unavailable_after_hold'
+  | 'coupon_unavailable_after_hold'
+  | 'loyalty_unavailable_after_hold';
+
+function errorMessage(error: any): string {
+  return String(error?.message || '');
+}
+
 function isInventoryFailure(error: any): boolean {
-  const message = String(error?.message || '');
+  const message = errorMessage(error);
   return (
     message.includes('INVENTORY_UNAVAILABLE_AFTER_HOLD') ||
     message.includes('INVENTORY_CORRUPTION') ||
@@ -23,8 +40,50 @@ function isInventoryFailure(error: any): boolean {
   );
 }
 
-function isMissingReservation(error: any): boolean {
-  return String(error?.message || '').includes('RESERVATION_NOT_FOUND');
+function isMissingInventoryReservation(error: any): boolean {
+  const message = errorMessage(error);
+  return message.includes('RESERVATION_NOT_FOUND') && !message.includes('COUPON_') && !message.includes('LOYALTY_');
+}
+
+function integrityRefundReason(error: any): IntegrityRefundReason | null {
+  const message = errorMessage(error);
+  if (isInventoryFailure(error)) return 'inventory_unavailable_after_hold';
+  if (
+    message.includes('COUPON_USAGE_LIMIT') ||
+    message.includes('COUPON_ALREADY_USED') ||
+    message.includes('COUPON_RESERVATION_RELEASED') ||
+    message.includes('COUPON_INACTIVE') ||
+    message.includes('COUPON_EXPIRED') ||
+    message.includes('COUPON_WRONG_USER')
+  ) return 'coupon_unavailable_after_hold';
+  if (
+    message.includes('LOYALTY_UNAVAILABLE_AFTER_HOLD') ||
+    message.includes('LOYALTY_INSUFFICIENT') ||
+    message.includes('LOYALTY_RESERVATION_RELEASED')
+  ) return 'loyalty_unavailable_after_hold';
+  return null;
+}
+
+function refundResponse(reason: IntegrityRefundReason, refundId?: string | null) {
+  if (reason === 'coupon_unavailable_after_hold') {
+    return NextResponse.json({
+      error: 'Your payment was received, but the coupon could no longer be honoured safely. A full refund has been initiated.',
+      code: 'PAYMENT_REFUNDED_COUPON',
+      refundId: refundId || null,
+    }, { status: 409 });
+  }
+  if (reason === 'loyalty_unavailable_after_hold') {
+    return NextResponse.json({
+      error: 'Your payment was received, but the points reserved for this checkout were no longer available. A full refund has been initiated.',
+      code: 'PAYMENT_REFUNDED_LOYALTY',
+      refundId: refundId || null,
+    }, { status: 409 });
+  }
+  return NextResponse.json({
+    error: 'Your payment was received, but the piece became unavailable after the reservation window. A full refund has been initiated.',
+    code: 'PAYMENT_REFUNDED_INVENTORY',
+    refundId: refundId || null,
+  }, { status: 409 });
 }
 
 export async function POST(request: Request) {
@@ -60,7 +119,6 @@ export async function POST(request: Request) {
       expected.length === supplied.length &&
       crypto.timingSafeEqual(Buffer.from(expected, 'utf8'), Buffer.from(supplied, 'utf8'));
 
-    // Invalid unauthenticated requests must never mutate order/payment state.
     if (!signatureOk) {
       console.warn('[razorpay.verify] invalid signature', {
         snapshotId: snapshotId || null,
@@ -123,13 +181,12 @@ export async function POST(request: Request) {
       let order: any;
       try {
         order = await prisma.$transaction(async (tx: any) => {
-          // New snapshots consume their reservation. A pre-deployment legacy
-          // snapshot without a reservation can still finalize from genuinely
-          // unreserved stock, preserving rollout compatibility.
+          // Rollout compatibility: pre-reservation snapshots can still finalize
+          // against genuinely unreserved stock.
           try {
             await consumeInventoryReservation(tx, snapshot.id);
           } catch (error: any) {
-            if (!isMissingReservation(error)) throw error;
+            if (!isMissingInventoryReservation(error)) throw error;
             await consumeUnreservedInventory(tx, inventoryItems);
           }
 
@@ -194,13 +251,28 @@ export async function POST(request: Request) {
           });
 
           if (data.appliedCouponId) {
-            await tx.coupon.update({
-              where: { id: data.appliedCouponId },
-              data: { usedCount: { increment: 1 } },
-            });
-            if (session?.id) {
-              await tx.couponRedemption.create({
-                data: { couponId: data.appliedCouponId, userId: session.id, orderId: created.id },
+            try {
+              await consumeCouponReservation(tx, snapshot.id, created.id);
+            } catch (error: any) {
+              if (!errorMessage(error).includes('COUPON_RESERVATION_NOT_FOUND')) throw error;
+              await redeemCouponNow(tx, {
+                couponId: String(data.appliedCouponId),
+                userId: session?.id || null,
+                subtotalPaise: Number(pricing.subtotal || snapshot.subtotal || 0),
+                orderId: created.id,
+              });
+            }
+          }
+
+          if (Number(pricing.pointsRedeemed || 0) > 0 && session?.id) {
+            try {
+              await consumeLoyaltyReservation(tx, snapshot.id, created.id);
+            } catch (error: any) {
+              if (!errorMessage(error).includes('LOYALTY_RESERVATION_NOT_FOUND')) throw error;
+              await redeemLoyaltyPointsNow(tx, {
+                userId: session.id,
+                points: Number(pricing.pointsRedeemed),
+                orderId: created.id,
               });
             }
           }
@@ -217,44 +289,50 @@ export async function POST(request: Request) {
           return created;
         });
       } catch (error: any) {
-        if (isInventoryFailure(error)) {
-          console.error('[razorpay.verify] paid inventory unavailable', {
+        const reason = integrityRefundReason(error);
+        if (reason) {
+          console.error('[razorpay.verify] paid checkout reservation unavailable', {
             snapshotId: snapshot.id,
             paymentId: razorpay_payment_id,
+            reason,
+            message: errorMessage(error),
           });
 
           try {
-            const refund = await refundPaymentForInventoryFailure({
+            const refund = await refundCapturedPayment({
               paymentId: razorpay_payment_id,
               snapshotId: snapshot.id,
+              reason,
             });
-            await releaseInventoryReservation(prisma as any, snapshot.id, 'RELEASED').catch(() => 0);
+            await Promise.all([
+              releaseInventoryReservation(prisma as any, snapshot.id, 'RELEASED').catch(() => 0),
+              releaseCouponReservation(prisma as any, snapshot.id, 'RELEASED').catch(() => 0),
+              releaseLoyaltyReservation(prisma as any, snapshot.id, 'RELEASED').catch(() => 0),
+            ]);
+            const label = reason.replace('_unavailable_after_hold', '');
             await prisma.abandonedCart.update({
               where: { id: snapshot.id },
               data: {
-                lastSeenStep: 'payment_refunded_inventory',
+                lastSeenStep: `payment_refunded_${label}`,
                 telecallerStatus: 'refund_initiated',
-                telecallerNotes: `Automatic full refund ${refund.id || 'requested'} after inventory became unavailable.`,
+                telecallerNotes: `Automatic full refund ${refund.id || 'requested'} after ${label} checkout reservation could not be finalized.`,
               } as any,
             }).catch(() => {});
 
-            return NextResponse.json({
-              error: 'Your payment was received, but the piece became unavailable after the reservation window. A full refund has been initiated.',
-              code: 'PAYMENT_REFUNDED_INVENTORY',
-              refundId: refund.id || null,
-            }, { status: 409 });
+            return refundResponse(reason, refund.id || null);
           } catch (refundError: any) {
             console.error('[razorpay.verify] urgent refund failure', {
               snapshotId: snapshot.id,
               paymentId: razorpay_payment_id,
+              reason,
               message: refundError?.message,
             });
             await prisma.abandonedCart.update({
               where: { id: snapshot.id },
               data: {
-                lastSeenStep: 'payment_inventory_exception',
+                lastSeenStep: 'payment_integrity_exception',
                 telecallerStatus: 'urgent_payment_exception',
-                telecallerNotes: `Payment ${razorpay_payment_id} captured; inventory finalization and automatic refund require urgent review.`,
+                telecallerNotes: `Payment ${razorpay_payment_id} captured; checkout finalization and automatic refund require urgent review (${reason}).`,
               } as any,
             }).catch(() => {});
 
@@ -289,15 +367,6 @@ export async function POST(request: Request) {
         },
         data: { recoveredOrderId: order.id, recoveredAt: new Date() },
       }).catch(() => {});
-
-      if (pricing.pointsRedeemed > 0 && session?.id) {
-        try {
-          const { redeemPoints } = await import('@/lib/loyalty');
-          await redeemPoints({ userId: session.id, points: pricing.pointsRedeemed, orderId: order.id });
-        } catch (e: any) {
-          console.warn('[verify] points debit failed:', e.message);
-        }
-      }
 
       try {
         const { processOrderForLoyalty } = await import('@/lib/loyalty');

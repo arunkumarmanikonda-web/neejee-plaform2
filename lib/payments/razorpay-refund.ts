@@ -5,19 +5,31 @@ type RazorpayRefund = {
   amount?: number;
 };
 
-function refundIdempotencyKey(snapshotId: string): string {
+type CheckoutRefundReason =
+  | 'inventory_unavailable_after_hold'
+  | 'coupon_unavailable_after_hold'
+  | 'loyalty_unavailable_after_hold';
+
+function refundIdempotencyKey(snapshotId: string, reason: CheckoutRefundReason): string {
   const safe = String(snapshotId || '')
     .replace(/[^a-zA-Z0-9_-]/g, '')
     .slice(0, 48);
-  return `neejee_inv_${safe || 'unknown'}`;
+  if (reason === 'inventory_unavailable_after_hold') {
+    // Preserve the original key format so retries across deployments remain idempotent.
+    return `neejee_inv_${safe || 'unknown'}`;
+  }
+  const prefix = reason === 'coupon_unavailable_after_hold' ? 'cpn' : 'loy';
+  return `neejee_${prefix}_${safe || 'unknown'}`;
 }
 
-export async function refundPaymentForInventoryFailure({
+export async function refundCapturedPayment({
   paymentId,
   snapshotId,
+  reason,
 }: {
   paymentId: string;
   snapshotId: string;
+  reason: CheckoutRefundReason;
 }): Promise<RazorpayRefund> {
   const keyId = process.env.RAZORPAY_KEY_ID;
   const keySecret = process.env.RAZORPAY_KEY_SECRET;
@@ -33,11 +45,11 @@ export async function refundPaymentForInventoryFailure({
       headers: {
         Authorization: `Basic ${credentials}`,
         'Content-Type': 'application/json',
-        'X-Refund-Idempotency': refundIdempotencyKey(snapshotId),
+        'X-Refund-Idempotency': refundIdempotencyKey(snapshotId, reason),
       },
       body: JSON.stringify({
         notes: {
-          reason: 'inventory_unavailable_after_hold',
+          reason,
           neejee_snapshot_id: snapshotId,
         },
       }),
@@ -50,6 +62,7 @@ export async function refundPaymentForInventoryFailure({
     console.error('[razorpay.refund] failed', {
       paymentId,
       snapshotId,
+      reason,
       status: response.status,
       code: data?.error?.code,
     });
@@ -57,4 +70,18 @@ export async function refundPaymentForInventoryFailure({
   }
 
   return data as RazorpayRefund;
+}
+
+export async function refundPaymentForInventoryFailure({
+  paymentId,
+  snapshotId,
+}: {
+  paymentId: string;
+  snapshotId: string;
+}): Promise<RazorpayRefund> {
+  return refundCapturedPayment({
+    paymentId,
+    snapshotId,
+    reason: 'inventory_unavailable_after_hold',
+  });
 }

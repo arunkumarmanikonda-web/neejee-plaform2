@@ -2,8 +2,8 @@
 // Checkout integrity:
 // - server recomputes price and eligibility
 // - guest OTP policy remains server-authoritative
-// - COD order + inventory consumption are one transaction
-// - prepaid checkout creates a 30-minute inventory reservation with its snapshot
+// - COD order + inventory/coupon/loyalty consumption are one transaction
+// - prepaid checkout reserves inventory, coupon capacity, and loyalty points together
 // - prepaid Order is still created only after verified Razorpay signature
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
@@ -16,6 +16,12 @@ import {
   reserveInventory,
   type ReservationItem,
 } from '@/lib/inventory/reservations';
+import {
+  redeemCouponNow,
+  redeemLoyaltyPointsNow,
+  reserveCoupon,
+  reserveLoyaltyPoints,
+} from '@/lib/checkout/reservations';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -42,6 +48,32 @@ function safeCheckoutFailure(error: any) {
   ) {
     return NextResponse.json(
       { error: 'One of your selected pieces is not currently available for checkout.', code: 'PRODUCT_UNAVAILABLE' },
+      { status: 409 },
+    );
+  }
+  if (message.includes('COUPON_SIGN_IN_REQUIRED')) {
+    return NextResponse.json(
+      { error: 'Please sign in to use this coupon.', code: 'COUPON_SIGN_IN_REQUIRED' },
+      { status: 401 },
+    );
+  }
+  if (
+    message.includes('COUPON_USAGE_LIMIT') ||
+    message.includes('COUPON_ALREADY_USED') ||
+    message.includes('COUPON_ALREADY_RESERVED') ||
+    message.includes('COUPON_EXPIRED') ||
+    message.includes('COUPON_INACTIVE') ||
+    message.includes('COUPON_WRONG_USER') ||
+    message.includes('COUPON_MIN_CART')
+  ) {
+    return NextResponse.json(
+      { error: 'This coupon can no longer be applied to this checkout. Please review your code and try again.', code: 'COUPON_CHANGED' },
+      { status: 409 },
+    );
+  }
+  if (message.includes('LOYALTY_INSUFFICIENT')) {
+    return NextResponse.json(
+      { error: 'Your available Founder’s Circle points changed before checkout completed. Please review the points applied and try again.', code: 'LOYALTY_CHANGED' },
       { status: 409 },
     );
   }
@@ -226,37 +258,65 @@ export async function POST(request: Request) {
       subtotalPaise: subtotal,
       mode: shipping === 'EXPRESS' ? 'EXPRESS' : 'STANDARD',
     });
-    const shippingPaise = shippingResolved.shippingPaise;
+    let shippingPaise = shippingResolved.shippingPaise;
 
     let discountPaise = 0;
     let appliedCouponId: string | null = null;
     if (couponCode) {
-      const coupon = await prisma.coupon.findUnique({ where: { code: String(couponCode).toUpperCase() } });
-      if (coupon && coupon.active) {
-        const now = new Date();
-        const datesOk = (!coupon.validFrom || coupon.validFrom <= now) && (!coupon.validTo || coupon.validTo >= now);
-        const usageOk = !coupon.maxUses || coupon.usedCount < coupon.maxUses;
-        const minOk = !coupon.minCart || subtotal >= coupon.minCart;
-        const userOk = !coupon.userId || (session?.id && coupon.userId === session.id);
+      const normalizedCouponCode = String(couponCode).toUpperCase().trim();
+      const coupon = await prisma.coupon.findUnique({ where: { code: normalizedCouponCode } });
+      if (!coupon) {
+        return NextResponse.json({ error: 'Coupon not found', code: 'COUPON_NOT_FOUND' }, { status: 400 });
+      }
+      if (!coupon.active) {
+        return NextResponse.json({ error: 'Coupon is inactive', code: 'COUPON_INACTIVE' }, { status: 400 });
+      }
 
-        let perUserOk = true;
-        if (coupon.perUserOnce && session?.id) {
-          const used = await prisma.couponRedemption.findUnique({
-            where: { couponId_userId: { couponId: coupon.id, userId: session.id } },
-          }).catch(() => null);
-          if (used) perUserOk = false;
+      const now = new Date();
+      if (coupon.validFrom && coupon.validFrom > now) {
+        return NextResponse.json({ error: 'Coupon not yet active', code: 'COUPON_NOT_YET_ACTIVE' }, { status: 400 });
+      }
+      if (coupon.validTo && coupon.validTo < now) {
+        return NextResponse.json({ error: 'Coupon has expired', code: 'COUPON_EXPIRED' }, { status: 400 });
+      }
+      if (coupon.maxUses != null && coupon.usedCount >= coupon.maxUses) {
+        return NextResponse.json({ error: 'Coupon usage limit reached', code: 'COUPON_USAGE_LIMIT' }, { status: 409 });
+      }
+      if (coupon.minCart != null && subtotal < coupon.minCart) {
+        return NextResponse.json({
+          error: `Minimum cart of ₹${(coupon.minCart / 100).toLocaleString('en-IN')} required`,
+          code: 'COUPON_MIN_CART',
+        }, { status: 400 });
+      }
+      if (coupon.userId) {
+        if (!session?.id) {
+          return NextResponse.json({ error: 'Please sign in to use this code', code: 'COUPON_SIGN_IN_REQUIRED' }, { status: 401 });
         }
-
-        if (datesOk && usageOk && minOk && userOk && perUserOk) {
-          if (coupon.type === 'PERCENT') {
-            discountPaise = Math.round((subtotal * coupon.value) / 100);
-            if (coupon.maxDiscount && discountPaise > coupon.maxDiscount) discountPaise = coupon.maxDiscount;
-          } else if (coupon.type === 'FLAT') {
-            discountPaise = Math.min(coupon.value, subtotal);
-          }
-          appliedCouponId = coupon.id;
+        if (coupon.userId !== session.id) {
+          return NextResponse.json({ error: 'This code belongs to another account', code: 'COUPON_WRONG_USER' }, { status: 403 });
         }
       }
+      if (coupon.perUserOnce) {
+        if (!session?.id) {
+          return NextResponse.json({ error: 'Please sign in to use this one-time code', code: 'COUPON_SIGN_IN_REQUIRED' }, { status: 401 });
+        }
+        const used = await prisma.couponRedemption.findUnique({
+          where: { couponId_userId: { couponId: coupon.id, userId: session.id } },
+        }).catch(() => null);
+        if (used) {
+          return NextResponse.json({ error: 'You have already used this code', code: 'COUPON_ALREADY_USED' }, { status: 400 });
+        }
+      }
+
+      if (coupon.type === 'PERCENT') {
+        discountPaise = Math.round((subtotal * coupon.value) / 100);
+        if (coupon.maxDiscount && discountPaise > coupon.maxDiscount) discountPaise = coupon.maxDiscount;
+      } else if (coupon.type === 'FLAT') {
+        discountPaise = Math.min(coupon.value, subtotal);
+      } else if (coupon.type === 'FREE_SHIPPING') {
+        shippingPaise = 0;
+      }
+      appliedCouponId = coupon.id;
     }
 
     let pointsRedeemed = 0;
@@ -292,7 +352,6 @@ export async function POST(request: Request) {
       }
 
       const order = await prisma.$transaction(async (tx: any) => {
-        // Respects all active prepaid holds and decrements stock under row locks.
         await consumeUnreservedInventory(tx, inventoryItems);
 
         let addressId: string | null = null;
@@ -347,15 +406,19 @@ export async function POST(request: Request) {
         });
 
         if (appliedCouponId) {
-          await tx.coupon.update({
-            where: { id: appliedCouponId },
-            data: { usedCount: { increment: 1 } },
+          await redeemCouponNow(tx, {
+            couponId: appliedCouponId,
+            userId: session?.id || null,
+            subtotalPaise: subtotal,
+            orderId: created.id,
           });
-          if (session?.id) {
-            await tx.couponRedemption.create({
-              data: { couponId: appliedCouponId, userId: session.id, orderId: created.id },
-            });
-          }
+        }
+        if (pointsRedeemed > 0 && session?.id) {
+          await redeemLoyaltyPointsNow(tx, {
+            userId: session.id,
+            points: pointsRedeemed,
+            orderId: created.id,
+          });
         }
 
         return created;
@@ -457,6 +520,23 @@ export async function POST(request: Request) {
       });
 
       const reservation = await reserveInventory(tx, snapshot.id, inventoryItems, 30);
+      if (appliedCouponId) {
+        await reserveCoupon(tx, {
+          snapshotId: snapshot.id,
+          couponId: appliedCouponId,
+          userId: session?.id || null,
+          subtotalPaise: subtotal,
+          holdMinutes: 30,
+        });
+      }
+      if (pointsRedeemed > 0 && session?.id) {
+        await reserveLoyaltyPoints(tx, {
+          snapshotId: snapshot.id,
+          userId: session.id,
+          points: pointsRedeemed,
+          holdMinutes: 30,
+        });
+      }
       return { snapshot, reservation };
     });
 
