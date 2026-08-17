@@ -1,10 +1,9 @@
-// app/api/checkout/recover/[id]/route.ts
-// v26.3c — Resolves a recovery-link click into a checkout-ready state.
-// Only verifiedItems from the structured snapshot are accepted.
-// Also returns richer checkout hydration data.
-
+// Resolves a signed recovery-link click into checkout-ready state.
+// The signed reference is the authorization mechanism for returning customer
+// contact/address/cart data to the recovery page.
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { verifyRecoveryRef } from '@/lib/recovery/link';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -13,27 +12,27 @@ function parseSnapshot(itemsJson: string) {
   try {
     const data = JSON.parse(itemsJson || '{}');
     const verifiedItems = Array.isArray(data?.verifiedItems) ? data.verifiedItems : [];
-    return {
-      data,
-      verifiedItems,
-    };
+    return { data, verifiedItems };
   } catch {
-    return {
-      data: null,
-      verifiedItems: [],
-    };
+    return { data: null, verifiedItems: [] };
   }
 }
 
 export async function GET(_req: Request, { params }: { params: { id: string } }) {
   try {
-    const cart = await prisma.abandonedCart.findUnique({
-      where: { id: params.id },
-    });
-
-    if (!cart) {
-      return NextResponse.json({ error: 'Not found' }, { status: 404 });
+    const recovery = verifyRecoveryRef(params.id);
+    if (!recovery.ok || !recovery.cartId) {
+      return NextResponse.json({
+        error: recovery.reason === 'expired'
+          ? 'This recovery link has expired.'
+          : 'This recovery link is invalid.',
+      }, { status: recovery.reason === 'expired' ? 410 : 404 });
     }
+
+    const cart = await prisma.abandonedCart.findUnique({
+      where: { id: recovery.cartId },
+    });
+    if (!cart) return NextResponse.json({ error: 'Not found' }, { status: 404 });
 
     if (cart.recoveredOrderId) {
       const order = await prisma.order.findUnique({
@@ -48,21 +47,15 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
       });
     }
 
-    if (cart.optedOut) {
-      return NextResponse.json({ error: 'Opted out' }, { status: 410 });
-    }
+    if (cart.optedOut) return NextResponse.json({ error: 'Opted out' }, { status: 410 });
 
     const { data, verifiedItems } = parseSnapshot(cart.itemsJson);
-
     if (verifiedItems.length === 0) {
-      return NextResponse.json(
-        {
-          ok: false,
-          code: 'snapshot_empty_items',
-          message: 'Snapshot has no verified items',
-        },
-        { status: 410 }
-      );
+      return NextResponse.json({
+        ok: false,
+        code: 'snapshot_empty_items',
+        message: 'Snapshot has no verified items',
+      }, { status: 410 });
     }
 
     return NextResponse.json({
@@ -88,7 +81,8 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
         paymentMethodPicked: (cart as any).paymentMethodPicked || null,
       },
     });
-  } catch (e: any) {
-    return NextResponse.json({ error: e.message }, { status: 500 });
+  } catch (error: any) {
+    console.error('[checkout.recover]', error?.message);
+    return NextResponse.json({ error: 'Unable to recover this trunk right now' }, { status: 500 });
   }
 }
