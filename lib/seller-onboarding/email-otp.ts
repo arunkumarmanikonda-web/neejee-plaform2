@@ -11,6 +11,16 @@ const EMAIL_OTP_MAX_PER_HOUR = 5;
 const PURPOSE = 'EMAIL_VERIFY_OTP';
 const LINKABLE_ROLES = new Set<Role>([Role.CUSTOMER, Role.SELLER]);
 
+type PendingSellerDocument = {
+  docType: SellerDocType;
+  title: string | null;
+  fileUrl: string;
+  fileName: string;
+  fileSize: number;
+  mimeType: string;
+  storageKey: string;
+};
+
 function generateCode() {
   let code = '';
   for (let i = 0; i < 6; i += 1) code += String(randomInt(0, 10));
@@ -21,10 +31,10 @@ function normalizeEmail(value: string) {
   return String(value || '').trim().toLowerCase();
 }
 
-function pendingDocumentsFromSummary(summary: any) {
-  const raw = Array.isArray(summary?.pendingDocuments) ? summary.pendingDocuments : [];
+function pendingDocumentsFromSummary(summary: any): PendingSellerDocument[] {
+  const raw: any[] = Array.isArray(summary?.pendingDocuments) ? summary.pendingDocuments : [];
   return raw
-    .map((doc: any) => ({
+    .map((doc: any): PendingSellerDocument => ({
       docType: String(doc?.docType || '') as SellerDocType,
       title: doc?.title == null ? null : String(doc.title).slice(0, 120),
       fileUrl: String(doc?.fileUrl || ''),
@@ -33,13 +43,13 @@ function pendingDocumentsFromSummary(summary: any) {
       mimeType: String(doc?.mimeType || ''),
       storageKey: String(doc?.storageKey || ''),
     }))
-    .filter((doc: any) =>
+    .filter((doc: PendingSellerDocument) =>
       Object.values(SellerDocType).includes(doc.docType)
-      && doc.fileUrl
-      && doc.fileName
+      && Boolean(doc.fileUrl)
+      && Boolean(doc.fileName)
       && doc.fileSize > 0
-      && doc.mimeType
-      && doc.storageKey
+      && Boolean(doc.mimeType)
+      && Boolean(doc.storageKey)
       && privateSellerStoragePath(doc.fileUrl) === doc.storageKey,
     );
 }
@@ -201,7 +211,7 @@ export async function verifySellerEmailOtp(input: {
         select: { id: true, role: true },
       });
 
-  const docTypes = Array.from(new Set(pendingDocuments.map((doc) => doc.docType)));
+  const docTypes = Array.from(new Set<SellerDocType>(pendingDocuments.map((doc: PendingSellerDocument) => doc.docType)));
   if (docTypes.length) {
     await prisma.sellerDocument.updateMany({
       where: {
@@ -218,7 +228,7 @@ export async function verifySellerEmailOtp(input: {
   }
 
   await prisma.sellerDocument.createMany({
-    data: pendingDocuments.map((doc) => ({
+    data: pendingDocuments.map((doc: PendingSellerDocument) => ({
       sellerId: seller.id,
       docType: doc.docType,
       title: doc.title,
