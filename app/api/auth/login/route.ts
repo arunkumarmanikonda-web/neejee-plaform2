@@ -87,9 +87,12 @@ function loginThrottleKey(email: string) {
 }
 
 async function getLoginThrottleStatus(keyHash: string): Promise<LoginThrottleStatus> {
+  // Prisma serialises JavaScript integer parameters as bigint. The private
+  // throttle functions intentionally accept PostgreSQL integer, so cast the
+  // numeric bind explicitly at the SQL boundary.
   const rows = await prisma.$queryRaw<LoginThrottleStatus[]>`
     select allowed, retry_after
-    from private.auth_login_rate_status(${keyHash}, ${LOGIN_WINDOW_SECONDS})
+    from private.auth_login_rate_status(${keyHash}, ${LOGIN_WINDOW_SECONDS}::integer)
   `;
   return rows[0] || { allowed: true, retry_after: 0 };
 }
@@ -99,9 +102,9 @@ async function recordLoginFailure(keyHash: string) {
     select allowed, retry_after, attempts
     from private.record_auth_login_failure(
       ${keyHash},
-      ${LOGIN_FAILURE_LIMIT},
-      ${LOGIN_WINDOW_SECONDS},
-      ${LOGIN_LOCK_SECONDS}
+      ${LOGIN_FAILURE_LIMIT}::integer,
+      ${LOGIN_WINDOW_SECONDS}::integer,
+      ${LOGIN_LOCK_SECONDS}::integer
     )
   `;
 }
