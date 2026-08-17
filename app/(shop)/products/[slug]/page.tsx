@@ -5,7 +5,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
-import { Heart, Sparkles, Truck, RotateCcw, ShieldCheck, Plus, Minus, ChevronDown, Check } from 'lucide-react';
+import { Heart, Sparkles, Truck, RotateCcw, ShieldCheck, Plus, Minus, ChevronDown, Check, Home } from 'lucide-react';
 import { formatINR, effectivePricePaise, discountPct } from '@/lib/money';
 import { isPreorder, isSoldOut, fulfilmentStatusLine, buyCtaLabel, checkoutPaise } from '@/lib/fulfilment';
 import { useCart } from '@/lib/cart-store';
@@ -31,20 +31,39 @@ function PDPInner() {
   const [qty, setQty] = useState(1);
   const [added, setAdded] = useState(false);
   const [openTab, setOpenTab] = useState<string>('craft');
+  const [inWishlist, setInWishlist] = useState(false);
+  const [wishlistBusy, setWishlistBusy] = useState(false);
+  const [wishlistMessage, setWishlistMessage] = useState('');
 
   useEffect(() => {
     if (!slug) return;
     setLoading(true); setError('');
-    fetch(`/api/products/${slug}`).then(r => r.json()).then(d => {
-      if (d.error) { setError(d.error); return; }
-      setProduct(d.product);
-      // Pick first in-stock variant
-      const firstInStock = d.product.variants?.find((v: any) => v.inStock) || d.product.variants?.[0];
-      setActiveVariant(firstInStock);
-      // Track PDP view
-      track({ type: 'PRODUCT_VIEW', productId: d.product.id, value: d.product.sellingPrice });
-    }).catch(e => setError(e.message)).finally(() => setLoading(false));
+    fetch(`/api/products/${slug}`)
+      .then(r => r.json())
+      .then(d => {
+        if (d.error) { setError(d.error); return; }
+        setProduct(d.product);
+        const firstInStock = d.product.variants?.find((v: any) => v.inStock) || d.product.variants?.[0];
+        setActiveVariant(firstInStock);
+        track({ type: 'PRODUCT_VIEW', productId: d.product.id, value: d.product.sellingPrice });
+      })
+      .catch(e => setError(e.message))
+      .finally(() => setLoading(false));
   }, [slug]);
+
+  useEffect(() => {
+    if (!product?.id) return;
+    let cancelled = false;
+    fetch('/api/wishlist', { credentials: 'include', cache: 'no-store' })
+      .then(r => r.ok ? r.json() : null)
+      .then(d => {
+        if (cancelled || !d?.loggedIn) return;
+        const ids = Array.isArray(d.productIds) ? d.productIds : [];
+        setInWishlist(ids.includes(product.id));
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [product?.id]);
 
   if (loading) return <><Header /><div className="max-w-8xl mx-auto px-6 py-20 text-mitti">Loading...</div><Footer /></>;
   if (error || !product) return <><Header /><div className="max-w-8xl mx-auto px-6 py-20"><p className="font-display text-2xl">Product not found.</p><Link href="/" className="btn-outline mt-6">BACK HOME</Link></div><Footer /></>;
@@ -63,7 +82,6 @@ function PDPInner() {
       mrp: product.mrp,
       images: product.images,
       inventory: stockLeft,
-      // Carry variant identification for cart
       variantId: activeVariant?.id,
       variantLabel: [activeVariant?.size, activeVariant?.color].filter(Boolean).join(' · ') || null,
     } as any, qty);
@@ -73,42 +91,66 @@ function PDPInner() {
 
   const handleBuyNow = () => { handleAdd(); router.push('/cart'); };
 
+  const handleWishlist = async () => {
+    if (wishlistBusy) return;
+    setWishlistBusy(true);
+    setWishlistMessage('');
+    try {
+      const response = await fetch('/api/wishlist', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ productId: product.id }),
+      });
+      if (response.status === 401) {
+        router.push(`/login?next=${encodeURIComponent(`/products/${product.slug}`)}`);
+        return;
+      }
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || 'Unable to update wishlist');
+      setInWishlist(!!data.inWishlist);
+      setWishlistMessage(data.inWishlist ? 'Saved personally.' : 'Removed from your saved pieces.');
+      setTimeout(() => setWishlistMessage(''), 2200);
+    } catch {
+      setWishlistMessage('Could not update your wishlist. Please try again.');
+    } finally {
+      setWishlistBusy(false);
+    }
+  };
+
   const TABS = [
     { id: 'craft', label: 'CRAFT STORY', body: product.story || product.description },
     { id: 'artisan', label: 'ARTISAN', body: product.artisanName
-      ? `${product.artisanName} — ${product.region}${product.cluster ? ', ' + product.cluster : ''}. ${product.craftNote || ''}`
+      ? `${product.artisanName} · ${product.region}${product.cluster ? ', ' + product.cluster : ''}. ${product.craftNote || ''}`
       : (product.craftNote || product.seller?.businessName || 'Crafted by NEEJEE-verified makers.')
     },
-    { id: 'care', label: 'CARE', body: product.careInstructions || 'Dry-clean only. Store wrapped in muslin. Refold every 3 months. Keep away from direct sunlight.' },
-    { id: 'delivery', label: 'DELIVERY', body: 'Free shipping above ₹2,500 across India. Standard 4-7 days. Express available at checkout. 7-day no-questions returns.' },
+    { id: 'care', label: 'CARE', body: product.careInstructions || 'Care guidance will be confirmed with your piece.' },
+    { id: 'delivery', label: 'DELIVERY & RETURNS', body: [
+      product.deliveryInfo || 'Delivery timing is confirmed at checkout.',
+      product.returnPolicy || (product.returnEligible ? 'Eligible for return under the NEEJEE returns policy.' : 'Please review the product-specific return terms before purchase.'),
+    ].filter(Boolean).join(' ') },
   ];
 
-  // Colors and Sizes from variants
-  const sizes = Array.from(new Set(product.variants.map((v: any) => v.size).filter(Boolean)));
-  const colors = Array.from(new Set(product.variants.map((v: any) => v.color).filter(Boolean)));
+  const variants = Array.isArray(product.variants) ? product.variants : [];
+  const sizes = Array.from(new Set(variants.map((v: any) => v.size).filter(Boolean)));
+  const colors = Array.from(new Set(variants.map((v: any) => v.color).filter(Boolean)));
 
-  // Variant-aware gallery (v23.29):
-  //   If the selected variant has its own images, show those.
-  //   Otherwise fall back to the shared Product.images gallery.
-  //   This keeps existing products (no per-variant images) working unchanged.
   const galleryImages: string[] =
     Array.isArray(activeVariant?.images) && activeVariant.images.length > 0
       ? activeVariant.images
-      : (product.images || []);
+      : (Array.isArray(product.images) ? product.images : []);
 
   return (
     <>
       <Header />
 
-      {/* Breadcrumb */}
       <nav className="max-w-8xl mx-auto px-6 lg:px-12 pt-6 font-ui text-xs tracking-widest text-mitti">
         <Link href="/" className="hover:text-madder">HOME</Link> ·
-        {product.category && <> <Link href={`/categories/${product.category.slug}`} className="hover:text-madder"> {product.category.name.toUpperCase()}</Link> · </>}
+        {product.category && <> <Link href={`/categories/${product.category.path || product.category.slug}`} className="hover:text-madder"> {product.category.name.toUpperCase()}</Link> · </>}
         <span> {product.name.toUpperCase()}</span>
       </nav>
 
       <article className="max-w-8xl mx-auto px-6 lg:px-12 py-8 grid lg:grid-cols-2 gap-12">
-        {/* GALLERY */}
         <section>
           <div className="aspect-[4/5] bg-beige relative overflow-hidden">
             {galleryImages?.[activeImage] ? (
@@ -122,8 +164,11 @@ function PDPInner() {
             {product.aiTryOnEligible && (
               <span className="absolute top-4 right-4 bg-kohl/80 text-ivory text-[10px] px-3 py-1 font-ui tracking-widest">✦ MIRROR ELIGIBLE</span>
             )}
+            {product.aiRoomEligible && (
+              <span className={`absolute ${product.aiTryOnEligible ? 'top-12' : 'top-4'} right-4 bg-mitti/90 text-ivory text-[10px] px-3 py-1 font-ui tracking-widest`}>✦ SPACE ELIGIBLE</span>
+            )}
             {product.arTryOnEligible && (
-              <span className="absolute top-12 right-4 bg-madder/85 text-ivory text-[10px] px-3 py-1 font-ui tracking-widest">✦ AR TRY-ON</span>
+              <span className="absolute top-20 right-4 bg-madder/85 text-ivory text-[10px] px-3 py-1 font-ui tracking-widest">✦ AR TRY-ON</span>
             )}
           </div>
           {galleryImages?.length > 1 && (
@@ -131,14 +176,13 @@ function PDPInner() {
               {galleryImages.slice(0, 5).map((img: string, i: number) => (
                 <button key={i} onClick={() => setActiveImage(i)}
                   className={`aspect-square overflow-hidden bg-beige ${activeImage === i ? 'ring-2 ring-madder' : ''}`}>
-                  <Image src={img} alt={`View ${i+1}`} width={150} height={150} className="w-full h-full object-cover" />
+                  <Image src={img} alt={`View ${i + 1}`} width={150} height={150} className="w-full h-full object-cover" />
                 </button>
               ))}
             </div>
           )}
         </section>
 
-        {/* INFO */}
         <section>
           {product.badges && product.badges.length > 0 && (
             <BadgeRow badges={product.badges} size="md" className="mb-4" />
@@ -148,7 +192,6 @@ function PDPInner() {
             <p className="font-italic italic text-mitti text-lg mt-2">{product.poeticLine}</p>
           )}
 
-          {/* Prominent fulfilment status line — pre-order / edition-of-N */}
           {fulfilmentStatusLine(product) && (
             <p className="font-display text-lg text-madder mt-3 tracking-wide">
               {fulfilmentStatusLine(product)}
@@ -165,13 +208,12 @@ function PDPInner() {
           </div>
           <p className="font-ui text-xs text-mitti mt-1">Inclusive of all taxes</p>
 
-          {/* Color swatches */}
           {colors.length > 0 && (
             <div className="mt-8">
               <p className="label text-mitti mb-3">COLOR · {(activeVariant?.color || '').toUpperCase()}</p>
               <div className="flex gap-2 flex-wrap items-center">
                 {colors.map((c: any) => {
-                  const variant = product.variants.find((v: any) => v.color === c);
+                  const variant = variants.find((v: any) => v.color === c);
                   const hex = variant?.colorHex;
                   return (
                     <button key={c} onClick={() => { setActiveVariant(variant); setActiveImage(0); }}
@@ -187,13 +229,12 @@ function PDPInner() {
             </div>
           )}
 
-          {/* Sizes */}
           {sizes.length > 0 && (
             <div className="mt-6">
               <p className="label text-mitti mb-3">SIZE · {(activeVariant?.size || 'FREE SIZE').toUpperCase()}</p>
               <div className="flex gap-2 flex-wrap">
                 {sizes.map((s: any) => {
-                  const variant = product.variants.find((v: any) => v.size === s && (!activeVariant?.color || v.color === activeVariant.color));
+                  const variant = variants.find((v: any) => v.size === s && (!activeVariant?.color || v.color === activeVariant.color));
                   return (
                     <button key={s} onClick={() => { if (variant) { setActiveVariant(variant); setActiveImage(0); } }}
                       disabled={!variant || variant.inventory === 0}
@@ -206,7 +247,6 @@ function PDPInner() {
             </div>
           )}
 
-          {/* Quantity + CTAs */}
           <div className="mt-8 space-y-3">
             <div className="flex items-center gap-4">
               <div className="flex items-center border border-mitti/20">
@@ -220,14 +260,13 @@ function PDPInner() {
               </div>
               <p className="font-italic italic text-mitti text-sm">
                 {fulfilmentStatusLine(product)
-                  ? null  // already shown prominently below the title
+                  ? null
                   : (inStock
-                      ? (stockLeft <= 3 ? `Only ${stockLeft} left — found personally` : 'Ready to ship')
+                      ? (stockLeft <= 3 ? `Only ${stockLeft} left · found personally` : 'Ready to ship')
                       : 'Sold out')}
               </p>
             </div>
 
-            {/* Pre-order deposit hint */}
             {isPreorder(product) && (
               <div className="mb-3 p-3 bg-beige/40 border border-mitti/20 text-xs text-mitti">
                 Deposit today: <strong className="text-madder">{formatINR(checkoutPaise(product))}</strong>
@@ -235,7 +274,6 @@ function PDPInner() {
               </div>
             )}
 
-            {/* Sold-out: waitlist instead of buy */}
             {isSoldOut(product) ? (
               <WaitlistSignup productId={product.id} productName={product.name} source="pdp" />
             ) : (
@@ -249,45 +287,68 @@ function PDPInner() {
                 </button>
               </div>
             )}
-            <button className="w-full mt-2 font-ui text-xs tracking-widest text-mitti hover:text-madder flex items-center justify-center gap-2">
-              <Heart className="w-4 h-4" /> ADD TO WISHLIST
+
+            <button
+              type="button"
+              onClick={handleWishlist}
+              disabled={wishlistBusy}
+              aria-pressed={inWishlist}
+              className={`w-full mt-2 font-ui text-xs tracking-widest flex items-center justify-center gap-2 transition-colors ${inWishlist ? 'text-madder' : 'text-mitti hover:text-madder'} disabled:opacity-50`}
+            >
+              <Heart className={`w-4 h-4 ${inWishlist ? 'fill-current' : ''}`} />
+              {wishlistBusy ? 'SAVING…' : inWishlist ? 'SAVED TO WISHLIST' : 'ADD TO WISHLIST'}
             </button>
+            {wishlistMessage && <p className="text-center font-italic italic text-xs text-mitti">{wishlistMessage}</p>}
           </div>
 
-          {/* Trust strip */}
           <div className="mt-8 pt-6 border-t border-mitti/15 grid grid-cols-3 gap-4 text-center">
             <div>
               <Truck className="w-5 h-5 mx-auto text-madder" />
-              <p className="font-ui text-[10px] tracking-widest text-kohl mt-2">FREE SHIPPING</p>
-              <p className="font-italic italic text-mitti text-xs">Above ₹2,500</p>
+              <p className="font-ui text-[10px] tracking-widest text-kohl mt-2">DELIVERY</p>
+              <p className="font-italic italic text-mitti text-xs">Calculated at checkout</p>
             </div>
             <div>
               <RotateCcw className="w-5 h-5 mx-auto text-madder" />
-              <p className="font-ui text-[10px] tracking-widest text-kohl mt-2">7-DAY RETURN</p>
-              <p className="font-italic italic text-mitti text-xs">No questions</p>
+              <p className="font-ui text-[10px] tracking-widest text-kohl mt-2">RETURNS</p>
+              <p className="font-italic italic text-mitti text-xs">
+                {product.returnEligible ? (product.returnPolicy || 'Eligible') : (product.returnPolicy || 'Product-specific')}
+              </p>
             </div>
             <div>
               <ShieldCheck className="w-5 h-5 mx-auto text-madder" />
-              <p className="font-ui text-[10px] tracking-widest text-kohl mt-2">VERIFIED CRAFT</p>
-              <p className="font-italic italic text-mitti text-xs">Authentic</p>
+              <p className="font-ui text-[10px] tracking-widest text-kohl mt-2">AUTHENTICITY</p>
+              <p className="font-italic italic text-mitti text-xs">NEEJEE verified</p>
             </div>
           </div>
 
-          {/* Mirror entry */}
           {product.aiTryOnEligible && (
             <Link href={`/ai/mirror?product=${product.id}`}
               className="mt-6 block bg-kohl text-ivory p-5 hover:bg-mitti transition-colors">
               <div className="flex items-center gap-3">
                 <Sparkles className="w-5 h-5 text-banarasi" />
                 <div>
-                  <p className="font-ui text-[10px] tracking-widest text-banarasi">NEEJEE MIRROR</p>
-                  <p className="font-display text-lg">Try this on virtually</p>
+                  <p className="font-ui text-[10px] tracking-widest text-banarasi">THE NEEJEE MIRROR</p>
+                  <p className="font-display text-lg">See how it may live on you</p>
+                  <p className="font-italic italic text-xs text-ivory/70 mt-1">Preview the mood, personally rendered.</p>
                 </div>
               </div>
             </Link>
           )}
 
-          {/* AR Try-On entry (jewellery) */}
+          {product.aiRoomEligible && (
+            <Link href={`/ai/space?product=${product.id}`}
+              className="mt-3 block bg-mitti text-ivory p-5 hover:bg-kohl transition-colors">
+              <div className="flex items-center gap-3">
+                <Home className="w-5 h-5 text-banarasi" />
+                <div>
+                  <p className="font-ui text-[10px] tracking-widest text-banarasi">THE NEEJEE SPACE</p>
+                  <p className="font-display text-lg">Place it personally</p>
+                  <p className="font-italic italic text-xs text-ivory/70 mt-1">See this piece within your own room.</p>
+                </div>
+              </div>
+            </Link>
+          )}
+
           {product.arTryOnEligible && (
             <Link href={`/ai/tryon?product=${product.id}`}
               className="mt-3 block bg-madder text-ivory p-5 hover:bg-kohl transition-colors">
@@ -301,7 +362,6 @@ function PDPInner() {
             </Link>
           )}
 
-          {/* Accordion */}
           <div className="mt-10 border-t border-mitti/15">
             {TABS.map(t => (
               <div key={t.id} className="border-b border-mitti/15">
