@@ -1,151 +1,110 @@
-// Logged-in customer's loyalty dashboard data
+// Customer loyalty summary. Never fabricates zero balances if the real loyalty
+// query fails: the account UI handles a temporary 5xx state and retries.
 import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
 import { getSession } from '@/lib/auth';
-import { getCurrentBalance, getSettings, tierForSpend, ensureReferralCode, TIER_LABELS, TIER_BLURBS, TIER_ORDER, type LoyaltyTier } from '@/lib/loyalty';
+import { prisma } from '@/lib/prisma';
+import { getCurrentBalance, getSettings, ensureReferralCode, getTierProgress } from '@/lib/loyalty';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
+function publicReferralName(name: string | null | undefined): string {
+  const first = String(name || '').trim().split(/\s+/)[0];
+  return first ? first.slice(0, 50) : 'Pending sign-up';
+}
+
 export async function GET() {
   const session = await getSession();
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  if (!session) return NextResponse.json({ error: 'Not signed in' }, { status: 401 });
 
   try {
-    const [user, settings, balance, ledger, referrals] = await Promise.all([
+    const [user, settings] = await Promise.all([
       prisma.user.findUnique({
         where: { id: session.id },
         select: {
-          id: true, name: true, email: true,
-          loyaltyTier: true, loyaltyPoints: true, lifetimePoints: true, lifetimeSpend: true,
+          id: true,
+          email: true,
+          name: true,
+          loyaltyTier: true,
+          loyaltyPoints: true,
+          lifetimePoints: true,
+          lifetimeSpend: true,
           referralCode: true,
         },
       }),
       getSettings(),
-      getCurrentBalance(session.id),
+    ]);
+    if (!user) return NextResponse.json({ error: 'Account not found' }, { status: 404 });
+
+    const referralCode = user.referralCode || await ensureReferralCode(user.id);
+    const [balance, ledger, referrals, referralCounts] = await Promise.all([
+      getCurrentBalance(user.id),
       prisma.loyaltyLedger.findMany({
-        where: { userId: session.id },
+        where: { userId: user.id },
         orderBy: { createdAt: 'desc' },
-        take: 25,
+        take: 30,
+        select: { id: true, type: true, points: true, reason: true, orderId: true, expiresAt: true, createdAt: true },
       }),
       prisma.referral.findMany({
-        where: { referrerId: session.id },
+        where: { referrerId: user.id },
         orderBy: { createdAt: 'desc' },
         take: 25,
-        include: {
-          referee: { select: { name: true, email: true } },
+        select: {
+          id: true,
+          status: true,
+          pointsAwarded: true,
+          createdAt: true,
+          referee: { select: { name: true } },
         },
+      }),
+      prisma.referral.groupBy({
+        where: { referrerId: user.id },
+        by: ['status'],
+        _count: { _all: true },
       }),
     ]);
 
-    if (!user) return NextResponse.json({ error: 'Not found' }, { status: 404 });
-
-    // Ensure referral code exists
-    const referralCode = user.referralCode || await ensureReferralCode(user.id);
-
-    // Compute progress to next tier
-    const tier = user.loyaltyTier as LoyaltyTier;
-    const tierIdx = TIER_ORDER.indexOf(tier);
-    const nextTier = tierIdx < TIER_ORDER.length - 1 ? TIER_ORDER[tierIdx + 1] : null;
-    let nextThreshold = 0;
-    if (nextTier === 'KNOWN') nextThreshold = settings.thresholdKnown;
-    else if (nextTier === 'PERSONAL') nextThreshold = settings.thresholdPersonal;
-    else if (nextTier === 'FAMILY') nextThreshold = settings.thresholdFamily;
-    const progressPct = nextTier && nextThreshold > 0
-      ? Math.min(100, Math.round((user.lifetimeSpend / nextThreshold) * 100))
-      : 100;
-    const spendToNext = nextTier ? Math.max(0, nextThreshold - user.lifetimeSpend) : 0;
-
-    // Referral stats
-    const referralStats = {
-      total: referrals.length,
-      pending: referrals.filter(r => r.status === 'PENDING').length,
-      qualified: referrals.filter(r => r.status === 'QUALIFIED').length,
-      rewarded: referrals.filter(r => r.status === 'REWARDED').length,
-      pointsEarned: referrals.filter(r => r.status === 'REWARDED').length * settings.referralRewardPoints,
-    };
+    const progress = getTierProgress(user.lifetimeSpend, settings);
+    const totalReferrals = referralCounts.reduce((sum, row) => sum + row._count._all, 0);
+    const rewardedReferrals = referralCounts
+      .filter((row) => row.status === 'REWARDED')
+      .reduce((sum, row) => sum + row._count._all, 0);
 
     return NextResponse.json({
       user: {
         name: user.name,
         email: user.email,
-        tier,
-        tierLabel: TIER_LABELS[tier],
-        tierBlurb: TIER_BLURBS[tier],
+        tier: user.loyaltyTier,
         points: balance,
         lifetimePoints: user.lifetimePoints,
         lifetimeSpend: user.lifetimeSpend,
         referralCode,
       },
-      progress: {
-        nextTier,
-        nextTierLabel: nextTier ? TIER_LABELS[nextTier] : null,
-        nextThreshold,
-        spendToNext,
-        progressPct,
-      },
-      ledger: ledger.map(e => ({
-        id: e.id,
-        type: e.type,
-        points: e.points,
-        reason: e.reason,
-        createdAt: e.createdAt,
-        expiresAt: e.expiresAt,
+      progress,
+      ledger,
+      referrals: referrals.map((referral) => ({
+        id: referral.id,
+        status: referral.status,
+        pointsAwarded: referral.pointsAwarded,
+        createdAt: referral.createdAt,
+        refereeName: publicReferralName(referral.referee?.name),
       })),
-      referrals: {
-        ...referralStats,
-        list: referrals.map(r => ({
-          id: r.id,
-          status: r.status,
-          refereeName: r.referee?.name || r.refereeEmail || 'Pending sign-up',
-          createdAt: r.createdAt,
-          rewardedAt: r.rewardedAt,
-        })),
-      },
+      stats: { totalReferrals, rewardedReferrals },
       settings: {
-        paisePerPoint: settings.paisePerPoint,
         redemptionValue: settings.redemptionValue,
         minRedemption: settings.minRedemption,
         maxRedemptionPct: settings.maxRedemptionPct,
         referralRewardPoints: settings.referralRewardPoints,
         refereeDiscountPct: settings.refereeDiscountPct,
+        thresholds: {
+          known: settings.thresholdKnown,
+          personal: settings.thresholdPersonal,
+          family: settings.thresholdFamily,
+        },
       },
     });
-  } catch (e: any) {
-    console.error('[loyalty/me]', e?.message, e?.code, e?.stack?.split('\n').slice(0, 5).join(' | '));
-    // ANY error here — return a safe fallback so the customer always sees the dashboard.
-    // (Better to show empty Founder's Circle than "Could not load your loyalty".)
-    return NextResponse.json({
-      user: {
-        tier: 'FOUND',
-        tierLabel: 'Found',
-        tierBlurb: "You've started a trunk with us.",
-        points: 0,
-        lifetimePoints: 0,
-        lifetimeSpend: 0,
-        referralCode: null,
-        name: null,
-        email: null,
-      },
-      progress: {
-        nextTier: 'KNOWN',
-        nextTierLabel: 'Known',
-        nextThreshold: 2500000,
-        spendToNext: 2500000,
-        progressPct: 0,
-      },
-      ledger: [],
-      referrals: { total: 0, pending: 0, qualified: 0, rewarded: 0, pointsEarned: 0, list: [] },
-      settings: {
-        paisePerPoint: 10000,
-        redemptionValue: 100,
-        minRedemption: 100,
-        maxRedemptionPct: 50,
-        referralRewardPoints: 500,
-        refereeDiscountPct: 10,
-      },
-      warning: process.env.NODE_ENV === 'development' ? e?.message : undefined,
-      degraded: true,
-    });
+  } catch (error: any) {
+    console.error('[loyalty.me] failed', { userId: session.id, message: error?.message });
+    return NextResponse.json({ error: "Founder's Circle is temporarily unavailable. Please try again." }, { status: 503 });
   }
 }
