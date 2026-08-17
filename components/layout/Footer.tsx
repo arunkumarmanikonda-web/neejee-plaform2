@@ -20,12 +20,12 @@ interface FooterCategory { slug: string; name: string }
 
 const FALLBACK_CONTACT: PublicContact = {
   email: 'hello@neejee.com',
-  phone: '+91 98765 12345',
-  whatsappUrl: 'https://wa.me/919876512345',
-  telUrl: 'tel:+919876512345',
+  phone: '',
+  whatsappUrl: '',
+  telUrl: '',
   mailUrl: 'mailto:hello@neejee.com',
   brandName: 'NEEJEE',
-  socialInstagram: 'https://instagram.com/neejee',
+  socialInstagram: '',
 };
 
 const FALLBACK_CATEGORIES: FooterCategory[] = [
@@ -110,13 +110,19 @@ export function Footer() {
             <li><Link href="/help/track" className="hover:text-ivory">Track Order</Link></li>
             <li><Link href="/help/faq" className="hover:text-ivory">FAQ</Link></li>
             <li><Link href="/help/contact" className="hover:text-ivory">Contact</Link></li>
-            <li><a href={contact.whatsappUrl} className="hover:text-ivory" target="_blank" rel="noopener noreferrer">WhatsApp Support</a></li>
-            <li className="pt-2 border-t border-mitti/20 mt-2 text-beige/60">
-              <a href={contact.mailUrl} className="hover:text-ivory">{contact.email}</a>
-            </li>
-            <li className="text-beige/60">
-              <a href={contact.telUrl} className="hover:text-ivory">{contact.phone}</a>
-            </li>
+            {contact.whatsappUrl && (
+              <li><a href={contact.whatsappUrl} className="hover:text-ivory" target="_blank" rel="noopener noreferrer">WhatsApp Support</a></li>
+            )}
+            {contact.mailUrl && contact.email && (
+              <li className="pt-2 border-t border-mitti/20 mt-2 text-beige/60">
+                <a href={contact.mailUrl} className="hover:text-ivory">{contact.email}</a>
+              </li>
+            )}
+            {contact.telUrl && contact.phone && (
+              <li className="text-beige/60">
+                <a href={contact.telUrl} className="hover:text-ivory">{contact.phone}</a>
+              </li>
+            )}
           </ul>
         </div>
       </div>
