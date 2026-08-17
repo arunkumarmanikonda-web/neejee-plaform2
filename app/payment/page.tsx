@@ -21,6 +21,12 @@ type VerifyBody = {
 
 type TerminalState = 'none' | 'finalizing' | 'refund' | 'manual';
 
+const REFUND_CODES = new Set([
+  'PAYMENT_REFUNDED_INVENTORY',
+  'PAYMENT_REFUNDED_COUPON',
+  'PAYMENT_REFUNDED_LOYALTY',
+]);
+
 function PaymentInner() {
   const sp = useSearchParams();
   const router = useRouter();
@@ -129,9 +135,9 @@ function PaymentInner() {
           return;
         }
 
-        if (data?.code === 'PAYMENT_REFUNDED_INVENTORY') {
+        if (REFUND_CODES.has(String(data?.code || ''))) {
           setTerminalState('refund');
-          setStatusMessage(data.error || 'The piece became unavailable and a full refund has been initiated.');
+          setStatusMessage(data.error || 'Your payment was received but this checkout could not be completed safely. A full refund has been initiated.');
           setError('');
           setLoading(false);
           return;
@@ -206,8 +212,6 @@ function PaymentInner() {
         },
         theme: { color: '#8B2E2A' },
         handler: async (gatewayResponse: any) => {
-          // Razorpay has returned a successful payment response. Never offer a
-          // second PAY NOW action from this point; only finalize this payment.
           setPaymentCaptured(true);
           setLoading(true);
           const verifyBody: VerifyBody = {

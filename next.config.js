@@ -24,12 +24,10 @@ const nextConfig = {
   async redirects() {
     return [
       { source: '/sellers/apply', destination: '/sell/apply', permanent: true },
-      // Confirmed legacy/customer-facing aliases. Keep inbound links alive.
       { source: '/stories', destination: '/journal', permanent: true },
       { source: '/legal/shipping', destination: '/help/shipping', permanent: true },
       { source: '/legal/returns', destination: '/help/returns', permanent: true },
 
-      // Admin route recovery shims: route blocked/exposed surfaces through the known-live AI Manager surface.
       { source: '/admin/taxonomy-ai', destination: '/admin/ai?surface=taxonomy', permanent: false },
       { source: '/admin/taxonomy/ai', destination: '/admin/ai?surface=taxonomy', permanent: false },
       { source: '/admin/meta-accounts', destination: '/admin/ai?surface=meta', permanent: false },
@@ -38,6 +36,20 @@ const nextConfig = {
   },
 
   async headers() {
+    const securityHeaders = [
+      { key: 'X-Content-Type-Options', value: 'nosniff' },
+      { key: 'X-Frame-Options', value: 'SAMEORIGIN' },
+      { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
+      { key: 'Permissions-Policy', value: 'camera=(self), microphone=(), geolocation=(self), payment=(self)' },
+      { key: 'Cross-Origin-Opener-Policy', value: 'same-origin-allow-popups' },
+      { key: 'X-Permitted-Cross-Domain-Policies', value: 'none' },
+      { key: 'Strict-Transport-Security', value: 'max-age=63072000; includeSubDomains; preload' },
+      {
+        key: 'Content-Security-Policy',
+        value: "base-uri 'self'; object-src 'none'; frame-ancestors 'self'; upgrade-insecure-requests",
+      },
+    ];
+
     return [
       {
         source: '/brand/:path*',
@@ -49,12 +61,7 @@ const nextConfig = {
       },
       {
         source: '/(.*)',
-        headers: [
-          { key: 'X-Content-Type-Options', value: 'nosniff' },
-          { key: 'X-Frame-Options', value: 'SAMEORIGIN' },
-          { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
-          { key: 'Permissions-Policy', value: 'camera=(self), microphone=(), geolocation=(self), payment=(self)' },
-        ],
+        headers: securityHeaders,
       },
     ];
   },
