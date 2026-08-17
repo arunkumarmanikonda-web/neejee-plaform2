@@ -267,7 +267,7 @@ Nidhi Chauhan`;
         <p className="label text-madder">STAY IN THE TRUNK</p>
         <h2 className="font-display text-3xl text-kohl mt-3">Get our limited drops first.</h2>
         <p className="font-italic italic text-mitti mt-3 mb-8">No spam. Just craft, once a week.</p>
-        <div className="max-w-md mx-auto"><NewsletterForm /></div>
+        <div className="max-w-md mx-auto"><NewsletterForm source="homepage" /></div>
       </section>
 
       <Footer />

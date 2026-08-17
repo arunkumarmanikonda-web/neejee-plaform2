@@ -1,6 +1,4 @@
 'use client';
-// v23.40.25 — Reads contact info + top categories from the public site-config
-// endpoint so admin edits in /admin/legal-entity propagate without redeploy.
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { CurrencySwitcher } from '@/components/i18n/CurrencySwitcher';
@@ -43,13 +41,21 @@ export function Footer() {
   const [categories, setCategories] = useState<FooterCategory[]>(FALLBACK_CATEGORIES);
 
   useEffect(() => {
-    fetch('/api/public/site-config', { cache: 'no-store' })
-      .then(r => r.json())
+    let active = true;
+    fetch('/api/public/site-config')
+      .then(async r => {
+        const body = await r.json().catch(() => ({}));
+        if (!r.ok) throw new Error(body?.error || 'Site configuration unavailable');
+        return body;
+      })
       .then(d => {
+        if (!active) return;
         if (d.contact) setContact({ ...FALLBACK_CONTACT, ...d.contact });
         if (Array.isArray(d.categories) && d.categories.length > 0) setCategories(d.categories);
       })
-      .catch(() => { /* keep fallbacks */ });
+      .catch(() => { /* keep safe fallbacks */ });
+
+    return () => { active = false; };
   }, []);
 
   const year = new Date().getFullYear();
@@ -68,7 +74,7 @@ export function Footer() {
           <div className="mt-8">
             <p className="label text-madder mb-3">JOIN THE TRUNK</p>
             <p className="font-italic italic text-beige/70 text-sm mb-3">Founder&apos;s edits, craft stories, early access.</p>
-            <NewsletterForm darkMode />
+            <NewsletterForm darkMode source="footer" />
           </div>
         </div>
 

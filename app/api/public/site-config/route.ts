@@ -1,16 +1,11 @@
-// v23.40.25 — Public site config endpoint.
-// Returns contact info (from LegalEntity) and top categories — used by the
-// Footer and other public surfaces so any admin edit in /admin/legal-entity
-// or /admin/categories propagates without redeploy.
+// Public contact + top-level shopping navigation used by the Footer and other
+// storefront surfaces. Admin edits may take up to one minute to reach the edge.
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getPublicContact } from '@/lib/public-contact';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
-// Cache lightly at the edge — admin edits propagate within 60s anyway via
-// the LegalEntity in-memory cache.
-export const revalidate = 60;
 
 export async function GET() {
   const [contact, categories] = await Promise.all([
@@ -23,5 +18,9 @@ export async function GET() {
     }).catch(() => [] as any[]),
   ]);
 
-  return NextResponse.json({ contact, categories });
+  const response = NextResponse.json({ contact, categories });
+  response.headers.set('Cache-Control', 'public, max-age=0, s-maxage=60, stale-while-revalidate=300');
+  response.headers.set('CDN-Cache-Control', 'max-age=60, stale-while-revalidate=300');
+  response.headers.set('Vercel-CDN-Cache-Control', 'max-age=60, stale-while-revalidate=300');
+  return response;
 }
