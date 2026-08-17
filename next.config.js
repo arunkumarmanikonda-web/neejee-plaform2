@@ -60,6 +60,10 @@ const nextConfig = {
         headers: [{ key: 'Cache-Control', value: 'public, max-age=3600' }],
       },
       {
+        source: '/api/facets',
+        headers: [{ key: 'Cache-Control', value: 'public, s-maxage=45, stale-while-revalidate=180' }],
+      },
+      {
         source: '/(.*)',
         headers: securityHeaders,
       },
