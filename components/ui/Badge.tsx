@@ -2,17 +2,35 @@
 // Hand-stamped seal/badge in NEEJEE brand style.
 // Renders a real PNG (AI-generated thappa seal) when available, otherwise
 // falls back to a CSS-rendered madder circle so things still ship pre-AI.
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { validBadges, BADGE_BY_KEY, type BadgeMeta, type BadgeKey } from '@/lib/badges';
 
-// Extended shape: BadgeMeta + optional AI-generated imageUrl
 export interface BadgeRecord extends BadgeMeta {
   imageUrl?: string | null;
 }
 
+type BadgeInput = string | {
+  key?: string | null;
+  label?: string | null;
+  slug?: string | null;
+};
+
 interface BadgeProps {
   badge: BadgeRecord;
   size?: 'sm' | 'md' | 'lg';
+}
+
+function badgeKeyOf(input: BadgeInput): string | null {
+  if (typeof input === 'string') return input.trim() || null;
+  if (!input || typeof input !== 'object') return null;
+  const raw = input.key || input.label || input.slug;
+  if (!raw) return null;
+  return String(raw).trim().replace(/-/g, '_').toUpperCase() || null;
+}
+
+function normalizeBadgeKeys(inputs: BadgeInput[] | null | undefined): string[] {
+  if (!Array.isArray(inputs)) return [];
+  return Array.from(new Set(inputs.map(badgeKeyOf).filter((key): key is string => !!key)));
 }
 
 export function Badge({ badge, size = 'md' }: BadgeProps) {
@@ -21,7 +39,6 @@ export function Badge({ badge, size = 'md' }: BadgeProps) {
     size === 'lg' ? 112 :
                     80;
 
-  // If we have a real PNG seal, render it
   if (badge.imageUrl) {
     return (
       <div
@@ -44,7 +61,6 @@ export function Badge({ badge, size = 'md' }: BadgeProps) {
     );
   }
 
-  // Fallback: CSS-rendered seal
   const sizeClass =
     size === 'sm' ? 'w-16 h-16 text-[8px]' :
     size === 'lg' ? 'w-28 h-28 text-xs' :
@@ -68,19 +84,20 @@ export function Badge({ badge, size = 'md' }: BadgeProps) {
 
 /**
  * Client-side BadgeRow that fetches the live badge catalog from /api/badges
- * so it can render AI-generated seal PNGs (imageUrl) when the admin has
- * generated them. Falls back to the static catalog if the fetch fails.
+ * so it can render AI-generated seal PNGs when the admin has generated them.
+ * Accepts legacy string keys and the canonical public read-model badge objects.
  */
 export function BadgeRow({
   badges,
   size = 'md',
   className = '',
 }: {
-  badges: string[] | null | undefined;
+  badges: BadgeInput[] | null | undefined;
   size?: 'sm' | 'md' | 'lg';
   className?: string;
 }) {
   const [catalog, setCatalog] = useState<Record<string, BadgeRecord> | null>(null);
+  const keys = useMemo(() => normalizeBadgeKeys(badges), [badges]);
 
   useEffect(() => {
     let cancelled = false;
@@ -90,7 +107,10 @@ export function BadgeRow({
         if (cancelled) return;
         if (d?.badges && Array.isArray(d.badges)) {
           const map: Record<string, BadgeRecord> = {};
-          for (const b of d.badges) map[b.key] = b;
+          for (const b of d.badges) {
+            const key = badgeKeyOf(b);
+            if (key) map[key] = b;
+          }
           setCatalog(map);
         } else {
           setCatalog({});
@@ -100,12 +120,11 @@ export function BadgeRow({
     return () => { cancelled = true; };
   }, []);
 
-  if (!badges || badges.length === 0) return null;
+  if (keys.length === 0) return null;
 
-  // While catalog is loading, render static fallback (avoids layout shift)
   const valid: BadgeRecord[] = catalog
-    ? badges.map(k => catalog[k] || BADGE_BY_KEY[k as BadgeKey]).filter((b): b is BadgeRecord => !!b)
-    : validBadges(badges);
+    ? keys.map(k => catalog[k] || BADGE_BY_KEY[k as BadgeKey]).filter((b): b is BadgeRecord => !!b)
+    : validBadges(keys);
 
   if (valid.length === 0) return null;
   return (
@@ -117,15 +136,15 @@ export function BadgeRow({
 
 /** Tiny inline badge chip — for product cards where space is tight. */
 export function BadgeChip({ badgeKey }: { badgeKey: string }) {
-  const valid = validBadges([badgeKey]);
+  const normalized = badgeKeyOf(badgeKey) || badgeKey;
+  const valid = validBadges([normalized]);
   if (valid.length === 0) {
-    // Unknown key (e.g. custom DB badge) — render its key as label
     return (
       <span
         className="inline-flex items-center px-2 py-0.5 border border-madder/40 text-madder text-[10px] tracking-widest uppercase font-ui bg-ivory/80"
-        title={badgeKey}
+        title={normalized}
       >
-        {badgeKey.replace(/_/g, ' ')}
+        {normalized.replace(/_/g, ' ')}
       </span>
     );
   }
@@ -140,12 +159,13 @@ export function BadgeChip({ badgeKey }: { badgeKey: string }) {
   );
 }
 
-/** Stack of small chips — for product cards. */
-export function BadgeChipRow({ badges }: { badges: string[] | null | undefined }) {
-  if (!badges || badges.length === 0) return null;
+/** Stack of small chips — accepts both legacy keys and canonical badge objects. */
+export function BadgeChipRow({ badges }: { badges: BadgeInput[] | null | undefined }) {
+  const keys = normalizeBadgeKeys(badges);
+  if (keys.length === 0) return null;
   return (
     <div className="flex flex-wrap gap-1.5">
-      {badges.slice(0, 2).map(k => <BadgeChip key={k} badgeKey={k} />)}
+      {keys.slice(0, 2).map(k => <BadgeChip key={k} badgeKey={k} />)}
     </div>
   );
 }
