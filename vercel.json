@@ -6,6 +6,10 @@
       "schedule": "*/15 * * * *"
     },
     {
+      "path": "/api/cron/checkout-reservations",
+      "schedule": "7,22,37,52 * * * *"
+    },
+    {
       "path": "/api/cron/ai-preview-retention",
       "schedule": "17 2 * * *"
     }
