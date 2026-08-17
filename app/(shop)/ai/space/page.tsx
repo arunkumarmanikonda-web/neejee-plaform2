@@ -7,6 +7,7 @@ import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
 import { uploadAiImage } from '@/lib/client-upload';
 import { AiCommerceCompletion } from '@/components/ai/AiCommerceCompletion';
+import { DeleteAiPreviewButton } from '@/components/ai/DeleteAiPreviewButton';
 
 export const dynamic = 'force-dynamic';
 
@@ -26,6 +27,7 @@ function SpaceInner() {
   const [consent, setConsent] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [outputUrl, setOutputUrl] = useState('');
+  const [previewId, setPreviewId] = useState('');
   const [configured, setConfigured] = useState<boolean | null>(null);
   const [stubMessage, setStubMessage] = useState('');
   const [error, setError] = useState('');
@@ -96,6 +98,7 @@ function SpaceInner() {
           : data.hint ? `${data.error}\n\n${data.hint}` : (data.error || 'Generation failed');
         throw new Error(friendly);
       }
+      if (data.previewId) setPreviewId(String(data.previewId));
       setOutputUrl(data.outputUrl);
       setConfigured(!!data.configured);
       setStubMessage(data.message || '');
@@ -113,7 +116,16 @@ function SpaceInner() {
     setSelectedVariantId('');
     setConsent(false);
     setOutputUrl('');
+    setPreviewId('');
     setError('');
+    setStep('upload');
+  };
+
+  const afterDelete = () => {
+    setRoomImageUrl('');
+    setOutputUrl('');
+    setPreviewId('');
+    setConsent(false);
     setStep('upload');
   };
 
@@ -171,7 +183,7 @@ function SpaceInner() {
               )}
             </label>
             <p className="text-[11px] text-mitti/70 mt-6 max-w-md mx-auto leading-relaxed">
-              Your room image is used for this private preview. Retention and deletion are governed by the NEEJEE privacy controls and policy.
+              Your room image is used for this private preview. You can delete the uploaded image and preview directly after generation.
             </p>
           </div>
         )}
@@ -267,6 +279,7 @@ function SpaceInner() {
                   </Link>
                 )}
               </div>
+              <DeleteAiPreviewButton previewId={previewId} onDeleted={afterDelete} />
             </div>
 
             {selectedProduct && (
