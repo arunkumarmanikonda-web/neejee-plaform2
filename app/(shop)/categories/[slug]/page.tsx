@@ -29,6 +29,15 @@ type RedirectResponse = {
   permanent?: boolean;
 };
 
+type PaginationState = {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+  hasNextPage: boolean;
+  hasPrevPage: boolean;
+};
+
 type ProductsResponse = {
   ok?: boolean;
   matchedCategory?: CategorySummary | null;
@@ -37,6 +46,7 @@ type ProductsResponse = {
   };
   products?: any[];
   count?: number;
+  pagination?: Partial<PaginationState>;
   error?: string;
 };
 
@@ -71,6 +81,15 @@ type FacetsState = {
     maxPaise: number;
   };
   total: number;
+};
+
+const EMPTY_PAGINATION: PaginationState = {
+  page: 1,
+  limit: 24,
+  total: 0,
+  totalPages: 1,
+  hasNextPage: false,
+  hasPrevPage: false,
 };
 
 function titleFromSlug(value: string) {
@@ -140,6 +159,11 @@ function normalizeFacetOptions(options: unknown): FacetTuple[] {
   );
 }
 
+function asPage(value: string | null) {
+  const parsed = Number.parseInt(String(value || ''), 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 1;
+}
+
 function mapProductToCardData(product: any): ProductCardData {
   const images = Array.isArray(product?.images)
     ? product.images.filter(
@@ -200,6 +224,7 @@ function PLPInner() {
 
   const [products, setProducts] = useState<ProductCardData[]>([]);
   const [facets, setFacets] = useState<FacetsState>(emptyFacets());
+  const [pagination, setPagination] = useState<PaginationState>(EMPTY_PAGINATION);
   const [category, setCategory] = useState<CategorySummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
@@ -216,6 +241,7 @@ function PLPInner() {
       maxPrice: params.get('maxPrice') || '',
       sort: params.get('sort') || 'newest',
       q: params.get('q') || '',
+      page: asPage(params.get('page')),
     };
   }, [spKey]);
 
@@ -224,6 +250,9 @@ function PLPInner() {
 
     if (value) next.set(key, value);
     else next.delete(key);
+
+    if (key !== 'page') next.delete('page');
+    if (key === 'page' && value === '1') next.delete('page');
 
     const qs = next.toString();
     router.push(qs ? `/categories/${slug}?${qs}` : `/categories/${slug}`);
@@ -238,6 +267,7 @@ function PLPInner() {
       if (!slug) {
         setProducts([]);
         setFacets(emptyFacets());
+        setPagination(EMPTY_PAGINATION);
         setCategory(null);
         setLoading(false);
         return;
@@ -263,16 +293,25 @@ function PLPInner() {
           }
         }
 
-        const qs = new URLSearchParams();
-        qs.set('category', slug);
+        const productsQs = new URLSearchParams();
+        const facetsQs = new URLSearchParams();
+        productsQs.set('category', slug);
+        facetsQs.set('category', slug);
 
-        Object.entries(filters).forEach(([key, value]) => {
-          if (value) qs.set(key, value);
+        Object.entries(filters).forEach(([key, rawValue]) => {
+          const value = String(rawValue ?? '');
+          if (!value) return;
+          if (key === 'page') {
+            if (filters.page > 1) productsQs.set('page', String(filters.page));
+            return;
+          }
+          productsQs.set(key, value);
+          if (key !== 'sort') facetsQs.set(key, value);
         });
 
         const [productsResult, facetsResult] = await Promise.allSettled([
-          fetch(`/api/products?${qs.toString()}`, { cache: 'no-store' }),
-          fetch(`/api/facets?${qs.toString()}`, { cache: 'no-store' }),
+          fetch(`/api/products?${productsQs.toString()}`),
+          fetch(`/api/facets?${facetsQs.toString()}`),
         ]);
 
         if (cancelled) return;
@@ -304,6 +343,40 @@ function PLPInner() {
 
         setProducts(nextProducts);
 
+        const apiPagination = productsData?.pagination || {};
+        const total =
+          typeof apiPagination.total === 'number'
+            ? apiPagination.total
+            : typeof facetsData?.total === 'number'
+            ? facetsData.total
+            : nextProducts.length;
+        const totalPages =
+          typeof apiPagination.totalPages === 'number' && apiPagination.totalPages > 0
+            ? apiPagination.totalPages
+            : Math.max(1, Math.ceil(total / 24));
+        const currentPage =
+          typeof apiPagination.page === 'number' && apiPagination.page > 0
+            ? apiPagination.page
+            : filters.page;
+
+        setPagination({
+          page: currentPage,
+          limit:
+            typeof apiPagination.limit === 'number' && apiPagination.limit > 0
+              ? apiPagination.limit
+              : 24,
+          total,
+          totalPages,
+          hasNextPage:
+            typeof apiPagination.hasNextPage === 'boolean'
+              ? apiPagination.hasNextPage
+              : currentPage < totalPages,
+          hasPrevPage:
+            typeof apiPagination.hasPrevPage === 'boolean'
+              ? apiPagination.hasPrevPage
+              : currentPage > 1,
+        });
+
         setFacets({
           crafts: normalizeFacetOptions(facetsData?.crafts),
           regions: normalizeFacetOptions(facetsData?.regions),
@@ -323,9 +396,7 @@ function PLPInner() {
           total:
             typeof facetsData?.total === 'number'
               ? facetsData.total
-              : typeof productsData?.count === 'number'
-              ? productsData.count
-              : nextProducts.length,
+              : total,
         });
 
         setCategory(
@@ -340,6 +411,7 @@ function PLPInner() {
         console.error('[PLP slug] load failed', error);
         setProducts([]);
         setFacets(emptyFacets());
+        setPagination(EMPTY_PAGINATION);
         setCategory(asCategoryFallback(slug));
       } finally {
         if (!cancelled) setLoading(false);
@@ -354,7 +426,7 @@ function PLPInner() {
   }, [slug, filters, router]);
 
   const activeFilters = Object.entries(filters).filter(
-    ([key, value]) => value && key !== 'sort' && key !== 'q'
+    ([key, value]) => value && key !== 'sort' && key !== 'q' && key !== 'page'
   ).length;
 
   return (
@@ -379,7 +451,7 @@ function PLPInner() {
         <p className="font-italic italic text-mitti mt-2">
           {loading
             ? 'Loading...'
-            : `${products.length} pieces · India's finest craft, curated by hand`}
+            : `${pagination.total} ${pagination.total === 1 ? 'piece' : 'pieces'} · India's finest craft, curated by hand`}
         </p>
 
         <div className="madder-divider mt-4" />
@@ -387,8 +459,11 @@ function PLPInner() {
 
       <section className="max-w-8xl mx-auto px-6 lg:px-12 sticky top-20 z-30 bg-ivory border-b border-beige py-4 flex items-center justify-between gap-4">
         <button
+          type="button"
           onClick={() => setMobileFiltersOpen(true)}
           className="lg:hidden btn-outline text-xs flex items-center gap-2"
+          aria-haspopup="dialog"
+          aria-expanded={mobileFiltersOpen}
         >
           <Filter className="w-4 h-4" /> FILTERS{' '}
           {activeFilters > 0 && `(${activeFilters})`}
@@ -403,6 +478,7 @@ function PLPInner() {
         <div className="flex items-center gap-3">
           {activeFilters > 0 && (
             <button
+              type="button"
               onClick={clearAll}
               className="font-ui text-xs text-madder hover:underline"
             >
@@ -415,13 +491,14 @@ function PLPInner() {
               value={filters.sort}
               onChange={(e) => setParam('sort', e.target.value)}
               className="appearance-none bg-beige px-4 py-2 pr-9 font-ui text-xs tracking-widest cursor-pointer"
+              aria-label="Sort products"
             >
               <option value="newest">NEWEST</option>
               <option value="price_asc">PRICE: LOW TO HIGH</option>
               <option value="price_desc">PRICE: HIGH TO LOW</option>
               <option value="name">NAME A-Z</option>
             </select>
-            <ChevronDown className="w-4 h-4 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" />
+            <ChevronDown className="w-4 h-4 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" aria-hidden="true" />
           </div>
         </div>
       </section>
@@ -435,25 +512,30 @@ function PLPInner() {
           <div
             className="lg:hidden fixed inset-0 bg-kohl/60 z-50 flex items-end"
             onClick={() => setMobileFiltersOpen(false)}
+            role="presentation"
           >
             <div
               onClick={(e) => e.stopPropagation()}
               className="bg-ivory w-full max-h-[85vh] overflow-y-auto p-6"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="mobile-filter-title"
             >
               <div className="flex items-center justify-between mb-6">
-                <h2 className="font-display text-xl text-kohl">Filters</h2>
-                <button onClick={() => setMobileFiltersOpen(false)}>
-                  <X className="w-5 h-5" />
+                <h2 id="mobile-filter-title" className="font-display text-xl text-kohl">Filters</h2>
+                <button type="button" onClick={() => setMobileFiltersOpen(false)} aria-label="Close filters">
+                  <X className="w-5 h-5" aria-hidden="true" />
                 </button>
               </div>
 
               <FilterPanel facets={facets} filters={filters} setParam={setParam} />
 
               <button
+                type="button"
                 onClick={() => setMobileFiltersOpen(false)}
                 className="btn-primary w-full mt-6"
               >
-                APPLY FILTERS · {products.length}
+                APPLY FILTERS · {pagination.total}
               </button>
             </div>
           </div>
@@ -461,11 +543,12 @@ function PLPInner() {
 
         <div>
           {loading ? (
-            <div className="grid grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-2 lg:grid-cols-3 gap-6" aria-label="Loading products" aria-busy="true">
               {Array.from({ length: 6 }).map((_, index) => (
                 <div
                   key={index}
                   className="aspect-[3/4] bg-beige animate-pulse"
+                  aria-hidden="true"
                 />
               ))}
             </div>
@@ -478,17 +561,43 @@ function PLPInner() {
                 Try removing some filters.
               </p>
               {activeFilters > 0 && (
-                <button onClick={clearAll} className="btn-outline mt-6">
+                <button type="button" onClick={clearAll} className="btn-outline mt-6">
                   CLEAR ALL FILTERS
                 </button>
               )}
             </div>
           ) : (
-            <div className="grid grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8">
-              {products.map((product) => (
-                <ProductCard key={product.id} product={product} />
-              ))}
-            </div>
+            <>
+              <div className="grid grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8">
+                {products.map((product) => (
+                  <ProductCard key={product.id} product={product} />
+                ))}
+              </div>
+
+              {pagination.totalPages > 1 && (
+                <nav className="mt-14 flex items-center justify-center gap-4" aria-label="Product pages">
+                  <button
+                    type="button"
+                    disabled={!pagination.hasPrevPage || loading}
+                    onClick={() => setParam('page', String(Math.max(1, pagination.page - 1)))}
+                    className="btn-outline min-w-[120px] disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    PREVIOUS
+                  </button>
+                  <span className="font-ui text-xs tracking-widest text-mitti" aria-live="polite">
+                    PAGE {pagination.page} OF {pagination.totalPages}
+                  </span>
+                  <button
+                    type="button"
+                    disabled={!pagination.hasNextPage || loading}
+                    onClick={() => setParam('page', String(Math.min(pagination.totalPages, pagination.page + 1)))}
+                    className="btn-outline min-w-[120px] disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    NEXT
+                  </button>
+                </nav>
+              )}
+            </>
           )}
         </div>
       </section>
@@ -514,6 +623,7 @@ function FilterPanel({
     maxPrice: string;
     sort: string;
     q: string;
+    page: number;
   };
   setParam: (key: string, value: string) => void;
 }) {
@@ -563,8 +673,9 @@ function FilterPanel({
             value={filters.minPrice}
             onChange={(e) => setParam('minPrice', e.target.value)}
             className="w-20 p-2 bg-beige border border-mitti/20 text-xs"
+            aria-label="Minimum price"
           />
-          <span className="text-mitti">-</span>
+          <span className="text-mitti" aria-hidden="true">-</span>
           <input
             type="number"
             min="0"
@@ -572,6 +683,7 @@ function FilterPanel({
             value={filters.maxPrice}
             onChange={(e) => setParam('maxPrice', e.target.value)}
             className="w-20 p-2 bg-beige border border-mitti/20 text-xs"
+            aria-label="Maximum price"
           />
         </div>
 
@@ -606,7 +718,9 @@ function FilterGroup({
         {options.slice(0, 10).map(([name, count]) => (
           <button
             key={name}
+            type="button"
             onClick={() => onChange(current === name ? '' : name)}
+            aria-pressed={current === name}
             className={`flex items-center justify-between w-full text-left text-xs py-1 ${
               current === name
                 ? 'text-madder font-medium'
