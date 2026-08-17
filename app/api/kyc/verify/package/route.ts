@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
+import { hasKycVerificationAccess } from '@/lib/kyc/request-access'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -67,16 +68,10 @@ async function postJson(request: NextRequest, pathname: string, body: Record<str
   try {
     payload = (await response.json()) as VerificationEnvelope
   } catch {
-    payload = {
-      ok: false,
-      error: 'invalid_json_response',
-    }
+    payload = { ok: false, error: 'invalid_json_response' }
   }
 
-  return {
-    httpStatus: response.status,
-    payload,
-  }
+  return { httpStatus: response.status, payload }
 }
 
 function normalizeResult(
@@ -103,9 +98,7 @@ function normalizeResult(
       confidence: verification.confidence ?? null,
       referenceId: verification.referenceId ?? null,
       errorCode: verification.errorCode ?? response.payload.error ?? null,
-      raw: verification.raw ?? null,
     },
-    raw: response.payload,
   }
 }
 
@@ -133,6 +126,10 @@ function summarize(results: Array<ReturnType<typeof normalizeResult>>) {
 export async function POST(request: NextRequest) {
   try {
     const body = BodySchema.parse(await request.json())
+    if (!(await hasKycVerificationAccess(body.phone || undefined))) {
+      return NextResponse.json({ ok: false, error: 'kyc_verification_unauthorized' }, { status: 401 })
+    }
+
     const resolvedName = String(body.name ?? body.businessName ?? '').trim() || null
 
     const panResponse = await postJson(request, '/api/kyc/verify/pan', {
@@ -196,20 +193,16 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json(
-        {
-          ok: false,
-          error: 'invalid_package_request',
-          issues: error.issues,
-        },
+        { ok: false, error: 'invalid_package_request', issues: error.issues },
         { status: 400 }
       )
     }
 
+    console.error('[kyc.verify.package] failed', {
+      message: error instanceof Error ? error.message : 'unknown_error',
+    })
     return NextResponse.json(
-      {
-        ok: false,
-        error: 'kyc_package_verify_failed',
-      },
+      { ok: false, error: 'kyc_package_verify_failed' },
       { status: 500 }
     )
   }
