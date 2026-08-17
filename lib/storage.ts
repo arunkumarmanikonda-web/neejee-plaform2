@@ -1,12 +1,14 @@
 // Supabase Storage helper.
 // Public catalogue/admin media stays in `neejee-media` for CDN delivery.
-// Customer AI portraits/room photos live in a separate private bucket.
+// Customer AI portraits/room photos and seller KYC evidence live in private buckets.
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || '';
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 export const PUBLIC_STORAGE_BUCKET = process.env.SUPABASE_STORAGE_BUCKET || 'neejee-media';
 export const PRIVATE_AI_STORAGE_BUCKET = process.env.SUPABASE_PRIVATE_AI_BUCKET || 'neejee-private-ai';
-const PRIVATE_MARKER = 'private-ai:';
+export const PRIVATE_SELLER_STORAGE_BUCKET = process.env.SUPABASE_PRIVATE_SELLER_BUCKET || 'neejee-private-seller-docs';
+const PRIVATE_AI_MARKER = 'private-ai:';
+const PRIVATE_SELLER_MARKER = 'private-seller:';
 
 function safeObjectPath(value: string): string | null {
   const decoded = String(value || '').trim().replace(/^\/+/, '');
@@ -18,6 +20,18 @@ function safeObjectPath(value: string): string | null {
 export function publicUrl(filePath: string, bucket = PUBLIC_STORAGE_BUCKET): string {
   if (!SUPABASE_URL) return filePath;
   return `${SUPABASE_URL}/storage/v1/object/public/${encodeURIComponent(bucket)}/${filePath}`;
+}
+
+export function privateSellerStorageRef(filePath: string): string {
+  const path = safeObjectPath(filePath);
+  if (!path) throw new Error('Invalid private seller storage path');
+  return `${PRIVATE_SELLER_MARKER}${path}`;
+}
+
+export function privateSellerStoragePath(fileRef: string | null | undefined): string | null {
+  const value = String(fileRef || '');
+  if (!value.startsWith(PRIVATE_SELLER_MARKER)) return null;
+  return safeObjectPath(value.slice(PRIVATE_SELLER_MARKER.length));
 }
 
 /**
@@ -32,7 +46,7 @@ export function storagePathFromPublicUrl(value: string | null | undefined): stri
 
     if (parsed.pathname === '/api/ai/media') {
       const path = safeObjectPath(parsed.searchParams.get('path') || '');
-      return path ? `${PRIVATE_MARKER}${path}` : null;
+      return path ? `${PRIVATE_AI_MARKER}${path}` : null;
     }
 
     if (!SUPABASE_URL) return null;
@@ -100,18 +114,33 @@ export async function uploadPrivateAiFile(
   return { path: filePath };
 }
 
+/** Upload seller KYC/bank evidence into its dedicated private bucket. */
+export async function uploadPrivateSellerFile(
+  filePath: string,
+  data: Buffer | ArrayBuffer | Uint8Array,
+  contentType: string,
+): Promise<{ path: string; ref: string }> {
+  await uploadToBucket(PRIVATE_SELLER_STORAGE_BUCKET, filePath, data, contentType);
+  return { path: filePath, ref: privateSellerStorageRef(filePath) };
+}
+
 function resolveDeleteTarget(fileRef: string): { bucket: string; path: string } {
-  if (fileRef.startsWith(PRIVATE_MARKER)) {
-    const path = safeObjectPath(fileRef.slice(PRIVATE_MARKER.length));
+  if (fileRef.startsWith(PRIVATE_AI_MARKER)) {
+    const path = safeObjectPath(fileRef.slice(PRIVATE_AI_MARKER.length));
     if (!path) throw new Error('Invalid private storage path');
     return { bucket: PRIVATE_AI_STORAGE_BUCKET, path };
+  }
+  if (fileRef.startsWith(PRIVATE_SELLER_MARKER)) {
+    const path = safeObjectPath(fileRef.slice(PRIVATE_SELLER_MARKER.length));
+    if (!path) throw new Error('Invalid private seller storage path');
+    return { bucket: PRIVATE_SELLER_STORAGE_BUCKET, path };
   }
   const path = safeObjectPath(fileRef);
   if (!path) throw new Error('Invalid storage path');
   return { bucket: PUBLIC_STORAGE_BUCKET, path };
 }
 
-/** Delete a file from local Supabase Storage. Missing objects are already deleted. */
+/** Delete a file from Supabase Storage. Missing objects are already deleted. */
 export async function deleteFile(fileRef: string): Promise<void> {
   if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
     throw new Error('Supabase storage not configured');
@@ -197,6 +226,21 @@ export async function fetchPrivateAiObject(filePath: string): Promise<Response> 
 
   return fetch(
     `${SUPABASE_URL}/storage/v1/object/authenticated/${encodeURIComponent(PRIVATE_AI_STORAGE_BUCKET)}/${safePath}`,
+    {
+      headers: { Authorization: `Bearer ${SUPABASE_SERVICE_KEY}` },
+      cache: 'no-store',
+    },
+  );
+}
+
+/** Fetch one private seller KYC object server-side using the service role. */
+export async function fetchPrivateSellerObject(filePath: string): Promise<Response> {
+  if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) throw new Error('Supabase storage not configured');
+  const safePath = safeObjectPath(filePath);
+  if (!safePath) throw new Error('Invalid private seller storage path');
+
+  return fetch(
+    `${SUPABASE_URL}/storage/v1/object/authenticated/${encodeURIComponent(PRIVATE_SELLER_STORAGE_BUCKET)}/${safePath}`,
     {
       headers: { Authorization: `Bearer ${SUPABASE_SERVICE_KEY}` },
       cache: 'no-store',
