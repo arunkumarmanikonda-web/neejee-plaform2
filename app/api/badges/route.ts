@@ -1,6 +1,4 @@
 // Public badge catalog endpoint.
-// Returns all ACTIVE badges so the PDP, product cards, and admin product picker
-// can render the live list (including AI-generated seal imageUrls).
 import { NextResponse } from 'next/server';
 import { loadActiveBadges } from '@/lib/badges-db';
 
@@ -8,6 +6,13 @@ export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
 export async function GET() {
-  const badges = await loadActiveBadges();
-  return NextResponse.json({ badges });
+  try {
+    const badges = await loadActiveBadges();
+    const response = NextResponse.json({ badges });
+    response.headers.set('Cache-Control', 'public, s-maxage=300, stale-while-revalidate=900');
+    return response;
+  } catch (error: any) {
+    console.error('[badges.public] failed', { message: error?.message });
+    return NextResponse.json({ error: 'Badges are temporarily unavailable', badges: [] }, { status: 500 });
+  }
 }

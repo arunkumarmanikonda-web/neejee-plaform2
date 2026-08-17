@@ -1,10 +1,9 @@
-﻿import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { resolveCategoryWhere } from '@/lib/category-resolve';
 import {
   asString,
   buildProductReadModel,
-  toStringArray,
   type ProductReadSourceRow,
 } from '@/lib/catalog/product-read';
 import {
@@ -15,10 +14,12 @@ import {
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
-const ROUTE_READ_MODEL_VERSION = 'phase1.public.products.v3';
+const ROUTE_READ_MODEL_VERSION = 'phase1.public.products.v4';
 const DEFAULT_PAGE = 1;
 const DEFAULT_LIMIT = 24;
 const MAX_LIMIT = 100;
+const MAX_IDS = 100;
+const MAX_QUERY_LENGTH = 120;
 
 function asPositiveInt(value: string | null, fallback: number): number {
   const parsed = Number.parseInt(String(value ?? ''), 10);
@@ -35,16 +36,27 @@ function parseCsv(value: string | null): string[] {
   return value
     .split(',')
     .map((item) => item.trim())
-    .filter(Boolean);
+    .filter(Boolean)
+    .slice(0, MAX_IDS);
 }
 
 function splitPath(pathValue: unknown): string[] {
   const path = asString(pathValue);
   if (!path) return [];
-  return path
-    .split('/')
-    .map((part) => part.trim())
-    .filter(Boolean);
+  return path.split('/').map((part) => part.trim()).filter(Boolean);
+}
+
+function boundedText(value: string | null, max = MAX_QUERY_LENGTH): string | null {
+  const text = asString(value);
+  if (!text) return null;
+  return text.slice(0, max);
+}
+
+function parseRupees(value: string | null): number | null {
+  if (value == null || value === '') return null;
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed < 0 || parsed > 100_000_000) return null;
+  return Math.round(parsed * 100);
 }
 
 function buildInclude() {
@@ -111,23 +123,11 @@ function buildBaseOrderBy(sort: string) {
 function buildPublicListingVisibilityWhere() {
   return {
     OR: [
-      {
-        catalogueStockVisibility: {
-          in: ['SHOW_ALL', 'HIDE_STOCK'],
-        },
-      },
+      { catalogueStockVisibility: { in: ['SHOW_ALL', 'HIDE_STOCK'] } },
       {
         AND: [
-          {
-            catalogueStockVisibility: 'IN_STOCK_ONLY',
-          },
-          {
-            variants: {
-              some: {
-                inventory: { gt: 0 },
-              },
-            },
-          },
+          { catalogueStockVisibility: 'IN_STOCK_ONLY' },
+          { variants: { some: { inventory: { gt: 0 } } } },
         ],
       },
     ],
@@ -137,32 +137,14 @@ function buildPublicListingVisibilityWhere() {
 function compareProducts(sort: string) {
   return (a: ReturnType<typeof buildProductReadModel>, b: ReturnType<typeof buildProductReadModel>) => {
     if (sort === 'price_asc') {
-      if (a.pricing.effectivePrice !== b.pricing.effectivePrice) {
-        return a.pricing.effectivePrice - b.pricing.effectivePrice;
-      }
+      if (a.pricing.effectivePrice !== b.pricing.effectivePrice) return a.pricing.effectivePrice - b.pricing.effectivePrice;
       return b.timestamps.updatedAt.getTime() - a.timestamps.updatedAt.getTime();
     }
-
     if (sort === 'price_desc') {
-      if (a.pricing.effectivePrice !== b.pricing.effectivePrice) {
-        return b.pricing.effectivePrice - a.pricing.effectivePrice;
-      }
+      if (a.pricing.effectivePrice !== b.pricing.effectivePrice) return b.pricing.effectivePrice - a.pricing.effectivePrice;
       return b.timestamps.updatedAt.getTime() - a.timestamps.updatedAt.getTime();
     }
-
-    if (sort === 'name') {
-      return a.identity.name.localeCompare(b.identity.name, 'en', { sensitivity: 'base' });
-    }
-
-    if (sort === 'featured') {
-      return [
-        Number(b.catalogue.pinHero) - Number(a.catalogue.pinHero),
-        Number(b.catalogue.featured) - Number(a.catalogue.featured),
-        Number(b.catalogue.bestseller) - Number(a.catalogue.bestseller),
-        b.timestamps.updatedAt.getTime() - a.timestamps.updatedAt.getTime(),
-      ].find((value) => value !== 0) ?? 0;
-    }
-
+    if (sort === 'name') return a.identity.name.localeCompare(b.identity.name, 'en', { sensitivity: 'base' });
     return [
       Number(b.catalogue.pinHero) - Number(a.catalogue.pinHero),
       Number(b.catalogue.featured) - Number(a.catalogue.featured),
@@ -177,12 +159,10 @@ function mapPublicProduct(read: ReturnType<typeof buildProductReadModel>) {
     id: read.id,
     slug: read.slug,
     sku: read.sku,
-
     name: read.identity.name,
     title: read.identity.name,
     shortName: read.identity.shortName,
     poeticLine: read.identity.poeticLine,
-
     craft: read.craft.craft,
     region: read.craft.region,
     state: read.craft.state,
@@ -191,21 +171,18 @@ function mapPublicProduct(read: ReturnType<typeof buildProductReadModel>) {
     material: read.craft.material,
     technique: read.craft.technique,
     occasion: read.craft.occasion,
-
     category: read.category?.slug ?? null,
     categoryName: read.category?.name ?? null,
     categoryPath: read.category?.path ?? null,
     categoryLevel: read.category?.level ?? null,
     categoryBreadcrumb: splitPath(read.hierarchy.path),
     hierarchy: read.hierarchy,
-
     mrp: read.pricing.mrp,
     sellingPrice: read.pricing.sellingPrice,
     salePrice: read.pricing.salePrice,
     saleStartsAt: read.pricing.saleWindow.startsAt,
     saleEndsAt: read.pricing.saleWindow.endsAt,
     pricing: read.pricing,
-
     image: read.media.primaryImage,
     primaryImage: read.media.primaryImage,
     approvedPrimaryImage: read.media.approvedPrimaryImage,
@@ -214,20 +191,15 @@ function mapPublicProduct(read: ReturnType<typeof buildProductReadModel>) {
     productImages: read.media.productImages,
     variantImages: read.media.variantImages,
     imageApproved: read.media.imageApproved,
-    imageQualityScore: read.media.imageQualityScore,
     imageSelectionMode: read.media.selectionMode,
     media: read.media,
-
     badges: read.badges,
-
     aiTryOnEligible: read.ai.tryOnEligible,
     aiRoomEligible: read.ai.roomEligible,
     arTryOnEligible: read.ai.arTryOnEligible,
-
     codEligible: read.policies.codEligible,
     returnEligible: read.policies.returnEligible,
     returnPolicy: read.policies.returnPolicy,
-
     catalogueFeatured: read.catalogue.featured,
     catalogueBestseller: read.catalogue.bestseller,
     catalogueEditorial: read.catalogue.editorial,
@@ -236,13 +208,10 @@ function mapPublicProduct(read: ReturnType<typeof buildProductReadModel>) {
     catalogueCtaMode: read.catalogue.ctaMode,
     catalogueStoryBlock: read.catalogue.storyBlock,
     catalogueReadiness: read.catalogueReadiness,
-
     stock: {
       ...read.stock,
-      visibleInListing:
-        read.stock.stockVisibility === 'IN_STOCK_ONLY' ? read.stock.inStock : true,
+      visibleInListing: read.stock.stockVisibility === 'IN_STOCK_ONLY' ? read.stock.inStock : true,
     },
-
     variants: read.variants,
     source: read.source,
     version: read.version,
@@ -253,36 +222,30 @@ function mapPublicProduct(read: ReturnType<typeof buildProductReadModel>) {
 
 export async function GET(request: NextRequest) {
   const url = new URL(request.url);
-
-  const category = asString(url.searchParams.get('category'));
-  const search = asString(url.searchParams.get('q')) || asString(url.searchParams.get('search'));
-  const craft = asString(url.searchParams.get('craft'));
-  const region = asString(url.searchParams.get('region'));
-  const material = asString(url.searchParams.get('material'));
-  const occasion = asString(url.searchParams.get('occasion'));
-  const badge = asString(url.searchParams.get('badge'));
-  const audience = asString(url.searchParams.get('audience'));
-  const slug = asString(url.searchParams.get('slug'));
-  const excludeId = asString(url.searchParams.get('excludeId'));
+  const category = boundedText(url.searchParams.get('category'));
+  const search = boundedText(url.searchParams.get('q')) || boundedText(url.searchParams.get('search'));
+  const craft = boundedText(url.searchParams.get('craft'));
+  const region = boundedText(url.searchParams.get('region'));
+  const material = boundedText(url.searchParams.get('material'));
+  const occasion = boundedText(url.searchParams.get('occasion'));
+  const badge = boundedText(url.searchParams.get('badge'));
+  const audience = boundedText(url.searchParams.get('audience'));
+  const slug = boundedText(url.searchParams.get('slug'), 220);
+  const excludeId = boundedText(url.searchParams.get('excludeId'), 120);
   const ids = parseCsv(url.searchParams.get('ids'));
-
-  const minPriceRupees = asString(url.searchParams.get('minPrice'));
-  const maxPriceRupees = asString(url.searchParams.get('maxPrice'));
-
-  const sort = asString(url.searchParams.get('sort')) || 'newest';
-  const featured = asString(url.searchParams.get('featured'));
+  const minPriceRupees = url.searchParams.get('minPrice');
+  const maxPriceRupees = url.searchParams.get('maxPrice');
+  const minPricePaise = parseRupees(minPriceRupees);
+  const maxPricePaise = parseRupees(maxPriceRupees);
+  const sort = boundedText(url.searchParams.get('sort'), 32) || 'newest';
+  const featured = boundedText(url.searchParams.get('featured'), 32);
   const arEligible = truthyParam(url.searchParams.get('arEligible'));
   const mirrorEligible = truthyParam(url.searchParams.get('mirrorEligible'));
-
-  const page = asPositiveInt(url.searchParams.get('page'), DEFAULT_PAGE);
-  const limit = Math.min(
-    asPositiveInt(url.searchParams.get('limit'), DEFAULT_LIMIT),
-    MAX_LIMIT
-  );
+  const page = Math.min(asPositiveInt(url.searchParams.get('page'), DEFAULT_PAGE), 10000);
+  const limit = Math.min(asPositiveInt(url.searchParams.get('limit'), DEFAULT_LIMIT), MAX_LIMIT);
 
   try {
     let matchedCategory: unknown = null;
-
     const andClauses: any[] = [
       { status: 'ACTIVE' },
       { catalogueExclude: false },
@@ -292,9 +255,7 @@ export async function GET(request: NextRequest) {
     if (category) {
       const resolved = await resolveCategoryWhere(category);
       matchedCategory = resolved?.matchedCategory ?? null;
-      if (resolved?.where && Object.keys(resolved.where).length > 0) {
-        andClauses.push(resolved.where);
-      }
+      if (resolved?.where && Object.keys(resolved.where).length > 0) andClauses.push(resolved.where);
     }
 
     if (slug) andClauses.push({ slug: { equals: slug, mode: 'insensitive' } });
@@ -308,85 +269,77 @@ export async function GET(request: NextRequest) {
     if (audience) andClauses.push({ catalogueAudienceTag: audience });
 
     if (search) {
-      andClauses.push({
-        OR: [
-          { name: { contains: search, mode: 'insensitive' } },
-          { shortName: { contains: search, mode: 'insensitive' } },
-          { sku: { contains: search, mode: 'insensitive' } },
-          { craft: { contains: search, mode: 'insensitive' } },
-          { region: { contains: search, mode: 'insensitive' } },
-          { artisanName: { contains: search, mode: 'insensitive' } },
-          { material: { contains: search, mode: 'insensitive' } },
-          { technique: { contains: search, mode: 'insensitive' } },
-          { poeticLine: { contains: search, mode: 'insensitive' } },
-          {
-            category: {
-              is: {
-                name: { contains: search, mode: 'insensitive' },
-              },
-            },
-          },
-        ],
-      });
+      andClauses.push({ OR: [
+        { name: { contains: search, mode: 'insensitive' } },
+        { shortName: { contains: search, mode: 'insensitive' } },
+        { sku: { contains: search, mode: 'insensitive' } },
+        { craft: { contains: search, mode: 'insensitive' } },
+        { region: { contains: search, mode: 'insensitive' } },
+        { artisanName: { contains: search, mode: 'insensitive' } },
+        { material: { contains: search, mode: 'insensitive' } },
+        { technique: { contains: search, mode: 'insensitive' } },
+        { poeticLine: { contains: search, mode: 'insensitive' } },
+        { category: { is: { name: { contains: search, mode: 'insensitive' } } } },
+      ] });
     }
 
     if (arEligible) andClauses.push({ arTryOnEligible: true });
     if (mirrorEligible) andClauses.push({ aiTryOnEligible: true });
-
-    if (featured === 'founder') {
-      andClauses.push({ badges: { has: "FOUNDER'S EDIT" } });
-    }
+    if (featured === 'founder') andClauses.push({ badges: { has: "FOUNDER'S EDIT" } });
     if (featured === 'new') {
       const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
       andClauses.push({ createdAt: { gte: thirtyDaysAgo } });
     }
-    if (featured === 'true' || featured === 'catalogue') {
-      andClauses.push({ catalogueFeatured: true });
-    }
-    if (featured === 'bestseller') {
-      andClauses.push({ catalogueBestseller: true });
-    }
-    if (featured === 'editorial') {
-      andClauses.push({ catalogueEditorial: true });
-    }
-    if (featured === 'hero') {
-      andClauses.push({ cataloguePinHero: true });
-    }
+    if (featured === 'true' || featured === 'catalogue') andClauses.push({ catalogueFeatured: true });
+    if (featured === 'bestseller') andClauses.push({ catalogueBestseller: true });
+    if (featured === 'editorial') andClauses.push({ catalogueEditorial: true });
+    if (featured === 'hero') andClauses.push({ cataloguePinHero: true });
 
     const where = andClauses.length === 1 ? andClauses[0] : { AND: andClauses };
-
-    const rows = (await prisma.product.findMany({
-      where,
-      orderBy: buildBaseOrderBy(sort),
-      include: buildInclude(),
-    })) as unknown as ProductReadSourceRow[];
-
     const now = new Date();
+    const needsComputedFiltering =
+      featured === 'sale' ||
+      minPricePaise !== null ||
+      maxPricePaise !== null ||
+      sort === 'price_asc' ||
+      sort === 'price_desc';
 
-    let reads = rows.map((row) => buildProductReadModel(row, 'public_api', now));
+    let products: ReturnType<typeof mapPublicProduct>[] = [];
+    let total = 0;
 
-    if (featured === 'sale') {
-      reads = reads.filter((read) => read.pricing.onSale);
+    if (!needsComputedFiltering) {
+      const [count, rows] = await Promise.all([
+        prisma.product.count({ where }),
+        prisma.product.findMany({
+          where,
+          orderBy: buildBaseOrderBy(sort),
+          skip: (page - 1) * limit,
+          take: limit,
+          include: buildInclude(),
+        }),
+      ]);
+      total = count;
+      const reads = (rows as unknown as ProductReadSourceRow[])
+        .map((row) => buildProductReadModel(row, 'public_api', now));
+      products = reads.map(mapPublicProduct);
+    } else {
+      const rows = await prisma.product.findMany({
+        where,
+        orderBy: buildBaseOrderBy(sort),
+        include: buildInclude(),
+      });
+      let reads = (rows as unknown as ProductReadSourceRow[])
+        .map((row) => buildProductReadModel(row, 'public_api', now));
+      if (featured === 'sale') reads = reads.filter((read) => read.pricing.onSale);
+      if (minPricePaise !== null) reads = reads.filter((read) => read.pricing.effectivePrice >= minPricePaise);
+      if (maxPricePaise !== null) reads = reads.filter((read) => read.pricing.effectivePrice <= maxPricePaise);
+      reads.sort(compareProducts(sort));
+      total = reads.length;
+      const start = (page - 1) * limit;
+      products = reads.slice(start, start + limit).map(mapPublicProduct);
     }
 
-    const minPricePaise = minPriceRupees ? (Number.parseInt(minPriceRupees, 10) || 0) * 100 : null;
-    const maxPricePaise = maxPriceRupees ? (Number.parseInt(maxPriceRupees, 10) || 0) * 100 : null;
-
-    if (minPricePaise !== null) {
-      reads = reads.filter((read) => read.pricing.effectivePrice >= minPricePaise);
-    }
-    if (maxPricePaise !== null) {
-      reads = reads.filter((read) => read.pricing.effectivePrice <= maxPricePaise);
-    }
-
-    reads.sort(compareProducts(sort));
-
-    const total = reads.length;
     const totalPages = total > 0 ? Math.ceil(total / limit) : 1;
-    const start = (page - 1) * limit;
-    const paged = reads.slice(start, start + limit);
-    const products = paged.map(mapPublicProduct);
-
     const response = NextResponse.json({
       ok: true,
       matchedCategory,
@@ -397,23 +350,9 @@ export async function GET(request: NextRequest) {
         stockVisibility: CATALOGUE_STOCK_VISIBILITY,
       },
       filters: {
-        category,
-        q: search,
-        craft,
-        region,
-        material,
-        occasion,
-        badge,
-        audience,
-        slug,
-        excludeId,
-        ids,
-        minPrice: minPriceRupees,
-        maxPrice: maxPriceRupees,
-        sort,
-        featured,
-        arEligible,
-        mirrorEligible,
+        category, q: search, craft, region, material, occasion, badge, audience,
+        slug, excludeId, ids, minPrice: minPriceRupees, maxPrice: maxPriceRupees,
+        sort, featured, arEligible, mirrorEligible,
       },
       pagination: {
         page,
@@ -426,22 +365,13 @@ export async function GET(request: NextRequest) {
       products,
       count: products.length,
     });
-
     response.headers.set('x-read-model-version', ROUTE_READ_MODEL_VERSION);
     response.headers.set('x-canonical-read-model-version', PRODUCT_READ_MODEL_VERSION);
-    response.headers.set(
-      'x-supported-stock-visibility',
-      CATALOGUE_STOCK_VISIBILITY.join(',')
-    );
-
+    response.headers.set('x-supported-stock-visibility', CATALOGUE_STOCK_VISIBILITY.join(','));
+    response.headers.set('Cache-Control', 'public, s-maxage=45, stale-while-revalidate=180');
     return response;
   } catch (error: any) {
-    return NextResponse.json(
-      {
-        ok: false,
-        error: error?.message || 'Failed to load products',
-      },
-      { status: 500 }
-    );
+    console.error('[products.public] failed', { message: error?.message });
+    return NextResponse.json({ ok: false, error: 'Unable to load products right now' }, { status: 500 });
   }
 }
