@@ -5,46 +5,69 @@ import { prisma } from '@/lib/prisma';
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const EMAIL_RE = /^\S+@\S+\.\S+$/;
+
+function cleanText(value: unknown, max: number): string | null {
+  const text = String(value || '').trim().replace(/\s+/g, ' ').slice(0, max);
+  return text || null;
+}
+
+function cleanSource(value: unknown): string {
+  const source = String(value || 'pdp')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9_-]/g, '_')
+    .slice(0, 64);
+  return source || 'pdp';
+}
+
+function cleanWhatsapp(value: unknown): string | null {
+  const raw = String(value || '').trim();
+  if (!raw) return null;
+  const digits = raw.replace(/\D/g, '');
+  if (digits.length < 10 || digits.length > 15) return null;
+  return digits;
+}
 
 export async function POST(request: Request) {
   try {
     const body = await request.json().catch(() => ({}));
-    const productId = (body.productId || '').toString().trim();
-    const email = (body.email || '').toString().trim().toLowerCase();
-    const whatsapp = (body.whatsapp || '').toString().trim() || null;
-    const name = (body.name || '').toString().trim() || null;
-    const source = (body.source || 'pdp').toString().trim();
+    const productId = String(body?.productId || '').trim();
+    const email = String(body?.email || '').trim().toLowerCase();
+    const name = cleanText(body?.name, 100);
+    const source = cleanSource(body?.source);
+    const whatsappInput = String(body?.whatsapp || '').trim();
+    const whatsapp = cleanWhatsapp(whatsappInput);
 
-    if (!productId) return NextResponse.json({ error: 'Product is required' }, { status: 400 });
-    if (!email || !EMAIL_RE.test(email)) {
+    if (!productId || productId.length > 100) {
+      return NextResponse.json({ error: 'Product is required' }, { status: 400 });
+    }
+    if (!email || email.length > 320 || !EMAIL_RE.test(email)) {
       return NextResponse.json({ error: 'Please enter a valid email' }, { status: 400 });
     }
+    if (whatsappInput && !whatsapp) {
+      return NextResponse.json({ error: 'Please enter a valid WhatsApp number' }, { status: 400 });
+    }
 
-    // Verify product exists
     const product = await prisma.product.findUnique({
       where: { id: productId },
-      select: { id: true, name: true },
+      select: { id: true, name: true, status: true },
     });
-    if (!product) return NextResponse.json({ error: 'Product not found' }, { status: 404 });
+    if (!product || product.status !== 'ACTIVE') {
+      return NextResponse.json({ error: 'This piece is not currently available for a waitlist.' }, { status: 404 });
+    }
 
-    // Idempotent insert — unique on (productId, email)
     let alreadyOnList = false;
     try {
       await prisma.waitlist.create({
         data: { productId, email, whatsapp, name, source },
       });
-    } catch (e: any) {
-      if (e.code === 'P2002') {
-        alreadyOnList = true;
-      } else {
-        throw e;
-      }
+    } catch (error: any) {
+      if (error?.code === 'P2002') alreadyOnList = true;
+      else throw error;
     }
 
-    // Get the current count for this product (used by admin alerts)
     const count = await prisma.waitlist.count({ where: { productId } });
-
     return NextResponse.json({
       ok: true,
       alreadyOnList,
@@ -53,17 +76,24 @@ export async function POST(request: Request) {
         ? `You are already on the waitlist for ${product.name}.`
         : `You are on the waitlist for ${product.name}. We will write when it is ready.`,
     });
-  } catch (e: any) {
-    return NextResponse.json({ error: e.message || 'Unable to join waitlist' }, { status: 500 });
+  } catch (error: any) {
+    console.error('[waitlist.post] failed', { message: error?.message });
+    return NextResponse.json({ error: 'Unable to join the waitlist right now.' }, { status: 500 });
   }
 }
 
-// Anyone can see how many are on the waitlist for a product (social proof)
 export async function GET(request: Request) {
-  const url = new URL(request.url);
-  const productId = url.searchParams.get('productId');
-  if (!productId) return NextResponse.json({ error: 'productId required' }, { status: 400 });
-  const count = await prisma.waitlist.count({ where: { productId } });
-  return NextResponse.json({ count });
+  try {
+    const productId = String(new URL(request.url).searchParams.get('productId') || '').trim();
+    if (!productId || productId.length > 100) {
+      return NextResponse.json({ error: 'productId required' }, { status: 400 });
+    }
+    const count = await prisma.waitlist.count({ where: { productId } });
+    const response = NextResponse.json({ count });
+    response.headers.set('Cache-Control', 'public, s-maxage=60, stale-while-revalidate=300');
+    return response;
+  } catch (error: any) {
+    console.error('[waitlist.get] failed', { message: error?.message });
+    return NextResponse.json({ error: 'Waitlist count unavailable' }, { status: 500 });
+  }
 }
-
