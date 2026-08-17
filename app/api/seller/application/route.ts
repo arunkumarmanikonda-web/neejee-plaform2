@@ -1,49 +1,30 @@
 import { NextResponse } from 'next/server';
-import { KycStatus, Role, SellerDocStatus, SellerDocType } from '@prisma/client';
+import { KycStatus } from '@prisma/client';
 import { z } from 'zod';
 import { prisma } from '@/lib/prisma';
-import { normalizePhone, verifyOtp } from '@/lib/otp';
+import { normalizePhone } from '@/lib/otp';
 import type { UploadedApplicationDocument } from '@/lib/seller-onboarding/document-intel';
 import { validateSellerApplicationPackage } from '@/lib/seller-onboarding/application-validation';
 import { requestSellerEmailOtp } from '@/lib/seller-onboarding/email-otp';
 import { syncSellerKycStatus } from '@/lib/seller-onboarding/status';
+import {
+  readSellerOnboardingSession,
+  verifySellerDocumentProof,
+} from '@/lib/seller-onboarding/application-session';
+import { deleteFile, privateSellerStorageRef } from '@/lib/storage';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
 const DocSchema = z.object({
-  docType: z.enum([
-    'PAN_CARD',
-    'GST_CERTIFICATE',
-    'MSME_CERTIFICATE',
-    'CANCELLED_CHEQUE',
-    'BANK_STATEMENT',
-    'CERTIFICATION',
-    'OTHER',
-  ]),
-  title: z.string().nullable().optional(),
-  fileUrl: z.string().min(1),
-  fileName: z.string().min(1),
-  fileSize: z.number().int().nonnegative(),
-  mimeType: z.string().min(1),
-  storageKey: z.string().min(1),
-  extractedTextPreview: z.string().default(''),
-  extractedFields: z.object({
-    pans: z.array(z.string()).default([]),
-    gstins: z.array(z.string()).default([]),
-    cins: z.array(z.string()).default([]),
-    ifscs: z.array(z.string()).default([]),
-    bankAccounts: z.array(z.string()).default([]),
-    msmeNumbers: z.array(z.string()).default([]),
-  }),
-});
+  uploadProof: z.string().min(20),
+}).passthrough();
 
 const BodySchema = z.object({
   businessName: z.string().min(2),
   contactName: z.string().min(2),
   email: z.string().email(),
   phone: z.string().min(8),
-  phoneOtp: z.string().regex(/^\d{4,8}$/),
   pan: z.string().min(10),
   gstin: z.string().optional().nullable(),
   cin: z.string().optional().nullable(),
@@ -78,7 +59,7 @@ async function postPackageVerification(
     gstin: string | null;
     bankAccount: string;
     ifsc: string;
-    phone: string | null;
+    phone: string;
   },
 ) {
   const url = new URL('/api/kyc/verify/package', request.url);
@@ -107,23 +88,17 @@ async function postPackageVerification(
     try {
       payload = await response.json();
     } catch {
-      payload = {
-        ok: false,
-        error: 'invalid_package_verification_response',
-      };
+      payload = { ok: false, error: 'invalid_package_verification_response' };
     }
 
-    return {
-      httpStatus: response.status,
-      payload,
-    };
+    return { httpStatus: response.status, payload };
   } catch (error) {
+    console.error('[seller.application] package verification failed', {
+      message: error instanceof Error ? error.message : 'unknown_error',
+    });
     return {
       httpStatus: 500,
-      payload: {
-        ok: false,
-        error: error instanceof Error ? error.message : 'kyc_package_fetch_failed',
-      },
+      payload: { ok: false, error: 'kyc_package_unavailable' } as KycPackageVerification,
     };
   }
 }
@@ -137,14 +112,41 @@ function normalizeUpper(value: string | null | undefined): string | null {
   return v || null;
 }
 
-function normalizeDocType(value: UploadedApplicationDocument['docType']): SellerDocType {
-  return value as SellerDocType;
+function publicValidation(validation: any) {
+  return {
+    overallPass: Boolean(validation?.overallPass),
+    reviewRequired: Boolean(validation?.reviewRequired),
+    errors: Array.isArray(validation?.errors) ? validation.errors : [],
+    warnings: Array.isArray(validation?.warnings) ? validation.warnings : [],
+    extracted: validation?.extracted || {},
+    documentsPresent: validation?.documentsPresent || {},
+  };
+}
+
+function pendingDocumentPayload(documents: UploadedApplicationDocument[]) {
+  return documents.map((doc) => ({
+    docType: doc.docType,
+    title: doc.title ?? null,
+    fileUrl: doc.fileUrl,
+    fileName: doc.fileName,
+    fileSize: doc.fileSize,
+    mimeType: doc.mimeType,
+    storageKey: doc.storageKey,
+  }));
+}
+
+async function cleanupReplacedPendingDocuments(previous: any[], current: UploadedApplicationDocument[]) {
+  const currentKeys = new Set(current.map((doc) => doc.storageKey));
+  const stale = (Array.isArray(previous) ? previous : [])
+    .map((doc) => String(doc?.storageKey || ''))
+    .filter((key) => key && !currentKeys.has(key));
+
+  await Promise.allSettled(stale.map((key) => deleteFile(privateSellerStorageRef(key))));
 }
 
 export async function POST(request: Request) {
   try {
     const body = BodySchema.parse(await request.json());
-
     const email = normalizeEmail(body.email);
     const phone = normalizePhone(body.phone);
 
@@ -152,24 +154,25 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Invalid mobile number' }, { status: 400 });
     }
 
-    const documents: UploadedApplicationDocument[] = body.documents.map((doc) => ({
-      docType: doc.docType,
-      title: doc.title ?? null,
-      fileUrl: doc.fileUrl,
-      fileName: doc.fileName,
-      fileSize: doc.fileSize,
-      mimeType: doc.mimeType,
-      storageKey: doc.storageKey,
-      extractedTextPreview: doc.extractedTextPreview,
-      extractedFields: {
-        pans: doc.extractedFields.pans,
-        gstins: doc.extractedFields.gstins,
-        cins: doc.extractedFields.cins,
-        ifscs: doc.extractedFields.ifscs,
-        bankAccounts: doc.extractedFields.bankAccounts,
-        msmeNumbers: doc.extractedFields.msmeNumbers,
-      },
-    }));
+    const onboarding = await readSellerOnboardingSession(phone);
+    if (!onboarding) {
+      return NextResponse.json(
+        { error: 'Your verified mobile session has expired. Please verify the mobile OTP again.' },
+        { status: 401 },
+      );
+    }
+
+    const documents: UploadedApplicationDocument[] = [];
+    for (const submitted of body.documents) {
+      const trusted = await verifySellerDocumentProof(submitted.uploadProof, onboarding.phone);
+      if (!trusted) {
+        return NextResponse.json(
+          { error: 'One or more uploaded documents could not be verified. Please upload them again.' },
+          { status: 400 },
+        );
+      }
+      documents.push(trusted);
+    }
 
     const validation = await validateSellerApplicationPackage({
       businessName: body.businessName,
@@ -184,26 +187,7 @@ export async function POST(request: Request) {
 
     if (!validation.overallPass) {
       return NextResponse.json(
-        {
-          error: 'KYC validation failed',
-          validation,
-        },
-        { status: 400 },
-      );
-    }
-
-    const otpResult = await verifyOtp({
-      phone,
-      purpose: 'signup',
-      code: String(body.phoneOtp || '').trim(),
-    });
-
-    if (!otpResult.ok) {
-      return NextResponse.json(
-        {
-          error: 'Mobile OTP verification failed',
-          reason: otpResult.reason,
-        },
+        { error: 'KYC validation found document mismatches', validation: publicValidation(validation) },
         { status: 400 },
       );
     }
@@ -220,52 +204,35 @@ export async function POST(request: Request) {
         ifsc: body.ifsc,
         phone,
       });
-
       kycPackageVerification = packageResult.payload;
       kycPackageHttpStatus = packageResult.httpStatus;
     }
 
     const reviewRequired =
+      Boolean(validation.reviewRequired) ||
       Boolean(kycPackageVerification?.reviewRequired) ||
       Boolean(kycPackageVerification && kycPackageVerification.ok === false);
 
-    const overallStatus = reviewRequired ? 'REVIEW_REQUIRED' : 'VERIFIED';
+    const autoKycPassed =
+      validation.overallPass &&
+      (!kycPackageVerification || kycPackageVerification.ok !== false);
+
+    const overallStatus = !autoKycPassed
+      ? 'REVIEW_REQUIRED'
+      : reviewRequired
+        ? 'REVIEW_REQUIRED'
+        : 'VERIFIED';
 
     const now = new Date();
-
-    const user = await prisma.user.upsert({
-      where: { email },
-      update: {
-        name: body.contactName,
-        phone,
-        role: Role.SELLER,
-        phoneVerified: true,
-        phoneVerifiedAt: now,
-      },
-      create: {
-        email,
-        name: body.contactName,
-        phone,
-        role: Role.SELLER,
-        emailVerified: null,
-        phoneVerified: true,
-        phoneVerifiedAt: now,
-      },
-    });
-
     const existingSeller = await prisma.seller.findFirst({
-      where: {
-        OR: [
-          { userId: user.id },
-          { email },
-        ],
-      },
+      where: { email, phone },
       select: {
         id: true,
+        userId: true,
         autoKycSummary: true,
       },
+      orderBy: { createdAt: 'desc' },
     });
-
 
     const previousSummary =
       existingSeller?.autoKycSummary && typeof existingSeller.autoKycSummary === 'object'
@@ -289,12 +256,14 @@ export async function POST(request: Request) {
 
     const nextAutoKycSummary = {
       ...previousSummary,
-      ...(validation as any),
+      ...publicValidation(validation),
       overallStatus,
       reviewRequired,
       includeLiveVerification: body.includeLiveVerification,
       kycPackageHttpStatus,
       liveVerification: kycPackageVerification,
+      pendingDocuments: pendingDocumentPayload(documents),
+      pendingDocumentsCreatedAt: now.toISOString(),
       onboarding: {
         ...(previousSummary?.onboarding && typeof previousSummary.onboarding === 'object'
           ? previousSummary.onboarding
@@ -307,7 +276,6 @@ export async function POST(request: Request) {
       ? await prisma.seller.update({
           where: { id: existingSeller.id },
           data: {
-            userId: user.id,
             businessName: body.businessName,
             contactName: body.contactName,
             email,
@@ -320,20 +288,14 @@ export async function POST(request: Request) {
             ifsc: String(body.ifsc || '').trim().toUpperCase(),
             bankName: String(body.bankName || '').trim(),
             applicationSubmittedAt: now,
-            autoKycPassed: !reviewRequired,
+            autoKycPassed,
             autoKycSummary: nextAutoKycSummary as any,
             kycStatus: KycStatus.PENDING,
           },
-          select: {
-            id: true,
-            email: true,
-            contactName: true,
-            kycStatus: true,
-          },
+          select: { id: true, email: true, contactName: true, kycStatus: true },
         })
       : await prisma.seller.create({
           data: {
-            userId: user.id,
             businessName: body.businessName,
             contactName: body.contactName,
             email,
@@ -346,106 +308,65 @@ export async function POST(request: Request) {
             ifsc: String(body.ifsc || '').trim().toUpperCase(),
             bankName: String(body.bankName || '').trim(),
             applicationSubmittedAt: now,
-            autoKycPassed: !reviewRequired,
+            autoKycPassed,
             autoKycSummary: nextAutoKycSummary as any,
             kycStatus: KycStatus.PENDING,
           },
-          select: {
-            id: true,
-            email: true,
-            contactName: true,
-            kycStatus: true,
-          },
+          select: { id: true, email: true, contactName: true, kycStatus: true },
         });
 
-    const docTypes = Array.from(new Set(documents.map((doc) => normalizeDocType(doc.docType))));
-
-    if (docTypes.length > 0) {
-      await prisma.sellerDocument.updateMany({
-        where: {
-          sellerId: seller.id,
-          docType: { in: docTypes },
-          status: SellerDocStatus.SUBMITTED,
-        },
-        data: {
-          status: SellerDocStatus.SUPERSEDED,
-          reviewedAt: now,
-          reviewNote: 'Superseded by new seller application submission',
-        },
-      });
-    }
-
-    if (documents.length > 0) {
-      await prisma.sellerDocument.createMany({
-        data: documents.map((doc) => ({
-          sellerId: seller.id,
-          docType: normalizeDocType(doc.docType),
-          title: doc.title ?? null,
-          fileName: doc.fileName,
-          fileUrl: doc.fileUrl,
-          fileSize: doc.fileSize,
-          mimeType: doc.mimeType,
-          status: SellerDocStatus.SUBMITTED,
-          uploadedByUserId: user.id,
-          uploadedOnBehalf: false,
-        })),
-      });
+    if (existingSeller) {
+      await cleanupReplacedPendingDocuments(previousSummary?.pendingDocuments, documents);
     }
 
     await syncSellerKycStatus(seller.id);
 
     let emailOtpRequested = false;
     let emailOtpError: string | null = null;
-
     try {
       const emailOtpResult = await requestSellerEmailOtp({
         sellerId: seller.id,
         email: seller.email,
         recipientName: seller.contactName || seller.email,
       });
-
       emailOtpRequested = !!emailOtpResult.ok;
-    } catch (e: any) {
-      emailOtpRequested = false;
-      emailOtpError = e?.message || 'Failed to send email OTP';
+    } catch (error) {
+      console.error('[seller.application] email OTP request failed', {
+        sellerId: seller.id,
+        message: error instanceof Error ? error.message : 'unknown_error',
+      });
+      emailOtpError = 'Email verification code could not be sent automatically. Please use resend.';
     }
 
     const refreshedSeller = await prisma.seller.findUnique({
       where: { id: seller.id },
-      select: {
-        id: true,
-        kycStatus: true,
-        autoKycPassed: true,
-        applicationSubmittedAt: true,
-      },
+      select: { id: true, kycStatus: true, autoKycPassed: true, applicationSubmittedAt: true },
     });
 
     return NextResponse.json({
       ok: true,
       sellerId: seller.id,
-      userId: user.id,
       kycStatus: refreshedSeller?.kycStatus || seller.kycStatus,
       autoKycPassed: !!refreshedSeller?.autoKycPassed,
       applicationSubmittedAt: refreshedSeller?.applicationSubmittedAt || now,
       emailOtpRequested,
       emailOtpError,
-      validation,
+      validation: publicValidation(validation),
+      reviewRequired,
+      overallStatus,
       nextStep: 'verify_email_otp',
     });
-  } catch (e: any) {
-    if (e?.issues) {
+  } catch (error: any) {
+    if (error?.issues) {
       return NextResponse.json(
-        {
-          error: 'Invalid seller application payload',
-          issues: e.issues,
-        },
+        { error: 'Invalid seller application payload', issues: error.issues },
         { status: 400 },
       );
     }
 
-    return NextResponse.json(
-      { error: e?.message || 'Failed to submit seller application' },
-      { status: 500 },
-    );
+    console.error('[seller.application] failed', {
+      message: error instanceof Error ? error.message : 'unknown_error',
+    });
+    return NextResponse.json({ error: 'Unable to submit the seller application right now' }, { status: 500 });
   }
 }
