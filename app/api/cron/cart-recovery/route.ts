@@ -1,18 +1,12 @@
-// app/api/cron/cart-recovery/route.ts
-// v26.3c — Multi-channel recovery cron.
-// Reads RecoverySettings.channelMatrix to decide which channels fire per stage.
-// Email still goes through existing email templates; SMS/WA route through the
-// notification dispatcher.
-//
-// Hardened rules:
-// - Recovery messaging uses verifiedItems only
-// - Empty/invalid snapshots are marked inert and skipped
-
+// Multi-channel abandoned-cart recovery cron.
+// Customer recovery and opt-out links use short-lived HMAC-signed references;
+// raw cart IDs remain internal metadata only.
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { sendEmail } from '@/lib/email';
 import { generateRecoveryCopy } from '@/lib/recovery/ai-copy';
 import { ensureStageCoupon } from '@/lib/recovery/discount';
+import { createRecoveryRef } from '@/lib/recovery/link';
 import { recoveryT1hEmail } from '@/lib/email/templates/recovery-t1h';
 import { recoveryT24hEmail } from '@/lib/email/templates/recovery-t24h';
 import { recoveryT72hEmail } from '@/lib/email/templates/recovery-t72h';
@@ -31,8 +25,7 @@ function authorized(req: Request): boolean {
     console.warn('[cron] CRON_SECRET not set — refusing');
     return false;
   }
-  const got = req.headers.get('authorization') || '';
-  return got === `Bearer ${expected}`;
+  return (req.headers.get('authorization') || '') === `Bearer ${expected}`;
 }
 
 export async function GET(req: Request) {
@@ -62,17 +55,17 @@ function parseRecoverySnapshot(itemsJson: string) {
 async function run() {
   const startedAt = Date.now();
   const settings = await prisma.recoverySettings.findUnique({ where: { id: 'default' } } as any).catch(() => null);
-  const cadence  = (settings as any)?.cadenceHours       || { stage1: 1, stage2: 24, stage3: 72, stage4: 168 };
-  const percents = (settings as any)?.discountPercents   || { stage2: 10, stage3: 15 };
-  const matrix   = (settings as any)?.channelMatrix      || {
+  const cadence = (settings as any)?.cadenceHours || { stage1: 1, stage2: 24, stage3: 72, stage4: 168 };
+  const percents = (settings as any)?.discountPercents || { stage2: 10, stage3: 15 };
+  const matrix = (settings as any)?.channelMatrix || {
     stage1: { email: true, sms: false, whatsapp: false },
     stage2: { email: true, sms: false, whatsapp: true },
     stage3: { email: true, sms: false, whatsapp: true },
-    stage4: { email: true, sms: true,  whatsapp: false },
+    stage4: { email: true, sms: true, whatsapp: false },
   };
-  const aiEnabled       = (settings as any)?.aiEnabled ?? true;
-  const handoffEnabled  = (settings as any)?.telecallerHandoffEnabled ?? true;
-  const graceMinutes    = (settings as any)?.abandonGraceMinutes || 30;
+  const aiEnabled = (settings as any)?.aiEnabled ?? true;
+  const handoffEnabled = (settings as any)?.telecallerHandoffEnabled ?? true;
+  const graceMinutes = (settings as any)?.abandonGraceMinutes || 30;
 
   const now = new Date();
   const graceThreshold = new Date(now.getTime() - graceMinutes * 60 * 1000);
@@ -97,7 +90,6 @@ async function run() {
       const stage = (cart.recoveryStage + 1) as 1 | 2 | 3 | 4;
       const stageKey = `stage${stage}`;
       const stageMatrix = (matrix as any)[stageKey] || {};
-
       const { verifiedItems: snapshotItems } = parseRecoverySnapshot(cart.itemsJson);
 
       if (snapshotItems.length === 0) {
@@ -110,7 +102,6 @@ async function run() {
             telecallerStatus: 'invalid_snapshot',
           } as any,
         }).catch(() => {});
-
         results.push({ id: cart.id, status: 'invalid_snapshot' });
         continue;
       }
@@ -123,12 +114,14 @@ async function run() {
         price: i.price || 0,
       }));
 
-      const recoverUrl = `${base}/checkout?recover=${cart.id}`;
-      const optOutUrl  = `${base}/recovery/opt-out?cart=${cart.id}`;
+      // Same signed bearer reference is used by recovery and opt-out. The raw
+      // cart id is kept only in internal dispatch/audit metadata.
+      const recoveryRef = createRecoveryRef(cart.id);
+      const recoverUrl = `${base}/checkout?recover=${encodeURIComponent(recoveryRef)}`;
+      const optOutUrl = `${base}/recovery/opt-out?cart=${encodeURIComponent(recoveryRef)}`;
       const totalRupees = Math.round(cart.subtotal / 100);
       const phone = (cart as any).phone || null;
 
-      // ── STAGE 4 — telecaller handoff (internal only) ──────────────────
       if (stage === 4) {
         if (!handoffEnabled) {
           await prisma.abandonedCart.update({
@@ -145,8 +138,8 @@ async function run() {
           new Set(
             snapshotItems
               .map((i: any) => [i.craft, i.region].filter(Boolean).join(' · '))
-              .filter((s: string) => s.length > 0)
-          )
+              .filter((s: string) => s.length > 0),
+          ),
         ) as string[];
 
         const tpl = telecallerHandoffEmail({
@@ -193,7 +186,6 @@ async function run() {
         continue;
       }
 
-      // ── STAGES 1, 2, 3 — customer-facing ─────────────────────────────
       let discountCode: string | undefined;
       let discountPercent: number | undefined;
       let validHours: number | undefined;
@@ -309,15 +301,15 @@ async function run() {
             craftRegion: craftRegion + (renderItems[0]?.region ? ` from ${renderItems[0].region}` : ''),
             discountPct: String(discountPercent || ''),
             code: discountCode || '',
-            cartId: cart.id,
+            // Existing AiSensy template uses this as its dynamic recovery URL suffix.
+            cartId: recoveryRef,
           },
           cartId: cart.id,
         });
       }
 
       if (stageMatrix.sms && phone && stage >= 2) {
-        const event = stage === 1 ? 'CART_T1H' : stage === 2 ? 'CART_T24H' : 'CART_T72H';
-        const shortLink = `${base}/r/${cart.id.slice(0, 8)}`;
+        const event = stage === 2 ? 'CART_T24H' : 'CART_T72H';
 
         await dispatchSms({
           event: event as any,
@@ -326,7 +318,8 @@ async function run() {
             firstName: firstName((cart as any).customerName),
             discountPct: String(discountPercent || ''),
             code: discountCode || '',
-            recoveryLink: shortLink,
+            // Do not emit the old non-existent /r/<prefix> route.
+            recoveryLink: recoverUrl,
           },
           cartId: cart.id,
         });
