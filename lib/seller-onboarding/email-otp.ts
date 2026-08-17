@@ -5,6 +5,7 @@ import { prisma } from '@/lib/prisma';
 import { sendEmail } from '@/lib/email';
 import { syncSellerKycStatus } from '@/lib/seller-onboarding/status';
 import { privateSellerStoragePath } from '@/lib/storage';
+import { sellerDocumentAdminUrl } from '@/lib/seller-onboarding/document-storage';
 
 const EMAIL_OTP_TTL_MIN = 10;
 const EMAIL_OTP_MAX_PER_HOUR = 5;
@@ -233,7 +234,7 @@ export async function verifySellerEmailOtp(input: {
       docType: doc.docType,
       title: doc.title,
       fileName: doc.fileName,
-      fileUrl: doc.fileUrl,
+      fileUrl: sellerDocumentAdminUrl(doc.storageKey, doc.fileName),
       fileSize: doc.fileSize,
       mimeType: doc.mimeType,
       status: SellerDocStatus.SUBMITTED,
