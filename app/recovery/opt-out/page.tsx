@@ -1,29 +1,29 @@
-// app/recovery/opt-out/page.tsx
-// v26.3a — One-click opt-out from recovery emails. Link target from the
-// "No more notes, please" footer link in each recovery email.
+// One-click opt-out from recovery messaging. The recovery reference is signed,
+// so a raw cart id cannot be used to opt out another customer's address.
 import { prisma } from '@/lib/prisma';
+import { verifyRecoveryRef } from '@/lib/recovery/link';
 
 export const dynamic = 'force-dynamic';
 
 export default async function OptOutPage({ searchParams }: { searchParams: { cart?: string } }) {
-  const cartId = searchParams?.cart;
-  let result: 'done' | 'not-found' | 'no-id' = 'no-id';
+  const recoveryRef = searchParams?.cart;
+  let result: 'done' | 'not-found' | 'no-id' | 'expired' = 'no-id';
 
-  if (cartId) {
-    const cart = await prisma.abandonedCart.findUnique({ where: { id: cartId } });
-    if (cart) {
-      await prisma.abandonedCart.update({
-        where: { id: cartId },
-        data: { optedOut: true, nextActionAt: null } as any,
-      });
-      // Also opt-out future carts from the same email
-      await prisma.abandonedCart.updateMany({
-        where: { email: cart.email },
-        data: { optedOut: true, nextActionAt: null } as any,
-      });
-      result = 'done';
+  if (recoveryRef) {
+    const verified = verifyRecoveryRef(recoveryRef);
+    if (!verified.ok || !verified.cartId) {
+      result = verified.reason === 'expired' ? 'expired' : 'not-found';
     } else {
-      result = 'not-found';
+      const cart = await prisma.abandonedCart.findUnique({ where: { id: verified.cartId } });
+      if (cart) {
+        await prisma.abandonedCart.updateMany({
+          where: { email: cart.email },
+          data: { optedOut: true, nextActionAt: null } as any,
+        });
+        result = 'done';
+      } else {
+        result = 'not-found';
+      }
     }
   }
 
@@ -63,18 +63,20 @@ export default async function OptOutPage({ searchParams }: { searchParams: { car
               Understood. No more notes.
             </h1>
             <p style={{ fontSize: 15, color: '#3A3128', lineHeight: 1.7 }}>
-              We will not send any more recovery emails to this address.<br />
+              We will not send any more recovery messages to this address.<br />
               Should you ever wish to return, the door is always open.
             </p>
           </>
         )}
-        {result === 'not-found' && (
+        {(result === 'not-found' || result === 'expired') && (
           <>
             <h1 style={{ fontSize: 22, color: '#1A1613', fontWeight: 400, marginBottom: 16 }}>
               That link has rested.
             </h1>
             <p style={{ fontSize: 15, color: '#3A3128', lineHeight: 1.7 }}>
-              We couldn't find this trunk. It may already have been recovered or removed.
+              {result === 'expired'
+                ? 'This opt-out link has expired. Please use the most recent message from NEEJEE.'
+                : "We couldn't verify this recovery reference."}
             </p>
           </>
         )}
@@ -84,7 +86,7 @@ export default async function OptOutPage({ searchParams }: { searchParams: { car
               Missing reference
             </h1>
             <p style={{ fontSize: 15, color: '#3A3128', lineHeight: 1.7 }}>
-              This opt-out link needs a valid cart reference. Please use the link from your email.
+              This opt-out link needs a valid signed reference. Please use the link from your message.
             </p>
           </>
         )}
