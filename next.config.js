@@ -28,6 +28,20 @@ const nextConfig = {
       { source: '/legal/shipping', destination: '/help/shipping', permanent: true },
       { source: '/legal/returns', destination: '/help/returns', permanent: true },
 
+      // Canonical category aliases. These are based on the active Category.slug
+      // values in production; legacy and hierarchical URLs remain valid but do
+      // not render duplicate/noindex category pages.
+      { source: '/sarees', destination: '/categories/women-sarees', permanent: true },
+      { source: '/saree', destination: '/categories/women-sarees', permanent: true },
+      { source: '/categories/sarees', destination: '/categories/women-sarees', permanent: true },
+      { source: '/categories/women/sarees', destination: '/categories/women-sarees', permanent: true },
+      { source: '/jewellery', destination: '/categories/accessories-jewellery', permanent: true },
+      { source: '/jewelry', destination: '/categories/accessories-jewellery', permanent: true },
+      { source: '/categories/jewellery', destination: '/categories/accessories-jewellery', permanent: true },
+      { source: '/categories/accessories/jewellery', destination: '/categories/accessories-jewellery', permanent: true },
+      { source: '/banarasi-sarees', destination: '/categories/banarasi-sarees', permanent: true },
+      { source: '/categories/women/sarees/banarasi-sarees', destination: '/categories/banarasi-sarees', permanent: true },
+
       { source: '/admin/taxonomy-ai', destination: '/admin/ai?surface=taxonomy', permanent: false },
       { source: '/admin/taxonomy/ai', destination: '/admin/ai?surface=taxonomy', permanent: false },
       { source: '/admin/meta-accounts', destination: '/admin/ai?surface=meta', permanent: false },
