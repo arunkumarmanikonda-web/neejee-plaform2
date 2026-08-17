@@ -29,8 +29,8 @@ const FALLBACK_CONTACT: PublicContact = {
 };
 
 const FALLBACK_CATEGORIES: FooterCategory[] = [
-  { slug: 'women/sarees', name: 'Sarees' },
-  { slug: 'accessories/jewellery', name: 'Jewellery' },
+  { slug: 'women-sarees', name: 'Sarees' },
+  { slug: 'accessories-jewellery', name: 'Jewellery' },
   { slug: 'fragrance', name: 'Fragrance' },
   { slug: 'home', name: 'Home' },
   { slug: 'gifting', name: 'Gifting' },
