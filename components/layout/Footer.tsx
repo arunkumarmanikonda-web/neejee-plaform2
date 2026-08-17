@@ -29,8 +29,8 @@ const FALLBACK_CONTACT: PublicContact = {
 };
 
 const FALLBACK_CATEGORIES: FooterCategory[] = [
-  { slug: 'sarees', name: 'Sarees' },
-  { slug: 'jewellery', name: 'Jewellery' },
+  { slug: 'women/sarees', name: 'Sarees' },
+  { slug: 'accessories/jewellery', name: 'Jewellery' },
   { slug: 'fragrance', name: 'Fragrance' },
   { slug: 'home', name: 'Home' },
   { slug: 'gifting', name: 'Gifting' },
@@ -53,7 +53,7 @@ export function Footer() {
         if (d.contact) setContact({ ...FALLBACK_CONTACT, ...d.contact });
         if (Array.isArray(d.categories) && d.categories.length > 0) setCategories(d.categories);
       })
-      .catch(() => { /* keep safe fallbacks */ });
+      .catch(() => {});
 
     return () => { active = false; };
   }, []);
@@ -84,12 +84,7 @@ export function Footer() {
             {categories.map(c => (
               <li key={c.slug}><Link href={`/categories/${c.slug}`} className="hover:text-ivory">{c.name}</Link></li>
             ))}
-            <li className="pt-2 border-t border-mitti/20 mt-2">
-              <Link href="/collections/wedding" className="hover:text-ivory">The Wedding Edit</Link>
-            </li>
-            <li><Link href="/collections/founders-edit" className="hover:text-ivory">Founder&apos;s Edit</Link></li>
-            <li><Link href="/collections/gifting" className="hover:text-ivory">Gifting</Link></li>
-            <li><Link href="/ai/mirror" className="hover:text-ivory text-madder">AI Mirror ✦</Link></li>
+            <li className="pt-2 border-t border-mitti/20 mt-2"><Link href="/ai/mirror" className="hover:text-ivory text-madder">AI Mirror ✦</Link></li>
             <li><Link href="/ai/gift" className="hover:text-ivory text-madder">Gift Concierge ✦</Link></li>
           </ul>
         </div>
@@ -104,7 +99,6 @@ export function Footer() {
             <li><Link href="/sellers" className="hover:text-ivory">Sell with us</Link></li>
             <li><Link href="/vendor" className="hover:text-ivory">Vendor portal</Link></li>
             <li><Link href="/seller" className="hover:text-ivory">Seller studio</Link></li>
-            <li><Link href="/careers" className="hover:text-ivory">Careers</Link></li>
           </ul>
         </div>
 
@@ -116,7 +110,7 @@ export function Footer() {
             <li><Link href="/help/track" className="hover:text-ivory">Track Order</Link></li>
             <li><Link href="/help/faq" className="hover:text-ivory">FAQ</Link></li>
             <li><Link href="/help/contact" className="hover:text-ivory">Contact</Link></li>
-            <li><a href={contact.whatsappUrl} className="hover:text-ivory" target="_blank" rel="noopener">WhatsApp Support</a></li>
+            <li><a href={contact.whatsappUrl} className="hover:text-ivory" target="_blank" rel="noopener noreferrer">WhatsApp Support</a></li>
             <li className="pt-2 border-t border-mitti/20 mt-2 text-beige/60">
               <a href={contact.mailUrl} className="hover:text-ivory">{contact.email}</a>
             </li>
@@ -135,12 +129,9 @@ export function Footer() {
           <div className="flex items-center gap-6 font-ui text-[10px] tracking-widest text-beige/60">
             <CurrencySwitcher compact />
             {contact.socialInstagram && (
-              <a href={contact.socialInstagram} aria-label="Instagram" className="hover:text-ivory" target="_blank" rel="noopener"><Instagram className="w-4 h-4" /></a>
+              <a href={contact.socialInstagram} aria-label="Instagram" className="hover:text-ivory" target="_blank" rel="noopener noreferrer"><Instagram className="w-4 h-4" /></a>
             )}
             <Link href="/legal/privacy">PRIVACY</Link>
-            <Link href="/legal/terms">TERMS</Link>
-            <Link href="/legal/dpdp">DPDP</Link>
-            <Link href="/legal/cookie">COOKIES</Link>
           </div>
         </div>
       </div>
