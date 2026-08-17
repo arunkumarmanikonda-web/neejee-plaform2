@@ -34,6 +34,13 @@ const DEFAULT_HERO = {
 
 const AUTOPLAY_MS = 6000;
 
+function canonicalPrimaryCategorySlug(slug: string) {
+  // `sarees` is a historical storefront alias; the active production Category
+  // record is `women-sarees`. Keep old server fallbacks safe without requiring
+  // the customer to traverse a redirect from the homepage hero.
+  return slug === 'sarees' ? 'women-sarees' : slug;
+}
+
 export function HeroCarousel({ banners, primaryCatSlug }: Props) {
   // If admin hasn't published any hero banners yet, show the default editorial hero
   const slides = banners.length > 0 ? banners : [DEFAULT_HERO];
@@ -143,7 +150,7 @@ function HeroSlide({ banner, primaryCatSlug }: { banner: HeroBanner; primaryCatS
   const subtitle = banner.subtitle ||
     "India's finest craft — hand-woven sarees, oxidised silver, mitti attars, Phulkari dupattas. Personally chosen. Founder-verified.";
   const ctaText = banner.ctaText || 'SHOP THE FIRST EDIT';
-  const ctaUrl = banner.ctaUrl || `/categories/${primaryCatSlug}`;
+  const ctaUrl = banner.ctaUrl || `/categories/${canonicalPrimaryCategorySlug(primaryCatSlug)}`;
   const image = banner.image || DEFAULT_HERO.image;
 
   return (
