@@ -1,15 +1,52 @@
-// Admin seller management: GET detail, PATCH approve/reject/edit
+// Admin seller management: GET detail, PATCH approve/reject/edit, DELETE controlled cleanup.
+import { KycStatus, Role } from '@prisma/client';
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getSession, requireRole } from '@/lib/auth';
 import { sendEmail } from '@/lib/email';
-import { generateWelcomeCoupon } from '@/lib/welcome-coupon';
 import { getSellerActivationSnapshot } from '@/lib/seller-onboarding/status';
+import { deleteFile, privateSellerStorageRef } from '@/lib/storage';
+import { sellerDocumentStoragePathFromAdminUrl } from '@/lib/seller-onboarding/document-storage';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
-export async function GET(request: Request, { params }: { params: { id: string } }) {
+const APPROVABLE_USER_ROLES = new Set<Role>([Role.CUSTOMER, Role.SELLER]);
+
+function escapeHtml(value: unknown): string {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function sellerAddress(summary: any) {
+  const onboarding = summary?.onboarding && typeof summary.onboarding === 'object'
+    ? summary.onboarding
+    : {};
+  const direct = String(onboarding.address || '').trim();
+  const parts = [
+    onboarding.addressLine1,
+    onboarding.addressLine2,
+    onboarding.city,
+    onboarding.state,
+    onboarding.pincode,
+  ]
+    .map((value: any) => String(value || '').trim())
+    .filter(Boolean);
+  return direct || parts.join(', ');
+}
+
+function pendingStorageKeys(summary: any): string[] {
+  const docs = Array.isArray(summary?.pendingDocuments) ? summary.pendingDocuments : [];
+  return docs
+    .map((doc: any) => String(doc?.storageKey || '').trim())
+    .filter((value: string) => value && !value.includes('..') && !value.includes('\\') && !value.includes('\0'));
+}
+
+export async function GET(_request: Request, { params }: { params: { id: string } }) {
   const user = await getSession();
   if (!requireRole(user, ['ADMIN', 'SUPER_ADMIN'])) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -36,30 +73,25 @@ export async function GET(request: Request, { params }: { params: { id: string }
         ifsc: true,
         bankName: true,
         autoKycSummary: true,
-        products: {
-          select: { id: true, name: true, status: true },
-        },
+        products: { select: { id: true, name: true, status: true } },
         payouts: {
           take: 12,
           orderBy: { createdAt: 'desc' },
           select: { id: true, netPayoutPaise: true, status: true },
         },
-        user: {
-          select: { id: true, email: true, role: true },
-        },
+        user: { select: { id: true, email: true, role: true } },
       },
     });
 
-    if (!seller) {
-      return NextResponse.json({ error: 'Not found' }, { status: 404 });
-    }
+    if (!seller) return NextResponse.json({ error: 'Not found' }, { status: 404 });
 
-    const activationSnapshot = await getSellerActivationSnapshot(params.id);
-
-    const documents = await prisma.sellerDocument.findMany({
-      where: { sellerId: params.id },
-      orderBy: { createdAt: 'desc' },
-    });
+    const [activationSnapshot, documents] = await Promise.all([
+      getSellerActivationSnapshot(params.id),
+      prisma.sellerDocument.findMany({
+        where: { sellerId: params.id },
+        orderBy: { createdAt: 'desc' },
+      }),
+    ]);
 
     return NextResponse.json({
       seller: {
@@ -68,24 +100,7 @@ export async function GET(request: Request, { params }: { params: { id: string }
         contactName: seller.contactName,
         email: seller.email,
         phone: seller.phone,
-        address:
-          ((summary: any) => {
-            const onboarding =
-              summary?.onboarding && typeof summary.onboarding === 'object'
-                ? summary.onboarding
-                : {};
-            const direct = String(onboarding.address || '').trim();
-            const parts = [
-              onboarding.addressLine1,
-              onboarding.addressLine2,
-              onboarding.city,
-              onboarding.state,
-              onboarding.pincode,
-            ]
-              .map((value: any) => String(value || '').trim())
-              .filter(Boolean);
-            return direct || parts.join(', ');
-          })(seller.autoKycSummary),
+        address: sellerAddress(seller.autoKycSummary),
         craft: seller.craft,
         region: seller.region,
         kycStatus: seller.kycStatus,
@@ -108,129 +123,161 @@ export async function GET(request: Request, { params }: { params: { id: string }
         user: seller.user,
         products: Array.isArray(seller.products) ? seller.products : [],
         payouts: Array.isArray(seller.payouts) ? seller.payouts : [],
-        documents: Array.isArray(documents)
-          ? documents.map((d: any) => ({
-              id: d.id,
-              docType: d.docType ?? d.type ?? 'OTHER',
-              title: d.title ?? d.name ?? d.fileName ?? null,
-              fileName: d.fileName ?? d.name ?? null,
-              fileUrl: d.fileUrl ?? d.url ?? null,
-              fileSize: d.fileSize ?? null,
-              mimeType: d.mimeType ?? null,
-              status: d.status ?? 'SUBMITTED',
-              createdAt: d.createdAt ?? null,
-            }))
-          : [],
+        documents: documents.map((document: any) => ({
+          id: document.id,
+          docType: document.docType ?? document.type ?? 'OTHER',
+          title: document.title ?? document.name ?? document.fileName ?? null,
+          fileName: document.fileName ?? document.name ?? null,
+          fileUrl: document.fileUrl ?? document.url ?? null,
+          fileSize: document.fileSize ?? null,
+          mimeType: document.mimeType ?? null,
+          status: document.status ?? 'SUBMITTED',
+          createdAt: document.createdAt ?? null,
+        })),
       },
     });
-  } catch (e: any) {
-    return NextResponse.json(
-      { error: e?.message || 'Failed to load seller' },
-      { status: 500 }
-    );
+  } catch (error) {
+    console.error('[admin.sellers.detail] failed', {
+      sellerId: params.id,
+      message: error instanceof Error ? error.message : 'unknown_error',
+    });
+    return NextResponse.json({ error: 'Failed to load seller' }, { status: 500 });
   }
 }
+
 export async function PATCH(request: Request, { params }: { params: { id: string } }) {
-  const user = await getSession();
-  if (!requireRole(user, ['ADMIN', 'SUPER_ADMIN'])) {
+  const admin = await getSession();
+  if (!requireRole(admin, ['ADMIN', 'SUPER_ADMIN'])) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
+
   try {
-    const body = await request.json();
+    const body = await request.json().catch(() => ({}));
     const existing = await prisma.seller.findUnique({
       where: { id: params.id },
       include: { user: true },
     });
     if (!existing) return NextResponse.json({ error: 'Not found' }, { status: 404 });
 
-    // Quick action: re-send the original application-received confirmation email
     if (body.resendApplicationEmail) {
-      const r = await sendEmail({
+      const sent = await sendEmail({
         to: existing.email,
-        subject: 'Your NEEJEE seller application ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â received',
+        subject: 'Your NEEJEE seller application has been received',
         html: sellerApplicationReceivedEmail(existing.contactName, existing.businessName),
       });
-      return NextResponse.json({ success: true, emailSent: r.ok, error: r.ok ? undefined : 'Could not send email' });
+      return NextResponse.json({
+        success: sent.ok,
+        emailSent: sent.ok,
+        ...(sent.ok ? {} : { error: 'Could not send the application email right now' }),
+      }, { status: sent.ok ? 200 : 502 });
     }
 
-    const data: any = {};
+    const data: Record<string, any> = {};
     [
-      'businessName','contactName','phone','craft','region','cluster','story',
-      'yearsOfPractice','logoImage','coverImage','pan','gstin','bankAccount','ifsc','bankName',
-      'commissionPct','qualityScore','isNeejeeSelect','payoutCycle','rejectionNote',
-    ].forEach(k => { if (body[k] !== undefined) data[k] = body[k]; });
+      'businessName', 'contactName', 'phone', 'craft', 'region', 'cluster', 'story',
+      'yearsOfPractice', 'logoImage', 'coverImage', 'pan', 'gstin', 'bankAccount', 'ifsc', 'bankName',
+      'commissionPct', 'qualityScore', 'isNeejeeSelect', 'payoutCycle', 'rejectionNote',
+    ].forEach((key) => {
+      if (body[key] !== undefined) data[key] = body[key];
+    });
 
     let statusChange: 'APPROVED' | 'REJECTED' | 'REAPPROVED' | null = null;
-    if (body.kycStatus && body.kycStatus !== existing.kycStatus) {
-      if (body.kycStatus === 'APPROVED') {
-        const activation = await getSellerActivationSnapshot(existing.id);
-        if (!activation) {
-          return NextResponse.json({ error: 'Seller activation snapshot unavailable' }, { status: 404 });
-        }
-        if (!activation.canApprove) {
-          return NextResponse.json(
-            {
+    if (body.kycStatus !== undefined) {
+      if (!Object.values(KycStatus).includes(body.kycStatus as KycStatus)) {
+        return NextResponse.json({ error: 'Invalid KYC status' }, { status: 400 });
+      }
+
+      if (body.kycStatus !== existing.kycStatus) {
+        if (body.kycStatus === KycStatus.APPROVED) {
+          const activation = await getSellerActivationSnapshot(existing.id);
+          if (!activation) {
+            return NextResponse.json({ error: 'Seller activation snapshot unavailable' }, { status: 404 });
+          }
+          if (!activation.canApprove) {
+            return NextResponse.json({
               error: 'Seller is not approval-ready',
               code: 'seller_activation_blocked',
               blockers: activation.blockers,
               warnings: activation.warnings,
               activation,
-            },
-            { status: 400 }
-          );
+            }, { status: 400 });
+          }
+          if (!existing.userId || !existing.user) {
+            return NextResponse.json({
+              error: 'Seller cannot be approved until the verified applicant account is linked',
+              code: 'seller_user_missing',
+            }, { status: 400 });
+          }
+          if (!APPROVABLE_USER_ROLES.has(existing.user.role)) {
+            return NextResponse.json({
+              error: 'The linked account has a protected internal role and cannot be promoted automatically',
+              code: 'seller_protected_account_role',
+            }, { status: 409 });
+          }
+        }
+
+        data.kycStatus = body.kycStatus;
+        if (body.kycStatus === KycStatus.APPROVED) {
+          statusChange = existing.kycStatus === KycStatus.REJECTED ? 'REAPPROVED' : 'APPROVED';
+        } else if (body.kycStatus === KycStatus.REJECTED) {
+          statusChange = 'REJECTED';
         }
       }
-
-      data.kycStatus = body.kycStatus;
-      if (body.kycStatus === 'APPROVED') {
-        statusChange = existing.kycStatus === 'REJECTED' ? 'REAPPROVED' : 'APPROVED';
-      }
-      if (body.kycStatus === 'REJECTED') statusChange = 'REJECTED';
     }
 
-    const seller = await prisma.seller.update({ where: { id: existing.id }, data });
-
-    // If approved, promote the linked user to SELLER role
-    if ((statusChange === 'APPROVED' || statusChange === 'REAPPROVED') && existing.userId) {
-      await prisma.user
-        .update({
+    const seller = await prisma.$transaction(async (tx) => {
+      const updated = await tx.seller.update({ where: { id: existing.id }, data });
+      if ((statusChange === 'APPROVED' || statusChange === 'REAPPROVED') && existing.userId) {
+        await tx.user.update({
           where: { id: existing.userId },
-          data: { role: 'SELLER' },
-        })
-        .catch(() => {});
-    }
+          data: { role: Role.SELLER },
+        });
+      }
+      return updated;
+    });
 
-    // Status-change emails
+    let emailSent: boolean | null = null;
     if (statusChange === 'APPROVED' || statusChange === 'REAPPROVED') {
-      const subj = statusChange === 'REAPPROVED'
-        ? `Good news from NEEJEE ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â we have re-opened your portal`
-        : `Welcome to NEEJEE ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â your portal is open`;
-      sendEmail({
+      const subject = statusChange === 'REAPPROVED'
+        ? 'Good news from NEEJEE · your seller portal has been reopened'
+        : 'Welcome to NEEJEE · your seller portal is open';
+      const sent = await sendEmail({
         to: seller.email,
-        subject: subj,
+        subject,
         html: approvalEmail(seller.contactName, seller.businessName, statusChange === 'REAPPROVED'),
-      }).catch(() => {});
-    }
-    if (statusChange === 'REJECTED') {
-      sendEmail({
+      });
+      emailSent = sent.ok;
+    } else if (statusChange === 'REJECTED') {
+      const sent = await sendEmail({
         to: seller.email,
-        subject: `Your NEEJEE application ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â a note from us`,
+        subject: 'Your NEEJEE seller application · a note from us',
         html: rejectionEmail(seller.contactName, seller.businessName, body.rejectionNote || ''),
-      }).catch(() => {});
+      });
+      emailSent = sent.ok;
     }
 
-    return NextResponse.json({ success: true, seller });
-  } catch (e: any) {
-    return NextResponse.json({ error: e.message }, { status: 500 });
+    return NextResponse.json({
+      success: true,
+      seller,
+      statusChange,
+      emailSent,
+      ...(emailSent === false ? { emailWarning: 'Status changed successfully, but the notification email could not be delivered.' } : {}),
+    });
+  } catch (error) {
+    console.error('[admin.sellers.patch] failed', {
+      sellerId: params.id,
+      message: error instanceof Error ? error.message : 'unknown_error',
+    });
+    return NextResponse.json({ error: 'Failed to update seller' }, { status: 500 });
   }
 }
 
 function shell(inner: string) {
   return `
   <div style="max-width:580px;margin:0 auto;background:#fff;font-family:Georgia,serif;">
-    <div style="background:#1A1613;padding:36px;text-align:center;">
-      <div style="font-family:Georgia,serif;color:#F4EFE6;font-size:32px;letter-spacing:0.18em;">NEE<span style="display:inline-block;width:6px;height:6px;background:#8B2E2A;border-radius:50%;margin:0 8px;vertical-align:middle"></span>JEE</div>
-      <p style="color:#A47E3B;font-size:10px;letter-spacing:0.35em;margin-top:14px;font-style:italic;">FOUND ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â· PERSONAL</p>
+    <div style="background:#1A1613;padding:32px;text-align:center;">
+      <div style="font-family:Georgia,serif;color:#F4EFE6;font-size:30px;letter-spacing:0.16em;">NEEJEE</div>
+      <p style="color:#A47E3B;font-size:10px;letter-spacing:0.28em;margin:12px 0 0;">FOUND. PERSONAL.</p>
     </div>
     <div style="padding:48px 36px;">${inner}</div>
     <div style="background:#F4EFE6;padding:24px;text-align:center;color:#6B6862;font-size:11px;">
@@ -240,66 +287,65 @@ function shell(inner: string) {
 }
 
 function approvalEmail(name: string, businessName: string, reapproved = false) {
-  const first = (name || 'friend').split(' ')[0];
+  const first = escapeHtml((name || 'friend').trim().split(/\s+/)[0]);
+  const business = escapeHtml(businessName);
   const eyebrow = reapproved ? 'WELCOME BACK' : 'APPROVED';
-  const heading = reapproved
-    ? `Good news, ${first}.`
-    : `Welcome to NEEJEE, ${first}.`;
+  const heading = reapproved ? `Good news, ${first}.` : `Welcome to NEEJEE, ${first}.`;
   const intro = reapproved
-    ? `We had another look at <strong>${businessName}</strong> and decided to open your portal. We are glad you stayed.`
-    : `We are honoured to have <strong>${businessName}</strong> in our circle.`;
+    ? `We reviewed <strong>${business}</strong> again and have reopened your seller portal.`
+    : `We are honoured to welcome <strong>${business}</strong> to NEEJEE.`;
+
   return shell(`
     <p style="font-size:10px;letter-spacing:0.35em;color:#8B2E2A;margin:0 0 12px;">${eyebrow}</p>
     <h1 style="font-size:32px;color:#1A1613;margin:0 0 18px;font-weight:400;">${heading}</h1>
-    <p style="color:#1A1613;line-height:1.8;font-size:15px;margin:0 0 18px;">
-      ${intro}
+    <p style="color:#1A1613;line-height:1.8;font-size:15px;margin:0 0 18px;">${intro}</p>
+    <p style="color:#6B6862;line-height:1.8;font-size:14px;margin:0 0 18px;">
+      Sign in with the verified email used for your application. Your seller dashboard is available at NEEJEE Seller Studio, where you can add pieces, manage stock, review orders and follow payouts.
     </p>
     <p style="color:#6B6862;line-height:1.8;font-size:14px;margin:0 0 18px;">
-      Your seller portal is now open. Sign in with the same email and you'll find your dashboard at /seller ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â that is where you'll add your pieces, manage stock, view orders, and see your payouts.
-    </p>
-    <p style="color:#6B6862;line-height:1.8;font-size:14px;margin:0 0 18px;">
-      Every piece you submit goes through a short personal review before it goes live. This is not bureaucracy ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â it is the trust our customers place in NEEJEE.
+      Every piece submitted to NEEJEE goes through a personal review before it is published. This protects the trust customers place in the marketplace and in its makers.
     </p>
     <a href="https://www.neejee.com/seller" style="display:inline-block;margin-top:18px;background:#1A1613;color:#F4EFE6;padding:14px 28px;text-decoration:none;letter-spacing:0.25em;font-size:12px;">OPEN MY PORTAL</a>
   `);
 }
 
 function sellerApplicationReceivedEmail(name: string, businessName: string) {
-  const first = (name || 'friend').split(' ')[0];
+  const first = escapeHtml((name || 'friend').trim().split(/\s+/)[0]);
+  const business = escapeHtml(businessName);
   return shell(`
     <p style="font-size:10px;letter-spacing:0.35em;color:#8B2E2A;margin:0 0 12px;">APPLICATION RECEIVED</p>
     <h1 style="font-size:30px;color:#1A1613;margin:0 0 18px;font-weight:400;">Namaste, ${first}.</h1>
     <p style="color:#1A1613;line-height:1.8;font-size:15px;margin:0 0 18px;">
-      Thank you for sharing <strong>${businessName}</strong> with us.
+      Thank you for sharing <strong>${business}</strong> with us.
     </p>
     <p style="color:#6B6862;line-height:1.8;font-size:14px;margin:0 0 18px;">
-      We read every application personally. It usually takes 3ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œ5 working days while we look at your portfolio, listen to your craft, and decide together whether NEEJEE is the right home for your work.
+      We review every seller application carefully. The application will now move through NEEJEE's KYC and marketplace review process, and we will write to you when there is a decision or if anything further is required.
     </p>
     <p style="color:#6B6862;line-height:1.8;font-size:14px;margin:0 0 18px;">
-      We will write back from this same address. If you have anything more to share ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â a story, a photograph, a person who introduced you ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â simply reply to this note.
+      If you have additional context about your craft, provenance or making process, you may reply to the application email and share it with the team.
     </p>
-    <p style="color:#1A1613;line-height:1.8;font-size:14px;margin:0 0 0;font-style:italic;">
-      With respect for your work,<br/>
-      ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â Nidhi, Founder
+    <p style="color:#1A1613;line-height:1.8;font-size:14px;margin:0;font-style:italic;">
+      With respect for your work,<br/>NEEJEE
     </p>
   `);
 }
 
 function rejectionEmail(name: string, businessName: string, note: string) {
-  const first = (name || 'friend').split(' ')[0];
+  const first = escapeHtml((name || 'friend').trim().split(/\s+/)[0]);
+  const business = escapeHtml(businessName);
+  const safeNote = escapeHtml(note);
   return shell(`
     <p style="font-size:10px;letter-spacing:0.35em;color:#8B2E2A;margin:0 0 12px;">A NOTE FROM US</p>
     <h1 style="font-size:30px;color:#1A1613;margin:0 0 18px;font-weight:400;">Dear ${first},</h1>
     <p style="color:#1A1613;line-height:1.8;font-size:15px;margin:0 0 18px;">
-      Thank you for sharing <strong>${businessName}</strong> with us.
+      Thank you for sharing <strong>${business}</strong> with us.
     </p>
     <p style="color:#6B6862;line-height:1.8;font-size:14px;margin:0 0 18px;">
-      After looking at your application carefully, we don't think NEEJEE is the right home for your work just yet. This is not a judgment of your craft ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â only that our trunk is small and we open it slowly.
+      After reviewing the application, we are unable to approve it for the NEEJEE marketplace at this time. This decision reflects the present marketplace review criteria and is not a judgment on the value of your craft.
     </p>
-    ${note ? `<p style="color:#6B6862;line-height:1.8;font-size:14px;margin:0 0 18px;padding:14px 18px;background:#F4EFE6;border-left:2px solid #8B2E2A;font-style:italic;">${note}</p>` : ''}
-    <p style="color:#6B6862;line-height:1.8;font-size:14px;margin:0 0 0;">
-      You are welcome to reapply any time. With respect for your work,<br/>
-      ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â The NEEJEE team
+    ${safeNote ? `<p style="color:#6B6862;line-height:1.8;font-size:14px;margin:0 0 18px;padding:14px 18px;background:#F4EFE6;border-left:2px solid #8B2E2A;font-style:italic;">${safeNote}</p>` : ''}
+    <p style="color:#6B6862;line-height:1.8;font-size:14px;margin:0;">
+      You may reapply when the relevant information or circumstances change.<br/>The NEEJEE team
     </p>
   `);
 }
@@ -316,7 +362,7 @@ async function getSellerDependencyCounts(sellerId: string) {
     inventorySubmissions,
     categoryCommissions,
     productCommissions,
-    orderReleases
+    orderReleases,
   ] = await Promise.all([
     prisma.product.count({ where: { sellerId } }),
     prisma.payout.count({ where: { sellerId } }),
@@ -347,8 +393,8 @@ async function getSellerDependencyCounts(sellerId: string) {
 }
 
 export async function DELETE(request: Request, { params }: { params: { id: string } }) {
-  const user = await getSession();
-  if (!requireRole(user, ['ADMIN', 'SUPER_ADMIN'])) {
+  const admin = await getSession();
+  if (!requireRole(admin, ['ADMIN', 'SUPER_ADMIN'])) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
@@ -358,26 +404,32 @@ export async function DELETE(request: Request, { params }: { params: { id: strin
 
     const seller = await prisma.seller.findUnique({
       where: { id: params.id },
-      select: { id: true, businessName: true },
+      select: {
+        id: true,
+        businessName: true,
+        userId: true,
+        autoKycSummary: true,
+        documents: { select: { fileUrl: true } },
+      },
     });
-
-    if (!seller) {
-      return NextResponse.json({ error: 'Not found' }, { status: 404 });
-    }
+    if (!seller) return NextResponse.json({ error: 'Not found' }, { status: 404 });
 
     const deps = await getSellerDependencyCounts(params.id);
     const hardBlock = deps.products > 0 || deps.payouts > 0;
-
     if (hardBlock && !force) {
-      return NextResponse.json(
-        {
-          error: 'Seller has dependent records. Remove products/payouts first or retry with force=1 only after manual review.',
-          code: 'seller_delete_blocked',
-          dependencies: deps,
-        },
-        { status: 409 }
-      );
+      return NextResponse.json({
+        error: 'Seller has dependent products or payouts. Resolve them first, or use force deletion only after manual review.',
+        code: 'seller_delete_blocked',
+        dependencies: deps,
+      }, { status: 409 });
     }
+
+    const privateStorageKeys = Array.from(new Set([
+      ...seller.documents
+        .map((document) => sellerDocumentStoragePathFromAdminUrl(document.fileUrl))
+        .filter((value): value is string => Boolean(value)),
+      ...pendingStorageKeys(seller.autoKycSummary),
+    ]));
 
     await prisma.$transaction(async (tx) => {
       await tx.sellerDocument.deleteMany({ where: { sellerId: params.id } });
@@ -396,7 +448,30 @@ export async function DELETE(request: Request, { params }: { params: { id: strin
       }
 
       await tx.seller.delete({ where: { id: params.id } });
+      if (seller.userId) {
+        const linkedUser = await tx.user.findUnique({
+          where: { id: seller.userId },
+          select: { role: true },
+        });
+        if (linkedUser?.role === Role.SELLER) {
+          await tx.user.update({
+            where: { id: seller.userId },
+            data: { role: Role.CUSTOMER },
+          });
+        }
+      }
     });
+
+    const storageCleanup = await Promise.allSettled(
+      privateStorageKeys.map((storageKey) => deleteFile(privateSellerStorageRef(storageKey))),
+    );
+    const storageCleanupFailures = storageCleanup.filter((result) => result.status === 'rejected').length;
+    if (storageCleanupFailures) {
+      console.warn('[admin.sellers.delete] private storage cleanup incomplete', {
+        sellerId: params.id,
+        failures: storageCleanupFailures,
+      });
+    }
 
     return NextResponse.json({
       ok: true,
@@ -404,11 +479,14 @@ export async function DELETE(request: Request, { params }: { params: { id: strin
       deletedSellerName: seller.businessName || '',
       force,
       dependencies: deps,
+      privateDocumentsDeleted: privateStorageKeys.length - storageCleanupFailures,
+      privateDocumentCleanupFailures: storageCleanupFailures,
     });
-  } catch (e: any) {
-    return NextResponse.json(
-      { error: e?.message || 'Failed to delete seller' },
-      { status: 500 }
-    );
+  } catch (error) {
+    console.error('[admin.sellers.delete] failed', {
+      sellerId: params.id,
+      message: error instanceof Error ? error.message : 'unknown_error',
+    });
+    return NextResponse.json({ error: 'Failed to delete seller' }, { status: 500 });
   }
 }
