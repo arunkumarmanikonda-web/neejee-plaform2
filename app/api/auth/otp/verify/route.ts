@@ -88,16 +88,12 @@ function needsProfileCompletion(
   user: { email?: string | null; name?: string | null; phone?: string | null },
   purpose: OtpPurpose,
 ) {
-  if (purpose === 'signup' || purpose === 'signup_customer') {
-    return true;
-  }
+  if (purpose === 'signup' || purpose === 'signup_customer') return true;
 
   const name = String(user.name || '').trim().toLowerCase();
-
   if (!name) return true;
   if (name === 'customer' || name === 'user' || name === 'guest') return true;
   if (isPlaceholderEmail(user.email, user.phone)) return true;
-
   return false;
 }
 
@@ -122,20 +118,13 @@ function otpReasonToMessage(
     | 'max_attempts',
 ) {
   switch (reason) {
-    case 'invalid_phone':
-      return 'Please enter a valid mobile number';
-    case 'invalid_format':
-      return 'Invalid OTP format';
-    case 'no_active_otp':
-      return 'No active OTP found. Please request a new code.';
-    case 'expired':
-      return 'OTP expired. Please request a new code.';
-    case 'wrong_code':
-      return 'Incorrect OTP';
-    case 'max_attempts':
-      return 'Too many invalid attempts. Please request a new code.';
-    default:
-      return 'OTP verification failed';
+    case 'invalid_phone': return 'Please enter a valid mobile number';
+    case 'invalid_format': return 'Invalid OTP format';
+    case 'no_active_otp': return 'No active OTP found. Please request a new code.';
+    case 'expired': return 'OTP expired. Please request a new code.';
+    case 'wrong_code': return 'Incorrect OTP';
+    case 'max_attempts': return 'Too many invalid attempts. Please request a new code.';
+    default: return 'OTP verification failed';
   }
 }
 
@@ -145,10 +134,7 @@ export async function POST(req: Request) {
     const parsed = BodySchema.safeParse(body);
 
     if (!parsed.success) {
-      return NextResponse.json(
-        { error: 'Phone and OTP code are required' },
-        { status: 400 },
-      );
+      return NextResponse.json({ error: 'Phone and OTP code are required' }, { status: 400 });
     }
 
     const purpose = normalizePurpose(parsed.data.purpose);
@@ -158,10 +144,7 @@ export async function POST(req: Request) {
     const inputName = normalizeOptionalName(parsed.data.name);
 
     if (!normalizedPhone) {
-      return NextResponse.json(
-        { error: 'Please enter a valid mobile number' },
-        { status: 400 },
-      );
+      return NextResponse.json({ error: 'Please enter a valid mobile number' }, { status: 400 });
     }
 
     const verification = await verifyOtp({
@@ -171,10 +154,19 @@ export async function POST(req: Request) {
     });
 
     if (!verification.ok) {
-      return NextResponse.json(
-        { error: otpReasonToMessage(verification.reason) },
-        { status: 401 },
-      );
+      return NextResponse.json({ error: otpReasonToMessage(verification.reason) }, { status: 401 });
+    }
+
+    // Guest checkout deliberately verifies possession of the phone without
+    // creating an account or session. /api/checkout remains the authority that
+    // checks the recently consumed checkout_guest OTP when the gate is enabled.
+    if (purpose === 'checkout_guest') {
+      return NextResponse.json({
+        ok: true,
+        guest: true,
+        phone: normalizedPhone,
+        phoneVerified: true,
+      });
     }
 
     if (purpose === 'signup' || purpose === 'signup_customer') {
@@ -184,10 +176,7 @@ export async function POST(req: Request) {
       });
 
       if (existingUser) {
-        return NextResponse.json(
-          { error: 'An account already exists for this mobile number' },
-          { status: 409 },
-        );
+        return NextResponse.json({ error: 'An account already exists for this mobile number' }, { status: 409 });
       }
 
       const user = await prisma.user.create({
@@ -200,13 +189,7 @@ export async function POST(req: Request) {
           phoneVerifiedAt: new Date(),
           primaryAuthMethod: 'PHONE_OTP',
         },
-        select: {
-          id: true,
-          email: true,
-          name: true,
-          role: true,
-          phone: true,
-        },
+        select: { id: true, email: true, name: true, role: true, phone: true },
       });
 
       const completionNeeded = needsProfileCompletion(user, purpose);
@@ -220,13 +203,7 @@ export async function POST(req: Request) {
 
       return NextResponse.json({
         ok: true,
-        user: {
-          id: user.id,
-          name: user.name,
-          email: user.email,
-          phone: user.phone,
-          role: user.role,
-        },
+        user: { id: user.id, name: user.name, email: user.email, phone: user.phone, role: user.role },
         redirect: redirectFor(user.role, purpose, user),
         forceRedirect: completionNeeded,
         needsProfileCompletion: completionNeeded,
@@ -247,10 +224,7 @@ export async function POST(req: Request) {
     });
 
     if (!currentUser) {
-      return NextResponse.json(
-        { error: 'No account found for this mobile number' },
-        { status: 404 },
-      );
+      return NextResponse.json({ error: 'No account found for this mobile number' }, { status: 404 });
     }
 
     const user = await prisma.user.update({
@@ -260,13 +234,7 @@ export async function POST(req: Request) {
         phoneVerifiedAt: currentUser.phoneVerifiedAt || new Date(),
         primaryAuthMethod: currentUser.primaryAuthMethod || 'PHONE_OTP',
       },
-      select: {
-        id: true,
-        email: true,
-        name: true,
-        role: true,
-        phone: true,
-      },
+      select: { id: true, email: true, name: true, role: true, phone: true },
     });
 
     const completionNeeded = needsProfileCompletion(user, purpose);
@@ -280,23 +248,13 @@ export async function POST(req: Request) {
 
     return NextResponse.json({
       ok: true,
-      user: {
-        id: user.id,
-        name: user.name,
-        email: user.email,
-        phone: user.phone,
-        role: user.role,
-      },
+      user: { id: user.id, name: user.name, email: user.email, phone: user.phone, role: user.role },
       redirect: redirectFor(user.role, purpose, user),
       forceRedirect: completionNeeded,
       needsProfileCompletion: completionNeeded,
     });
   } catch (error) {
     console.error('[auth/otp/verify] error', error);
-
-    return NextResponse.json(
-      { error: 'Unable to verify OTP right now' },
-      { status: 500 },
-    );
+    return NextResponse.json({ error: 'Unable to verify OTP right now' }, { status: 500 });
   }
 }
