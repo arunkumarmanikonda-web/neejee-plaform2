@@ -23,6 +23,9 @@ type SeoFieldMeta = {
   placeholder?: string;
 };
 
+const CANONICAL_BRAND_SOCIAL_IMAGE = 'https://neejee.com/brand/neejee-og-1200x630.png';
+const LEGACY_DEFAULT_SOCIAL_IMAGE_ID = 'photo-1610030469983-98e550d6193c';
+
 export const SEO_FIELD_ORDER: SeoFieldKey[] = [
   'NEXT_PUBLIC_SITE_NAME',
   'NEXT_PUBLIC_CANONICAL_BASE_URL',
@@ -55,8 +58,8 @@ export const SEO_FIELD_META: Record<SeoFieldKey, SeoFieldMeta> = {
   NEXT_PUBLIC_DEFAULT_META_TITLE: {
     label: 'Default meta title',
     helper: 'Fallback root title when a page does not provide its own metadata.',
-    defaultValue: 'NEEJEE · Found. Personal.',
-    placeholder: 'NEEJEE · Found. Personal.',
+    defaultValue: 'NEEJEE · FOUND. PERSONAL.',
+    placeholder: 'NEEJEE · FOUND. PERSONAL.',
   },
   NEXT_PUBLIC_META_TITLE_TEMPLATE: {
     label: 'Meta title template',
@@ -81,8 +84,8 @@ export const SEO_FIELD_META: Record<SeoFieldKey, SeoFieldMeta> = {
   NEXT_PUBLIC_OG_TITLE: {
     label: 'Open Graph title',
     helper: 'Default title for social link previews.',
-    defaultValue: 'NEEJEE · Found. Personal.',
-    placeholder: 'NEEJEE · Found. Personal.',
+    defaultValue: 'NEEJEE · FOUND. PERSONAL.',
+    placeholder: 'NEEJEE · FOUND. PERSONAL.',
   },
   NEXT_PUBLIC_OG_DESCRIPTION: {
     label: 'Open Graph description',
@@ -94,14 +97,14 @@ export const SEO_FIELD_META: Record<SeoFieldKey, SeoFieldMeta> = {
   NEXT_PUBLIC_OG_IMAGE_URL: {
     label: 'Open Graph image URL',
     helper: 'Absolute image URL for default social preview artwork.',
-    defaultValue: 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=1200&h=630&fit=crop&q=80&fm=jpg',
+    defaultValue: CANONICAL_BRAND_SOCIAL_IMAGE,
     placeholder: 'https://...',
   },
   NEXT_PUBLIC_TWITTER_TITLE: {
     label: 'Twitter title',
     helper: 'Default title for Twitter/X card previews.',
-    defaultValue: 'NEEJEE · Found. Personal.',
-    placeholder: 'NEEJEE · Found. Personal.',
+    defaultValue: 'NEEJEE · FOUND. PERSONAL.',
+    placeholder: 'NEEJEE · FOUND. PERSONAL.',
   },
   NEXT_PUBLIC_TWITTER_DESCRIPTION: {
     label: 'Twitter description',
@@ -145,6 +148,12 @@ function readValue(key: SeoFieldKey) {
   return raw && raw.trim() ? raw.trim() : SEO_FIELD_META[key].defaultValue;
 }
 
+function canonicalizeBrandLine(value: string) {
+  return value
+    .replace(/found\s*[.·]\s*personal\.?/gi, 'FOUND. PERSONAL.')
+    .replace(/found\s+personal\.?/gi, 'FOUND. PERSONAL.');
+}
+
 function toBoolean(value: string, fallback: boolean) {
   const normalized = value.trim().toLowerCase();
   if (normalized === 'true') return true;
@@ -167,23 +176,36 @@ function normalizeAbsoluteUrl(value: string, fallback: string) {
   }
 }
 
+function canonicalizeSocialImage(value: string) {
+  const normalized = normalizeAbsoluteUrl(value, CANONICAL_BRAND_SOCIAL_IMAGE);
+  try {
+    const url = new URL(normalized);
+    if (
+      url.hostname === 'images.unsplash.com' &&
+      url.pathname.includes(LEGACY_DEFAULT_SOCIAL_IMAGE_ID)
+    ) {
+      return CANONICAL_BRAND_SOCIAL_IMAGE;
+    }
+  } catch {
+    return CANONICAL_BRAND_SOCIAL_IMAGE;
+  }
+  return normalized;
+}
+
 export function getSiteSeoConfig(): SiteSeoConfig {
   const siteName = readValue('NEXT_PUBLIC_SITE_NAME');
   const baseUrl = normalizeAbsoluteUrl(
     readValue('NEXT_PUBLIC_CANONICAL_BASE_URL'),
     'https://neejee.com',
   );
-  const defaultTitle = readValue('NEXT_PUBLIC_DEFAULT_META_TITLE');
+  const defaultTitle = canonicalizeBrandLine(readValue('NEXT_PUBLIC_DEFAULT_META_TITLE'));
   const titleTemplate = readValue('NEXT_PUBLIC_META_TITLE_TEMPLATE');
   const defaultDescription = readValue('NEXT_PUBLIC_DEFAULT_META_DESCRIPTION');
   const keywords = normalizeKeywords(readValue('NEXT_PUBLIC_META_KEYWORDS'));
-  const ogTitle = readValue('NEXT_PUBLIC_OG_TITLE');
+  const ogTitle = canonicalizeBrandLine(readValue('NEXT_PUBLIC_OG_TITLE'));
   const ogDescription = readValue('NEXT_PUBLIC_OG_DESCRIPTION');
-  const ogImageUrl = normalizeAbsoluteUrl(
-    readValue('NEXT_PUBLIC_OG_IMAGE_URL'),
-    'https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=1200&h=630&fit=crop&q=80&fm=jpg',
-  );
-  const twitterTitle = readValue('NEXT_PUBLIC_TWITTER_TITLE');
+  const ogImageUrl = canonicalizeSocialImage(readValue('NEXT_PUBLIC_OG_IMAGE_URL'));
+  const twitterTitle = canonicalizeBrandLine(readValue('NEXT_PUBLIC_TWITTER_TITLE'));
   const twitterDescription = readValue('NEXT_PUBLIC_TWITTER_DESCRIPTION');
   const robotsIndex = toBoolean(readValue('NEXT_PUBLIC_ROBOTS_INDEX'), true);
   const robotsFollow = toBoolean(readValue('NEXT_PUBLIC_ROBOTS_FOLLOW'), true);
@@ -228,7 +250,7 @@ export function getRootMetadata(): Metadata {
           url: seo.ogImageUrl,
           width: 1200,
           height: 630,
-          alt: `${seo.siteName} social preview`,
+          alt: `${seo.siteName} — FOUND. PERSONAL.`,
         },
       ],
     },
