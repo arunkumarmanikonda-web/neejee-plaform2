@@ -115,5 +115,12 @@ export async function syncSellerKycStatus(sellerId: string) {
     data: {
       kycStatus: snapshot.readyForReview ? 'UNDER_REVIEW' : 'PENDING',
     },
+    // Never ask Prisma to return the full Seller scalar set here. This helper is
+    // called from onboarding, email verification and review transitions, so a
+    // future schema drift must not make a status update fail for an unrelated field.
+    select: {
+      id: true,
+      kycStatus: true,
+    },
   });
 }
