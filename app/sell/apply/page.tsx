@@ -391,7 +391,7 @@ export default function SellerApplyPage() {
   }
 
   async function requestEmailOtp() {
-    if (!sellerId) return;
+    if (!sellerId || emailVerified) return;
     setEmailOtpSending(true);
     setNotice('');
 
@@ -432,7 +432,11 @@ export default function SellerApplyPage() {
       if (!res.ok) throw new Error(data?.error || data?.reason || 'Failed to verify email OTP');
 
       setEmailVerified(true);
-      setNotice('Communication email verified. Seller application is now ready for review.');
+      setNotice(
+        data?.acknowledgementSent
+          ? 'Email verified. Application submitted successfully and a confirmation email has been sent.'
+          : 'Email verified. Application submitted successfully and is ready for NEEJEE review.',
+      );
     } catch (e: any) {
       alert(e?.message || 'Failed to verify email OTP');
     } finally {
@@ -486,7 +490,11 @@ export default function SellerApplyPage() {
           </div>
 
           {notice ? (
-            <div className="mt-6 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+            <div className={`mt-6 rounded-2xl border px-4 py-3 text-sm ${
+              emailVerified
+                ? 'border-emerald-200 bg-emerald-50 text-emerald-900'
+                : 'border-amber-200 bg-amber-50 text-amber-900'
+            }`}>
               {notice}
             </div>
           ) : null}
@@ -900,19 +908,20 @@ export default function SellerApplyPage() {
                   <button
                     type="button"
                     onClick={requestEmailOtp}
-                    disabled={!sellerId || emailOtpSending}
+                    disabled={!sellerId || emailOtpSending || emailVerified}
                     className="rounded-xl bg-stone-900 px-4 py-3 text-sm font-medium text-white disabled:cursor-not-allowed disabled:bg-stone-300"
                   >
-                    {emailOtpSending ? 'Sending email OTP...' : 'Send / resend email OTP'}
+                    {emailOtpSending ? 'Sending email OTP...' : emailVerified ? 'Email verified' : 'Send / resend email OTP'}
                   </button>
                 </div>
 
                 <div className="mt-4">
                   <input
-                    className="w-full rounded-xl border border-stone-300 px-4 py-3 text-sm outline-none focus:border-stone-900"
+                    className="w-full rounded-xl border border-stone-300 px-4 py-3 text-sm outline-none focus:border-stone-900 disabled:bg-stone-50 disabled:text-stone-500"
                     placeholder="Enter 6-digit email OTP"
                     value={emailCode}
                     onChange={(e) => setEmailCode(e.target.value.replace(/\D+/g, '').slice(0, 6))}
+                    disabled={emailVerified}
                   />
                 </div>
 
@@ -929,7 +938,7 @@ export default function SellerApplyPage() {
 
                 {emailVerified ? (
                   <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
-                    Communication email verification complete. The seller application is ready for Neejee review.
+                    Communication email verification is complete. Your application has been submitted successfully and is now in the NEEJEE review queue. Click Done to return to NEEJEE.
                   </div>
                 ) : null}
               </div>
@@ -940,7 +949,7 @@ export default function SellerApplyPage() {
             <button
               type="button"
               onClick={() => setStep((prev) => Math.max(prev - 1, 0))}
-              disabled={step === 0}
+              disabled={step === 0 || (step === 4 && emailVerified)}
               className="rounded-xl border border-stone-300 px-4 py-3 text-sm font-medium text-stone-700 disabled:cursor-not-allowed disabled:opacity-40"
             >
               Back
@@ -949,6 +958,10 @@ export default function SellerApplyPage() {
             <button
               type="button"
               onClick={() => {
+                if (step === 4) {
+                  if (emailVerified) window.location.assign('/');
+                  return;
+                }
                 if (step === 0) {
                   void verifyPhoneOtpAndContinue();
                   return;
@@ -960,7 +973,7 @@ export default function SellerApplyPage() {
               disabled={
                 (step === 0 && (!canGoBusiness || form.phoneOtp.length !== 6 || verifyingPhoneOtp || loadingPhoneOtp)) ||
                 (step === 1 && !canGoDocuments) ||
-                step === 4
+                (step === 4 && !emailVerified)
               }
               className="rounded-xl bg-stone-900 px-4 py-3 text-sm font-medium text-white disabled:cursor-not-allowed disabled:bg-stone-300"
             >
