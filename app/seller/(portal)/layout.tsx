@@ -66,7 +66,6 @@ export default async function PortalLayout({ children }: { children: React.React
     console.error('[seller.portal.layout]', e);
   }
 
-  // No seller record (or onboarding incomplete) → holding screen.
   if (!seller && !isAdmin) {
     return (
       <div className="min-h-screen bg-ivory flex flex-col items-center justify-center px-6 text-center">
@@ -77,6 +76,24 @@ export default async function PortalLayout({ children }: { children: React.React
         </h1>
         <p className="font-italic italic text-mitti mt-3 max-w-md mx-auto">
           We're personally reviewing your application and KYC dossier. You'll receive an email when the next onboarding stage is ready.
+        </p>
+        <Link href="/" className="btn-primary mt-8 inline-block">RETURN HOME</Link>
+      </div>
+    );
+  }
+
+  // Defence in depth for legacy accounts that may still carry a SELLER role.
+  // Operational seller access is never valid unless the Seller record itself is approved.
+  if (seller && !isAdmin && String(seller.kycStatus) !== 'APPROVED') {
+    return (
+      <div className="min-h-screen bg-ivory flex flex-col items-center justify-center px-6 text-center">
+        <NeejeeLogo size="lg" />
+        <p className="label text-madder mt-10">APPLICATION UNDER REVIEW</p>
+        <h1 className="font-display text-4xl text-kohl mt-3 max-w-2xl">
+          Your Seller Studio is not active yet.
+        </h1>
+        <p className="font-italic italic text-mitti mt-3 max-w-xl mx-auto">
+          NEEJEE is reviewing your seller application. We will write to your communication email if we need a clarification and will send secure activation instructions after approval.
         </p>
         <Link href="/" className="btn-primary mt-8 inline-block">RETURN HOME</Link>
       </div>
@@ -142,7 +159,6 @@ export default async function PortalLayout({ children }: { children: React.React
     }
   }
 
-  // Best-effort badge counts
   let pendingChangeRequestsCount = 0;
   let submissionsNeedingInfoCount = 0;
   if (seller) {
