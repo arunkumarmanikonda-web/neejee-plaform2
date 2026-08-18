@@ -272,9 +272,7 @@ export async function POST(request: Request) {
     const overallStatus = reviewRequired ? 'REVIEW_REQUIRED' : 'VERIFIED';
     const now = new Date();
 
-    // Identity resolution must start with the already-verified phone number.
-    // Upserting only by email caused the production unique(phone) failure when
-    // the same seller returned with a different/new communication email.
+    // Identity resolution starts with the already-verified phone number.
     const [userByPhone, userByEmail] = await Promise.all([
       prisma.user.findUnique({ where: { phone } }),
       prisma.user.findUnique({ where: { email: communicationEmail } }),
@@ -290,9 +288,53 @@ export async function POST(request: Request) {
       );
     }
 
-    // Applying does NOT grant Seller Studio access. Existing roles are preserved,
-    // and brand-new applicants remain ordinary CUSTOMER users until an admin
-    // explicitly approves the Seller record. Approval is the only role-promotion point.
+    // Never merge a new public application into an operational seller account.
+    // That was the root cause of fresh KYC/application data being written over an
+    // old APPROVED seller profile. PENDING / UNDER_REVIEW records may resume, and
+    // REJECTED records may reapply; APPROVED / SUSPENDED sellers must use Studio/support.
+    const identityUser = userByPhone || userByEmail;
+    const [sellerByIdentityUser, sellerByCommunicationEmail] = await Promise.all([
+      identityUser
+        ? prisma.seller.findUnique({
+            where: { userId: identityUser.id },
+            select: { id: true, userId: true, businessName: true, autoKycSummary: true, kycStatus: true },
+          })
+        : Promise.resolve(null),
+      prisma.seller.findUnique({
+        where: { email: communicationEmail },
+        select: { id: true, userId: true, businessName: true, autoKycSummary: true, kycStatus: true },
+      }),
+    ]);
+
+    if (
+      sellerByIdentityUser &&
+      sellerByCommunicationEmail &&
+      sellerByIdentityUser.id !== sellerByCommunicationEmail.id
+    ) {
+      return NextResponse.json(
+        {
+          error:
+            'The verified mobile number and communication email are linked to different seller records. Please contact NEEJEE support before continuing.',
+        },
+        { status: 409 },
+      );
+    }
+
+    const existingSeller = sellerByIdentityUser || sellerByCommunicationEmail;
+    if (existingSeller && ['APPROVED', 'SUSPENDED'].includes(String(existingSeller.kycStatus))) {
+      return NextResponse.json(
+        {
+          error:
+            'An active NEEJEE seller account is already linked to this verified mobile number or communication email. Please sign in to Seller Studio or contact NEEJEE support instead of submitting a new seller application.',
+          code: 'existing_active_seller',
+          sellerId: existingSeller.id,
+        },
+        { status: 409 },
+      );
+    }
+
+    // Applying does NOT grant Seller Studio access. Brand-new applicants remain
+    // ordinary CUSTOMER users until approval, secure activation and password setup.
     let user;
     if (userByPhone) {
       user = await prisma.user.update({
@@ -303,11 +345,11 @@ export async function POST(request: Request) {
           phone,
           phoneVerified: true,
           phoneVerifiedAt: now,
-          // A changed communication email must be verified again.
           emailVerified:
             userByPhone.email === communicationEmail
               ? userByPhone.emailVerified
               : null,
+          ...(userByPhone.role === 'SELLER' ? { role: 'CUSTOMER' as any } : {}),
         },
       });
     } else if (userByEmail) {
@@ -318,6 +360,7 @@ export async function POST(request: Request) {
           phone,
           phoneVerified: true,
           phoneVerifiedAt: now,
+          ...(userByEmail.role === 'SELLER' ? { role: 'CUSTOMER' as any } : {}),
         },
       });
     } else {
@@ -333,28 +376,6 @@ export async function POST(request: Request) {
       });
     }
 
-    const [sellerByUser, sellerByEmail] = await Promise.all([
-      prisma.seller.findUnique({
-        where: { userId: user.id },
-        select: { id: true, autoKycSummary: true, kycStatus: true },
-      }),
-      prisma.seller.findUnique({
-        where: { email: communicationEmail },
-        select: { id: true, autoKycSummary: true, kycStatus: true },
-      }),
-    ]);
-
-    if (sellerByUser && sellerByEmail && sellerByUser.id !== sellerByEmail.id) {
-      return NextResponse.json(
-        {
-          error:
-            'The verified mobile number and communication email are linked to different seller records. Please contact NEEJEE support before continuing.',
-        },
-        { status: 409 },
-      );
-    }
-
-    const existingSeller = sellerByUser || sellerByEmail;
     const previousSummary =
       existingSeller?.autoKycSummary && typeof existingSeller.autoKycSummary === 'object'
         ? (existingSeller.autoKycSummary as any)
@@ -385,6 +406,8 @@ export async function POST(request: Request) {
       includeLiveVerification: body.includeLiveVerification,
       kycPackageHttpStatus,
       liveVerification: kycPackageVerification,
+      // A rejected seller who reapplies starts a clean agreement lifecycle.
+      ...(String(existingSeller?.kycStatus || '') === 'REJECTED' ? { agreementWorkflow: undefined } : {}),
       onboarding: {
         ...(previousSummary?.onboarding && typeof previousSummary.onboarding === 'object'
           ? previousSummary.onboarding
@@ -395,14 +418,9 @@ export async function POST(request: Request) {
         cin: normalizeUpper(body.cin),
         msmeNumber: normalizeUpper(body.msmeNumber),
         applicationSubmittedAt: now.toISOString(),
+        applicationReviewStatus: 'PENDING',
       },
     };
-
-    const finalSellerStates = new Set(['APPROVED', 'REJECTED', 'SUSPENDED']);
-    const nextKycStatus =
-      existingSeller && finalSellerStates.has(String(existingSeller.kycStatus))
-        ? existingSeller.kycStatus
-        : KycStatus.PENDING;
 
     const seller = existingSeller
       ? await prisma.seller.update({
@@ -411,9 +429,6 @@ export async function POST(request: Request) {
             userId: user.id,
             businessName: body.businessName,
             contactName: body.contactName,
-            // Existing seller notification flows use Seller.email, so keep this
-            // as the communication email. Official email is separately retained
-            // in autoKycSummary.onboarding.officialEmail.
             email: communicationEmail,
             phone,
             pan: normalizeUpper(body.pan),
@@ -423,7 +438,7 @@ export async function POST(request: Request) {
             bankName: String(body.bankName || '').trim(),
             autoKycPassed: !reviewRequired,
             autoKycSummary: nextAutoKycSummary as any,
-            kycStatus: nextKycStatus,
+            kycStatus: KycStatus.PENDING,
           },
           select: {
             id: true,
