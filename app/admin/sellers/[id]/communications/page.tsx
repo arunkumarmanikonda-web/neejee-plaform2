@@ -12,6 +12,7 @@ export default function SellerCommunicationsPage() {
   const [subject, setSubject] = useState('A clarification is needed for your NEEJEE seller application');
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
+  const [activationSending, setActivationSending] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
 
@@ -57,6 +58,26 @@ export default function SellerCommunicationsPage() {
     }
   }
 
+  async function reissueActivation() {
+    setActivationSending(true);
+    setError('');
+    setNotice('');
+    try {
+      const response = await fetch(`/api/admin/sellers/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ resendActivationEmail: true }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data?.error || 'Failed to issue Seller Studio activation.');
+      setNotice(`Secure Seller Studio activation sent to ${seller?.email || 'the seller'}.`);
+    } catch (e: any) {
+      setError(e?.message || 'Failed to issue Seller Studio activation.');
+    } finally {
+      setActivationSending(false);
+    }
+  }
+
   if (loading) return <div className="p-8 text-sm text-mitti">Loading seller communication workspace…</div>;
 
   return (
@@ -64,9 +85,9 @@ export default function SellerCommunicationsPage() {
       <div className="flex items-center justify-between gap-4">
         <div>
           <p className="label text-madder">SELLER REVIEW</p>
-          <h1 className="font-display text-4xl text-kohl mt-2">Request information</h1>
+          <h1 className="font-display text-4xl text-kohl mt-2">Seller communications</h1>
           <p className="font-body text-sm text-mitti mt-2">
-            Ask for a clarification or additional document without rejecting or resetting the seller application.
+            Request clarification without rejecting an application, or securely reissue Seller Studio activation after approval.
           </p>
         </div>
         <Link href={`/admin/sellers/${id}`} className="text-xs tracking-wider text-kohl underline underline-offset-4">
@@ -79,6 +100,21 @@ export default function SellerCommunicationsPage() {
           <p className="font-display text-xl text-kohl">{seller.businessName}</p>
           <p className="text-sm text-mitti mt-1">Communication email: <strong className="text-kohl">{seller.email}</strong></p>
           <p className="text-xs text-mitti mt-1">Current status: {String(seller.kycStatus || '').replace(/_/g, ' ')}</p>
+
+          {String(seller.kycStatus || '') === 'APPROVED' ? (
+            <div className="mt-5 border-t border-mitti/15 pt-5">
+              <p className="text-sm text-kohl">Seller Studio access</p>
+              <p className="text-xs text-mitti mt-1">Send a fresh 72-hour secure activation link. No password is generated or emailed.</p>
+              <button
+                type="button"
+                onClick={() => void reissueActivation()}
+                disabled={activationSending}
+                className="mt-3 border border-kohl/25 px-4 py-2 text-[10px] tracking-widest text-kohl hover:bg-white disabled:opacity-40"
+              >
+                {activationSending ? 'SENDING…' : 'REISSUE SECURE ACTIVATION'}
+              </button>
+            </div>
+          ) : null}
         </div>
       ) : null}
 
@@ -86,7 +122,10 @@ export default function SellerCommunicationsPage() {
       {notice ? <div className="mt-6 border-l-4 border-neem bg-neem/10 p-4 text-sm text-kohl">{notice}</div> : null}
 
       <div className="mt-8 bg-white border border-mitti/20 p-6">
-        <label className="label text-mitti" htmlFor="subject">SUBJECT</label>
+        <p className="label text-madder">REQUEST INFORMATION</p>
+        <p className="text-sm text-mitti mt-2">Use this for missing, unclear or additional information. It keeps the application under review rather than rejecting it.</p>
+
+        <label className="label text-mitti mt-6 block" htmlFor="subject">SUBJECT</label>
         <input
           id="subject"
           value={subject}
