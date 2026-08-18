@@ -1,11 +1,31 @@
 import { NextRequest, NextResponse } from "next/server";
 import { assertSigningToken, loadSellerForSigning, readAgreementWorkflow, updateAgreementWorkflow } from "@/lib/agreement-signing";
+import { buildSellerAgreementMaster } from "@/lib/seller-agreement-master";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
 function getIp(request: NextRequest) {
   return request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "";
+}
+
+function asObject(value: unknown): Record<string, any> {
+  return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, any>) : {};
+}
+
+function meaningfulOverlay(base: Record<string, any>, overlay: Record<string, any>) {
+  const next = { ...base };
+  for (const [key, value] of Object.entries(overlay)) {
+    if (value === null || value === undefined) continue;
+    if (typeof value === "string" && value.trim() === "") continue;
+    if (Array.isArray(value) && value.length === 0) continue;
+    if (typeof value === "object" && !Array.isArray(value)) {
+      next[key] = meaningfulOverlay(asObject(base[key]), asObject(value));
+      continue;
+    }
+    next[key] = value;
+  }
+  return next;
 }
 
 export async function POST(
@@ -56,6 +76,20 @@ export async function POST(
       return NextResponse.json({ error: "Signature image URL is required" }, { status: 400 });
     }
 
+    const masterAgreement = await buildSellerAgreementMaster(id);
+    const existingDocument = asObject(workflow.currentDocumentJson);
+    const canonicalDocument = meaningfulOverlay(asObject(masterAgreement), existingDocument);
+    canonicalDocument.company = meaningfulOverlay(asObject(masterAgreement.company), asObject(existingDocument.company));
+    canonicalDocument.seller = meaningfulOverlay(asObject(masterAgreement.seller), asObject(existingDocument.seller));
+    canonicalDocument.commercialTerms = meaningfulOverlay(asObject(masterAgreement.commercialTerms), asObject(existingDocument.commercialTerms));
+    canonicalDocument.meta = meaningfulOverlay(asObject((masterAgreement as any).meta), asObject(existingDocument.meta));
+    canonicalDocument.clauses = Array.isArray(existingDocument.clauses) && existingDocument.clauses.length > 0
+      ? existingDocument.clauses
+      : masterAgreement.clauses;
+    canonicalDocument.recitals = Array.isArray(existingDocument.recitals) && existingDocument.recitals.length > 0
+      ? existingDocument.recitals
+      : ((masterAgreement as any).recitals || []);
+
     const ip = getIp(request);
     const userAgent = request.headers.get("user-agent") || "";
     const reviewedAt = new Date().toISOString();
@@ -67,6 +101,7 @@ export async function POST(
 
       return {
         ...current,
+        currentDocumentJson: canonicalDocument,
         status: "SELLER_SIGNED",
         sellerSignatureStatus: "SELLER_SIGNED",
         sellerSignatureImageUrl: signatureImageUrl,
