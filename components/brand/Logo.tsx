@@ -28,7 +28,7 @@ const FULL_ASPECT = 1425 / 415;
 export function NeejeeLogo({
   className = '',
   size = 'md',
-  variant: _variant = 'default',
+  variant = 'default',
   showTagline = false,
 }: Props) {
   const width = SIZE_MAP[size];
@@ -55,6 +55,8 @@ export function NeejeeLogo({
         objectFit: 'contain',
         flexShrink: 0,
         userSelect: 'none',
+        backgroundColor: variant === 'ivory' ? '#F8F2E9' : undefined,
+        padding: variant === 'ivory' ? '10px 12px' : undefined,
       }}
     />
   );
