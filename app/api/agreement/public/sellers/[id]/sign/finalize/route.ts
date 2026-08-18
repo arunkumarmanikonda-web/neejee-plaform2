@@ -23,6 +23,25 @@ export async function POST(
     const workflow = readAgreementWorkflow(seller.autoKycSummary);
     assertSigningToken(workflow, token);
 
+    if (body?.reviewAccepted !== true) {
+      return NextResponse.json(
+        { error: "Agreement review acknowledgement is required before signing" },
+        { status: 400 }
+      );
+    }
+
+    const submittedInstrumentId = String(body?.instrumentId || "").trim();
+    const submittedAgreementNumber = String(body?.agreementNumber || "").trim();
+    const workflowInstrumentId = String(workflow?.instrumentId || "").trim();
+    const workflowAgreementNumber = String(workflow?.agreementNumber || "").trim();
+
+    if (workflowInstrumentId && submittedInstrumentId && workflowInstrumentId !== submittedInstrumentId) {
+      return NextResponse.json({ error: "The agreement changed. Reload the signing page and review the current instrument." }, { status: 409 });
+    }
+    if (workflowAgreementNumber && submittedAgreementNumber && workflowAgreementNumber !== submittedAgreementNumber) {
+      return NextResponse.json({ error: "The agreement reference changed. Reload the signing page and review the current instrument." }, { status: 409 });
+    }
+
     if (!workflow?.sellerSignatureOtpVerifiedAt) {
       return NextResponse.json(
         { error: "OTP verification is required before finalizing signature" },
@@ -39,6 +58,7 @@ export async function POST(
 
     const ip = getIp(request);
     const userAgent = request.headers.get("user-agent") || "";
+    const reviewedAt = new Date().toISOString();
 
     const result = await updateAgreementWorkflow(id, (current, sellerRow) => {
       const trail = Array.isArray(current.sellerSignatureAuditTrail)
@@ -51,7 +71,11 @@ export async function POST(
         sellerSignatureStatus: "SELLER_SIGNED",
         sellerSignatureImageUrl: signatureImageUrl,
         sellerSignatureProcessedUrl: signatureProcessedUrl,
-        sellerSignedAt: new Date().toISOString(),
+        sellerSignedAt: reviewedAt,
+        sellerAgreementReviewedAt: reviewedAt,
+        sellerAgreementReviewAccepted: true,
+        sellerAgreementReviewedInstrumentId: workflowInstrumentId || submittedInstrumentId,
+        sellerAgreementReviewedNumber: workflowAgreementNumber || submittedAgreementNumber,
         sellerSignerName: String(body?.signerName || sellerRow.contactName || ""),
         sellerSignerEmail: String(body?.signerEmail || sellerRow.email || ""),
         sellerSignedIp: ip,
@@ -59,8 +83,16 @@ export async function POST(
         sellerSignatureAuditTrail: [
           ...trail,
           {
+            event: "AGREEMENT_REVIEW_ACCEPTED",
+            at: reviewedAt,
+            ip,
+            userAgent,
+            instrumentId: workflowInstrumentId || submittedInstrumentId,
+            agreementNumber: workflowAgreementNumber || submittedAgreementNumber,
+          },
+          {
             event: "SELLER_SIGNED",
-            at: new Date().toISOString(),
+            at: reviewedAt,
             ip,
             userAgent,
             signatureImageUrl,
