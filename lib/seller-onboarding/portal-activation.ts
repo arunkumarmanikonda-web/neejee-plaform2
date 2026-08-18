@@ -15,20 +15,37 @@ function escapeHtml(value: unknown) {
     .replace(/'/g, '&#39;');
 }
 
+const sellerIdentitySelect = {
+  id: true,
+  userId: true,
+  email: true,
+  contactName: true,
+  businessName: true,
+  kycStatus: true,
+  user: {
+    select: {
+      id: true,
+    },
+  },
+} as const;
+
 export async function issueSellerPortalActivation(input: {
   sellerId: string;
   reapproved?: boolean;
 }) {
+  // Explicit select is intentional. Production Seller schema has legacy Prisma
+  // fields that are not present in the live DB; selecting the whole row can make
+  // unrelated lifecycle actions fail on those stale columns.
   const seller = await prisma.seller.findUnique({
     where: { id: input.sellerId },
-    include: { user: true },
+    select: sellerIdentitySelect,
   });
 
   if (!seller?.userId || !seller.user) {
     throw new Error('Seller user account is unavailable.');
   }
   if (String(seller.kycStatus) !== 'APPROVED') {
-    throw new Error('Seller must be approved before portal access is issued.');
+    throw new Error('Seller must be approved before portal activation is issued.');
   }
 
   const now = new Date();
@@ -54,11 +71,9 @@ export async function issueSellerPortalActivation(input: {
     },
   });
 
-  // Approval is the single point at which an applicant becomes a Seller Studio user.
-  await prisma.user.update({
-    where: { id: seller.userId },
-    data: { role: 'SELLER' },
-  });
+  // IMPORTANT: approval alone does not promote the linked user to SELLER.
+  // The role is granted only after the applicant consumes this one-time token
+  // and chooses their own password in activateSellerPortal().
 
   const activationUrl = `https://www.neejee.com/seller/activate?sellerId=${encodeURIComponent(seller.id)}&token=${encodeURIComponent(rawToken)}`;
   const loginUrl = 'https://www.neejee.com/seller/login';
@@ -74,11 +89,12 @@ export async function issueSellerPortalActivation(input: {
         <div style="color:#A47E3B;font-size:10px;letter-spacing:.32em;margin-top:12px;">FOUND. PERSONAL.</div>
       </div>
       <div style="padding:44px 34px;">
-        <p style="font-size:10px;letter-spacing:.3em;color:#8B2E2A;margin:0 0 12px;">${reapproved ? 'ACCESS RESTORED' : 'SELLER APPROVED'}</p>
+        <p style="font-size:10px;letter-spacing:.3em;color:#8B2E2A;margin:0 0 12px;">${reapproved ? 'ACCESS RESTORED' : 'SELLER APPLICATION APPROVED'}</p>
         <h1 style="font-size:30px;font-weight:400;margin:0 0 18px;">${reapproved ? `Welcome back, ${first}.` : `Welcome to NEEJEE, ${first}.`}</h1>
-        <p style="font-size:15px;line-height:1.8;margin:0 0 18px;">${reapproved ? `Seller Studio access for <strong>${business}</strong> has been restored.` : `Your seller application for <strong>${business}</strong> has been approved.`}</p>
-        <p style="font-size:14px;line-height:1.8;color:#6B6862;margin:0 0 18px;">Your Seller Studio login email is <strong style="color:#1A1613;">${email}</strong>.</p>
-        <p style="font-size:14px;line-height:1.8;color:#6B6862;margin:0 0 18px;">Use the secure button below to set or reset your Seller Studio password. For your security, NEEJEE never emails permanent passwords.</p>
+        <p style="font-size:15px;line-height:1.8;margin:0 0 18px;">${reapproved ? `Seller onboarding access for <strong>${business}</strong> has been restored.` : `Your seller application for <strong>${business}</strong> has been approved for the next onboarding stage.`}</p>
+        <p style="font-size:14px;line-height:1.8;color:#6B6862;margin:0 0 18px;">Your Seller Studio login ID is <strong style="color:#1A1613;">${email}</strong>.</p>
+        <p style="font-size:14px;line-height:1.8;color:#6B6862;margin:0 0 18px;">Use the secure button below to create your own password. NEEJEE never sends reusable passwords or passcodes by email.</p>
+        <p style="font-size:14px;line-height:1.8;color:#6B6862;margin:0 0 18px;">After activation, Seller Studio will guide you through the seller agreement. Marketplace operations unlock only after the agreement has been completed and finalised by NEEJEE.</p>
         <a href="${activationUrl}" style="display:inline-block;margin-top:12px;background:#1A1613;color:#F4EFE6;padding:14px 28px;text-decoration:none;letter-spacing:.16em;font-size:12px;">ACTIVATE SELLER STUDIO</a>
         <p style="font-size:12px;line-height:1.7;color:#9C8B7A;margin:18px 0 0;">This activation link expires in ${ACTIVATION_TTL_HOURS} hours. After activation you can sign in at <a href="${loginUrl}" style="color:#8B2E2A;">neejee.com/seller/login</a>.</p>
       </div>
@@ -91,8 +107,8 @@ export async function issueSellerPortalActivation(input: {
   const delivery = await sendSellerTransactionalEmail({
     to: seller.email,
     subject: reapproved
-      ? 'NEEJEE Seller Studio access restored'
-      : 'Welcome to NEEJEE — your Seller Studio is ready',
+      ? 'NEEJEE Seller Studio onboarding access restored'
+      : 'Your NEEJEE seller application has been approved',
     html,
   });
 
@@ -113,7 +129,7 @@ export async function activateSellerPortal(input: {
   const now = new Date();
   const seller = await prisma.seller.findUnique({
     where: { id: input.sellerId },
-    include: { user: true },
+    select: sellerIdentitySelect,
   });
 
   if (!seller?.userId || !seller.user) return { ok: false as const, reason: 'seller_not_found' };
