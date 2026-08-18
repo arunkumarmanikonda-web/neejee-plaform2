@@ -1,9 +1,12 @@
 // NEEJEE service worker — minimal, focused on offline shell + push notifications.
 // Cache strategy: network-first for HTML/API, cache-first for static assets.
 
-const CACHE_VERSION = 'neejee-v1';
+// Bump whenever brand/app-shell assets must be invalidated for existing installs.
+const CACHE_VERSION = 'neejee-v2';
 const STATIC_CACHE = `${CACHE_VERSION}-static`;
 const RUNTIME_CACHE = `${CACHE_VERSION}-runtime`;
+const OFFICIAL_LOGO =
+  'https://xjqehwvxscoktfecbwse.supabase.co/storage/v1/object/public/neejee-media/legal-entity/1781352832764-ig1uzl-01_neejee_primary_logo.png';
 
 const PRECACHE = [
   '/',
@@ -45,19 +48,22 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Static assets — cache-first
+  // Static assets — cache-first. External owner-brand media remains controlled
+  // by its CDN and is intentionally not rewritten into an application-local logo.
   if (
-    url.pathname.startsWith('/_next/static/') ||
-    url.pathname.startsWith('/brand/') ||
-    url.pathname.startsWith('/images/') ||
-    url.pathname.endsWith('.png') ||
-    url.pathname.endsWith('.jpg') ||
-    url.pathname.endsWith('.jpeg') ||
-    url.pathname.endsWith('.webp') ||
-    url.pathname.endsWith('.svg') ||
-    url.pathname.endsWith('.woff') ||
-    url.pathname.endsWith('.woff2') ||
-    url.pathname === '/manifest.json'
+    url.origin === self.location.origin && (
+      url.pathname.startsWith('/_next/static/') ||
+      url.pathname.startsWith('/brand/') ||
+      url.pathname.startsWith('/images/') ||
+      url.pathname.endsWith('.png') ||
+      url.pathname.endsWith('.jpg') ||
+      url.pathname.endsWith('.jpeg') ||
+      url.pathname.endsWith('.webp') ||
+      url.pathname.endsWith('.svg') ||
+      url.pathname.endsWith('.woff') ||
+      url.pathname.endsWith('.woff2') ||
+      url.pathname === '/manifest.json'
+    )
   ) {
     event.respondWith(
       caches.match(request).then((cached) => {
@@ -100,8 +106,8 @@ self.addEventListener('push', (event) => {
   const title = payload.title || 'NEEJEE';
   const options = {
     body: payload.body || 'A quiet update from NEEJEE.',
-    icon: '/brand/logo-192.png',
-    badge: '/brand/logo-192.png',
+    icon: OFFICIAL_LOGO,
+    badge: OFFICIAL_LOGO,
     data: { url: payload.url || '/' },
     tag: payload.tag || 'neejee',
   };
