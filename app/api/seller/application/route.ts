@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { KycStatus, Role, SellerDocStatus, SellerDocType } from '@prisma/client';
+import { KycStatus, SellerDocStatus, SellerDocType } from '@prisma/client';
 import { z } from 'zod';
 import { prisma } from '@/lib/prisma';
 import { normalizePhone, verifyOtp } from '@/lib/otp';
@@ -290,6 +290,9 @@ export async function POST(request: Request) {
       );
     }
 
+    // Applying does NOT grant Seller Studio access. Existing roles are preserved,
+    // and brand-new applicants remain ordinary CUSTOMER users until an admin
+    // explicitly approves the Seller record. Approval is the only role-promotion point.
     let user;
     if (userByPhone) {
       user = await prisma.user.update({
@@ -298,7 +301,6 @@ export async function POST(request: Request) {
           email: communicationEmail,
           name: body.contactName,
           phone,
-          role: Role.SELLER,
           phoneVerified: true,
           phoneVerifiedAt: now,
           // A changed communication email must be verified again.
@@ -314,7 +316,6 @@ export async function POST(request: Request) {
         data: {
           name: body.contactName,
           phone,
-          role: Role.SELLER,
           phoneVerified: true,
           phoneVerifiedAt: now,
         },
@@ -325,7 +326,6 @@ export async function POST(request: Request) {
           email: communicationEmail,
           name: body.contactName,
           phone,
-          role: Role.SELLER,
           emailVerified: null,
           phoneVerified: true,
           phoneVerifiedAt: now,
