@@ -1,7 +1,7 @@
 import { randomInt } from 'crypto';
 import bcrypt from 'bcryptjs';
 import { prisma } from '@/lib/prisma';
-import { sendEmail } from '@/lib/email';
+import { sendSellerTransactionalEmail } from '@/lib/seller-onboarding/transactional-email';
 import { syncSellerKycStatus } from '@/lib/seller-onboarding/status';
 
 const EMAIL_OTP_TTL_MIN = 10;
@@ -49,7 +49,7 @@ export async function requestSellerEmailOtp(input: {
     },
   });
 
-  await prisma.sellerMagicToken.create({
+  const token = await prisma.sellerMagicToken.create({
     data: {
       sellerId: input.sellerId,
       tokenHash,
@@ -58,25 +58,37 @@ export async function requestSellerEmailOtp(input: {
     },
   });
 
-  await sendEmail({
-    to: input.email,
-    subject: 'NEEJEE seller application email verification code',
-    html: `
-      <div style="font-family:Arial,sans-serif;color:#1f1c18;line-height:1.6">
-        <h2>Verify your seller application email</h2>
-        <p>Hello ${String(input.recipientName || 'there')},</p>
-        <p>Your verification code is:</p>
-        <p style="font-size:28px;font-weight:700;letter-spacing:6px">${code}</p>
-        <p>This code expires in ${EMAIL_OTP_TTL_MIN} minutes.</p>
-        <p>Do not share this code with anyone.</p>
-      </div>
-    `,
-  });
+  try {
+    const delivery = await sendSellerTransactionalEmail({
+      to: input.email,
+      subject: 'NEEJEE seller application email verification code',
+      html: `
+        <div style="font-family:Arial,sans-serif;color:#1f1c18;line-height:1.6">
+          <h2>Verify your seller application email</h2>
+          <p>Hello ${String(input.recipientName || 'there')},</p>
+          <p>Your verification code is:</p>
+          <p style="font-size:28px;font-weight:700;letter-spacing:6px">${code}</p>
+          <p>This code expires in ${EMAIL_OTP_TTL_MIN} minutes.</p>
+          <p>Do not share this code with anyone.</p>
+        </div>
+      `,
+    });
 
-  return {
-    ok: true as const,
-    expiresInMin: EMAIL_OTP_TTL_MIN,
-  };
+    return {
+      ok: true as const,
+      expiresInMin: EMAIL_OTP_TTL_MIN,
+      deliveryId: delivery.id,
+      recipient: input.email,
+    };
+  } catch (error) {
+    // A code that was never delivered must never remain valid.
+    await prisma.sellerMagicToken.update({
+      where: { id: token.id },
+      data: { consumedAt: new Date() },
+    }).catch(() => null);
+
+    throw error;
+  }
 }
 
 export async function verifySellerEmailOtp(input: {
