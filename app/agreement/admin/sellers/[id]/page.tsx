@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation';
 import { getSession, requireRole } from '@/lib/auth';
-import AgreementPrintClient from './AgreementPrintClient';
+import AgreementPrintClientV2 from './AgreementPrintClientV2';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -16,7 +16,7 @@ export default async function AgreementStandalonePage({ params }: { params: { id
   }
 
   return (
-    <AgreementPrintClient
+    <AgreementPrintClientV2
       id={params.id}
       dataUrl={`/api/admin/sellers/${params.id}/agreement-current`}
     />
