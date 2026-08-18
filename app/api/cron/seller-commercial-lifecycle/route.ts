@@ -1,3 +1,4 @@
+import { randomUUID } from 'crypto';
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { synchronizeEffectiveCommercialTerms } from '@/lib/seller-commercial-lifecycle';
@@ -15,7 +16,7 @@ function authorized(req: Request) {
 function escapeHtml(value: unknown) {
   return String(value ?? '')
     .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
+    .replace(/</g, '&lt;/g')
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;');
@@ -25,9 +26,6 @@ async function run() {
   const now = new Date();
   const syncResults = await synchronizeEffectiveCommercialTerms().catch(() => []);
 
-  // A relationship with signed historical terms but no presently effective term
-  // is automatically taken out of operational APPROVED state. A future renewal
-  // will restore APPROVED on its effective date, unless a termination instrument exists.
   await prisma.$executeRaw`
     UPDATE "Seller" s
     SET "kycStatus" = 'SUSPENDED', "updatedAt" = NOW()
@@ -120,7 +118,7 @@ async function run() {
         INSERT INTO "SellerRelationshipEvent" (
           "id", "sellerId", "sellerRef", "instrumentId", "eventKey", "eventType", "title", "details", "occurredAt", "createdAt"
         ) VALUES (
-          ${crypto.randomUUID()}, ${item.sellerRef}, ${item.sellerRef}, ${item.id}, ${eventKey},
+          ${randomUUID()}, ${item.sellerRef}, ${item.sellerRef}, ${item.id}, ${eventKey},
           'VALIDITY_REMINDER_SENT', ${`${threshold}-day commercial validity reminder sent`},
           CAST(${JSON.stringify({ thresholdDays: threshold, validTo: end.toISOString(), recipient: item.email })} AS jsonb), NOW(), NOW()
         )
