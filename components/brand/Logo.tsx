@@ -25,14 +25,18 @@ const MASTER_HEIGHT = 1152;
 const CROP_LEFT = 250;
 const CROP_TOP = 300;
 const CROP_WIDTH = 1550;
-const WORDMARK_HEIGHT = 360;
+
+// The owner artwork needs its full lower serif area plus balanced breathing room.
+// 360px ended exactly on the lowest dark pixels and visibly clipped the wordmark.
+// 500px keeps the artwork untouched while revealing the complete NEE · JEE mark.
+const WORDMARK_HEIGHT = 500;
 const LOCKUP_HEIGHT = 600;
 
 /**
  * Canonical owner-supplied NEEJEE identity.
  *
- * Header/compact placements show the NEE · JEE wordmark crop from the master.
- * Full placements show the same master including FOUND. PERSONAL.
+ * Header/compact placements show the complete NEE · JEE wordmark crop from the
+ * master. Full placements show the same master including FOUND. PERSONAL.
  * `variant` remains accepted for backwards compatibility but is intentionally
  * not used: official artwork colours must never be altered in application code.
  */
