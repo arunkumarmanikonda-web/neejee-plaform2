@@ -46,7 +46,11 @@ const DocSchema = z.object({
 const BodySchema = z.object({
   businessName: z.string().min(2),
   contactName: z.string().min(2),
+  // `email` remains the communication/login email for backward compatibility.
   email: z.string().email(),
+  // New UI sends the official business email separately. Old in-progress forms
+  // are allowed to omit it so applicants do not lose already-uploaded documents.
+  officialEmail: z.string().email().optional().nullable(),
   phone: z.string().min(8),
   phoneOtp: z.string().optional(),
   pan: z.string().min(10),
@@ -112,16 +116,10 @@ async function postPackageVerification(
     try {
       payload = await response.json();
     } catch {
-      payload = {
-        ok: false,
-        error: 'invalid_package_verification_response',
-      };
+      payload = { ok: false, error: 'invalid_package_verification_response' };
     }
 
-    return {
-      httpStatus: response.status,
-      payload,
-    };
+    return { httpStatus: response.status, payload };
   } catch (error) {
     return {
       httpStatus: 500,
@@ -133,7 +131,7 @@ async function postPackageVerification(
   }
 }
 
-function normalizeEmail(value: string): string {
+function normalizeEmail(value: string | null | undefined): string {
   return String(value || '').trim().toLowerCase();
 }
 
@@ -165,7 +163,8 @@ export async function POST(request: Request) {
   try {
     const body = BodySchema.parse(await request.json());
 
-    const email = normalizeEmail(body.email);
+    const communicationEmail = normalizeEmail(body.email);
+    const officialEmail = normalizeEmail(body.officialEmail) || communicationEmail;
     const phone = normalizePhone(body.phone);
 
     if (!phone) {
@@ -181,10 +180,6 @@ export async function POST(request: Request) {
       phone,
     );
 
-    // New flow: Step 1 Continue verifies the OTP and leaves an HTTP-only proof.
-    // Backward-compatible rollout: an already-open form from the previous build
-    // may still submit the OTP in the final payload. Verify that OTP here so the
-    // applicant does not lose uploaded KYC documents or have to restart.
     if (!phoneVerification.ok) {
       const legacyCode = String(body.phoneOtp || '').trim();
       if (/^\d{6}$/.test(legacyCode)) {
@@ -250,10 +245,7 @@ export async function POST(request: Request) {
 
     if (!validation.overallPass) {
       return NextResponse.json(
-        {
-          error: 'KYC validation failed',
-          validation,
-        },
+        { error: 'KYC validation failed', validation },
         { status: 400 },
       );
     }
@@ -270,7 +262,6 @@ export async function POST(request: Request) {
         ifsc: body.ifsc,
         phone,
       });
-
       kycPackageVerification = packageResult.payload;
       kycPackageHttpStatus = packageResult.httpStatus;
     }
@@ -278,44 +269,92 @@ export async function POST(request: Request) {
     const reviewRequired =
       Boolean(kycPackageVerification?.reviewRequired) ||
       Boolean(kycPackageVerification && kycPackageVerification.ok === false);
-
     const overallStatus = reviewRequired ? 'REVIEW_REQUIRED' : 'VERIFIED';
-
     const now = new Date();
 
-    const user = await prisma.user.upsert({
-      where: { email },
-      update: {
-        name: body.contactName,
-        phone,
-        role: Role.SELLER,
-        phoneVerified: true,
-        phoneVerifiedAt: now,
-      },
-      create: {
-        email,
-        name: body.contactName,
-        phone,
-        role: Role.SELLER,
-        emailVerified: null,
-        phoneVerified: true,
-        phoneVerifiedAt: now,
-      },
-    });
+    // Identity resolution must start with the already-verified phone number.
+    // Upserting only by email caused the production unique(phone) failure when
+    // the same seller returned with a different/new communication email.
+    const [userByPhone, userByEmail] = await Promise.all([
+      prisma.user.findUnique({ where: { phone } }),
+      prisma.user.findUnique({ where: { email: communicationEmail } }),
+    ]);
 
-    const existingSeller = await prisma.seller.findFirst({
-      where: {
-        OR: [
-          { userId: user.id },
-          { email },
-        ],
-      },
-      select: {
-        id: true,
-        autoKycSummary: true,
-      },
-    });
+    if (userByPhone && userByEmail && userByPhone.id !== userByEmail.id) {
+      return NextResponse.json(
+        {
+          error:
+            'This mobile number and communication email belong to different existing NEEJEE accounts. Please use the email already linked to this mobile number or contact NEEJEE support.',
+        },
+        { status: 409 },
+      );
+    }
 
+    let user;
+    if (userByPhone) {
+      user = await prisma.user.update({
+        where: { id: userByPhone.id },
+        data: {
+          email: communicationEmail,
+          name: body.contactName,
+          phone,
+          role: Role.SELLER,
+          phoneVerified: true,
+          phoneVerifiedAt: now,
+          // A changed communication email must be verified again.
+          emailVerified:
+            userByPhone.email === communicationEmail
+              ? userByPhone.emailVerified
+              : null,
+        },
+      });
+    } else if (userByEmail) {
+      user = await prisma.user.update({
+        where: { id: userByEmail.id },
+        data: {
+          name: body.contactName,
+          phone,
+          role: Role.SELLER,
+          phoneVerified: true,
+          phoneVerifiedAt: now,
+        },
+      });
+    } else {
+      user = await prisma.user.create({
+        data: {
+          email: communicationEmail,
+          name: body.contactName,
+          phone,
+          role: Role.SELLER,
+          emailVerified: null,
+          phoneVerified: true,
+          phoneVerifiedAt: now,
+        },
+      });
+    }
+
+    const [sellerByUser, sellerByEmail] = await Promise.all([
+      prisma.seller.findUnique({
+        where: { userId: user.id },
+        select: { id: true, autoKycSummary: true, kycStatus: true },
+      }),
+      prisma.seller.findUnique({
+        where: { email: communicationEmail },
+        select: { id: true, autoKycSummary: true, kycStatus: true },
+      }),
+    ]);
+
+    if (sellerByUser && sellerByEmail && sellerByUser.id !== sellerByEmail.id) {
+      return NextResponse.json(
+        {
+          error:
+            'The verified mobile number and communication email are linked to different seller records. Please contact NEEJEE support before continuing.',
+        },
+        { status: 409 },
+      );
+    }
+
+    const existingSeller = sellerByUser || sellerByEmail;
     const previousSummary =
       existingSeller?.autoKycSummary && typeof existingSeller.autoKycSummary === 'object'
         ? (existingSeller.autoKycSummary as any)
@@ -333,7 +372,9 @@ export async function POST(request: Request) {
         String(body.city || '').trim(),
         String(body.state || '').trim(),
         String(body.pincode || '').trim(),
-      ].filter(Boolean).join(', '),
+      ]
+        .filter(Boolean)
+        .join(', '),
     };
 
     const nextAutoKycSummary = {
@@ -349,8 +390,19 @@ export async function POST(request: Request) {
           ? previousSummary.onboarding
           : {}),
         ...onboardingAddress,
+        officialEmail,
+        communicationEmail,
+        cin: normalizeUpper(body.cin),
+        msmeNumber: normalizeUpper(body.msmeNumber),
+        applicationSubmittedAt: now.toISOString(),
       },
     };
+
+    const finalSellerStates = new Set(['APPROVED', 'REJECTED', 'SUSPENDED']);
+    const nextKycStatus =
+      existingSeller && finalSellerStates.has(String(existingSeller.kycStatus))
+        ? existingSeller.kycStatus
+        : KycStatus.PENDING;
 
     const seller = existingSeller
       ? await prisma.seller.update({
@@ -359,19 +411,19 @@ export async function POST(request: Request) {
             userId: user.id,
             businessName: body.businessName,
             contactName: body.contactName,
-            email,
+            // Existing seller notification flows use Seller.email, so keep this
+            // as the communication email. Official email is separately retained
+            // in autoKycSummary.onboarding.officialEmail.
+            email: communicationEmail,
             phone,
             pan: normalizeUpper(body.pan),
             gstin: normalizeUpper(body.gstin),
-            cin: normalizeUpper(body.cin),
-            msmeNumber: normalizeUpper(body.msmeNumber),
             bankAccount: String(body.bankAccount || '').trim(),
             ifsc: String(body.ifsc || '').trim().toUpperCase(),
             bankName: String(body.bankName || '').trim(),
-            applicationSubmittedAt: now,
             autoKycPassed: !reviewRequired,
             autoKycSummary: nextAutoKycSummary as any,
-            kycStatus: KycStatus.PENDING,
+            kycStatus: nextKycStatus,
           },
           select: {
             id: true,
@@ -385,16 +437,13 @@ export async function POST(request: Request) {
             userId: user.id,
             businessName: body.businessName,
             contactName: body.contactName,
-            email,
+            email: communicationEmail,
             phone,
             pan: normalizeUpper(body.pan),
             gstin: normalizeUpper(body.gstin),
-            cin: normalizeUpper(body.cin),
-            msmeNumber: normalizeUpper(body.msmeNumber),
             bankAccount: String(body.bankAccount || '').trim(),
             ifsc: String(body.ifsc || '').trim().toUpperCase(),
             bankName: String(body.bankName || '').trim(),
-            applicationSubmittedAt: now,
             autoKycPassed: !reviewRequired,
             autoKycSummary: nextAutoKycSummary as any,
             kycStatus: KycStatus.PENDING,
@@ -407,7 +456,9 @@ export async function POST(request: Request) {
           },
         });
 
-    const docTypes = Array.from(new Set(documents.map((doc) => normalizeDocType(doc.docType))));
+    const docTypes = Array.from(
+      new Set(documents.map((doc) => normalizeDocType(doc.docType))),
+    );
 
     if (docTypes.length > 0) {
       await prisma.sellerDocument.updateMany({
@@ -449,10 +500,9 @@ export async function POST(request: Request) {
     try {
       const emailOtpResult = await requestSellerEmailOtp({
         sellerId: seller.id,
-        email: seller.email,
-        recipientName: seller.contactName || seller.email,
+        email: communicationEmail,
+        recipientName: seller.contactName || communicationEmail,
       });
-
       emailOtpRequested = !!emailOtpResult.ok;
     } catch (e: any) {
       emailOtpRequested = false;
@@ -465,7 +515,6 @@ export async function POST(request: Request) {
         id: true,
         kycStatus: true,
         autoKycPassed: true,
-        applicationSubmittedAt: true,
       },
     });
 
@@ -475,7 +524,9 @@ export async function POST(request: Request) {
       userId: user.id,
       kycStatus: refreshedSeller?.kycStatus || seller.kycStatus,
       autoKycPassed: !!refreshedSeller?.autoKycPassed,
-      applicationSubmittedAt: refreshedSeller?.applicationSubmittedAt || now,
+      applicationSubmittedAt: now,
+      communicationEmail,
+      officialEmail,
       emailOtpRequested,
       emailOtpError,
       validation,
@@ -494,14 +545,12 @@ export async function POST(request: Request) {
   } catch (e: any) {
     if (e?.issues) {
       return NextResponse.json(
-        {
-          error: 'Invalid seller application payload',
-          issues: e.issues,
-        },
+        { error: 'Invalid seller application payload', issues: e.issues },
         { status: 400 },
       );
     }
 
+    console.error('[seller-application-submit]', e);
     return NextResponse.json(
       { error: e?.message || 'Failed to submit seller application' },
       { status: 500 },
