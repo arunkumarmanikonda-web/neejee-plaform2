@@ -14,6 +14,62 @@ type ResendDomain = {
   };
 };
 
+function normalizeSecret(value: unknown): string {
+  let normalized = String(value ?? '').trim();
+
+  // Vercel values are occasionally pasted with surrounding quotes, an env-var
+  // assignment prefix, or even the word `Bearer`. Any of those make an otherwise
+  // valid Resend key fail with "API key is invalid".
+  normalized = normalized.replace(/^RESEND_API_KEY\s*=\s*/i, '').trim();
+  normalized = normalized.replace(/^Bearer\s+/i, '').trim();
+
+  for (let i = 0; i < 2; i += 1) {
+    const first = normalized[0];
+    const last = normalized[normalized.length - 1];
+    if (
+      normalized.length >= 2 &&
+      ((first === '"' && last === '"') ||
+        (first === "'" && last === "'") ||
+        (first === '`' && last === '`'))
+    ) {
+      normalized = normalized.slice(1, -1).trim();
+    }
+  }
+
+  return normalized.replace(/[\r\n\t]/g, '').trim();
+}
+
+function resolveResendKey(): string {
+  const candidates = [
+    process.env.RESEND_API_KEY,
+    process.env.RESEND_KEY,
+    process.env.RESEND_API_TOKEN,
+    process.env.EMAIL_RESEND_API_KEY,
+  ];
+
+  for (const candidate of candidates) {
+    const normalized = normalizeSecret(candidate);
+    if (normalized) return normalized;
+  }
+
+  return '';
+}
+
+function normalizeFrom(value: unknown): string {
+  let from = String(value ?? '').trim();
+  const first = from[0];
+  const last = from[from.length - 1];
+  if (
+    from.length >= 2 &&
+    ((first === '"' && last === '"') ||
+      (first === "'" && last === "'") ||
+      (first === '`' && last === '`'))
+  ) {
+    from = from.slice(1, -1).trim();
+  }
+  return from;
+}
+
 function fromDomain(from: string): string | null {
   const match = String(from || '').match(/<([^<>\s]+@[^<>\s]+)>/);
   const address = match?.[1] || String(from || '').trim();
@@ -89,12 +145,22 @@ export async function sendSellerTransactionalEmail(input: {
   subject: string;
   html: string;
 }): Promise<DeliveryResult> {
-  const key = String(process.env.RESEND_API_KEY || '').trim();
+  const key = resolveResendKey();
   if (!key) {
     throw new Error('Seller email service is not configured. Please contact NEEJEE support.');
   }
 
-  const configuredFrom = String(process.env.EMAIL_FROM || 'NEEJEE <hello@neejee.com>').trim();
+  // Never print the key. This diagnostic is intentionally limited to safe shape
+  // information so production logs can distinguish a malformed env value from
+  // a provider-side revoked credential.
+  if (!key.startsWith('re_')) {
+    console.warn('[seller-email] Resend credential has unexpected format', {
+      length: key.length,
+      prefixLength: key.slice(0, 3).length,
+    });
+  }
+
+  const configuredFrom = normalizeFrom(process.env.EMAIL_FROM || 'NEEJEE <hello@neejee.com>');
   const first = await postEmail({
     key,
     from: configuredFrom,
@@ -122,9 +188,9 @@ export async function sendSellerTransactionalEmail(input: {
     subject: input.subject.slice(0, 160),
   });
 
-  // A very common Resend 400 occurs when EMAIL_FROM points at a domain that is
-  // not verified for this API key. If another verified sending domain exists on
-  // the same Resend account, retry from that domain instead of falsely reporting
+  // A common Resend 400 occurs when EMAIL_FROM points at a domain that is not
+  // verified for this API key. If another verified sending domain exists on the
+  // same Resend account, retry from that domain instead of falsely reporting
   // success to the seller.
   if (first.response.status === 400 || firstCode === 'validation_error') {
     const verifiedDomain = await findVerifiedSendingDomain(key, fromDomain(configuredFrom));
