@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { KycStatus, Role, SellerDocStatus, SellerDocType } from '@prisma/client';
 import { z } from 'zod';
 import { prisma } from '@/lib/prisma';
-import { normalizePhone } from '@/lib/otp';
+import { normalizePhone, verifyOtp } from '@/lib/otp';
 import type { UploadedApplicationDocument } from '@/lib/seller-onboarding/document-intel';
 import { validateSellerApplicationPackage } from '@/lib/seller-onboarding/application-validation';
 import { requestSellerEmailOtp } from '@/lib/seller-onboarding/email-otp';
@@ -146,6 +146,21 @@ function normalizeDocType(value: UploadedApplicationDocument['docType']): Seller
   return value as SellerDocType;
 }
 
+function mobileOtpErrorMessage(reason: string): string {
+  switch (reason) {
+    case 'expired':
+      return 'This mobile OTP has expired. Go back to Contact and request a new OTP.';
+    case 'wrong_code':
+      return 'The mobile OTP entered is incorrect.';
+    case 'max_attempts':
+      return 'Too many incorrect mobile OTP attempts. Request a new OTP.';
+    case 'no_active_otp':
+      return 'No active mobile OTP was found. Go back to Contact and request a new OTP.';
+    default:
+      return 'Mobile OTP verification failed.';
+  }
+}
+
 export async function POST(request: Request) {
   try {
     const body = BodySchema.parse(await request.json());
@@ -166,19 +181,41 @@ export async function POST(request: Request) {
       phone,
     );
 
+    // New flow: Step 1 Continue verifies the OTP and leaves an HTTP-only proof.
+    // Backward-compatible rollout: an already-open form from the previous build
+    // may still submit the OTP in the final payload. Verify that OTP here so the
+    // applicant does not lose uploaded KYC documents or have to restart.
     if (!phoneVerification.ok) {
-      return NextResponse.json(
-        {
-          error:
-            phoneVerification.reason === 'verification_expired'
-              ? 'Mobile verification has expired. Go back to Contact, request a new OTP and press Continue to verify it.'
-              : phoneVerification.reason === 'phone_changed'
-                ? 'The mobile number has changed since OTP verification. Go back to Contact and verify the current number.'
-                : 'Mobile number is not verified. Go back to Contact, enter the OTP and press Continue.',
-          reason: phoneVerification.reason,
-        },
-        { status: 400 },
-      );
+      const legacyCode = String(body.phoneOtp || '').trim();
+      if (/^\d{6}$/.test(legacyCode)) {
+        const legacyOtpResult = await verifyOtp({
+          phone,
+          purpose: 'signup',
+          code: legacyCode,
+        });
+        if (!legacyOtpResult.ok) {
+          return NextResponse.json(
+            {
+              error: mobileOtpErrorMessage(legacyOtpResult.reason),
+              reason: legacyOtpResult.reason,
+            },
+            { status: 400 },
+          );
+        }
+      } else {
+        return NextResponse.json(
+          {
+            error:
+              phoneVerification.reason === 'verification_expired'
+                ? 'Mobile verification has expired. Go back to Contact, request a new OTP and press Continue to verify it.'
+                : phoneVerification.reason === 'phone_changed'
+                  ? 'The mobile number has changed since OTP verification. Go back to Contact and verify the current number.'
+                  : 'Mobile number is not verified. Go back to Contact, enter the OTP and press Continue.',
+            reason: phoneVerification.reason,
+          },
+          { status: 400 },
+        );
+      }
     }
 
     const documents: UploadedApplicationDocument[] = body.documents.map((doc) => ({
