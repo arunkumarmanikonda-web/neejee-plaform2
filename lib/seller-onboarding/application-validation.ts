@@ -94,10 +94,6 @@ export async function validateSellerApplicationPackage(input: {
 
   const docs = Array.isArray(input.documents) ? input.documents : [];
 
-  // Never trust the browser to tell us where a KYC document lives. Every
-  // document presented to validation/final submission must be the opaque app
-  // URL produced by our private-upload endpoint and must decode back to the
-  // exact private Storage key returned for that upload.
   docs.forEach((doc, index) => {
     const storedPath = privateSellerDocumentPathFromUrl(doc.fileUrl);
     const storageKey = String(doc.storageKey || '').trim();
@@ -152,7 +148,12 @@ export async function validateSellerApplicationPackage(input: {
     errors.push('Manual GSTIN and PAN do not match each other');
   }
 
-  if (manual.gstin && gstDoc && !includesNormalized(gstDoc.extractedTextPreview, manual.businessName)) {
+  if (
+    manual.gstin &&
+    gstDoc &&
+    gstDoc.extractedTextPreview &&
+    !includesNormalized(gstDoc.extractedTextPreview, manual.businessName)
+  ) {
     warnings.push('Business name not confidently found in GST certificate OCR/text');
   }
 
@@ -167,18 +168,22 @@ export async function validateSellerApplicationPackage(input: {
   const allAccountCandidates = Array.from(
     new Set([...(extracted.chequeAccounts || []), ...(extracted.bankAccounts || [])]),
   );
+  const ifscCandidates = [extracted.chequeIfsc, extracted.bankIfsc].filter(Boolean) as string[];
 
-  const accountMatched = manual.bankAccount ? allAccountCandidates.includes(manual.bankAccount) : false;
-  const ifscMatched = [extracted.chequeIfsc, extracted.bankIfsc]
-    .filter(Boolean)
-    .includes(manual.ifsc);
-
-  if (!accountMatched) {
-    errors.push('Bank account does not match uploaded cancelled cheque / statement');
+  if (allAccountCandidates.length > 0) {
+    if (manual.bankAccount && !allAccountCandidates.includes(manual.bankAccount)) {
+      errors.push('Bank account does not match uploaded cancelled cheque / statement');
+    }
+  } else if (chequeDoc || bankDoc) {
+    warnings.push('Bank account could not be auto-read from the uploaded image/document; manual review required');
   }
 
-  if (!ifscMatched) {
-    errors.push('IFSC does not match uploaded cancelled cheque / statement');
+  if (ifscCandidates.length > 0) {
+    if (manual.ifsc && !ifscCandidates.includes(manual.ifsc)) {
+      errors.push('IFSC does not match uploaded cancelled cheque / statement');
+    }
+  } else if (chequeDoc || bankDoc) {
+    warnings.push('IFSC could not be auto-read from the uploaded image/document; manual review required');
   }
 
   const provider = {
@@ -268,6 +273,7 @@ export async function validateSellerApplicationPackage(input: {
 
   return {
     overallPass: errors.length === 0,
+    reviewRequired: warnings.some((warning) => warning.includes('manual review required')),
     errors: Array.from(new Set(errors)),
     warnings: Array.from(new Set(warnings)),
     checks: baseChecks.checks,
