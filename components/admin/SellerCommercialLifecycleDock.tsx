@@ -39,27 +39,42 @@ type LifecyclePayload = {
 
 function asDateInput(value?: string | null) {
   if (!value) return '';
+  const raw = String(value).slice(0, 10);
+  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw;
   const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? String(value).slice(0, 10) : date.toISOString().slice(0, 10);
+  if (Number.isNaN(date.getTime())) return '';
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
 }
 
 function addDays(value: string, days: number) {
-  const date = new Date(`${value}T00:00:00.000Z`);
+  const [y, m, d] = value.split('-').map(Number);
+  const date = new Date(y, (m || 1) - 1, d || 1, 12, 0, 0, 0);
   if (Number.isNaN(date.getTime())) return value;
-  date.setUTCDate(date.getUTCDate() + days);
-  return date.toISOString().slice(0, 10);
+  date.setDate(date.getDate() + days);
+  return localDateInput(date);
 }
 
 function addYears(value: string, years: number) {
-  const date = new Date(`${value}T00:00:00.000Z`);
+  const [y, m, d] = value.split('-').map(Number);
+  const date = new Date(y, (m || 1) - 1, d || 1, 12, 0, 0, 0);
   if (Number.isNaN(date.getTime())) return value;
-  date.setUTCFullYear(date.getUTCFullYear() + years);
-  date.setUTCDate(date.getUTCDate() - 1);
-  return date.toISOString().slice(0, 10);
+  date.setFullYear(date.getFullYear() + years);
+  date.setDate(date.getDate() - 1);
+  return localDateInput(date);
+}
+
+function localDateInput(date = new Date()) {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
 }
 
 function today() {
-  return new Date().toISOString().slice(0, 10);
+  return localDateInput(new Date());
 }
 
 function dateLabel(value?: string | null) {
@@ -200,6 +215,11 @@ export default function SellerCommercialLifecycleDock() {
   const current = data?.current || null;
   const hasHistory = !!data?.instruments?.length;
   const approved = String(data?.seller?.kycStatus || '') === 'APPROVED';
+  const lifecycleStatus = current
+    ? String(current.status || 'ACTIVE').replace(/_/g, ' ')
+    : latest
+      ? String(latest.status || 'DRAFT').replace(/_/g, ' ')
+      : 'NO AGREEMENT YET';
 
   return (
     <section className="mb-8 border border-banarasi/25 bg-beige/70 p-5 sm:p-6">
@@ -231,8 +251,8 @@ export default function SellerCommercialLifecycleDock() {
       ) : (
         <>
           <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-            <Metric label="Relationship status" value={current ? 'ACTIVE TERM' : latest ? latest.status.replace(/_/g, ' ') : 'NO AGREEMENT YET'} />
-            <Metric label="Current instrument" value={current?.instrumentNumber || latest?.instrumentNumber || '—'} />
+            <Metric label="Relationship status" value={lifecycleStatus} />
+            <Metric label="Current / latest instrument" value={current?.instrumentNumber || latest?.instrumentNumber || '—'} />
             <Metric label="Valid from" value={dateLabel(current?.effectiveFrom || latest?.effectiveFrom)} />
             <Metric label="Valid until" value={dateLabel(current?.effectiveTo || latest?.effectiveTo)} />
             <Metric
