@@ -54,17 +54,25 @@ export async function getSellerActivationSnapshot(sellerId: string): Promise<Sel
   const blockers: string[] = [];
   const warnings: string[] = [];
 
+  // Block approval only when mandatory identity/access prerequisites are missing.
+  // An automated KYC exception is deliberately NOT an approval blocker: it is a
+  // reason for human review, which an admin can resolve before approving.
   if (!hasPan) blockers.push('PAN missing');
   if (!hasBank) blockers.push('Bank details incomplete');
   if (!hasUserAccount) blockers.push('Linked user account missing');
   if (!phoneVerified) blockers.push('Phone OTP not verified');
   if (!emailVerified) blockers.push('Email OTP not verified');
-  if (!autoKycPassed) blockers.push('Auto KYC not passed');
 
+  if (!autoKycPassed) warnings.push('Automated KYC requires manual review');
   if (!hasGstin) warnings.push('GSTIN missing');
   if (!hasPortfolio) warnings.push('Portfolio missing');
 
-  const readyForReview = autoKycPassed && phoneVerified && emailVerified;
+  const readyForReview =
+    hasPan &&
+    hasBank &&
+    hasUserAccount &&
+    phoneVerified &&
+    emailVerified;
   const canApprove = blockers.length === 0;
 
   return {
