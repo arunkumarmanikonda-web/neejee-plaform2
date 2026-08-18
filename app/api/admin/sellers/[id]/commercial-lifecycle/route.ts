@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { getSession, requireRole } from '@/lib/auth';
 import { sendSellerTransactionalEmail } from '@/lib/seller-onboarding/transactional-email';
 import { buildSellerAgreementMaster } from '@/lib/seller-agreement-master';
+import { buildSellerCommercialInstrumentLegalContent } from '@/lib/seller-commercial-instrument-legal';
 import {
   buildWorkflowForInstrument,
   createCommercialInstrument,
@@ -57,11 +58,11 @@ function instrumentEmail(input: {
   reason?: string | null;
 }) {
   const actionCopy = input.type === 'TERMINATION'
-    ? 'A termination instrument has been prepared for the seller relationship.'
+    ? 'A detailed termination instrument has been prepared for the seller relationship.'
     : input.type === 'ADDENDUM'
-      ? 'A commercial addendum has been prepared for the current seller agreement.'
+      ? 'A detailed contractual addendum has been prepared for the current seller agreement.'
       : input.type === 'RENEWAL'
-        ? 'A renewal agreement has been prepared for the next commercial term.'
+        ? 'A detailed renewal agreement has been prepared for the next commercial term.'
         : 'Your initial NEEJEE marketplace seller agreement has been prepared.';
 
   return `
@@ -81,7 +82,7 @@ function instrumentEmail(input: {
           ${input.reason ? `<br/>Reason / context: ${escapeHtml(input.reason)}` : ''}
         </div>
         ${input.signingUrl ? `
-          <p style="line-height:1.7;">Please review the instrument and complete the secure signing process.</p>
+          <p style="line-height:1.7;">Please review the complete instrument and complete the secure signing process.</p>
           <p style="margin:28px 0;"><a href="${escapeHtml(input.signingUrl)}" style="display:inline-block;background:#1A1613;color:#fff;padding:13px 20px;text-decoration:none;">Review & sign</a></p>
         ` : `<p style="line-height:1.7;">The instrument is being prepared in the NEEJEE legal workbench. You will receive the secure review/signing link when it is issued.</p>`}
         <p style="line-height:1.7;">All prior agreements, addenda and renewals remain part of the permanent NEEJEE relationship record and are referenced by subsequent instruments.</p>
@@ -201,6 +202,8 @@ export async function POST(request: Request, { params }: { params: { id: string 
     const allInstruments = await listCommercialInstruments(seller.id);
     const prior = allInstruments.filter((item) => item.id !== instrument.id);
     const references = relationshipReferences(prior);
+    const parentReference = references.length ? references[references.length - 1] : null;
+    const rootReference = references.length ? references[0] : null;
 
     const masterAgreement = await buildSellerAgreementMaster(seller.id);
     const summaryRoot = asObject(seller.autoKycSummary);
@@ -220,12 +223,70 @@ export async function POST(request: Request, { params }: { params: { id: string 
       },
     };
 
-    const nextSummary = buildWorkflowForInstrument({
+    let nextSummary: any = buildWorkflowForInstrument({
       sellerSummary: seededSummary,
       instrument,
       terms,
       references,
     });
+
+    const legalContent = buildSellerCommercialInstrumentLegalContent({
+      type,
+      instrumentNumber: instrument.instrumentNumber,
+      instrumentTitle: instrument.title,
+      effectiveFrom: instrument.effectiveFrom.toISOString().slice(0, 10),
+      effectiveTo: instrument.effectiveTo ? instrument.effectiveTo.toISOString().slice(0, 10) : '',
+      parentInstrumentNumber: parentReference?.instrumentNumber || '',
+      rootInstrumentNumber: rootReference?.instrumentNumber || instrument.instrumentNumber,
+      changeReason: instrument.changeReason || '',
+      terms,
+    });
+
+    if (legalContent) {
+      const nextRoot = asObject(nextSummary);
+      const workflow = asObject(nextRoot.agreementWorkflow);
+      const currentDocument = asObject(workflow.currentDocumentJson);
+      const meta = asObject(currentDocument.meta);
+
+      const detailedDocument = {
+        ...currentDocument,
+        title: legalContent.title,
+        subtitle: legalContent.subtitle,
+        recitals: legalContent.recitals,
+        clauses: legalContent.clauses,
+        legalInstrument: {
+          draftingStandardVersion: 'INDIA-B2B-COMMERCIAL-INSTRUMENT-2026-v1',
+          instrumentType: type,
+          instrumentNumber: instrument.instrumentNumber,
+          parentInstrumentNumber: parentReference?.instrumentNumber || '',
+          rootInstrumentNumber: rootReference?.instrumentNumber || instrument.instrumentNumber,
+          incorporatedByReference: references,
+          governingLaw: 'India',
+          disputeResolutionFramework: 'Arbitration and Conciliation Act, 1996, with mutual appointment mechanism',
+          electronicExecutionFramework: 'Electronic-contract formation record with statutory-formality savings',
+          stampDutyTreatment: 'Subject to applicable State/Union Territory stamp law; no fixed duty assumed',
+        },
+        meta: {
+          ...meta,
+          instrumentTitle: legalContent.title,
+          legalDraftingStandardVersion: 'INDIA-B2B-COMMERCIAL-INSTRUMENT-2026-v1',
+        },
+      };
+
+      nextSummary = {
+        ...nextRoot,
+        agreementWorkflow: {
+          ...workflow,
+          currentDocumentJson: detailedDocument,
+        },
+      };
+
+      await prisma.$executeRaw`
+        UPDATE "SellerCommercialInstrument"
+        SET "documentSnapshot" = CAST(${JSON.stringify(detailedDocument)} AS jsonb), "updatedAt" = NOW()
+        WHERE "id" = ${instrument.id}
+      `;
+    }
 
     await prisma.seller.update({
       where: { id: seller.id },
