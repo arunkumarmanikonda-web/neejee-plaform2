@@ -1,12 +1,15 @@
 // Supabase Storage helper.
 // Public catalogue/admin media stays in `neejee-media` for CDN delivery.
-// Customer AI portraits/room photos live in a separate private bucket.
+// Customer AI portraits/room photos and seller KYC documents live in private buckets.
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || '';
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 export const PUBLIC_STORAGE_BUCKET = process.env.SUPABASE_STORAGE_BUCKET || 'neejee-media';
 export const PRIVATE_AI_STORAGE_BUCKET = process.env.SUPABASE_PRIVATE_AI_BUCKET || 'neejee-private-ai';
+export const PRIVATE_SELLER_STORAGE_BUCKET =
+  process.env.SUPABASE_PRIVATE_SELLER_DOCS_BUCKET || 'neejee-private-seller-docs';
 const PRIVATE_MARKER = 'private-ai:';
+const PRIVATE_SELLER_ROUTE_PREFIX = '/api/admin/seller-documents/';
 
 function safeObjectPath(value: string): string | null {
   const decoded = String(value || '').trim().replace(/^\/+/, '');
@@ -57,6 +60,7 @@ async function uploadToBucket(
   filePath: string,
   data: Buffer | ArrayBuffer | Uint8Array,
   contentType: string,
+  upsert = true,
 ): Promise<void> {
   if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
     throw new Error('Supabase storage not configured. Set NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY.');
@@ -70,7 +74,7 @@ async function uploadToBucket(
     headers: {
       Authorization: `Bearer ${SUPABASE_SERVICE_KEY}`,
       'Content-Type': contentType,
-      'x-upsert': 'true',
+      'x-upsert': upsert ? 'true' : 'false',
     },
     body: data as any,
   });
@@ -98,6 +102,49 @@ export async function uploadPrivateAiFile(
 ): Promise<{ path: string }> {
   await uploadToBucket(PRIVATE_AI_STORAGE_BUCKET, filePath, data, contentType);
   return { path: filePath };
+}
+
+/** Upload sensitive seller KYC material into the dedicated private bucket. */
+export async function uploadPrivateSellerDocument(
+  filePath: string,
+  data: Buffer | ArrayBuffer | Uint8Array,
+  contentType: string,
+): Promise<{ path: string; url: string }> {
+  const safePath = safeObjectPath(filePath);
+  if (!safePath) throw new Error('Invalid seller document storage path');
+  await uploadToBucket(PRIVATE_SELLER_STORAGE_BUCKET, safePath, data, contentType, false);
+  return { path: safePath, url: privateSellerDocumentUrl(safePath) };
+}
+
+/**
+ * Return an application route URL instead of exposing the private Storage URL.
+ * The token is an opaque path transport only; authorization is enforced by the
+ * admin download route and the document must also exist in SellerDocument.
+ */
+export function privateSellerDocumentUrl(filePath: string): string {
+  const safePath = safeObjectPath(filePath);
+  if (!safePath) throw new Error('Invalid seller document storage path');
+  const token = Buffer.from(safePath, 'utf8').toString('base64url');
+  return `${PRIVATE_SELLER_ROUTE_PREFIX}${token}`;
+}
+
+/** Recover a private seller object path from the application download URL. */
+export function privateSellerDocumentPathFromUrl(value: string | null | undefined): string | null {
+  if (!value) return null;
+  let pathname = String(value).trim();
+  try {
+    if (/^https?:\/\//i.test(pathname)) pathname = new URL(pathname).pathname;
+  } catch {
+    return null;
+  }
+  if (!pathname.startsWith(PRIVATE_SELLER_ROUTE_PREFIX)) return null;
+  const token = pathname.slice(PRIVATE_SELLER_ROUTE_PREFIX.length).split(/[?#]/, 1)[0];
+  if (!token || !/^[A-Za-z0-9_-]+$/.test(token)) return null;
+  try {
+    return safeObjectPath(Buffer.from(token, 'base64url').toString('utf8'));
+  } catch {
+    return null;
+  }
 }
 
 function resolveDeleteTarget(fileRef: string): { bucket: string; path: string } {
@@ -197,6 +244,21 @@ export async function fetchPrivateAiObject(filePath: string): Promise<Response> 
 
   return fetch(
     `${SUPABASE_URL}/storage/v1/object/authenticated/${encodeURIComponent(PRIVATE_AI_STORAGE_BUCKET)}/${safePath}`,
+    {
+      headers: { Authorization: `Bearer ${SUPABASE_SERVICE_KEY}` },
+      cache: 'no-store',
+    },
+  );
+}
+
+/** Fetch one private seller KYC object server-side using the service role. */
+export async function fetchPrivateSellerDocument(filePath: string): Promise<Response> {
+  if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) throw new Error('Supabase storage not configured');
+  const safePath = safeObjectPath(filePath);
+  if (!safePath) throw new Error('Invalid seller document storage path');
+
+  return fetch(
+    `${SUPABASE_URL}/storage/v1/object/authenticated/${encodeURIComponent(PRIVATE_SELLER_STORAGE_BUCKET)}/${safePath}`,
     {
       headers: { Authorization: `Bearer ${SUPABASE_SERVICE_KEY}` },
       cache: 'no-store',
