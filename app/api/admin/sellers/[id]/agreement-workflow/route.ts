@@ -429,6 +429,7 @@ async function loadSellerOr401(id: string) {
       bankName: true,
       region: true,
       craft: true,
+      kycStatus: true,
       autoKycSummary: true,
     },
   });
@@ -482,11 +483,14 @@ async function saveWorkflowState(
     agreementWorkflow: nextWorkflow,
   };
 
+  // Explicit select is required because production intentionally avoids returning
+  // stale Prisma Seller columns that are not present in the live database.
   await prisma.seller.update({
     where: { id: seller.id },
     data: {
       autoKycSummary: nextSummary as any,
     },
+    select: { id: true },
   });
 
   return buildAgreementBundle(nextDocument, nextWorkflow, signatories);
@@ -600,6 +604,7 @@ export async function POST(
     const body = await request.json().catch(() => ({}));
     const action = normalizeAction(body?.action);
     const patch: Record<string, any> = {};
+    const currentWorkflow = toJsonObject(toJsonObject(loaded.seller.autoKycSummary).agreementWorkflow);
 
     if (body?.document !== undefined) patch.currentDocumentJson = body.document;
     if (body?.currentDocumentJson !== undefined) patch.currentDocumentJson = body.currentDocumentJson;
@@ -635,6 +640,12 @@ export async function POST(
         patch.reopenedAt = nowIso();
         break;
       case 'SEND_FOR_SIGNATURE':
+        if (String(loaded.seller.kycStatus) !== 'APPROVED') {
+          return NextResponse.json(
+            { error: 'Approve the seller application before issuing the agreement for signature.' },
+            { status: 400 }
+          );
+        }
         patch.status = 'SENT_FOR_SIGNATURE';
         patch.sentForSignatureAt = nowIso();
         patch.sellerSigningToken = String(body?.sellerSigningToken || '') || createSigningToken();
@@ -644,11 +655,29 @@ export async function POST(
         patch.sellerSignaturePhoneMasked = maskPhone(patch.sellerSignaturePhone);
         break;
       case 'COMPANY_SIGN':
+        if (!String(currentWorkflow.sellerSignedAt || '').trim()) {
+          return NextResponse.json(
+            { error: 'Seller signature must be completed before NEEJEE countersigns the agreement.' },
+            { status: 400 }
+          );
+        }
         patch.status = 'COMPANY_SIGNED';
         patch.companySignedAt = nowIso();
         if (!patch.signedDate) patch.signedDate = new Date().toISOString().slice(0, 10);
         break;
       case 'CLOSE':
+        if (!String(currentWorkflow.sellerSignedAt || '').trim()) {
+          return NextResponse.json(
+            { error: 'Seller signature is required before the agreement can be closed.' },
+            { status: 400 }
+          );
+        }
+        if (!String(currentWorkflow.companySignedAt || '').trim()) {
+          return NextResponse.json(
+            { error: 'NEEJEE countersignature is required before the agreement can be closed.' },
+            { status: 400 }
+          );
+        }
         patch.status = 'CLOSED';
         patch.closedAt = nowIso();
         break;
