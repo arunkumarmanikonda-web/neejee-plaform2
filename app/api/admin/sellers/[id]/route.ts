@@ -18,6 +18,38 @@ function escapeHtml(value: unknown) {
     .replace(/'/g, '&#39;');
 }
 
+function asObject(value: unknown): Record<string, any> {
+  return value && typeof value === 'object' && !Array.isArray(value)
+    ? (value as Record<string, any>)
+    : {};
+}
+
+function getApplicationStatus(seller: any) {
+  const summary = asObject(seller?.autoKycSummary);
+  const onboarding = asObject(summary.onboarding);
+  const explicit = String(onboarding.applicationReviewStatus || '').trim().toUpperCase();
+  if (['PENDING', 'UNDER_REVIEW', 'APPROVED', 'REJECTED'].includes(explicit)) return explicit;
+  if (String(onboarding.applicationSubmittedAt || '').trim()) {
+    if (String(seller?.kycStatus) === 'APPROVED') return 'APPROVED';
+    if (String(seller?.kycStatus) === 'REJECTED') return 'REJECTED';
+    return seller?.user?.emailVerified ? 'UNDER_REVIEW' : 'PENDING';
+  }
+  return String(seller?.kycStatus || 'PENDING');
+}
+
+function summaryWithApplicationStatus(summaryValue: unknown, status: string) {
+  const summary = asObject(summaryValue);
+  const onboarding = asObject(summary.onboarding);
+  return {
+    ...summary,
+    onboarding: {
+      ...onboarding,
+      applicationReviewStatus: status,
+      applicationReviewUpdatedAt: new Date().toISOString(),
+    },
+  };
+}
+
 export async function GET(request: Request, { params }: { params: { id: string } }) {
   const user = await getSession();
   if (!requireRole(user, ['ADMIN', 'SUPER_ADMIN'])) {
@@ -25,6 +57,8 @@ export async function GET(request: Request, { params }: { params: { id: string }
   }
 
   try {
+    // Explicit select is deliberate: live production does not contain every
+    // historical field still present in the generated Prisma Seller model.
     const seller = await prisma.seller.findUnique({
       where: { id: params.id },
       select: {
@@ -35,15 +69,22 @@ export async function GET(request: Request, { params }: { params: { id: string }
         phone: true,
         craft: true,
         region: true,
+        cluster: true,
         kycStatus: true,
         rejectionNote: true,
         story: true,
         portfolio: true,
         pan: true,
         gstin: true,
+        cin: true,
         bankAccount: true,
         ifsc: true,
         bankName: true,
+        yearsOfPractice: true,
+        commissionPct: true,
+        qualityScore: true,
+        payoutCycle: true,
+        isNeejeeSelect: true,
         autoKycSummary: true,
         products: {
           select: { id: true, name: true, status: true },
@@ -54,7 +95,7 @@ export async function GET(request: Request, { params }: { params: { id: string }
           select: { id: true, netPayoutPaise: true, status: true },
         },
         user: {
-          select: { id: true, email: true, role: true },
+          select: { id: true, email: true, role: true, emailVerified: true, phoneVerified: true },
         },
       },
     });
@@ -79,10 +120,7 @@ export async function GET(request: Request, { params }: { params: { id: string }
         phone: seller.phone,
         address:
           ((summary: any) => {
-            const onboarding =
-              summary?.onboarding && typeof summary.onboarding === 'object'
-                ? summary.onboarding
-                : {};
+            const onboarding = asObject(asObject(summary).onboarding);
             const direct = String(onboarding.address || '').trim();
             const parts = [
               onboarding.addressLine1,
@@ -97,18 +135,20 @@ export async function GET(request: Request, { params }: { params: { id: string }
           })(seller.autoKycSummary),
         craft: seller.craft,
         region: seller.region,
+        cluster: seller.cluster,
         kycStatus: seller.kycStatus,
+        applicationStatus: getApplicationStatus(seller),
         rejectionNote: seller.rejectionNote ?? '',
         story: seller.story ?? '',
         portfolio: Array.isArray(seller.portfolio) ? seller.portfolio : [],
-        commissionPct: 20,
-        qualityScore: 0,
-        payoutCycle: '',
-        isNeejeeSelect: false,
-        yearsOfPractice: null,
-        cluster: null,
+        commissionPct: seller.commissionPct,
+        qualityScore: seller.qualityScore,
+        payoutCycle: seller.payoutCycle,
+        isNeejeeSelect: seller.isNeejeeSelect,
+        yearsOfPractice: seller.yearsOfPractice,
         pan: seller.pan ?? '',
         gstin: seller.gstin ?? '',
+        cin: seller.cin ?? '',
         bankAccount: seller.bankAccount ?? '',
         ifsc: seller.ifsc ?? '',
         bankName: seller.bankName ?? '',
@@ -148,13 +188,25 @@ export async function PATCH(request: Request, { params }: { params: { id: string
 
   try {
     const body = await request.json();
+    // Do not include/select the complete Seller model here. A stale Prisma field
+    // (Seller.msmeNumber) is absent from production and previously made even the
+    // Resend Confirmation action crash before it could send an email.
     const existing = await prisma.seller.findUnique({
       where: { id: params.id },
-      include: { user: true },
+      select: {
+        id: true,
+        email: true,
+        contactName: true,
+        businessName: true,
+        kycStatus: true,
+        userId: true,
+        rejectionNote: true,
+        autoKycSummary: true,
+        user: { select: { id: true, email: true, role: true } },
+      },
     });
     if (!existing) return NextResponse.json({ error: 'Not found' }, { status: 404 });
 
-    // Re-send the application acknowledgement on demand.
     if (body.resendApplicationEmail) {
       const delivery = await sendSellerTransactionalEmail({
         to: existing.email,
@@ -164,11 +216,11 @@ export async function PATCH(request: Request, { params }: { params: { id: string
       return NextResponse.json({
         success: true,
         emailSent: true,
+        recipient: existing.email,
         deliveryId: delivery.id,
       });
     }
 
-    // Re-issue the secure portal activation email without creating or emailing passwords.
     if (body.resendActivationEmail) {
       if (String(existing.kycStatus) !== 'APPROVED') {
         return NextResponse.json({ error: 'Seller must be approved before activation can be reissued.' }, { status: 400 });
@@ -177,8 +229,8 @@ export async function PATCH(request: Request, { params }: { params: { id: string
       return NextResponse.json({ success: true, activationEmailSent: true, deliveryId: activation.deliveryId });
     }
 
-    // Clarification is a first-class state. It is not a rejection and the seller
-    // should never be forced to restart their application for a missing answer.
+    // Clarification is not rejection. Keep the application in review, preserve
+    // its dossier, send the query, and audit the communication.
     if (body.requestInfo) {
       const query = String(body.query || '').trim();
       const subject = String(body.subject || 'A clarification is needed for your NEEJEE seller application').trim();
@@ -189,7 +241,11 @@ export async function PATCH(request: Request, { params }: { params: { id: string
       if (String(existing.kycStatus) !== 'APPROVED' && String(existing.kycStatus) !== 'SUSPENDED') {
         await prisma.seller.update({
           where: { id: existing.id },
-          data: { kycStatus: 'UNDER_REVIEW' },
+          data: {
+            kycStatus: 'UNDER_REVIEW',
+            autoKycSummary: summaryWithApplicationStatus(existing.autoKycSummary, 'UNDER_REVIEW') as any,
+          },
+          select: { id: true },
         });
       }
 
@@ -223,9 +279,10 @@ export async function PATCH(request: Request, { params }: { params: { id: string
     }
 
     const data: any = {};
+    // Only columns confirmed in the live Seller table are mutable here.
     [
       'businessName','contactName','phone','craft','region','cluster','story',
-      'yearsOfPractice','logoImage','coverImage','pan','gstin','bankAccount','ifsc','bankName',
+      'yearsOfPractice','pan','gstin','bankAccount','ifsc','bankName',
       'commissionPct','qualityScore','isNeejeeSelect','payoutCycle','rejectionNote',
     ].forEach(k => { if (body[k] !== undefined) data[k] = body[k]; });
 
@@ -251,18 +308,36 @@ export async function PATCH(request: Request, { params }: { params: { id: string
       }
 
       data.kycStatus = body.kycStatus;
+      const reviewStatus = ['PENDING', 'UNDER_REVIEW', 'APPROVED', 'REJECTED'].includes(String(body.kycStatus))
+        ? String(body.kycStatus)
+        : null;
+      if (reviewStatus) {
+        data.autoKycSummary = summaryWithApplicationStatus(existing.autoKycSummary, reviewStatus);
+      }
+
       if (body.kycStatus === 'APPROVED') {
         statusChange = existing.kycStatus === 'REJECTED' ? 'REAPPROVED' : 'APPROVED';
       }
       if (body.kycStatus === 'REJECTED') statusChange = 'REJECTED';
     }
 
-    const seller = await prisma.seller.update({ where: { id: existing.id }, data });
+    const seller = await prisma.seller.update({
+      where: { id: existing.id },
+      data,
+      select: {
+        id: true,
+        businessName: true,
+        contactName: true,
+        email: true,
+        phone: true,
+        kycStatus: true,
+        autoKycSummary: true,
+      },
+    });
     let lifecycleWarning: string | null = null;
 
-    // Approval is the single point at which Seller Studio access is issued.
-    // The seller receives a short-lived activation link and creates their own
-    // password; a permanent password is never generated or emailed.
+    // Approval sends a secure one-time account activation link. The applicant
+    // creates their own password; no reusable password/passcode is emailed.
     if (statusChange === 'APPROVED' || statusChange === 'REAPPROVED') {
       try {
         await issueSellerPortalActivation({
@@ -292,7 +367,7 @@ export async function PATCH(request: Request, { params }: { params: { id: string
 
     return NextResponse.json({ success: true, seller, warning: lifecycleWarning });
   } catch (e: any) {
-    return NextResponse.json({ error: e.message }, { status: 500 });
+    return NextResponse.json({ error: e?.message || 'Seller update failed' }, { status: 500 });
   }
 }
 
@@ -380,7 +455,7 @@ async function getSellerDependencyCounts(sellerId: string) {
     inventorySubmissions,
     categoryCommissions,
     productCommissions,
-    orderReleases
+    orderReleases,
   ] = await Promise.all([
     prisma.product.count({ where: { sellerId } }),
     prisma.payout.count({ where: { sellerId } }),
@@ -459,7 +534,7 @@ export async function DELETE(request: Request, { params }: { params: { id: strin
         await tx.payout.deleteMany({ where: { sellerId: params.id } });
       }
 
-      await tx.seller.delete({ where: { id: params.id } });
+      await tx.seller.delete({ where: { id: params.id }, select: { id: true } });
     });
 
     return NextResponse.json({
