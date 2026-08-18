@@ -8,95 +8,80 @@ type Props = {
 };
 
 const SIZE_MAP = {
-  sm: { width: 72, mark: 34, word: 18, tag: 5.5, gap: 4 },
-  md: { width: 100, mark: 42, word: 24, tag: 7, gap: 5 },
-  lg: { width: 160, mark: 68, word: 36, tag: 10, gap: 8 },
-  xl: { width: 240, mark: 98, word: 52, tag: 13, gap: 10 },
+  sm: 72,
+  md: 100,
+  lg: 160,
+  xl: 240,
 };
 
-const COLOR_MAP = {
-  default: '#0B0B0B',
-  ivory: '#F4EFE6',
-  mono: '#0B0B0B',
-};
+// Owner-supplied NEEJEE primary artwork already stored in NEEJEE's production
+// media bucket. The component crops that master image only. It never rebuilds,
+// retypes, recolours or substitutes the logo.
+const OFFICIAL_LOGO_MASTER =
+  'https://xjqehwvxscoktfecbwse.supabase.co/storage/v1/object/public/neejee-media/legal-entity/1781352832764-ig1uzl-01_neejee_primary_logo.png';
+
+const MASTER_WIDTH = 2048;
+const MASTER_HEIGHT = 1152;
+const CROP_LEFT = 250;
+const CROP_TOP = 300;
+const CROP_WIDTH = 1550;
+const WORDMARK_HEIGHT = 360;
+const LOCKUP_HEIGHT = 600;
 
 /**
- * Canonical NEEJEE brand lockup.
+ * Canonical owner-supplied NEEJEE identity.
  *
- * Approved identity revision: 2026-08-17-arch-lowercase.
- * Never reintroduce the legacy uppercase NEE • JEE / red-bindi mark.
- * Compact placements use the same arch + lowercase wordmark. Full brand
- * signature placements add the permanent line: FOUND. PERSONAL.
+ * Header/compact placements show the NEE · JEE wordmark crop from the master.
+ * Full placements show the same master including FOUND. PERSONAL.
+ * `variant` remains accepted for backwards compatibility but is intentionally
+ * not used: official artwork colours must never be altered in application code.
  */
 export function NeejeeLogo({
   className = '',
   size = 'md',
-  variant = 'default',
+  variant: _variant = 'default',
   showTagline = false,
 }: Props) {
-  const s = SIZE_MAP[size];
-  const color = COLOR_MAP[variant];
+  const width = SIZE_MAP[size];
+  const cropHeight = showTagline ? LOCKUP_HEIGHT : WORDMARK_HEIGHT;
+  const height = (width * cropHeight) / CROP_WIDTH;
+  const masterRenderWidth = (width * MASTER_WIDTH) / CROP_WIDTH;
+  const masterRenderHeight = (width * MASTER_HEIGHT) / CROP_WIDTH;
+  const left = -(width * CROP_LEFT) / CROP_WIDTH;
+  const top = -(width * CROP_TOP) / CROP_WIDTH;
 
   return (
-    <div
+    <span
       className={className}
       role="img"
       aria-label={`NEEJEE — ${NEEJEE_TAGLINE}`}
       style={{
-        width: s.width,
-        color,
-        display: 'inline-flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-        lineHeight: 1,
+        position: 'relative',
+        display: 'inline-block',
+        width,
+        height,
+        overflow: 'hidden',
         flexShrink: 0,
       }}
     >
-      <svg
+      <img
+        src={OFFICIAL_LOGO_MASTER}
+        alt=""
         aria-hidden="true"
-        viewBox="0 0 120 110"
-        width={s.mark}
-        height={Math.round((s.mark * 110) / 120)}
-        focusable="false"
-        style={{ display: 'block' }}
-      >
-        <path
-          fill="currentColor"
-          d="M10 105V57C10 27 32 5 60 5s50 22 50 52v48H84V61c0-14-11-26-24-26S36 47 36 61v44H10Z"
-        />
-      </svg>
-
-      <span
-        aria-hidden="true"
+        decoding="async"
+        draggable={false}
         style={{
-          marginTop: s.gap,
-          fontFamily: 'var(--font-ui), Inter, Helvetica Neue, Arial, sans-serif',
-          fontSize: s.word,
-          fontWeight: 300,
-          letterSpacing: '0.16em',
-          whiteSpace: 'nowrap',
-          textTransform: 'lowercase',
+          position: 'absolute',
+          width: masterRenderWidth,
+          height: masterRenderHeight,
+          maxWidth: 'none',
+          left,
+          top,
+          display: 'block',
+          userSelect: 'none',
+          pointerEvents: 'none',
         }}
-      >
-        neejee
-      </span>
-
-      {showTagline ? (
-        <span
-          aria-hidden="true"
-          style={{
-            marginTop: s.gap + 1,
-            fontFamily: 'var(--font-ui), Inter, Helvetica Neue, Arial, sans-serif',
-            fontSize: s.tag,
-            fontWeight: 400,
-            letterSpacing: '0.34em',
-            whiteSpace: 'nowrap',
-          }}
-        >
-          {NEEJEE_TAGLINE}
-        </span>
-      ) : null}
-    </div>
+      />
+    </span>
   );
 }
