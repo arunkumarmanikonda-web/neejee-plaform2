@@ -14,10 +14,13 @@ interface Seller {
   craft: string | null;
   region: string | null;
   kycStatus: 'PENDING' | 'UNDER_REVIEW' | 'APPROVED' | 'REJECTED' | 'SUSPENDED';
+  applicationStatus: 'PENDING' | 'UNDER_REVIEW' | 'APPROVED' | 'REJECTED';
+  applicationSubmittedAt?: string | null;
   qualityScore: number;
   commissionPct: number;
   isNeejeeSelect: boolean;
   createdAt: string;
+  updatedAt?: string;
   productCount?: number;
 }
 
@@ -30,7 +33,7 @@ export default function AdminSellersPage() {
   const [search, setSearch] = useState('');
 
   useEffect(() => {
-    fetch('/api/admin/sellers')
+    fetch('/api/admin/sellers', { cache: 'no-store' })
       .then(r => r.json())
       .then(d => { setSellers(d.sellers || []); setLoading(false); })
       .catch(() => setLoading(false));
@@ -38,12 +41,14 @@ export default function AdminSellersPage() {
 
   const counts = useMemo(() => {
     const c: Record<string, number> = { ALL: sellers.length };
-    STATUS_TABS.slice(1).forEach(s => { c[s] = sellers.filter(x => x.kycStatus === s).length; });
+    STATUS_TABS.slice(1).forEach(s => {
+      c[s] = sellers.filter(x => x.applicationStatus === s).length;
+    });
     return c;
   }, [sellers]);
 
   const filtered = useMemo(() => {
-    let list = filter === 'ALL' ? sellers : sellers.filter(s => s.kycStatus === filter);
+    let list = filter === 'ALL' ? sellers : sellers.filter(s => s.applicationStatus === filter);
     if (search) {
       const q = search.toLowerCase();
       list = list.filter(s =>
@@ -89,7 +94,8 @@ export default function AdminSellersPage() {
           <div className="text-center py-16 border border-dashed border-mitti/30">
             <Store className="w-10 h-10 text-mitti/40 mx-auto mb-4" />
             <p className="font-display text-2xl text-kohl">No sellers in this view</p>
-            {filter === 'PENDING' && <p className="text-mitti mt-2 text-sm">When artisans apply, they appear here for KYC review.</p>}
+            {filter === 'PENDING' && <p className="text-mitti mt-2 text-sm">Submitted applications awaiting email verification appear here.</p>}
+            {filter === 'UNDER_REVIEW' && <p className="text-mitti mt-2 text-sm">Email-verified applications appear here for NEEJEE review.</p>}
           </div>
         ) : (
           <table className="w-full">
@@ -98,8 +104,8 @@ export default function AdminSellersPage() {
                 <th className="p-3 label text-mitti">BUSINESS</th>
                 <th className="p-3 label text-mitti">CRAFT · REGION</th>
                 <th className="p-3 label text-mitti">CONTACT</th>
-                <th className="p-3 label text-mitti">STATUS</th>
-                <th className="p-3 label text-mitti">COMM.</th>
+                <th className="p-3 label text-mitti">APPLICATION</th>
+                <th className="p-3 label text-mitti">SELLER STATUS</th>
                 <th className="p-3 label text-mitti">APPLIED</th>
                 <th className="p-3 text-right label text-mitti">ACTION</th>
               </tr>
@@ -120,15 +126,19 @@ export default function AdminSellersPage() {
                     <span className="text-xs">{s.phone}</span>
                   </td>
                   <td className="p-3">
-                    <StatusBadge status={s.kycStatus} />
+                    <StatusBadge status={s.applicationStatus} />
                     {s.isNeejeeSelect && (
                       <p className="text-[10px] mt-1 inline-flex items-center gap-1 text-madder">
                         <Check className="w-3 h-3" /> NEEJEE SELECT
                       </p>
                     )}
                   </td>
-                  <td className="p-3 text-sm text-kohl">{s.commissionPct}%</td>
-                  <td className="p-3 text-xs text-mitti">{new Date(s.createdAt).toLocaleDateString('en-IN')}</td>
+                  <td className="p-3">
+                    <StatusBadge status={s.kycStatus} subtle />
+                  </td>
+                  <td className="p-3 text-xs text-mitti">
+                    {new Date(s.applicationSubmittedAt || s.createdAt).toLocaleDateString('en-IN')}
+                  </td>
                   <td className="p-3 text-right">
                     <Link href={`/admin/sellers/${s.id}`} className="text-madder hover:text-kohl text-sm">REVIEW →</Link>
                   </td>
@@ -142,7 +152,7 @@ export default function AdminSellersPage() {
   );
 }
 
-function StatusBadge({ status }: { status: string }) {
+function StatusBadge({ status, subtle = false }: { status: string; subtle?: boolean }) {
   const map: Record<string, string> = {
     PENDING: 'bg-haldi/20 text-mitti',
     UNDER_REVIEW: 'bg-banarasi/20 text-mitti',
@@ -150,5 +160,6 @@ function StatusBadge({ status }: { status: string }) {
     REJECTED: 'bg-madder/20 text-madder',
     SUSPENDED: 'bg-mitti/20 text-mitti',
   };
-  return <span className={`text-[10px] tracking-wider px-2 py-1 ${map[status] || 'bg-beige text-mitti'}`}>{status.replace(/_/g, ' ')}</span>;
+  const cls = subtle ? 'bg-mitti/10 text-mitti' : (map[status] || 'bg-beige text-mitti');
+  return <span className={`text-[10px] tracking-wider px-2 py-1 ${cls}`}>{status.replace(/_/g, ' ')}</span>;
 }
