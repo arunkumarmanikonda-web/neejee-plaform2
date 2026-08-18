@@ -67,11 +67,14 @@ export async function updateAgreementWorkflow(
     agreementWorkflow: nextWorkflow,
   };
 
+  // Explicit select prevents Prisma from trying to RETURN stale Seller columns
+  // that are present in the generated client but absent from the live database.
   await prisma.seller.update({
     where: { id: sellerId },
     data: {
       autoKycSummary: nextSummary as any,
     },
+    select: { id: true },
   });
 
   return {
