@@ -153,7 +153,7 @@ function UploadCard(props: UploadCardProps) {
           <input
             type="file"
             className="hidden"
-            accept={props.accept || '.pdf,.png,.jpg,.jpeg,.webp,.csv,.txt'}
+            accept={props.accept || '.pdf,.png,.jpg,.jpeg,.jfif,.webp,.heic,.heif,.csv,.txt,image/*'}
             onChange={(e) => handleFileChange(e.target.files?.[0] || null)}
             disabled={props.uploading}
           />
@@ -187,6 +187,8 @@ export default function SellerApplyPage() {
   const [documents, setDocuments] = useState<UploadedApplicationDocument[]>([]);
   const [validation, setValidation] = useState<ValidationResult | null>(null);
   const [loadingPhoneOtp, setLoadingPhoneOtp] = useState(false);
+  const [verifyingPhoneOtp, setVerifyingPhoneOtp] = useState(false);
+  const [phoneVerified, setPhoneVerified] = useState(false);
   const [validating, setValidating] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [uploadingKey, setUploadingKey] = useState<string | null>(null);
@@ -228,6 +230,7 @@ export default function SellerApplyPage() {
 
   async function requestPhoneOtp() {
     setLoadingPhoneOtp(true);
+    setPhoneVerified(false);
     setNotice('');
     try {
       const res = await fetch('/api/seller/application/request-phone-otp', {
@@ -242,11 +245,46 @@ export default function SellerApplyPage() {
       const data = await res.json().catch(() => null);
       if (!res.ok) throw new Error(data?.error || 'Failed to send mobile OTP');
 
-      setNotice('Mobile OTP sent successfully.');
+      setNotice('Mobile OTP sent successfully. Enter the 6-digit OTP and press Continue.');
     } catch (e: any) {
       alert(e?.message || 'Failed to send mobile OTP');
     } finally {
       setLoadingPhoneOtp(false);
+    }
+  }
+
+  async function verifyPhoneOtpAndContinue() {
+    if (!form.contactName.trim() || !form.email.trim() || !form.phone.trim()) return;
+    if (form.phoneOtp.length !== 6) {
+      alert('Please enter the 6-digit mobile OTP.');
+      return;
+    }
+
+    setVerifyingPhoneOtp(true);
+    setNotice('');
+    try {
+      const res = await fetch('/api/seller/application/verify-phone-otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          phone: form.phone,
+          code: form.phoneOtp,
+        }),
+      });
+
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        setPhoneVerified(false);
+        throw new Error(data?.error || 'Mobile OTP verification failed');
+      }
+
+      setPhoneVerified(true);
+      setNotice('Mobile number verified successfully.');
+      setStep(1);
+    } catch (e: any) {
+      alert(e?.message || 'Mobile OTP verification failed');
+    } finally {
+      setVerifyingPhoneOtp(false);
     }
   }
 
@@ -307,7 +345,6 @@ export default function SellerApplyPage() {
           contactName: form.contactName,
           email: form.email,
           phone: form.phone,
-          phoneOtp: form.phoneOtp,
           pan: form.pan,
           gstin: form.gstin || null,
           cin: form.cin || null,
@@ -469,7 +506,10 @@ export default function SellerApplyPage() {
                       className="w-full rounded-xl border border-stone-300 px-4 py-3 text-sm outline-none focus:border-stone-900"
                       placeholder="Mobile number"
                       value={form.phone}
-                      onChange={(e) => setField('phone', e.target.value)}
+                      onChange={(e) => {
+                        setField('phone', e.target.value);
+                        setPhoneVerified(false);
+                      }}
                     />
                   </div>
                 </div>
@@ -477,14 +517,14 @@ export default function SellerApplyPage() {
                 <div className="rounded-2xl border border-stone-200 p-5">
                   <h2 className="text-lg font-semibold text-stone-900">Mobile OTP</h2>
                   <p className="mt-2 text-sm text-stone-600">
-                    Send OTP to the entered mobile number and keep the code ready for final submission.
+                    Send the OTP, enter the 6-digit code below, then press Continue. Continue verifies the OTP automatically before moving to Business details.
                   </p>
 
                   <div className="mt-4 flex flex-col gap-3 sm:flex-row">
                     <button
                       type="button"
                       onClick={requestPhoneOtp}
-                      disabled={loadingPhoneOtp || !canGoBusiness}
+                      disabled={loadingPhoneOtp || verifyingPhoneOtp || !canGoBusiness}
                       className="rounded-xl bg-stone-900 px-4 py-3 text-sm font-medium text-white disabled:cursor-not-allowed disabled:bg-stone-300"
                     >
                       {loadingPhoneOtp ? 'Sending OTP...' : 'Send mobile OTP'}
@@ -494,11 +534,20 @@ export default function SellerApplyPage() {
                   <div className="mt-4">
                     <input
                       className="w-full rounded-xl border border-stone-300 px-4 py-3 text-sm outline-none focus:border-stone-900"
-                      placeholder="Enter mobile OTP"
+                      placeholder="Enter 6-digit mobile OTP"
                       value={form.phoneOtp}
-                      onChange={(e) => setField('phoneOtp', e.target.value.replace(/\D+/g, '').slice(0, 8))}
+                      onChange={(e) => {
+                        setField('phoneOtp', e.target.value.replace(/\D+/g, '').slice(0, 6));
+                        setPhoneVerified(false);
+                      }}
                     />
                   </div>
+
+                  {phoneVerified ? (
+                    <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+                      Mobile number verified.
+                    </div>
+                  ) : null}
                 </div>
               </div>
             ) : null}
@@ -702,7 +751,7 @@ export default function SellerApplyPage() {
                     <button
                       type="button"
                       onClick={submitApplication}
-                      disabled={submitting || !validation?.ok || !form.phoneOtp.trim()}
+                      disabled={submitting || !validation?.ok || !phoneVerified}
                       className="rounded-xl bg-emerald-700 px-4 py-3 text-sm font-medium text-white disabled:cursor-not-allowed disabled:bg-emerald-300"
                     >
                       {submitting ? 'Submitting...' : 'Submit application'}
@@ -877,19 +926,22 @@ export default function SellerApplyPage() {
             <button
               type="button"
               onClick={() => {
-                if (step === 0 && canGoBusiness) setStep(1);
-                else if (step === 1 && canGoDocuments) setStep(2);
+                if (step === 0) {
+                  void verifyPhoneOtpAndContinue();
+                  return;
+                }
+                if (step === 1 && canGoDocuments) setStep(2);
                 else if (step === 2) setStep(3);
                 else if (step === 3 && sellerId) setStep(4);
               }}
               disabled={
-                (step === 0 && !canGoBusiness) ||
+                (step === 0 && (!canGoBusiness || form.phoneOtp.length !== 6 || verifyingPhoneOtp || loadingPhoneOtp)) ||
                 (step === 1 && !canGoDocuments) ||
                 step === 4
               }
               className="rounded-xl bg-stone-900 px-4 py-3 text-sm font-medium text-white disabled:cursor-not-allowed disabled:bg-stone-300"
             >
-              {step === 4 ? 'Done' : 'Continue'}
+              {step === 0 && verifyingPhoneOtp ? 'Verifying OTP...' : step === 4 ? 'Done' : 'Continue'}
             </button>
           </div>
         </div>
