@@ -42,6 +42,7 @@ import {
 } from 'lucide-react';
 import { NeejeeLogo } from '@/components/brand/Logo';
 import AdminCommandPalette from '@/components/admin/AdminCommandPalette';
+import SellerCommercialLifecycleDock from '@/components/admin/SellerCommercialLifecycleDock';
 import { getSession } from '@/lib/auth';
 import { hasFinancePerm } from '@/lib/finance/roles';
 
@@ -313,6 +314,7 @@ export default async function AdminLayout({
 
       <main className="min-w-0 overflow-x-auto p-4 sm:p-6 md:p-8 xl:p-12">
         <AdminCommandPalette user={user} />
+        <SellerCommercialLifecycleDock />
         {children}
       </main>
     </div>
