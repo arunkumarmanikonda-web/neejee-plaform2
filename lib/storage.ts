@@ -2,12 +2,30 @@
 // Public catalogue/admin media stays in `neejee-media` for CDN delivery.
 // Customer AI portraits/room photos and seller KYC documents live in private buckets.
 
-const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || '';
-const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
-export const PUBLIC_STORAGE_BUCKET = process.env.SUPABASE_STORAGE_BUCKET || 'neejee-media';
-export const PRIVATE_AI_STORAGE_BUCKET = process.env.SUPABASE_PRIVATE_AI_BUCKET || 'neejee-private-ai';
+function normalizeEnvValue(value: string | undefined): string {
+  let normalized = String(value || '').trim();
+  if (
+    (normalized.startsWith('"') && normalized.endsWith('"')) ||
+    (normalized.startsWith("'") && normalized.endsWith("'"))
+  ) {
+    normalized = normalized.slice(1, -1).trim();
+  }
+  return normalized;
+}
+
+const DEFAULT_SUPABASE_URL = 'https://xjqehwvxscoktfecbwse.supabase.co';
+const SUPABASE_URL = (
+  normalizeEnvValue(process.env.NEXT_PUBLIC_SUPABASE_URL) ||
+  normalizeEnvValue(process.env.SUPABASE_URL) ||
+  DEFAULT_SUPABASE_URL
+).replace(/\/+$/, '');
+const SUPABASE_SERVICE_KEY = normalizeEnvValue(process.env.SUPABASE_SERVICE_ROLE_KEY);
+export const PUBLIC_STORAGE_BUCKET =
+  normalizeEnvValue(process.env.SUPABASE_STORAGE_BUCKET) || 'neejee-media';
+export const PRIVATE_AI_STORAGE_BUCKET =
+  normalizeEnvValue(process.env.SUPABASE_PRIVATE_AI_BUCKET) || 'neejee-private-ai';
 export const PRIVATE_SELLER_STORAGE_BUCKET =
-  process.env.SUPABASE_PRIVATE_SELLER_DOCS_BUCKET || 'neejee-private-seller-docs';
+  normalizeEnvValue(process.env.SUPABASE_PRIVATE_SELLER_DOCS_BUCKET) || 'neejee-private-seller-docs';
 const PRIVATE_MARKER = 'private-ai:';
 const PRIVATE_SELLER_ROUTE_PREFIX = '/api/admin/seller-documents/';
 
