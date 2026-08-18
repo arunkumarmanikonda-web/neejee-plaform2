@@ -14,6 +14,48 @@ function generateCode() {
   return code;
 }
 
+function escapeHtml(value: unknown) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function sellerApplicationAcknowledgement(input: {
+  contactName?: string | null;
+  businessName?: string | null;
+  sellerId: string;
+}) {
+  const firstName = escapeHtml(String(input.contactName || 'there').trim().split(/\s+/)[0] || 'there');
+  const businessName = escapeHtml(input.businessName || 'your business');
+  const reference = escapeHtml(input.sellerId);
+
+  return `
+    <div style="max-width:580px;margin:0 auto;background:#ffffff;font-family:Georgia,serif;color:#1A1613;">
+      <div style="background:#1A1613;padding:34px 24px;text-align:center;">
+        <div style="color:#F4EFE6;font-size:30px;letter-spacing:.18em;">NEE<span style="display:inline-block;width:7px;height:7px;background:#8B2E2A;border-radius:50%;margin:0 8px;vertical-align:middle"></span>JEE</div>
+        <div style="color:#A47E3B;font-size:10px;letter-spacing:.32em;margin-top:12px;">FOUND. PERSONAL.</div>
+      </div>
+      <div style="padding:44px 34px;">
+        <p style="font-size:10px;letter-spacing:.3em;color:#8B2E2A;margin:0 0 12px;">APPLICATION RECEIVED</p>
+        <h1 style="font-size:30px;font-weight:400;margin:0 0 18px;">Thank you, ${firstName}.</h1>
+        <p style="font-size:15px;line-height:1.8;margin:0 0 18px;">Your seller application for <strong>${businessName}</strong> has been successfully submitted and your communication email has been verified.</p>
+        <p style="font-size:14px;line-height:1.8;color:#6B6862;margin:0 0 18px;">Our team will now review the application, KYC information and supporting documents. If we need any clarification or an additional document, we will write to this same communication email rather than asking you to start again.</p>
+        <p style="font-size:14px;line-height:1.8;color:#6B6862;margin:0 0 18px;">Once the application is approved, we will send a separate activation message with secure access instructions for NEEJEE Seller Studio. We will never send a permanent password by email.</p>
+        <div style="margin-top:26px;padding:16px 18px;background:#F4EFE6;font-size:12px;line-height:1.7;color:#6B6862;">
+          Application reference: <strong style="color:#1A1613;">${reference}</strong>
+        </div>
+        <p style="font-size:13px;line-height:1.8;color:#1A1613;margin:28px 0 0;font-style:italic;">With respect for your work,<br/>NEEJEE</p>
+      </div>
+      <div style="background:#F4EFE6;padding:22px;text-align:center;color:#6B6862;font-size:11px;">
+        <a href="https://www.neejee.com" style="color:#8B2E2A;text-decoration:none;">neejee.com</a>
+      </div>
+    </div>
+  `;
+}
+
 export async function requestSellerEmailOtp(input: {
   sellerId: string;
   email: string;
@@ -65,7 +107,7 @@ export async function requestSellerEmailOtp(input: {
       html: `
         <div style="font-family:Arial,sans-serif;color:#1f1c18;line-height:1.6">
           <h2>Verify your seller application email</h2>
-          <p>Hello ${String(input.recipientName || 'there')},</p>
+          <p>Hello ${escapeHtml(input.recipientName || 'there')},</p>
           <p>Your verification code is:</p>
           <p style="font-size:28px;font-weight:700;letter-spacing:6px">${code}</p>
           <p>This code expires in ${EMAIL_OTP_TTL_MIN} minutes.</p>
@@ -130,7 +172,13 @@ export async function verifySellerEmailOtp(input: {
 
   const seller = await prisma.seller.findUnique({
     where: { id: input.sellerId },
-    select: { id: true, userId: true },
+    select: {
+      id: true,
+      userId: true,
+      email: true,
+      contactName: true,
+      businessName: true,
+    },
   });
 
   if (!seller?.userId) {
@@ -142,7 +190,32 @@ export async function verifySellerEmailOtp(input: {
     data: { emailVerified: now },
   });
 
-  await syncSellerKycStatus(seller.id);
+  const status = await syncSellerKycStatus(seller.id);
 
-  return { ok: true as const };
+  let acknowledgementSent = false;
+  try {
+    const delivery = await sendSellerTransactionalEmail({
+      to: seller.email,
+      subject: 'NEEJEE seller application received',
+      html: sellerApplicationAcknowledgement({
+        contactName: seller.contactName,
+        businessName: seller.businessName,
+        sellerId: seller.id,
+      }),
+    });
+    acknowledgementSent = Boolean(delivery.ok);
+  } catch (error: any) {
+    // Email verification itself remains successful even if the courtesy acknowledgement
+    // cannot be delivered. The failure is logged for operations and can be resent later.
+    console.warn('[seller-onboarding] application acknowledgement failed', {
+      sellerId: seller.id,
+      message: String(error?.message || 'unknown error').slice(0, 240),
+    });
+  }
+
+  return {
+    ok: true as const,
+    acknowledgementSent,
+    status: status?.kycStatus || null,
+  };
 }
