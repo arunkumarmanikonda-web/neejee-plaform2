@@ -38,7 +38,10 @@ const MIME_BY_EXTENSION: Record<string, string[]> = {
   '.png': ['image/png'],
   '.jpg': ['image/jpeg'],
   '.jpeg': ['image/jpeg'],
+  '.jfif': ['image/jpeg'],
   '.webp': ['image/webp'],
+  '.heic': ['image/heic', 'image/heif'],
+  '.heif': ['image/heif', 'image/heic'],
   '.csv': ['text/csv', 'application/csv', 'application/vnd.ms-excel'],
   '.txt': ['text/plain'],
 };
@@ -143,8 +146,6 @@ export async function POST(request: Request) {
 
     const buffer = Buffer.from(await file.arrayBuffer());
 
-    // Extract and validate document intelligence before persisting the object so
-    // malformed files do not leave avoidable orphaned KYC objects behind.
     const extractedText = await extractTextFromDocument({
       buffer,
       mimeType: validatedFile.mimeType,
