@@ -1,18 +1,27 @@
 import path from 'path';
-import { randomUUID } from 'crypto';
+import { createHash, randomUUID } from 'crypto';
 import { NextResponse } from 'next/server';
 import {
   extractStructuredFields,
   extractTextFromDocument,
   type ApplicationDocType,
 } from '@/lib/seller-onboarding/document-intel';
-import { uploadPrivateSellerDocument } from '@/lib/storage';
+import { prisma } from '@/lib/prisma';
+import { privateSellerDocumentUrl } from '@/lib/storage';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
 const MAX_FILE_BYTES = 8 * 1024 * 1024;
 const STORAGE_PREFIX = 'seller-applications/intake/';
+const SUPABASE_PROJECT_URL = 'https://xjqehwvxscoktfecbwse.supabase.co';
+const SELLER_UPLOAD_FUNCTION_URL = `${SUPABASE_PROJECT_URL}/functions/v1/seller-private-upload`;
+
+// The anon key is a publishable project credential. It is intentionally safe to
+// embed in server/client applications; the Edge Function still requires a short-
+// lived, one-time database-backed upload ticket before it will write any object.
+const SUPABASE_ANON_KEY =
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhqcWVod3Z4c2Nva3RmZWNid3NlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk3MDIzODMsImV4cCI6MjA5NTI3ODM4M30.FYrQlJ2GvZ7f6svN0nqdmkhy6ETtR_L6MlBAcmc8Wc8';
 
 const ALLOWED_DOC_TYPES: ApplicationDocType[] = [
   'PAN_CARD',
@@ -46,6 +55,62 @@ function validateFile(file: File): { ext: string; mimeType: string } | null {
     ext,
     mimeType: suppliedMime || allowedMimes[0],
   };
+}
+
+async function uploadPrivateSellerDocumentViaEdge(input: {
+  storageKey: string;
+  file: File;
+  mimeType: string;
+}): Promise<{ path: string; url: string }> {
+  const ticket = `${randomUUID()}${randomUUID()}`;
+  const tokenHash = createHash('sha256').update(ticket).digest('hex');
+  const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
+
+  await prisma.$executeRawUnsafe(
+    `INSERT INTO public._seller_upload_ticket
+      (token_hash, object_path, mime_type, file_size, expires_at)
+     VALUES ($1, $2, $3, $4, $5)`,
+    tokenHash,
+    input.storageKey,
+    input.mimeType,
+    input.file.size,
+    expiresAt,
+  );
+
+  try {
+    const edgeForm = new FormData();
+    edgeForm.append('ticket', ticket);
+    edgeForm.append('objectPath', input.storageKey);
+    edgeForm.append('mimeType', input.mimeType);
+    edgeForm.append('file', input.file);
+
+    const response = await fetch(SELLER_UPLOAD_FUNCTION_URL, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+        apikey: SUPABASE_ANON_KEY,
+      },
+      body: edgeForm,
+      cache: 'no-store',
+    });
+
+    const payload = await response.json().catch(() => null);
+    if (!response.ok || !payload?.ok || payload?.path !== input.storageKey) {
+      throw new Error(payload?.error || `Private seller storage upload failed (${response.status})`);
+    }
+
+    return {
+      path: input.storageKey,
+      url: privateSellerDocumentUrl(input.storageKey),
+    };
+  } finally {
+    // Tickets are one-time and short-lived. Remove the row after every completed
+    // request path (success or failure) so intake authorization cannot accumulate.
+    await prisma.$executeRawUnsafe(
+      'DELETE FROM public._seller_upload_ticket WHERE token_hash = $1',
+      tokenHash,
+    ).catch(() => undefined);
+  }
 }
 
 export async function POST(request: Request) {
@@ -88,11 +153,11 @@ export async function POST(request: Request) {
     const extractedFields = extractStructuredFields(extractedText);
 
     const storageKey = `${STORAGE_PREFIX}${Date.now()}-${randomUUID()}${validatedFile.ext}`;
-    const stored = await uploadPrivateSellerDocument(
+    const stored = await uploadPrivateSellerDocumentViaEdge({
       storageKey,
-      buffer,
-      validatedFile.mimeType,
-    );
+      file,
+      mimeType: validatedFile.mimeType,
+    });
 
     return NextResponse.json({
       ok: true,
