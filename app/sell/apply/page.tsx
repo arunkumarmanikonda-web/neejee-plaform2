@@ -78,6 +78,8 @@ const steps = [
 const initialForm = {
   businessName: '',
   contactName: '',
+  officialEmail: '',
+  // email is the communication/login email used by existing seller systems.
   email: '',
   phone: '',
   phoneOtp: '',
@@ -254,7 +256,7 @@ export default function SellerApplyPage() {
   }
 
   async function verifyPhoneOtpAndContinue() {
-    if (!form.contactName.trim() || !form.email.trim() || !form.phone.trim()) return;
+    if (!form.contactName.trim() || !form.officialEmail.trim() || !form.email.trim() || !form.phone.trim()) return;
     if (form.phoneOtp.length !== 6) {
       alert('Please enter the 6-digit mobile OTP.');
       return;
@@ -343,6 +345,7 @@ export default function SellerApplyPage() {
         body: JSON.stringify({
           businessName: form.businessName,
           contactName: form.contactName,
+          officialEmail: form.officialEmail,
           email: form.email,
           phone: form.phone,
           pan: form.pan,
@@ -377,7 +380,7 @@ export default function SellerApplyPage() {
       setStep(4);
       setNotice(
         data.emailOtpRequested
-          ? 'Application submitted. Email OTP has been sent.'
+          ? `Application submitted. Email OTP has been sent to ${form.email}.`
           : `Application submitted. ${data.emailOtpError || 'Please request email OTP manually.'}`,
       );
     } catch (e: any) {
@@ -402,7 +405,7 @@ export default function SellerApplyPage() {
       const data = await res.json().catch(() => null);
       if (!res.ok) throw new Error(data?.error || 'Failed to send email OTP');
 
-      setNotice('Email OTP sent successfully.');
+      setNotice(`Email OTP sent successfully to ${form.email}.`);
     } catch (e: any) {
       alert(e?.message || 'Failed to send email OTP');
     } finally {
@@ -429,7 +432,7 @@ export default function SellerApplyPage() {
       if (!res.ok) throw new Error(data?.error || data?.reason || 'Failed to verify email OTP');
 
       setEmailVerified(true);
-      setNotice('Email verified. Seller application is now ready for review.');
+      setNotice('Communication email verified. Seller application is now ready for review.');
     } catch (e: any) {
       alert(e?.message || 'Failed to verify email OTP');
     } finally {
@@ -437,7 +440,12 @@ export default function SellerApplyPage() {
     }
   }
 
-  const canGoBusiness = form.contactName.trim() && form.email.trim() && form.phone.trim();
+  const canGoBusiness =
+    form.contactName.trim() &&
+    form.officialEmail.trim() &&
+    form.email.trim() &&
+    form.phone.trim();
+
   const canGoDocuments =
     form.businessName.trim() &&
     form.pan.trim() &&
@@ -488,6 +496,9 @@ export default function SellerApplyPage() {
               <div className="grid gap-6 lg:grid-cols-2">
                 <div className="rounded-2xl border border-stone-200 p-5">
                   <h2 className="text-lg font-semibold text-stone-900">Contact details</h2>
+                  <p className="mt-2 text-sm text-stone-600">
+                    Capture both the business identity email and the address to be used for operational communication.
+                  </p>
                   <div className="mt-4 space-y-4">
                     <input
                       className="w-full rounded-xl border border-stone-300 px-4 py-3 text-sm outline-none focus:border-stone-900"
@@ -497,11 +508,23 @@ export default function SellerApplyPage() {
                     />
                     <input
                       className="w-full rounded-xl border border-stone-300 px-4 py-3 text-sm outline-none focus:border-stone-900"
-                      placeholder="Email"
+                      placeholder="Official business email"
                       type="email"
-                      value={form.email}
-                      onChange={(e) => setField('email', e.target.value)}
+                      value={form.officialEmail}
+                      onChange={(e) => setField('officialEmail', e.target.value)}
                     />
+                    <div>
+                      <input
+                        className="w-full rounded-xl border border-stone-300 px-4 py-3 text-sm outline-none focus:border-stone-900"
+                        placeholder="Communication email"
+                        type="email"
+                        value={form.email}
+                        onChange={(e) => setField('email', e.target.value)}
+                      />
+                      <div className="mt-1 text-xs text-stone-500">
+                        Email OTP, application acknowledgements and seller communications are sent here. It may be the same as the official email.
+                      </div>
+                    </div>
                     <input
                       className="w-full rounded-xl border border-stone-300 px-4 py-3 text-sm outline-none focus:border-stone-900"
                       placeholder="Mobile number"
@@ -870,7 +893,7 @@ export default function SellerApplyPage() {
               <div className="max-w-2xl rounded-2xl border border-stone-200 p-5">
                 <h2 className="text-lg font-semibold text-stone-900">Email OTP verification</h2>
                 <p className="mt-2 text-sm text-stone-600">
-                  Your application has been created. Verify your email to move the seller KYC status toward review.
+                  Your application has been created. The verification code and future seller communications are sent to the communication email: <span className="font-medium text-stone-900">{form.email}</span>.
                 </p>
 
                 <div className="mt-4 flex flex-wrap gap-3">
@@ -906,7 +929,7 @@ export default function SellerApplyPage() {
 
                 {emailVerified ? (
                   <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
-                    Email verification complete. The seller application is ready for Neejee review.
+                    Communication email verification complete. The seller application is ready for Neejee review.
                   </div>
                 ) : null}
               </div>
