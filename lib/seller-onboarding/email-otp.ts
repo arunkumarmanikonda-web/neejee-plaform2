@@ -23,6 +23,12 @@ function escapeHtml(value: unknown) {
     .replace(/'/g, '&#39;');
 }
 
+function asObject(value: unknown): Record<string, any> {
+  return value && typeof value === 'object' && !Array.isArray(value)
+    ? (value as Record<string, any>)
+    : {};
+}
+
 function sellerApplicationAcknowledgement(input: {
   contactName?: string | null;
   businessName?: string | null;
@@ -123,7 +129,6 @@ export async function requestSellerEmailOtp(input: {
       recipient: input.email,
     };
   } catch (error) {
-    // A code that was never delivered must never remain valid.
     await prisma.sellerMagicToken.update({
       where: { id: token.id },
       data: { consumedAt: new Date() },
@@ -178,6 +183,7 @@ export async function verifySellerEmailOtp(input: {
       email: true,
       contactName: true,
       businessName: true,
+      autoKycSummary: true,
     },
   });
 
@@ -188,6 +194,27 @@ export async function verifySellerEmailOtp(input: {
   await prisma.user.update({
     where: { id: seller.userId },
     data: { emailVerified: now },
+  });
+
+  // Email verification is the point at which a submitted application enters the
+  // human review queue. Persist that review state separately from operational
+  // seller status so admin tabs cannot confuse an application with an old seller.
+  const summary = asObject(seller.autoKycSummary);
+  const onboarding = asObject(summary.onboarding);
+  await prisma.seller.update({
+    where: { id: seller.id },
+    data: {
+      autoKycSummary: {
+        ...summary,
+        onboarding: {
+          ...onboarding,
+          applicationReviewStatus: 'UNDER_REVIEW',
+          applicationReviewUpdatedAt: now.toISOString(),
+          emailVerifiedAt: now.toISOString(),
+        },
+      } as any,
+    },
+    select: { id: true },
   });
 
   const status = await syncSellerKycStatus(seller.id);
@@ -205,8 +232,6 @@ export async function verifySellerEmailOtp(input: {
     });
     acknowledgementSent = Boolean(delivery.ok);
   } catch (error: any) {
-    // Email verification itself remains successful even if the courtesy acknowledgement
-    // cannot be delivered. The failure is logged for operations and can be resent later.
     console.warn('[seller-onboarding] application acknowledgement failed', {
       sellerId: seller.id,
       message: String(error?.message || 'unknown error').slice(0, 240),
