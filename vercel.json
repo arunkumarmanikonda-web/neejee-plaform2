@@ -16,6 +16,10 @@
     {
       "path": "/api/cron/autonomy-review",
       "schedule": "41 3 * * 1,4"
+    },
+    {
+      "path": "/api/cron/seller-commercial-lifecycle",
+      "schedule": "13 * * * *"
     }
   ]
 }
