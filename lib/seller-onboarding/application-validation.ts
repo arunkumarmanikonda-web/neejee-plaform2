@@ -3,6 +3,7 @@ import {
   evaluateSellerAutoKyc,
   gstMatchesPan,
 } from '@/lib/seller-onboarding/validation';
+import { privateSellerDocumentPathFromUrl } from '@/lib/storage';
 
 type ProviderResult = {
   available: boolean;
@@ -10,6 +11,8 @@ type ProviderResult = {
   data: any;
   error?: string | null;
 };
+
+const SELLER_APPLICATION_STORAGE_PREFIX = 'seller-applications/intake/';
 
 function normalizeCompare(value: unknown): string {
   return String(value || '')
@@ -90,6 +93,23 @@ export async function validateSellerApplicationPackage(input: {
   errors.push(...baseChecks.errors);
 
   const docs = Array.isArray(input.documents) ? input.documents : [];
+
+  // Never trust the browser to tell us where a KYC document lives. Every
+  // document presented to validation/final submission must be the opaque app
+  // URL produced by our private-upload endpoint and must decode back to the
+  // exact private Storage key returned for that upload.
+  docs.forEach((doc, index) => {
+    const storedPath = privateSellerDocumentPathFromUrl(doc.fileUrl);
+    const storageKey = String(doc.storageKey || '').trim();
+    if (
+      !storedPath ||
+      !storedPath.startsWith(SELLER_APPLICATION_STORAGE_PREFIX) ||
+      storageKey !== storedPath
+    ) {
+      errors.push(`Document ${index + 1} has an invalid or tampered storage reference`);
+    }
+  });
+
   const firstDoc = (docType: string) => docs.find((doc) => doc.docType === docType);
   const firstDocBy = (predicate: (doc: UploadedApplicationDocument) => boolean) => docs.find(predicate);
 
