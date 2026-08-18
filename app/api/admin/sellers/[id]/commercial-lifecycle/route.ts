@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getSession, requireRole } from '@/lib/auth';
 import { sendSellerTransactionalEmail } from '@/lib/seller-onboarding/transactional-email';
+import { buildSellerAgreementMaster } from '@/lib/seller-agreement-master';
 import {
   buildWorkflowForInstrument,
   createCommercialInstrument,
@@ -19,6 +20,12 @@ import {
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
+
+function asObject(value: unknown): Record<string, any> {
+  return value && typeof value === 'object' && !Array.isArray(value)
+    ? (value as Record<string, any>)
+    : {};
+}
 
 function escapeHtml(value: unknown) {
   return String(value ?? '')
@@ -194,8 +201,27 @@ export async function POST(request: Request, { params }: { params: { id: string 
     const allInstruments = await listCommercialInstruments(seller.id);
     const prior = allInstruments.filter((item) => item.id !== instrument.id);
     const references = relationshipReferences(prior);
+
+    const masterAgreement = await buildSellerAgreementMaster(seller.id);
+    const summaryRoot = asObject(seller.autoKycSummary);
+    const existingWorkflow = asObject(summaryRoot.agreementWorkflow);
+    const existingDocument = asObject(existingWorkflow.currentDocumentJson);
+    const existingHasFullLegalText =
+      Array.isArray(existingDocument.clauses) &&
+      existingDocument.clauses.length >= 20 &&
+      Object.keys(asObject(existingDocument.seller)).length > 0 &&
+      Object.keys(asObject(existingDocument.company)).length > 0;
+
+    const seededSummary = {
+      ...summaryRoot,
+      agreementWorkflow: {
+        ...existingWorkflow,
+        currentDocumentJson: existingHasFullLegalText ? existingDocument : masterAgreement,
+      },
+    };
+
     const nextSummary = buildWorkflowForInstrument({
-      sellerSummary: seller.autoKycSummary,
+      sellerSummary: seededSummary,
       instrument,
       terms,
       references,
