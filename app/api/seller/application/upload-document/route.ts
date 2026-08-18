@@ -1,4 +1,3 @@
-import fs from 'fs/promises';
 import path from 'path';
 import { randomUUID } from 'crypto';
 import { NextResponse } from 'next/server';
@@ -7,9 +6,13 @@ import {
   extractTextFromDocument,
   type ApplicationDocType,
 } from '@/lib/seller-onboarding/document-intel';
+import { uploadPrivateSellerDocument } from '@/lib/storage';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
+
+const MAX_FILE_BYTES = 8 * 1024 * 1024;
+const STORAGE_PREFIX = 'seller-applications/intake/';
 
 const ALLOWED_DOC_TYPES: ApplicationDocType[] = [
   'PAN_CARD',
@@ -21,20 +24,28 @@ const ALLOWED_DOC_TYPES: ApplicationDocType[] = [
   'OTHER',
 ];
 
-const ALLOWED_EXTENSIONS = ['.pdf', '.png', '.jpg', '.jpeg', '.webp', '.csv', '.txt'];
-const ALLOWED_MIME_PREFIXES = [
-  'application/pdf',
-  'image/',
-  'text/csv',
-  'text/plain',
-  'application/csv',
-  'application/vnd.ms-excel',
-];
+const MIME_BY_EXTENSION: Record<string, string[]> = {
+  '.pdf': ['application/pdf'],
+  '.png': ['image/png'],
+  '.jpg': ['image/jpeg'],
+  '.jpeg': ['image/jpeg'],
+  '.webp': ['image/webp'],
+  '.csv': ['text/csv', 'application/csv', 'application/vnd.ms-excel'],
+  '.txt': ['text/plain'],
+};
 
-function isAllowedFile(fileName: string, mimeType: string): boolean {
-  const ext = path.extname(fileName).toLowerCase();
-  return ALLOWED_EXTENSIONS.includes(ext)
-    || ALLOWED_MIME_PREFIXES.some((prefix) => mimeType.startsWith(prefix));
+function validateFile(file: File): { ext: string; mimeType: string } | null {
+  const ext = path.extname(file.name || '').toLowerCase();
+  const allowedMimes = MIME_BY_EXTENSION[ext];
+  if (!allowedMimes) return null;
+
+  const suppliedMime = String(file.type || '').trim().toLowerCase();
+  if (suppliedMime && !allowedMimes.includes(suppliedMime)) return null;
+
+  return {
+    ext,
+    mimeType: suppliedMime || allowedMimes[0],
+  };
 }
 
 export async function POST(request: Request) {
@@ -52,43 +63,55 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'File is required' }, { status: 400 });
     }
 
-    if (!isAllowedFile(file.name, file.type || '')) {
+    if (file.size <= 0) {
+      return NextResponse.json({ error: 'The selected document is empty' }, { status: 400 });
+    }
+
+    if (file.size > MAX_FILE_BYTES) {
+      return NextResponse.json({ error: 'Document exceeds the 8 MB upload limit' }, { status: 413 });
+    }
+
+    const validatedFile = validateFile(file);
+    if (!validatedFile) {
       return NextResponse.json({ error: 'Unsupported file type' }, { status: 400 });
     }
 
     const buffer = Buffer.from(await file.arrayBuffer());
-    const ext = path.extname(file.name).toLowerCase() || '.bin';
-    const storageKey = `${Date.now()}-${randomUUID()}${ext}`;
-    const tmpDir = path.join(process.cwd(), 'public', 'uploads', 'seller-docs', 'tmp');
 
-    await fs.mkdir(tmpDir, { recursive: true });
-    await fs.writeFile(path.join(tmpDir, storageKey), buffer);
-
+    // Extract and validate document intelligence before persisting the object so
+    // malformed files do not leave avoidable orphaned KYC objects behind.
     const extractedText = await extractTextFromDocument({
       buffer,
-      mimeType: file.type || 'application/octet-stream',
+      mimeType: validatedFile.mimeType,
       fileName: file.name,
     });
-
     const extractedFields = extractStructuredFields(extractedText);
+
+    const storageKey = `${STORAGE_PREFIX}${Date.now()}-${randomUUID()}${validatedFile.ext}`;
+    const stored = await uploadPrivateSellerDocument(
+      storageKey,
+      buffer,
+      validatedFile.mimeType,
+    );
 
     return NextResponse.json({
       ok: true,
       document: {
         docType,
         title,
-        fileUrl: `/uploads/seller-docs/tmp/${storageKey}`,
+        fileUrl: stored.url,
         fileName: file.name,
         fileSize: file.size,
-        mimeType: file.type || 'application/octet-stream',
-        storageKey,
+        mimeType: validatedFile.mimeType,
+        storageKey: stored.path,
         extractedTextPreview: extractedText.slice(0, 2000),
         extractedFields,
       },
     });
   } catch (e: any) {
+    console.error('[seller-application-upload]', e);
     return NextResponse.json(
-      { error: e?.message || 'Failed to upload document' },
+      { error: 'Failed to upload document. Please try again.' },
       { status: 500 },
     );
   }
