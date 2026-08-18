@@ -66,7 +66,8 @@ function isCsvOrText(mimeType: string, fileName: string): boolean {
 
 function isImage(mimeType: string, fileName: string): boolean {
   const ext = path.extname(fileName).toLowerCase();
-  return ['.png', '.jpg', '.jpeg', '.webp'].includes(ext) || mimeType.startsWith('image/');
+  return ['.png', '.jpg', '.jpeg', '.jfif', '.webp', '.heic', '.heif'].includes(ext)
+    || mimeType.startsWith('image/');
 }
 
 export async function extractTextFromDocument(input: {
@@ -86,9 +87,12 @@ export async function extractTextFromDocument(input: {
   }
 
   if (isImage(input.mimeType, input.fileName)) {
-    const tesseract = await import('tesseract.js');
-    const result: any = await (tesseract as any).recognize(input.buffer, 'eng');
-    return normalizeText(result?.data?.text || '');
+    // Do not run tesseract.js inside the Vercel request path. Its Node worker
+    // bootstrap is not bundled by Next.js serverless functions and caused image
+    // uploads to terminate with a missing `.next/worker-script/node/index.js`.
+    // Images are accepted and stored immediately; OCR can be performed later by
+    // an asynchronous/background processor without blocking seller onboarding.
+    return '';
   }
 
   return '';
