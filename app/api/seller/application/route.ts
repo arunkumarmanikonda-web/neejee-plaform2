@@ -2,10 +2,15 @@ import { NextResponse } from 'next/server';
 import { KycStatus, Role, SellerDocStatus, SellerDocType } from '@prisma/client';
 import { z } from 'zod';
 import { prisma } from '@/lib/prisma';
-import { normalizePhone, verifyOtp } from '@/lib/otp';
+import { normalizePhone } from '@/lib/otp';
 import type { UploadedApplicationDocument } from '@/lib/seller-onboarding/document-intel';
 import { validateSellerApplicationPackage } from '@/lib/seller-onboarding/application-validation';
 import { requestSellerEmailOtp } from '@/lib/seller-onboarding/email-otp';
+import {
+  readCookieValue,
+  SELLER_PHONE_VERIFICATION_COOKIE,
+  verifySellerPhoneVerificationProof,
+} from '@/lib/seller-onboarding/phone-verification';
 import { syncSellerKycStatus } from '@/lib/seller-onboarding/status';
 
 export const dynamic = 'force-dynamic';
@@ -43,7 +48,7 @@ const BodySchema = z.object({
   contactName: z.string().min(2),
   email: z.string().email(),
   phone: z.string().min(8),
-  phoneOtp: z.string().regex(/^\d{4,8}$/),
+  phoneOtp: z.string().optional(),
   pan: z.string().min(10),
   gstin: z.string().optional().nullable(),
   cin: z.string().optional().nullable(),
@@ -152,6 +157,30 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Invalid mobile number' }, { status: 400 });
     }
 
+    const verificationCookie = readCookieValue(
+      request.headers.get('cookie'),
+      SELLER_PHONE_VERIFICATION_COOKIE,
+    );
+    const phoneVerification = verifySellerPhoneVerificationProof(
+      verificationCookie,
+      phone,
+    );
+
+    if (!phoneVerification.ok) {
+      return NextResponse.json(
+        {
+          error:
+            phoneVerification.reason === 'verification_expired'
+              ? 'Mobile verification has expired. Go back to Contact, request a new OTP and press Continue to verify it.'
+              : phoneVerification.reason === 'phone_changed'
+                ? 'The mobile number has changed since OTP verification. Go back to Contact and verify the current number.'
+                : 'Mobile number is not verified. Go back to Contact, enter the OTP and press Continue.',
+          reason: phoneVerification.reason,
+        },
+        { status: 400 },
+      );
+    }
+
     const documents: UploadedApplicationDocument[] = body.documents.map((doc) => ({
       docType: doc.docType,
       title: doc.title ?? null,
@@ -187,22 +216,6 @@ export async function POST(request: Request) {
         {
           error: 'KYC validation failed',
           validation,
-        },
-        { status: 400 },
-      );
-    }
-
-    const otpResult = await verifyOtp({
-      phone,
-      purpose: 'signup',
-      code: String(body.phoneOtp || '').trim(),
-    });
-
-    if (!otpResult.ok) {
-      return NextResponse.json(
-        {
-          error: 'Mobile OTP verification failed',
-          reason: otpResult.reason,
         },
         { status: 400 },
       );
@@ -265,7 +278,6 @@ export async function POST(request: Request) {
         autoKycSummary: true,
       },
     });
-
 
     const previousSummary =
       existingSeller?.autoKycSummary && typeof existingSeller.autoKycSummary === 'object'
@@ -420,7 +432,7 @@ export async function POST(request: Request) {
       },
     });
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       ok: true,
       sellerId: seller.id,
       userId: user.id,
@@ -432,6 +444,16 @@ export async function POST(request: Request) {
       validation,
       nextStep: 'verify_email_otp',
     });
+
+    response.cookies.set(SELLER_PHONE_VERIFICATION_COOKIE, '', {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      path: '/',
+      maxAge: 0,
+    });
+
+    return response;
   } catch (e: any) {
     if (e?.issues) {
       return NextResponse.json(
