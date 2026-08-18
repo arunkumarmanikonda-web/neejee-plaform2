@@ -2,12 +2,21 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getSession, requireRole } from '@/lib/auth';
-import { sendEmail } from '@/lib/email';
-import { generateWelcomeCoupon } from '@/lib/welcome-coupon';
 import { getSellerActivationSnapshot } from '@/lib/seller-onboarding/status';
+import { sendSellerTransactionalEmail } from '@/lib/seller-onboarding/transactional-email';
+import { issueSellerPortalActivation } from '@/lib/seller-onboarding/portal-activation';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
+
+function escapeHtml(value: unknown) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
 
 export async function GET(request: Request, { params }: { params: { id: string } }) {
   const user = await getSession();
@@ -130,11 +139,13 @@ export async function GET(request: Request, { params }: { params: { id: string }
     );
   }
 }
+
 export async function PATCH(request: Request, { params }: { params: { id: string } }) {
   const user = await getSession();
   if (!requireRole(user, ['ADMIN', 'SUPER_ADMIN'])) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
+
   try {
     const body = await request.json();
     const existing = await prisma.seller.findUnique({
@@ -143,14 +154,72 @@ export async function PATCH(request: Request, { params }: { params: { id: string
     });
     if (!existing) return NextResponse.json({ error: 'Not found' }, { status: 404 });
 
-    // Quick action: re-send the original application-received confirmation email
+    // Re-send the application acknowledgement on demand.
     if (body.resendApplicationEmail) {
-      const r = await sendEmail({
+      const delivery = await sendSellerTransactionalEmail({
         to: existing.email,
-        subject: 'Your NEEJEE seller application ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â received',
+        subject: 'Your NEEJEE seller application — received',
         html: sellerApplicationReceivedEmail(existing.contactName, existing.businessName),
       });
-      return NextResponse.json({ success: true, emailSent: r.ok, error: r.ok ? undefined : 'Could not send email' });
+      return NextResponse.json({
+        success: true,
+        emailSent: true,
+        deliveryId: delivery.id,
+      });
+    }
+
+    // Re-issue the secure portal activation email without creating or emailing passwords.
+    if (body.resendActivationEmail) {
+      if (String(existing.kycStatus) !== 'APPROVED') {
+        return NextResponse.json({ error: 'Seller must be approved before activation can be reissued.' }, { status: 400 });
+      }
+      const activation = await issueSellerPortalActivation({ sellerId: existing.id, reapproved: true });
+      return NextResponse.json({ success: true, activationEmailSent: true, deliveryId: activation.deliveryId });
+    }
+
+    // Clarification is a first-class state. It is not a rejection and the seller
+    // should never be forced to restart their application for a missing answer.
+    if (body.requestInfo) {
+      const query = String(body.query || '').trim();
+      const subject = String(body.subject || 'A clarification is needed for your NEEJEE seller application').trim();
+      if (query.length < 3) {
+        return NextResponse.json({ error: 'Please enter the clarification required from the seller.' }, { status: 400 });
+      }
+
+      if (String(existing.kycStatus) !== 'APPROVED' && String(existing.kycStatus) !== 'SUSPENDED') {
+        await prisma.seller.update({
+          where: { id: existing.id },
+          data: { kycStatus: 'UNDER_REVIEW' },
+        });
+      }
+
+      const delivery = await sendSellerTransactionalEmail({
+        to: existing.email,
+        subject,
+        html: sellerClarificationEmail(existing.contactName, existing.businessName, query),
+      });
+
+      await prisma.sellerAuditLog.create({
+        data: {
+          sellerId: existing.id,
+          actorUserId: user?.id || null,
+          actorRole: String(user?.role || 'ADMIN'),
+          action: 'SELLER_INFO_REQUEST_SENT',
+          details: {
+            recipient: existing.email,
+            subject,
+            query,
+            deliveryId: delivery.id,
+          },
+        },
+      }).catch(() => null);
+
+      return NextResponse.json({
+        success: true,
+        querySent: true,
+        recipient: existing.email,
+        deliveryId: delivery.id,
+      });
     }
 
     const data: any = {};
@@ -189,37 +258,39 @@ export async function PATCH(request: Request, { params }: { params: { id: string
     }
 
     const seller = await prisma.seller.update({ where: { id: existing.id }, data });
+    let lifecycleWarning: string | null = null;
 
-    // If approved, promote the linked user to SELLER role
-    if ((statusChange === 'APPROVED' || statusChange === 'REAPPROVED') && existing.userId) {
-      await prisma.user
-        .update({
-          where: { id: existing.userId },
-          data: { role: 'SELLER' },
-        })
-        .catch(() => {});
-    }
-
-    // Status-change emails
+    // Approval is the single point at which Seller Studio access is issued.
+    // The seller receives a short-lived activation link and creates their own
+    // password; a permanent password is never generated or emailed.
     if (statusChange === 'APPROVED' || statusChange === 'REAPPROVED') {
-      const subj = statusChange === 'REAPPROVED'
-        ? `Good news from NEEJEE ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â we have re-opened your portal`
-        : `Welcome to NEEJEE ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â your portal is open`;
-      sendEmail({
-        to: seller.email,
-        subject: subj,
-        html: approvalEmail(seller.contactName, seller.businessName, statusChange === 'REAPPROVED'),
-      }).catch(() => {});
-    }
-    if (statusChange === 'REJECTED') {
-      sendEmail({
-        to: seller.email,
-        subject: `Your NEEJEE application ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â a note from us`,
-        html: rejectionEmail(seller.contactName, seller.businessName, body.rejectionNote || ''),
-      }).catch(() => {});
+      try {
+        await issueSellerPortalActivation({
+          sellerId: seller.id,
+          reapproved: statusChange === 'REAPPROVED',
+        });
+      } catch (error: any) {
+        lifecycleWarning = `Seller approved, but portal activation email could not be sent: ${String(error?.message || 'unknown error')}`;
+        console.warn('[seller-admin] approval activation email failed', {
+          sellerId: seller.id,
+          message: String(error?.message || 'unknown error').slice(0, 240),
+        });
+      }
     }
 
-    return NextResponse.json({ success: true, seller });
+    if (statusChange === 'REJECTED') {
+      try {
+        await sendSellerTransactionalEmail({
+          to: seller.email,
+          subject: 'Your NEEJEE seller application — a note from us',
+          html: rejectionEmail(seller.contactName, seller.businessName, body.rejectionNote || ''),
+        });
+      } catch (error: any) {
+        lifecycleWarning = `Seller status was updated, but the rejection email could not be sent: ${String(error?.message || 'unknown error')}`;
+      }
+    }
+
+    return NextResponse.json({ success: true, seller, warning: lifecycleWarning });
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: 500 });
   }
@@ -230,76 +301,69 @@ function shell(inner: string) {
   <div style="max-width:580px;margin:0 auto;background:#fff;font-family:Georgia,serif;">
     <div style="background:#1A1613;padding:36px;text-align:center;">
       <div style="font-family:Georgia,serif;color:#F4EFE6;font-size:32px;letter-spacing:0.18em;">NEE<span style="display:inline-block;width:6px;height:6px;background:#8B2E2A;border-radius:50%;margin:0 8px;vertical-align:middle"></span>JEE</div>
-      <p style="color:#A47E3B;font-size:10px;letter-spacing:0.35em;margin-top:14px;font-style:italic;">FOUND ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â· PERSONAL</p>
+      <p style="color:#A47E3B;font-size:10px;letter-spacing:0.35em;margin-top:14px;">FOUND. PERSONAL.</p>
     </div>
     <div style="padding:48px 36px;">${inner}</div>
     <div style="background:#F4EFE6;padding:24px;text-align:center;color:#6B6862;font-size:11px;">
-      <a href="https://www.neejee.com" style="color:#8B2E2A;text-decoration:none;">www.neejee.com</a>
+      <a href="https://www.neejee.com" style="color:#8B2E2A;text-decoration:none;">neejee.com</a>
     </div>
   </div>`;
 }
 
-function approvalEmail(name: string, businessName: string, reapproved = false) {
-  const first = (name || 'friend').split(' ')[0];
-  const eyebrow = reapproved ? 'WELCOME BACK' : 'APPROVED';
-  const heading = reapproved
-    ? `Good news, ${first}.`
-    : `Welcome to NEEJEE, ${first}.`;
-  const intro = reapproved
-    ? `We had another look at <strong>${businessName}</strong> and decided to open your portal. We are glad you stayed.`
-    : `We are honoured to have <strong>${businessName}</strong> in our circle.`;
-  return shell(`
-    <p style="font-size:10px;letter-spacing:0.35em;color:#8B2E2A;margin:0 0 12px;">${eyebrow}</p>
-    <h1 style="font-size:32px;color:#1A1613;margin:0 0 18px;font-weight:400;">${heading}</h1>
-    <p style="color:#1A1613;line-height:1.8;font-size:15px;margin:0 0 18px;">
-      ${intro}
-    </p>
-    <p style="color:#6B6862;line-height:1.8;font-size:14px;margin:0 0 18px;">
-      Your seller portal is now open. Sign in with the same email and you'll find your dashboard at /seller ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â that is where you'll add your pieces, manage stock, view orders, and see your payouts.
-    </p>
-    <p style="color:#6B6862;line-height:1.8;font-size:14px;margin:0 0 18px;">
-      Every piece you submit goes through a short personal review before it goes live. This is not bureaucracy ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â it is the trust our customers place in NEEJEE.
-    </p>
-    <a href="https://www.neejee.com/seller" style="display:inline-block;margin-top:18px;background:#1A1613;color:#F4EFE6;padding:14px 28px;text-decoration:none;letter-spacing:0.25em;font-size:12px;">OPEN MY PORTAL</a>
-  `);
-}
-
 function sellerApplicationReceivedEmail(name: string, businessName: string) {
-  const first = (name || 'friend').split(' ')[0];
+  const first = escapeHtml((name || 'friend').split(' ')[0]);
+  const business = escapeHtml(businessName);
   return shell(`
     <p style="font-size:10px;letter-spacing:0.35em;color:#8B2E2A;margin:0 0 12px;">APPLICATION RECEIVED</p>
     <h1 style="font-size:30px;color:#1A1613;margin:0 0 18px;font-weight:400;">Namaste, ${first}.</h1>
     <p style="color:#1A1613;line-height:1.8;font-size:15px;margin:0 0 18px;">
-      Thank you for sharing <strong>${businessName}</strong> with us.
+      Thank you for sharing <strong>${business}</strong> with us.
     </p>
     <p style="color:#6B6862;line-height:1.8;font-size:14px;margin:0 0 18px;">
-      We read every application personally. It usually takes 3ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œ5 working days while we look at your portfolio, listen to your craft, and decide together whether NEEJEE is the right home for your work.
+      Your application is in the NEEJEE review queue. We will review the KYC information and supporting documents and write to your communication email if anything further is required.
     </p>
+    <p style="color:#6B6862;line-height:1.8;font-size:14px;margin:0;">
+      You will not be asked to restart the application if we need a clarification.
+    </p>
+  `);
+}
+
+function sellerClarificationEmail(name: string, businessName: string, query: string) {
+  const first = escapeHtml((name || 'friend').split(' ')[0]);
+  const business = escapeHtml(businessName);
+  const safeQuery = escapeHtml(query).replace(/\n/g, '<br/>');
+  return shell(`
+    <p style="font-size:10px;letter-spacing:0.35em;color:#8B2E2A;margin:0 0 12px;">CLARIFICATION REQUIRED</p>
+    <h1 style="font-size:30px;color:#1A1613;margin:0 0 18px;font-weight:400;">Dear ${first},</h1>
+    <p style="color:#1A1613;line-height:1.8;font-size:15px;margin:0 0 18px;">
+      We are reviewing the seller application for <strong>${business}</strong> and need one clarification before we can complete the review.
+    </p>
+    <div style="color:#1A1613;line-height:1.8;font-size:14px;margin:0 0 18px;padding:16px 18px;background:#F4EFE6;border-left:3px solid #8B2E2A;">${safeQuery}</div>
     <p style="color:#6B6862;line-height:1.8;font-size:14px;margin:0 0 18px;">
-      We will write back from this same address. If you have anything more to share ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â a story, a photograph, a person who introduced you ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â simply reply to this note.
+      Please reply to this email with the requested information. Your existing application and uploaded documents remain safely on file; there is no need to apply again.
     </p>
-    <p style="color:#1A1613;line-height:1.8;font-size:14px;margin:0 0 0;font-style:italic;">
-      With respect for your work,<br/>
-      ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â Nidhi, Founder
+    <p style="color:#1A1613;line-height:1.8;font-size:14px;margin:0;font-style:italic;">
+      With respect for your work,<br/>NEEJEE Seller Review
     </p>
   `);
 }
 
 function rejectionEmail(name: string, businessName: string, note: string) {
-  const first = (name || 'friend').split(' ')[0];
+  const first = escapeHtml((name || 'friend').split(' ')[0]);
+  const business = escapeHtml(businessName);
+  const safeNote = escapeHtml(note);
   return shell(`
     <p style="font-size:10px;letter-spacing:0.35em;color:#8B2E2A;margin:0 0 12px;">A NOTE FROM US</p>
     <h1 style="font-size:30px;color:#1A1613;margin:0 0 18px;font-weight:400;">Dear ${first},</h1>
     <p style="color:#1A1613;line-height:1.8;font-size:15px;margin:0 0 18px;">
-      Thank you for sharing <strong>${businessName}</strong> with us.
+      Thank you for sharing <strong>${business}</strong> with us.
     </p>
     <p style="color:#6B6862;line-height:1.8;font-size:14px;margin:0 0 18px;">
-      After looking at your application carefully, we don't think NEEJEE is the right home for your work just yet. This is not a judgment of your craft ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â only that our trunk is small and we open it slowly.
+      After reviewing the application carefully, we are unable to approve it at this stage. This decision relates to the current application and does not diminish the work behind your business.
     </p>
-    ${note ? `<p style="color:#6B6862;line-height:1.8;font-size:14px;margin:0 0 18px;padding:14px 18px;background:#F4EFE6;border-left:2px solid #8B2E2A;font-style:italic;">${note}</p>` : ''}
-    <p style="color:#6B6862;line-height:1.8;font-size:14px;margin:0 0 0;">
-      You are welcome to reapply any time. With respect for your work,<br/>
-      ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â The NEEJEE team
+    ${safeNote ? `<p style="color:#6B6862;line-height:1.8;font-size:14px;margin:0 0 18px;padding:14px 18px;background:#F4EFE6;border-left:2px solid #8B2E2A;font-style:italic;">${safeNote}</p>` : ''}
+    <p style="color:#6B6862;line-height:1.8;font-size:14px;margin:0;">
+      If circumstances change, you are welcome to contact NEEJEE again.<br/>The NEEJEE team
     </p>
   `);
 }
