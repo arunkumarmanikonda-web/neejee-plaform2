@@ -8,37 +8,22 @@ type Props = {
 };
 
 const SIZE_MAP = {
-  sm: 72,
-  md: 100,
-  lg: 160,
-  xl: 240,
+  sm: 88,
+  md: 132,
+  lg: 180,
+  xl: 260,
 };
 
-// Owner-supplied NEEJEE primary artwork already stored in NEEJEE's production
-// media bucket. The component crops that master image only. It never rebuilds,
-// retypes, recolours or substitutes the logo.
-const OFFICIAL_LOGO_MASTER =
-  'https://xjqehwvxscoktfecbwse.supabase.co/storage/v1/object/public/neejee-media/legal-entity/1781352832764-ig1uzl-01_neejee_primary_logo.png';
-
-const MASTER_WIDTH = 2048;
-const MASTER_HEIGHT = 1152;
-const CROP_LEFT = 250;
-const CROP_TOP = 300;
-const CROP_WIDTH = 1550;
-
-// The owner artwork needs its full lower serif area plus balanced breathing room.
-// 360px ended exactly on the lowest dark pixels and visibly clipped the wordmark.
-// 500px keeps the artwork untouched while revealing the complete NEE · JEE mark.
-const WORDMARK_HEIGHT = 500;
-const LOCKUP_HEIGHT = 600;
+const COMPACT_ASPECT = 1425 / 285;
+const FULL_ASPECT = 1425 / 415;
 
 /**
- * Canonical owner-supplied NEEJEE identity.
+ * Canonical NEEJEE identity.
  *
- * Header/compact placements show the complete NEE · JEE wordmark crop from the
- * master. Full placements show the same master including FOUND. PERSONAL.
- * `variant` remains accepted for backwards compatibility but is intentionally
- * not used: official artwork colours must never be altered in application code.
+ * These assets are traced directly from the owner-approved NEEJEE artwork.
+ * Nothing is retyped, reconstructed, recoloured, stretched or manually cropped
+ * at render time. Compact placements use the approved NEE · JEE wordmark;
+ * full placements use the approved lockup with FOUND. PERSONAL.
  */
 export function NeejeeLogo({
   className = '',
@@ -47,45 +32,30 @@ export function NeejeeLogo({
   showTagline = false,
 }: Props) {
   const width = SIZE_MAP[size];
-  const cropHeight = showTagline ? LOCKUP_HEIGHT : WORDMARK_HEIGHT;
-  const height = (width * cropHeight) / CROP_WIDTH;
-  const masterRenderWidth = (width * MASTER_WIDTH) / CROP_WIDTH;
-  const masterRenderHeight = (width * MASTER_HEIGHT) / CROP_WIDTH;
-  const left = -(width * CROP_LEFT) / CROP_WIDTH;
-  const top = -(width * CROP_TOP) / CROP_WIDTH;
+  const aspect = showTagline ? FULL_ASPECT : COMPACT_ASPECT;
+  const height = width / aspect;
+  const src = showTagline
+    ? '/brand/neejee-logo.svg'
+    : '/brand/neejee-logo-compact.svg';
 
   return (
-    <span
+    <img
       className={className}
-      role="img"
-      aria-label={`NEEJEE — ${NEEJEE_TAGLINE}`}
+      src={src}
+      alt={showTagline ? `NEEJEE — ${NEEJEE_TAGLINE}` : 'NEEJEE'}
+      width={width}
+      height={height}
+      decoding="async"
+      draggable={false}
       style={{
-        position: 'relative',
-        display: 'inline-block',
+        display: 'block',
         width,
         height,
-        overflow: 'hidden',
+        maxWidth: '100%',
+        objectFit: 'contain',
         flexShrink: 0,
+        userSelect: 'none',
       }}
-    >
-      <img
-        src={OFFICIAL_LOGO_MASTER}
-        alt=""
-        aria-hidden="true"
-        decoding="async"
-        draggable={false}
-        style={{
-          position: 'absolute',
-          width: masterRenderWidth,
-          height: masterRenderHeight,
-          maxWidth: 'none',
-          left,
-          top,
-          display: 'block',
-          userSelect: 'none',
-          pointerEvents: 'none',
-        }}
-      />
-    </span>
+    />
   );
 }
