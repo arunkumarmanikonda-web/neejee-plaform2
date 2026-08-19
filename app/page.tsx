@@ -17,43 +17,59 @@ export const runtime = 'nodejs';
 async function getHomeData() {
   try {
     const now = new Date();
-    const [founderEdit, newArrivals, allActive, categories, heroBanner, founderNotePage] = await Promise.all([
-      prisma.product.findMany({
-        where: { status: 'ACTIVE', badges: { has: "FOUNDER'S EDIT" } },
-        take: 6, orderBy: { createdAt: 'desc' },
-        include: { variants: { select: { inventory: true, images: true } } },
-      }),
-      prisma.product.findMany({
-        where: { status: 'ACTIVE' },
-        take: 8, orderBy: { createdAt: 'desc' },
-        include: { variants: { select: { inventory: true, images: true } } },
-      }),
-      prisma.product.findMany({
-        where: { status: 'ACTIVE' },
-        take: 4, orderBy: { createdAt: 'asc' },
-        include: { variants: { select: { inventory: true, images: true } } },
-      }),
-      prisma.category.findMany({
-        where: { products: { some: { status: 'ACTIVE' } } },
-        select: { id: true, slug: true, name: true, products: { select: { id: true }, take: 1 } },
-        take: 8,
-      }),
-      prisma.banner.findMany({
-        where: {
-          position: 'hero',
-          active: true,
-          AND: [
-            { OR: [{ startsAt: null }, { startsAt: { lte: now } }] },
-            { OR: [{ endsAt: null }, { endsAt: { gte: now } }] },
-          ],
-        },
-        orderBy: { order: 'asc' },
-      }),
-      prisma.cmsPage.findUnique({
-        where: { slug: 'home-founder-note' },
-        select: { status: true, sections: true },
-      }).catch(() => null),
-    ]);
+
+    // Production runs Prisma with a deliberately small serverless connection pool.
+    // Keep homepage reads sequential so one ISR regeneration cannot exhaust that
+    // pool and silently collapse the whole page into its empty fallback state.
+    const founderEdit = await prisma.product.findMany({
+      where: { status: 'ACTIVE', badges: { has: "FOUNDER'S EDIT" } },
+      take: 6,
+      orderBy: { createdAt: 'desc' },
+      include: { variants: { select: { inventory: true, images: true } } },
+    });
+
+    const newArrivals = await prisma.product.findMany({
+      where: { status: 'ACTIVE' },
+      take: 8,
+      orderBy: { createdAt: 'desc' },
+      include: { variants: { select: { inventory: true, images: true } } },
+    });
+
+    const allActive = await prisma.product.findMany({
+      where: { status: 'ACTIVE' },
+      take: 4,
+      orderBy: { createdAt: 'asc' },
+      include: { variants: { select: { inventory: true, images: true } } },
+    });
+
+    const categories = await prisma.category.findMany({
+      where: { products: { some: { status: 'ACTIVE' } } },
+      select: { id: true, slug: true, name: true, products: { select: { id: true }, take: 1 } },
+      take: 8,
+    });
+
+    const heroBanner = await prisma.banner.findMany({
+      where: {
+        position: 'hero',
+        active: true,
+        AND: [
+          { OR: [{ startsAt: null }, { startsAt: { lte: now } }] },
+          { OR: [{ endsAt: null }, { endsAt: { gte: now } }] },
+        ],
+      },
+      orderBy: { order: 'asc' },
+    }).catch((e: any) => {
+      console.warn('[home] Hero banner query failed:', e.message);
+      return [];
+    });
+
+    const founderNotePage = await prisma.cmsPage.findUnique({
+      where: { slug: 'home-founder-note' },
+      select: { status: true, sections: true },
+    }).catch((e: any) => {
+      console.warn('[home] Founder note query failed:', e.message);
+      return null;
+    });
 
     let founderNoteTitle: string | null = null;
     let founderNoteBody: string | null = null;
