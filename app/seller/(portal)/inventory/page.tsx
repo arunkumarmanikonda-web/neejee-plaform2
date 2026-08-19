@@ -1,7 +1,7 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Loader2, Plus, Eye, X } from 'lucide-react';
+import { Loader2, Plus, X } from 'lucide-react';
 
 const STATUS: Record<string, { l: string; cls: string }> = {
   SUBMITTED:    { l: 'Submitted',     cls: 'bg-banarasi/20 text-banarasi' },
@@ -18,21 +18,27 @@ export default function InventoryPage() {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('');
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setLoading(true);
-    const params = new URLSearchParams();
-    if (filter) params.set('status', filter);
-    const r = await fetch(`/api/seller/inventory-submissions?${params}`);
-    const j = await r.json();
-    setRows(j.submissions || []);
-    setLoading(false);
-  };
-  useEffect(() => { load(); /* eslint-disable-next-line */ }, [filter]);
+    try {
+      const params = new URLSearchParams();
+      if (filter) params.set('status', filter);
+      const r = await fetch(`/api/seller/inventory-submissions?${params}`);
+      const j = await r.json();
+      setRows(j.submissions || []);
+    } finally {
+      setLoading(false);
+    }
+  }, [filter]);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
 
   const withdraw = async (id: string) => {
     if (!confirm('Withdraw this submission?')) return;
     await fetch(`/api/seller/inventory-submissions/${id}`, { method: 'DELETE' });
-    load();
+    await load();
   };
 
   return (
