@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useState, useRef } from 'react';
+import { useCallback, useEffect, useState, useRef } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { Loader2, ArrowLeft, CheckCircle2, Truck, Upload, FileText, Loader2 as LoaderIcon } from 'lucide-react';
@@ -16,7 +16,7 @@ export default function VendorPoDetail() {
   const [dispatchForm, setDispatchForm] = useState({ trackingNumber: '', trackingUrl: '', vendorInvoiceNumber: '', vendorInvoiceUrl: '' });
   const [showDispatch, setShowDispatch] = useState(false);
 
-  const load = async () => {
+  const load = useCallback(async () => {
     const r = await fetch(`/api/vendor/purchase-orders/${id}`, { cache: 'no-store' });
     const d = await r.json();
     if (r.ok) {
@@ -29,8 +29,11 @@ export default function VendorPoDetail() {
       });
     }
     setLoading(false);
-  };
-  useEffect(() => { load(); /* eslint-disable-next-line */ }, [id]);
+  }, [id]);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
 
   const transition = async (target: string, extra: any = {}) => {
     setBusy(true); setMsg(null);
@@ -169,7 +172,6 @@ function Input({ label, value, onChange }: { label: string; value: string; onCha
   );
 }
 
-// ─────── Invoice drag-drop uploader ───────
 function InvoiceUpload({ poId, currentUrl, invoiceNumber, onUploaded }: {
   poId: string; currentUrl: string; invoiceNumber: string; onUploaded: (url: string) => void;
 }) {
@@ -206,7 +208,7 @@ function InvoiceUpload({ poId, currentUrl, invoiceNumber, onUploaded }: {
         <div
           onDragOver={e => { e.preventDefault(); setDragging(true); }}
           onDragLeave={() => setDragging(false)}
-          onDrop={e => { e.preventDefault(); setDragging(false); const f = e.dataTransfer.files?.[0]; if (f) upload(f); }}
+          onDrop={e => { e.preventDefault(); setDragging(false); const f = e.dataTransfer.files?.[0]; if (f) void upload(f); }}
           onClick={() => fileRef.current?.click()}
           className={`mt-1 border-2 border-dashed p-4 text-center cursor-pointer text-xs ${dragging ? 'border-madder bg-haldi/15' : 'border-mitti/30 bg-beige hover:border-madder/60'}`}
         >
@@ -221,7 +223,7 @@ function InvoiceUpload({ poId, currentUrl, invoiceNumber, onUploaded }: {
         type="file"
         accept="image/jpeg,image/png,image/webp,application/pdf"
         className="hidden"
-        onChange={e => { const f = e.target.files?.[0]; if (f) upload(f); e.target.value = ''; }}
+        onChange={e => { const f = e.target.files?.[0]; if (f) void upload(f); e.target.value = ''; }}
       />
       {err && <p className="text-[10px] text-madder mt-1">{err}</p>}
     </label>
