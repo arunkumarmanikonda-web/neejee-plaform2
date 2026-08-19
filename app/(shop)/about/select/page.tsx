@@ -1,5 +1,4 @@
-// v23.40.25 — NEEJEE Select page. CMS-overridable: if an admin publishes a
-// CMS page with slug "about-select", that page replaces this hard-coded copy.
+// NEEJEE Select — CMS-overridable brand standard page.
 import Link from 'next/link';
 import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
@@ -11,7 +10,7 @@ export const runtime = 'nodejs';
 
 export const metadata = {
   title: 'NEEJEE Select · Founder-curated craft',
-  description: 'Each NEEJEE Select piece is personally chosen by Nidhi. Verified weaver, verified region, verified technique. No exceptions.',
+  description: 'What the NEEJEE Select mark means: a founder-led review of provenance, craft context, product readiness and the evidence available for each piece.',
 };
 
 export default async function NeejeeSelectPage() {
@@ -22,58 +21,51 @@ export default async function NeejeeSelectPage() {
     <>
       <Header />
       {cms && sections.length > 0 ? (
-        <main>{sections.map((s) => <SectionRenderer key={s.id} section={s} />)}</main>
+        <main>{sections.map((section) => <SectionRenderer key={section.id} section={section} />)}</main>
       ) : (
-        <>
-          <section className="max-w-3xl mx-auto px-6 py-20 text-center">
-            <p className="label text-madder mb-4">A CURATED MARK OF TRUST</p>
-            <h1 className="font-display text-5xl md:text-6xl text-kohl leading-tight">NEEJEE Select.</h1>
-            <div className="madder-divider mx-auto mt-8"></div>
-            <p className="editorial-quote mt-12">
-              &ldquo;Every NEEJEE Select piece is one I would wear, gift, or live with. Personally.&rdquo;
+        <main>
+          <section className="max-w-3xl mx-auto px-6 pt-20 pb-14 text-center">
+            <p className="editorial-kicker">A CURATED MARK OF TRUST</p>
+            <h1 className="font-display text-5xl md:text-6xl text-kohl leading-tight mt-4">NEEJEE Select.</h1>
+            <div className="ornament-rule justify-center mt-8"><span className="font-display italic text-mitti text-sm">Found carefully. Explained clearly.</span></div>
+            <p className="editorial-pullquote mt-12">
+              A Select mark should tell you why a piece belongs here, not merely ask you to believe that it does.
             </p>
-            <p className="font-italic italic text-mitti mt-6">— Nidhi Chauhan, Founder</p>
+            <p className="font-display italic text-mitti mt-6">Nidhi Chauhan, Founder</p>
           </section>
 
-          <section className="max-w-3xl mx-auto px-6 py-12 font-body text-lg text-kohl/85 leading-relaxed space-y-6">
+          <section className="max-w-3xl mx-auto px-6 py-10 font-display text-[17px] md:text-[18px] text-kohl/82 leading-[1.8] space-y-6">
             <p>
-              NEEJEE Select is not a category — it is a personal mark. Pieces that carry the Select seal have been
-              verified by Nidhi against three quiet standards: the weaver is real and named, the region is real
-              and named, and the technique is true to its tradition.
+              NEEJEE Select is our founder-led curation standard. It is reserved for pieces that have been reviewed for the information available about their origin, making, materials and presentation before they are given additional editorial prominence.
             </p>
             <p>
-              We never mass-source. We never wholesale-import. Every Select piece was found on the loom, in the workshop,
-              or in the hands of the maker who made it. We pay above MSP, in advance, every time.
+              We do not use the seal as a substitute for evidence. Where maker, atelier, region, technique or material provenance has been documented, we aim to show it on the product record. Where a detail has not yet been verified, it should not be presented as fact.
             </p>
             <p>
-              When you see the Select seal on a product page, it means this piece passed Nidhi&apos;s own filter — the
-              same filter she uses for her trunk at home.
+              The standard also includes the less romantic work that matters online: approved product imagery, sellable stock, clear commercial terms and a product record ready to be shown without hidden gaps.
             </p>
-            <p className="font-display italic text-2xl text-mitti">
-              Rare, rooted, and quietly chosen.
-            </p>
+            <p className="font-display italic text-2xl text-mitti text-center pt-3">Rare, rooted and personally considered.</p>
           </section>
 
-          <section className="max-w-8xl mx-auto px-6 py-20 grid lg:grid-cols-3 gap-8">
+          <section className="max-w-6xl mx-auto px-6 py-16 grid md:grid-cols-3 gap-5">
             {[
-              { label: 'WEAVER', value: 'Named', note: 'Every Select piece carries a named maker.' },
-              { label: 'REGION', value: 'Verified', note: 'Source village or atelier is stated.' },
-              { label: 'TECHNIQUE', value: 'True', note: 'No interpretations of tradition.' },
-            ].map(s => (
-              <div key={s.label} className="text-center p-8 bg-beige">
-                <p className="label text-madder">{s.label}</p>
-                <p className="font-display text-5xl text-kohl mt-3">{s.value}</p>
-                <p className="font-italic italic text-mitti mt-2">{s.note}</p>
+              { label: 'PROVENANCE', value: 'Documented', note: 'Origin and maker context are shown when they have been verified.' },
+              { label: 'CRAFT', value: 'Explained', note: 'Technique and material claims should be specific enough to understand.' },
+              { label: 'READINESS', value: 'Reviewed', note: 'Images, stock and publication state must support the customer promise.' },
+            ].map((standard) => (
+              <div key={standard.label} className="paper-panel text-center p-8">
+                <p className="editorial-kicker">{standard.label}</p>
+                <p className="font-display text-4xl text-kohl mt-3">{standard.value}</p>
+                <p className="font-display italic text-mitti mt-3 text-[14px] leading-relaxed">{standard.note}</p>
               </div>
             ))}
           </section>
 
           <section className="max-w-3xl mx-auto px-6 pb-20 text-center">
-            <Link href="/collections/founders-edit" className="btn-primary inline-block">
-              SHOP THE NEEJEE SELECT EDIT
-            </Link>
+            <p className="font-display italic text-mitti mb-7">The catalogue will grow. The standard should not become easier.</p>
+            <Link href="/" className="btn-primary inline-block">EXPLORE NEEJEE</Link>
           </section>
-        </>
+        </main>
       )}
       <Footer />
     </>
