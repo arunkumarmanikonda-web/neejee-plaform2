@@ -63,7 +63,7 @@ export function Header() {
   return (
     <>
       <AnnouncementBar />
-      <header className="sticky top-0 z-40 bg-[#f7f1e7]/95 backdrop-blur-md border-b border-mitti/18 shadow-[0_1px_0_rgba(255,255,255,0.35)]">
+      <header className="sticky top-0 z-40 bg-[#f7f1e7]/95 backdrop-blur-md border-b border-mitti/[0.18] shadow-[0_1px_0_rgba(255,255,255,0.35)]">
         <div className="mx-auto max-w-[1680px] px-5 sm:px-7 lg:px-10 xl:px-12 min-h-[78px] lg:min-h-[96px] grid grid-cols-[44px_1fr_auto] lg:grid-cols-[240px_1fr_240px] items-center gap-3 lg:gap-7">
           <button
             onClick={() => setOpen(!open)}
@@ -141,7 +141,7 @@ export function Header() {
         </div>
 
         {open && (
-          <div className="lg:hidden border-t border-mitti/12 bg-[#f7f1e7] max-h-[calc(100vh-110px)] overflow-y-auto">
+          <div className="lg:hidden border-t border-mitti/[0.12] bg-[#f7f1e7] max-h-[calc(100vh-110px)] overflow-y-auto">
             <nav className="flex flex-col py-2 font-display text-[17px] tracking-[0.02em]">
               {(mobileMains.length > 0 ? mobileMains : [
                 { slug: 'women', name: 'Women', subs: [] },
@@ -156,7 +156,7 @@ export function Header() {
                 return (
                   <div key={main.slug} className="border-b border-mitti/10 last:border-0">
                     <div className="flex items-stretch">
-                      <Link href={`/categories/${encodeURIComponent(main.slug)}`} onClick={() => setOpen(false)} className="flex-1 px-6 py-4.5 hover:bg-beige/55 hover:text-madder transition-colors">
+                      <Link href={`/categories/${encodeURIComponent(main.slug)}`} onClick={() => setOpen(false)} className="flex-1 px-6 py-4 hover:bg-beige/55 hover:text-madder transition-colors">
                         {main.name.toUpperCase()}
                       </Link>
                       {hasSubs && (
