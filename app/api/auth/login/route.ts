@@ -3,7 +3,13 @@ import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import bcrypt from 'bcryptjs';
 import { prisma } from '@/lib/prisma';
-import { setSessionCookie } from '@/lib/auth';
+import {
+  clearAdminMfaChallenge,
+  createAdminMfaChallenge,
+  isPrivilegedRole,
+  setSessionCookie,
+  type SessionRole,
+} from '@/lib/auth';
 import { requestOtp, OtpError } from '@/lib/otp';
 
 export const dynamic = 'force-dynamic';
@@ -14,18 +20,6 @@ const BodySchema = z.object({
   password: z.string().min(1),
 });
 
-const ADMIN_ROLES = new Set([
-  'ADMIN',
-  'SUPER_ADMIN',
-  'CONTENT_EDITOR',
-  'QC_TEAM',
-  'FINANCE',
-  'FINANCE_OPERATOR',
-  'MARKETING_OPERATOR',
-  'MARKETING_MANAGER',
-  'TELECALLER',
-]);
-
 const LOGIN_FAILURE_LIMIT = 12;
 const LOGIN_WINDOW_SECONDS = 15 * 60;
 const LOGIN_LOCK_SECONDS = 15 * 60;
@@ -35,12 +29,8 @@ type LoginThrottleStatus = {
   retry_after: number;
 };
 
-function isAdminSideRole(role: unknown): role is string {
-  return typeof role === 'string' && ADMIN_ROLES.has(role);
-}
-
 function redirectFor(role: string) {
-  if (isAdminSideRole(role)) return '/admin';
+  if (isPrivilegedRole(role)) return '/admin';
   if (role === 'SELLER') return '/seller';
   return '/account';
 }
@@ -54,6 +44,9 @@ function parseBooleanFlag(value: string | undefined): boolean | null {
 }
 
 function admin2FAEnabled() {
+  // Privileged production access is never allowed to bypass MFA via config.
+  if (process.env.NODE_ENV === 'production') return true;
+
   const explicit = parseBooleanFlag(process.env.ADMIN_2FA_ENABLED);
   if (explicit !== null) return explicit;
   return true;
@@ -87,9 +80,6 @@ function loginThrottleKey(email: string) {
 }
 
 async function getLoginThrottleStatus(keyHash: string): Promise<LoginThrottleStatus> {
-  // Prisma serialises JavaScript integer parameters as bigint. The private
-  // throttle functions intentionally accept PostgreSQL integer, so cast the
-  // numeric bind explicitly at the SQL boundary.
   const rows = await prisma.$queryRaw<LoginThrottleStatus[]>`
     select allowed, retry_after
     from private.auth_login_rate_status(${keyHash}, ${LOGIN_WINDOW_SECONDS}::integer)
@@ -113,6 +103,22 @@ async function clearLoginFailures(keyHash: string) {
   await prisma.$queryRaw`
     select private.clear_auth_login_failures(${keyHash})
   `;
+}
+
+async function issueAdminMfaChallenge(user: {
+  id: string;
+  email: string | null;
+  role: string;
+}) {
+  if (!user.email || !isPrivilegedRole(user.role)) {
+    throw new Error('Cannot issue an admin MFA challenge for this account.');
+  }
+
+  await createAdminMfaChallenge({
+    userId: user.id,
+    email: user.email.toLowerCase(),
+    role: user.role as SessionRole,
+  });
 }
 
 export async function POST(request: Request) {
@@ -177,8 +183,9 @@ export async function POST(request: Request) {
 
     const role = user.role;
 
-    if (isAdminSideRole(role) && admin2FAEnabled()) {
+    if (isPrivilegedRole(role) && admin2FAEnabled()) {
       if (!user.phone) {
+        clearAdminMfaChallenge();
         return NextResponse.json(
           { error: 'Admin account does not have a phone number configured' },
           { status: 400 },
@@ -194,6 +201,7 @@ export async function POST(request: Request) {
           ipAddress: firstForwardedIp(request),
           userAgent: request.headers.get('user-agent'),
         });
+        await issueAdminMfaChallenge(user);
 
         return NextResponse.json({
           ok: true,
@@ -202,6 +210,7 @@ export async function POST(request: Request) {
           email: user.email,
           maskedPhone,
           phoneMasked: maskedPhone,
+          phoneMask: maskedPhone,
           redirect: redirectFor(role),
         });
       } catch (error) {
@@ -211,6 +220,10 @@ export async function POST(request: Request) {
             error.code === 'COOLDOWN' ||
             error.code === 'RATE_LIMIT_HOURLY'
           ) {
+            // A usable OTP may already exist. Bind this newly verified password
+            // ceremony to a fresh, short-lived signed MFA challenge.
+            await issueAdminMfaChallenge(user);
+
             return NextResponse.json({
               ok: true,
               requires2FA: true,
@@ -218,17 +231,20 @@ export async function POST(request: Request) {
               email: user.email,
               maskedPhone,
               phoneMasked: maskedPhone,
+              phoneMask: maskedPhone,
               redirect: redirectFor(role),
               info: error.message,
             });
           }
 
+          clearAdminMfaChallenge();
           return NextResponse.json(
             { error: error.message || 'Unable to send the security code right now.' },
             { status: error.status || 500 },
           );
         }
 
+        clearAdminMfaChallenge();
         console.error('[auth/login] admin 2FA request failed', error);
 
         return NextResponse.json(
@@ -242,7 +258,9 @@ export async function POST(request: Request) {
       id: user.id,
       email: user.email || `${user.id}@neejee.local`,
       name: user.name || 'User',
-      role,
+      role: role as SessionRole,
+      aal: 'aal1',
+      amr: ['password'],
     });
 
     return NextResponse.json({
