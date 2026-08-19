@@ -3,11 +3,10 @@
 // Used by both admin (/admin/purchase-orders/[id]) and vendor (/vendor/purchase-orders/[id]).
 // Auto-polls every 30s so both sides see new messages quickly.
 
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 export type PoChatProps = {
   purchaseOrderId: string;
-  // 'admin' or 'vendor' — determines the API endpoint
   side: 'admin' | 'vendor';
 };
 
@@ -32,20 +31,20 @@ export default function PoChat({ purchaseOrderId, side }: PoChatProps) {
       ? `/api/admin/purchase-orders/${purchaseOrderId}/messages`
       : `/api/vendor/purchase-orders/${purchaseOrderId}/messages`;
 
-  async function load() {
+  const load = useCallback(async () => {
     try {
       const res = await fetch(apiBase, { cache: 'no-store' });
       if (!res.ok) return;
       const data = await res.json();
       setMessages(data.messages || []);
     } catch {}
-  }
+  }, [apiBase]);
 
   useEffect(() => {
-    load();
-    const t = setInterval(load, 30_000);
+    void load();
+    const t = setInterval(() => { void load(); }, 30_000);
     return () => clearInterval(t);
-  }, [purchaseOrderId]);
+  }, [load]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -65,7 +64,7 @@ export default function PoChat({ purchaseOrderId, side }: PoChatProps) {
         return;
       }
       setText('');
-      load();
+      await load();
     } finally {
       setSending(false);
     }
@@ -128,12 +127,12 @@ export default function PoChat({ purchaseOrderId, side }: PoChatProps) {
           placeholder="Type a message…"
           className="w-full border border-charcoal/20 p-2 text-sm"
           onKeyDown={e => {
-            if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) send();
+            if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) void send();
           }}
         />
         <div className="flex justify-between items-center mt-1">
           <span className="text-xs text-charcoal/40">{text.length}/2000 · Cmd/Ctrl+Enter to send</span>
-          <button onClick={send} disabled={sending || !text.trim()} className="btn-primary text-xs">
+          <button onClick={() => { void send(); }} disabled={sending || !text.trim()} className="btn-primary text-xs">
             {sending ? 'Sending…' : 'SEND'}
           </button>
         </div>
