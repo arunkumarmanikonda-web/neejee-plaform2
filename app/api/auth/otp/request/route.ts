@@ -12,7 +12,15 @@ const BodySchema = z.object({
   purpose: z.string().optional(),
 });
 
-function normalizePurpose(value?: string | null): OtpPurpose {
+type PublicOtpPurpose =
+  | 'login_customer'
+  | 'login_vendor'
+  | 'login_seller'
+  | 'signup'
+  | 'signup_customer'
+  | 'checkout_guest';
+
+function normalizePurpose(value?: string | null): PublicOtpPurpose | 'admin_2fa' | 'change_phone' {
   const raw = String(value || '')
     .trim()
     .toLowerCase();
@@ -22,15 +30,33 @@ function normalizePurpose(value?: string | null): OtpPurpose {
       return 'signup';
     case 'signup_customer':
       return 'signup_customer';
+    case 'login_vendor':
+      return 'login_vendor';
+    case 'login_seller':
+      return 'login_seller';
     case 'admin_2fa':
       return 'admin_2fa';
     case 'checkout_guest':
       return 'checkout_guest';
     case 'change_phone':
       return 'change_phone';
+    case 'login_customer':
     case 'login':
     default:
-      return 'login';
+      return 'login_customer';
+  }
+}
+
+function expectedRolesForPurpose(purpose: PublicOtpPurpose): string[] | null {
+  switch (purpose) {
+    case 'login_customer':
+      return ['CUSTOMER'];
+    case 'login_vendor':
+      return ['VENDOR', 'VENDOR_STAFF'];
+    case 'login_seller':
+      return ['SELLER', 'SELLER_STAFF'];
+    default:
+      return null;
   }
 }
 
@@ -51,6 +77,18 @@ export async function POST(req: Request) {
     }
 
     const purpose = normalizePurpose(parsed.data.purpose);
+
+    // Privileged OTP purposes are deliberately not public entry points.
+    // Admin 2FA is created only after a successful password check in
+    // /api/auth/login. Phone changes must be initiated from an authenticated
+    // account flow, not from this anonymous authentication endpoint.
+    if (purpose === 'admin_2fa' || purpose === 'change_phone') {
+      return NextResponse.json(
+        { error: 'This verification flow must be started from the authenticated sign-in or account flow.' },
+        { status: 403 },
+      );
+    }
+
     const normalizedPhone = normalizePhone(parsed.data.phone);
 
     if (!normalizedPhone) {
@@ -65,14 +103,23 @@ export async function POST(req: Request) {
       select: {
         id: true,
         phone: true,
+        role: true,
       },
     });
 
-    if (purpose === 'login' || purpose === 'admin_2fa') {
+    const expectedRoles = expectedRolesForPurpose(purpose);
+    if (expectedRoles) {
       if (!existingUser) {
         return NextResponse.json(
           { error: 'No account found for this mobile number' },
           { status: 404 },
+        );
+      }
+
+      if (!expectedRoles.includes(String(existingUser.role))) {
+        return NextResponse.json(
+          { error: 'This account must use its dedicated portal sign-in method.' },
+          { status: 403 },
         );
       }
     }
@@ -88,7 +135,7 @@ export async function POST(req: Request) {
 
     const otpResult = await requestOtp({
       phone: normalizedPhone,
-      purpose,
+      purpose: purpose as OtpPurpose,
       ipAddress: firstForwardedIp(req.headers.get('x-forwarded-for')),
       userAgent: req.headers.get('user-agent') || undefined,
     });
@@ -96,7 +143,7 @@ export async function POST(req: Request) {
     return NextResponse.json({
       ok: true,
       phone: otpResult.phone,
-      purpose: otpResult.purpose,
+      purpose,
       expiresAt: otpResult.expiresAt,
       expiresInSec: otpResult.expiresInSec,
       cooldownSec: otpResult.cooldownSec,
