@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 import { useState, useEffect } from 'react';
 import { Phone, Shield, Loader2 } from 'lucide-react';
 
@@ -9,15 +9,15 @@ export interface OtpLoginProps {
   onVerified: (phone: string) => void | Promise<void>;
   initialPhone?: string;
   /**
-   * If set, after OTP verifies, POST to /api/auth/otp/signin with this role
-   * to create a session, then call onVerified for redirect.
-   * Omit for use cases where the parent handles session creation itself
-   * (e.g. checkout guest verification).
+   * Legacy compatibility only. Session creation now happens atomically inside
+   * /api/auth/otp/verify after the server validates the OTP purpose and account
+   * role. Keeping a second client-triggered sign-in step would re-introduce a
+   * replayable authentication boundary.
    */
   autoSignInAs?: 'customer' | 'seller' | 'vendor' | 'admin';
 }
 
-export default function OtpLogin({ purpose, title, subtitle, onVerified, initialPhone, autoSignInAs }: OtpLoginProps) {
+export default function OtpLogin({ purpose, title, subtitle, onVerified, initialPhone }: OtpLoginProps) {
   const [step, setStep] = useState<'phone' | 'code'>('phone');
   const [phone, setPhone] = useState(initialPhone || '');
   const [code, setCode] = useState('');
@@ -25,7 +25,6 @@ export default function OtpLogin({ purpose, title, subtitle, onVerified, initial
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
   const [resendIn, setResendIn] = useState(0);
-  const [phase1PreviewCode, setPhase1PreviewCode] = useState<string | null>(null);
 
   useEffect(() => {
     if (resendIn <= 0) return;
@@ -34,7 +33,7 @@ export default function OtpLogin({ purpose, title, subtitle, onVerified, initial
   }, [resendIn]);
 
   async function requestCode() {
-    setError(null); setInfo(null); setLoading(true); setPhase1PreviewCode(null);
+    setError(null); setInfo(null); setLoading(true);
     try {
       const res = await fetch('/api/auth/otp/request', {
         method: 'POST',
@@ -46,9 +45,8 @@ export default function OtpLogin({ purpose, title, subtitle, onVerified, initial
         setError(data.error || 'Failed to send OTP');
       } else {
         setStep('code');
-        setResendIn(60);
-        setInfo(`OTP sent to ${phone}. Valid for 5 minutes.`);
-        setPhase1PreviewCode(null);
+        setResendIn(Number(data.cooldownSec || 60));
+        setInfo(`OTP sent to ${phone}. Enter the code before it expires.`);
       }
     } catch (e: any) {
       setError(e?.message || 'Network error');
@@ -71,20 +69,9 @@ export default function OtpLogin({ purpose, title, subtitle, onVerified, initial
         setLoading(false);
         return;
       }
-      // Optional: auto-create session for portal logins
-      if (autoSignInAs) {
-        const sRes = await fetch('/api/auth/otp/signin', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ phone, role: autoSignInAs, purpose }),
-        });
-        const sData = await sRes.json();
-        if (!sRes.ok) {
-          setError(sData?.error || 'Sign-in failed after verification');
-          setLoading(false);
-          return;
-        }
-      }
+
+      // Verification and role-scoped session creation are atomic on the server.
+      // There is intentionally no follow-up /otp/signin request.
       await onVerified(phone);
     } catch (e: any) {
       setError(e?.message || 'Network error');
@@ -117,7 +104,7 @@ export default function OtpLogin({ purpose, title, subtitle, onVerified, initial
           </div>
           {error && <div className="font-ui text-sm text-red-700 bg-red-50 p-3">{error}</div>}
           <button
-            onClick={requestCode}
+            onClick={() => { void requestCode(); }}
             disabled={loading || !phone}
             className="w-full bg-madder text-white py-3 font-ui text-sm uppercase tracking-wider hover:bg-madder/90 disabled:opacity-50 flex items-center justify-center gap-2"
           >
@@ -135,7 +122,7 @@ export default function OtpLogin({ purpose, title, subtitle, onVerified, initial
               type="text"
               inputMode="numeric"
               maxLength={6}
-              placeholder="â€¢â€¢â€¢â€¢â€¢â€¢"
+              placeholder="••••••"
               value={code}
               onChange={e => setCode(e.target.value.replace(/\D/g, ''))}
               className="w-full text-center py-3 font-mono text-2xl tracking-[0.5em] border border-kohl/20 focus:border-madder outline-none"
@@ -144,7 +131,7 @@ export default function OtpLogin({ purpose, title, subtitle, onVerified, initial
             <div className="flex justify-between mt-2 font-ui text-xs text-kohl/60">
               <button onClick={() => setStep('phone')} className="hover:text-madder underline">Change number</button>
               <button
-                onClick={requestCode}
+                onClick={() => { void requestCode(); }}
                 disabled={resendIn > 0 || loading}
                 className="hover:text-madder underline disabled:opacity-50 disabled:no-underline"
               >
@@ -153,14 +140,9 @@ export default function OtpLogin({ purpose, title, subtitle, onVerified, initial
             </div>
           </div>
           {info && <div className="font-ui text-xs text-kohl/70 bg-beige p-3">{info}</div>}
-          {false && (
-            <div className="font-ui text-xs text-amber-900 bg-amber-50 p-3">
-              
-            </div>
-          )}
           {error && <div className="font-ui text-sm text-red-700 bg-red-50 p-3">{error}</div>}
           <button
-            onClick={verify}
+            onClick={() => { void verify(); }}
             disabled={loading || code.length !== 6}
             className="w-full bg-madder text-white py-3 font-ui text-sm uppercase tracking-wider hover:bg-madder/90 disabled:opacity-50 flex items-center justify-center gap-2"
           >
@@ -172,5 +154,3 @@ export default function OtpLogin({ purpose, title, subtitle, onVerified, initial
     </div>
   );
 }
-
-
