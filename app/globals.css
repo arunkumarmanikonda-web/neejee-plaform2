@@ -14,23 +14,39 @@
     --monsoon: #6B6862;
     --neem: #5A6F3F;
     --haldi: #D4A02A;
+    --paper: #F8F3EA;
+    --paper-deep: #EFE5D7;
   }
-  html { -webkit-font-smoothing: antialiased; }
+
+  html {
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    scroll-behavior: smooth;
+  }
+
   body {
-    background: var(--ivory);
+    min-height: 100vh;
+    background-color: var(--ivory);
+    background-image:
+      radial-gradient(circle at 15% 10%, rgba(139,46,42,0.025) 0 1px, transparent 1px),
+      radial-gradient(circle at 70% 45%, rgba(107,68,35,0.018) 0 1px, transparent 1px);
+    background-size: 22px 22px, 31px 31px;
     color: var(--kohl);
     font-family: var(--font-body), Georgia, serif;
   }
+
   h1, h2, h3, h4 {
     font-family: var(--font-display), var(--font-body), Georgia, serif;
     font-weight: 500;
-    letter-spacing: -0.01em;
+    letter-spacing: -0.018em;
   }
+
+  p { text-wrap: pretty; }
   ::selection { background: var(--madder); color: var(--ivory); }
-  input, textarea, button { font-family: inherit; }
+  input, textarea, button, select { font-family: inherit; }
 
   :where(a, button, input, textarea, select, summary, [tabindex]):focus-visible {
-    outline: 3px solid var(--madder);
+    outline: 2px solid var(--madder);
     outline-offset: 3px;
   }
 
@@ -38,46 +54,149 @@
 }
 
 @layer components {
-  .brand-wordmark { font-family: var(--font-display), Georgia, serif; font-weight: 600; letter-spacing: 0.3em; }
+  .brand-wordmark {
+    font-family: var(--font-display), Georgia, serif;
+    font-weight: 600;
+    letter-spacing: 0.3em;
+  }
+
   .bindi {
-    display: inline-block; width: 0.5em; height: 0.5em;
-    background: var(--madder); border-radius: 50%;
-    vertical-align: middle; margin: 0 0.1em;
+    display: inline-block;
+    width: 0.5em;
+    height: 0.5em;
+    background: var(--madder);
+    border-radius: 50%;
+    vertical-align: middle;
+    margin: 0 0.1em;
     transform: translateY(-0.4em);
   }
+
   .label {
-    font-family: var(--font-ui), sans-serif; font-size: 11px;
-    letter-spacing: 0.2em; text-transform: uppercase;
+    font-family: var(--font-ui), sans-serif;
+    font-size: 10px;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
     color: var(--monsoon);
   }
-  .madder-divider { width: 60px; height: 2px; background: var(--madder); }
+
+  .madder-divider {
+    width: 60px;
+    height: 1px;
+    background: var(--madder);
+  }
+
+  .ornament-rule {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: var(--madder);
+  }
+
+  .ornament-rule::before,
+  .ornament-rule::after {
+    content: '';
+    height: 1px;
+    width: 72px;
+    background: rgba(139,46,42,0.38);
+  }
+
+  .paper-panel {
+    background: rgba(248,243,234,0.86);
+    border: 1px solid rgba(107,68,35,0.18);
+    box-shadow: 0 14px 40px rgba(43,28,17,0.055);
+  }
+
+  .editorial-kicker {
+    font-family: var(--font-ui), sans-serif;
+    font-size: 10px;
+    letter-spacing: 0.24em;
+    text-transform: uppercase;
+    color: var(--madder);
+  }
+
+  .micro-link {
+    font-family: var(--font-ui), sans-serif;
+    font-size: 10px;
+    letter-spacing: 0.19em;
+    text-transform: uppercase;
+    color: var(--madder);
+    text-underline-offset: 4px;
+  }
+
+  .micro-link:hover { text-decoration: underline; }
+
   .btn-primary {
-    background: var(--madder); color: var(--ivory);
-    padding: 14px 28px; font-family: var(--font-ui), sans-serif;
-    font-size: 12px; letter-spacing: 0.15em; text-transform: uppercase;
-    transition: all 0.2s; display: inline-block; text-align: center; cursor: pointer;
+    background: var(--madder);
+    color: var(--ivory);
+    padding: 15px 30px;
+    font-family: var(--font-ui), sans-serif;
+    font-size: 11px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    transition: background-color 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
+    display: inline-block;
+    text-align: center;
+    cursor: pointer;
     border: 1px solid var(--madder);
   }
-  .btn-primary:hover { background: #6e2421; border-color: #6e2421; }
-  .btn-outline {
-    background: transparent; color: var(--kohl);
-    padding: 13px 27px; font-family: var(--font-ui), sans-serif;
-    font-size: 12px; letter-spacing: 0.15em; text-transform: uppercase;
-    border: 1px solid var(--kohl); transition: all 0.2s;
-    display: inline-block; text-align: center; cursor: pointer;
+
+  .btn-primary:hover {
+    background: #6e2421;
+    border-color: #6e2421;
+    transform: translateY(-1px);
   }
-  .btn-outline:hover { background: var(--kohl); color: var(--ivory); }
+
+  .btn-outline {
+    background: transparent;
+    color: var(--kohl);
+    padding: 14px 29px;
+    font-family: var(--font-ui), sans-serif;
+    font-size: 11px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    border: 1px solid rgba(26,22,19,0.72);
+    transition: background-color 0.2s ease, color 0.2s ease, transform 0.2s ease;
+    display: inline-block;
+    text-align: center;
+    cursor: pointer;
+  }
+
+  .btn-outline:hover {
+    background: var(--kohl);
+    color: var(--ivory);
+    transform: translateY(-1px);
+  }
+
   .badge-founder {
-    background: var(--madder); color: var(--ivory);
-    padding: 3px 8px; font-family: var(--font-ui), sans-serif;
-    font-size: 9px; letter-spacing: 0.15em; text-transform: uppercase;
+    background: var(--madder);
+    color: var(--ivory);
+    padding: 4px 9px;
+    font-family: var(--font-ui), sans-serif;
+    font-size: 9px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
     display: inline-block;
   }
-  .badge-handloom { background: var(--neem); color: var(--ivory); padding: 3px 8px; font-family: var(--font-ui), sans-serif; font-size: 9px; letter-spacing: 0.15em; text-transform: uppercase; }
-  .editorial-quote {
-    font-family: var(--font-display), Georgia, serif; font-style: italic;
-    font-size: 28px; line-height: 1.4; color: var(--kohl);
+
+  .badge-handloom {
+    background: transparent;
+    color: var(--madder);
+    border: 1px solid rgba(139,46,42,0.72);
+    padding: 3px 8px;
+    font-family: var(--font-ui), sans-serif;
+    font-size: 9px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
   }
+
+  .editorial-quote {
+    font-family: var(--font-display), Georgia, serif;
+    font-style: italic;
+    font-size: 28px;
+    line-height: 1.4;
+    color: var(--kohl);
+  }
+
   .editorial-pullquote {
     font-family: var(--font-display), Georgia, serif;
     font-style: italic;
@@ -89,6 +208,22 @@
     margin-left: auto;
     margin-right: auto;
   }
+
+  .neejee-field {
+    width: 100%;
+    background: rgba(255,255,255,0.25);
+    border: 1px solid rgba(107,68,35,0.28);
+    padding: 12px 14px;
+    color: var(--kohl);
+    transition: border-color 0.18s ease, background-color 0.18s ease;
+  }
+
+  .neejee-field:focus {
+    border-color: var(--madder);
+    background: rgba(255,255,255,0.45);
+    outline: none;
+  }
+
   @media (min-width: 768px) {
     .editorial-pullquote { font-size: 24px; }
   }
@@ -98,6 +233,7 @@
   from { opacity: 0; transform: translateY(12px); }
   to { opacity: 1; transform: translateY(0); }
 }
+
 .fade-up { animation: fadeUp 0.6s ease-out; }
 
 @media (prefers-reduced-motion: reduce) {
