@@ -24,8 +24,6 @@ export default function robots(): MetadataRoute.Robots {
           '/recovery/',
           '/seller',
           '/vendor',
-          '/login',
-          '/signup',
         ],
       },
     ],
