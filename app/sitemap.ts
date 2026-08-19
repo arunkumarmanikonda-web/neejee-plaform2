@@ -1,6 +1,7 @@
 import { MetadataRoute } from 'next';
 import { prisma } from '@/lib/prisma';
 import { getSiteSeoConfig } from '@/lib/site/seo-config';
+import { stories } from '@/lib/data';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 3600;
@@ -11,22 +12,34 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const base = getSiteSeoConfig().baseUrl.replace(/\/$/, '');
   const now = new Date();
 
-  const staticRoutes: MetadataRoute.Sitemap = [
+  const staticPaths = [
     '',
     '/about',
+    '/about/select',
+    '/about/sustainability',
     '/journal',
     '/lookbook',
     '/sellers',
     '/help/shipping',
     '/help/returns',
+    '/help/track',
     '/help/contact',
     '/help/faq',
     '/legal/privacy',
-  ].map((path) => ({
+  ];
+
+  const staticRoutes: MetadataRoute.Sitemap = staticPaths.map((path) => ({
     url: `${base}${path}`,
     lastModified: now,
     changeFrequency: path === '' ? 'daily' : 'weekly',
-    priority: path === '' ? 1 : 0.7,
+    priority: path === '' ? 1 : path.startsWith('/help/') || path.startsWith('/legal/') ? 0.5 : 0.7,
+  }));
+
+  const staticStoryRoutes: MetadataRoute.Sitemap = stories.map((story) => ({
+    url: `${base}/journal/${encodeURIComponent(story.slug)}`,
+    lastModified: story.publishedAt ? new Date(story.publishedAt) : now,
+    changeFrequency: 'monthly',
+    priority: 0.65,
   }));
 
   let productRoutes: MetadataRoute.Sitemap = [];
@@ -34,9 +47,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   let cmsRoutes: MetadataRoute.Sitemap = [];
 
   try {
-    // As with homepage ISR, production may run Prisma with a deliberately small
-    // serverless pool. Keep these independent reads sequential so sitemap
-    // generation cannot self-contend and silently lose catalogue URLs.
+    // Production may run Prisma with a deliberately small serverless pool.
+    // Keep these reads sequential so sitemap generation cannot self-contend.
     const products = await prisma.product.findMany({
       where: { status: 'ACTIVE', catalogueExclude: false },
       select: { slug: true, updatedAt: true },
@@ -82,6 +94,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   }
 
   const unique = new Map<string, MetadataRoute.Sitemap[number]>();
-  for (const entry of [...staticRoutes, ...productRoutes, ...categoryRoutes, ...cmsRoutes]) unique.set(entry.url, entry);
+  for (const entry of [...staticRoutes, ...staticStoryRoutes, ...productRoutes, ...categoryRoutes, ...cmsRoutes]) unique.set(entry.url, entry);
   return Array.from(unique.values());
 }
