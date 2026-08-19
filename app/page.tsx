@@ -1,6 +1,5 @@
-// NEEJEE Homepage — Phase 2 editorial storefront, backed by live catalogue/CMS data.
+// NEEJEE Homepage — Phase 2 editorial storefront, backed only by live catalogue/CMS data.
 import Link from 'next/link';
-import Image from 'next/image';
 import { prisma } from '@/lib/prisma';
 import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
@@ -12,36 +11,74 @@ import { Sparkles, ShieldCheck, Truck, RotateCcw, LockKeyhole } from 'lucide-rea
 export const revalidate = 60;
 export const runtime = 'nodejs';
 
+function publicProductWhere(): any {
+  return {
+    status: 'ACTIVE',
+    catalogueExclude: false,
+    OR: [
+      { catalogueStockVisibility: { in: ['SHOW_ALL', 'HIDE_STOCK'] } },
+      {
+        AND: [
+          { catalogueStockVisibility: 'IN_STOCK_ONLY' },
+          { variants: { some: { inventory: { gt: 0 } } } },
+        ],
+      },
+    ],
+  };
+}
+
 async function getHomeData() {
   try {
     const now = new Date();
+    const publicWhere = publicProductWhere();
 
-    // Production deliberately uses a small serverless connection pool. These reads
-    // stay sequential so one ISR regeneration cannot self-starve Prisma.
+    // Production deliberately uses a small serverless connection pool. Keep the
+    // reads sequential so one ISR regeneration cannot self-starve Prisma.
     const founderEdit = await prisma.product.findMany({
-      where: { status: 'ACTIVE', badges: { has: "FOUNDER'S EDIT" } },
+      where: {
+        AND: [
+          publicWhere,
+          {
+            OR: [
+              { catalogueFeatured: true },
+              { catalogueEditorial: true },
+              { badges: { has: "FOUNDER'S EDIT" } },
+              { badges: { has: 'FOUNDERS_EDIT' } },
+            ],
+          },
+        ],
+      },
       take: 6,
-      orderBy: { createdAt: 'desc' },
+      orderBy: [{ catalogueFeatured: 'desc' }, { catalogueEditorial: 'desc' }, { createdAt: 'desc' }],
       include: { variants: { select: { inventory: true, images: true } } },
     });
 
     const newArrivals = await prisma.product.findMany({
-      where: { status: 'ACTIVE' },
+      where: publicWhere,
       take: 8,
       orderBy: { createdAt: 'desc' },
       include: { variants: { select: { inventory: true, images: true } } },
     });
 
     const allActive = await prisma.product.findMany({
-      where: { status: 'ACTIVE' },
+      where: publicWhere,
       take: 4,
       orderBy: { createdAt: 'asc' },
       include: { variants: { select: { inventory: true, images: true } } },
     });
 
     const categories = await prisma.category.findMany({
-      where: { products: { some: { status: 'ACTIVE' } } },
-      select: { id: true, slug: true, name: true, products: { select: { id: true }, take: 1 } },
+      where: {
+        active: true,
+        hidden: false,
+        products: { some: publicWhere },
+      },
+      select: {
+        id: true,
+        slug: true,
+        name: true,
+        products: { where: publicWhere, select: { id: true }, take: 1 },
+      },
       take: 8,
     });
 
@@ -68,6 +105,25 @@ async function getHomeData() {
       return null;
     });
 
+    const journalEntries = await prisma.cmsPage.findMany({
+      where: { pageType: 'journal', status: 'PUBLISHED' },
+      orderBy: [{ featured: 'desc' }, { publishedAt: 'desc' }, { updatedAt: 'desc' }],
+      take: 3,
+      select: {
+        id: true,
+        slug: true,
+        title: true,
+        excerpt: true,
+        coverImage: true,
+        author: true,
+        publishedAt: true,
+        updatedAt: true,
+      },
+    }).catch((e: any) => {
+      console.warn('[home] Journal query failed:', e.message);
+      return [];
+    });
+
     let founderNoteTitle: string | null = null;
     let founderNoteBody: string | null = null;
     let founderNoteAlign: 'left' | 'center' | 'justify' = 'center';
@@ -77,8 +133,12 @@ async function getHomeData() {
       const sections = Array.isArray(founderNotePage.sections) ? founderNotePage.sections : [];
       for (const s of sections as any[]) {
         if (!s) continue;
-        if (typeof s?.data?.title === 'string' && s.data.title.trim() && !founderNoteTitle) founderNoteTitle = s.data.title.trim();
-        if (typeof s?.data?.body === 'string' && s.data.body.trim() && !founderNoteBody) founderNoteBody = s.data.body.trim();
+        if (typeof s?.data?.title === 'string' && s.data.title.trim() && !founderNoteTitle) {
+          founderNoteTitle = s.data.title.trim();
+        }
+        if (typeof s?.data?.body === 'string' && s.data.body.trim() && !founderNoteBody) {
+          founderNoteBody = s.data.body.trim();
+        }
         if (s?.data?.align && ['left', 'center', 'justify'].includes(s.data.align) && !founderNoteAlignSet) {
           founderNoteAlign = s.data.align as 'left' | 'center' | 'justify';
           founderNoteAlignSet = true;
@@ -96,6 +156,7 @@ async function getHomeData() {
           }
         }
       }
+
       return {
         id: p.id,
         slug: p.slug,
@@ -130,6 +191,7 @@ async function getHomeData() {
       founderNoteTitle,
       founderNoteBody,
       founderNoteAlign,
+      journalEntries,
     };
   } catch (e: any) {
     console.warn('[home] DB query failed:', e.message);
@@ -141,31 +203,11 @@ async function getHomeData() {
       founderNoteTitle: null,
       founderNoteBody: null,
       founderNoteAlign: 'center' as const,
+      journalEntries: [],
       error: e.message,
     };
   }
 }
-
-const JOURNAL_FALLBACK = [
-  {
-    slug: 'why-we-built-neejee',
-    title: 'Why we built NEEJEE',
-    excerpt: 'I searched for years for the things I knew existed in India, and found nothing good enough online. So I built it.',
-    image: 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=800&q=80',
-  },
-  {
-    slug: 'fourteen-days-on-a-loom',
-    title: 'Fourteen days on a loom',
-    excerpt: 'Fourteen days of weaving. One saree. Three generations.',
-    image: 'https://images.unsplash.com/photo-1583391733956-3750e0ff4e8b?w=800&q=80',
-  },
-  {
-    slug: 'how-to-store-a-banarasi',
-    title: 'How to store a Banarasi',
-    excerpt: 'Wrap it in muslin, not plastic. Refold it once a season. Let it breathe.',
-    image: 'https://images.unsplash.com/photo-1583394293214-28a4b6cdf5b2?w=800&q=80',
-  },
-];
 
 export default async function HomePage() {
   const data = await getHomeData();
@@ -173,14 +215,16 @@ export default async function HomePage() {
   return (
     <>
       <Header />
-      <HeroCarousel banners={(data as any).heroBanners || []} primaryCatSlug={data.primaryCatSlug || 'women-sarees'} />
+      <HeroCarousel banners={data.heroBanners || []} primaryCatSlug={data.primaryCatSlug || 'women-sarees'} />
 
       {data.founder.length > 0 && (
         <section className="max-w-[1680px] mx-auto px-5 sm:px-8 lg:px-12 pt-16 md:pt-20 pb-16">
           <div className="text-center max-w-2xl mx-auto mb-10 md:mb-12">
             <p className="editorial-kicker">THE FIRST EDIT</p>
             <h2 className="font-display text-[38px] md:text-[50px] leading-none text-kohl mt-3">Founder&apos;s Edit</h2>
-            <div className="ornament-rule justify-center mt-5"><span className="font-display italic text-mitti text-sm">Personally chosen by Nidhi</span></div>
+            <div className="ornament-rule justify-center mt-5">
+              <span className="font-display italic text-mitti text-sm">Personally chosen by Nidhi</span>
+            </div>
           </div>
 
           <div className="grid grid-cols-2 md:grid-cols-3 gap-x-4 gap-y-9 sm:gap-6 lg:gap-8 max-w-6xl mx-auto">
@@ -227,49 +271,62 @@ export default async function HomePage() {
         </section>
       )}
 
-      <section className="bg-paper-deep/65 border-y border-mitti/12 py-16 md:py-24">
-        <div className="max-w-3xl mx-auto px-6 text-center">
-          <p className="editorial-kicker mb-4">A NOTE FROM THE FOUNDER</p>
-          {data.founderNoteTitle && (
-            <h2 className="font-display text-3xl md:text-[42px] leading-tight text-kohl mb-9">{data.founderNoteTitle}</h2>
-          )}
-          {(() => {
-            const fullBody = data.founderNoteBody || `It began with one saree. Woven by Ramji bhai in Varanasi, over fourteen days, on a pit-loom older than him.\n\nAnd then I realised he was one of thousands. The weavers, the potters, the carpenters, the brassworkers, the attar-makers, the dyers, the embroiderers, the hands that have shaped India for centuries, were vanishing into the noise of glass-fronted malls and over-hyped digital platforms.\n\nSo I built one place to find them. One spotlight. One honest price.\n\nNidhi Chauhan`;
-            const paragraphs = fullBody.split(/\n\s*\n/).map((p) => p.trim()).filter(Boolean);
-            let signature: string | null = null;
-            const last = paragraphs[paragraphs.length - 1];
-            if (last && last.length < 60 && !last.endsWith('.') && !last.includes('\n')) {
-              signature = last;
-              paragraphs.pop();
-            }
-            const alignClass = data.founderNoteAlign === 'justify' ? 'text-justify' : data.founderNoteAlign === 'left' ? 'text-left' : 'text-center';
-            return (
-              <>
-                <div className={`font-display text-kohl/80 text-[16px] md:text-[18px] leading-[1.8] space-y-5 ${alignClass}`} style={{ textAlign: data.founderNoteAlign || 'center' }}>
-                  {paragraphs.map((p, i) => <p key={i}>{p}</p>)}
-                </div>
-                {signature && (
-                  <div className="mt-10 flex justify-center">
-                    <div className="min-w-52 border-t border-madder/25 pt-5">
-                      <p className="font-display italic text-madder text-lg">{signature}</p>
-                      <p className="font-ui text-[9px] tracking-[0.2em] text-mitti mt-1">FOUNDER</p>
-                    </div>
+      {data.founderNoteBody && (
+        <section className="bg-paper-deep/65 border-y border-mitti/12 py-16 md:py-24">
+          <div className="max-w-3xl mx-auto px-6 text-center">
+            <p className="editorial-kicker mb-4">A NOTE FROM THE FOUNDER</p>
+            {data.founderNoteTitle && (
+              <h2 className="font-display text-3xl md:text-[42px] leading-tight text-kohl mb-9">{data.founderNoteTitle}</h2>
+            )}
+            {(() => {
+              const paragraphs = data.founderNoteBody.split(/\n\s*\n/).map((p) => p.trim()).filter(Boolean);
+              let signature: string | null = null;
+              const last = paragraphs[paragraphs.length - 1];
+              if (last && last.length < 60 && !last.endsWith('.') && !last.includes('\n')) {
+                signature = last;
+                paragraphs.pop();
+              }
+              const alignClass = data.founderNoteAlign === 'justify'
+                ? 'text-justify'
+                : data.founderNoteAlign === 'left'
+                  ? 'text-left'
+                  : 'text-center';
+
+              return (
+                <>
+                  <div
+                    className={`font-display text-kohl/80 text-[16px] md:text-[18px] leading-[1.8] space-y-5 ${alignClass}`}
+                    style={{ textAlign: data.founderNoteAlign || 'center' }}
+                  >
+                    {paragraphs.map((p, i) => <p key={i}>{p}</p>)}
                   </div>
-                )}
-              </>
-            );
-          })()}
-        </div>
-      </section>
+                  {signature && (
+                    <div className="mt-10 flex justify-center">
+                      <div className="min-w-52 border-t border-madder/25 pt-5">
+                        <p className="font-display italic text-madder text-lg">{signature}</p>
+                        <p className="font-ui text-[9px] tracking-[0.2em] text-mitti mt-1">FOUNDER</p>
+                      </div>
+                    </div>
+                  )}
+                </>
+              );
+            })()}
+          </div>
+        </section>
+      )}
 
       <section className="max-w-[1440px] mx-auto px-5 sm:px-8 lg:px-12 py-16 md:py-20">
         <div className="bg-kohl text-ivory p-8 sm:p-10 lg:p-14 relative overflow-hidden border border-kohl">
           <div className="absolute inset-y-0 right-0 w-2/5 opacity-[0.08] bg-[radial-gradient(circle_at_center,#F4EFE6_0_1px,transparent_1.5px)] [background-size:18px_18px]" />
           <div className="relative grid lg:grid-cols-[1.15fr_.85fr] gap-10 items-center">
             <div>
-              <p className="font-ui text-[9px] tracking-[0.22em] text-banarasi flex items-center gap-2"><Sparkles className="w-4 h-4" /> NEEJEE AI</p>
+              <p className="font-ui text-[9px] tracking-[0.22em] text-banarasi flex items-center gap-2">
+                <Sparkles className="w-4 h-4" /> NEEJEE AI
+              </p>
               <h2 className="font-display text-[38px] lg:text-[52px] leading-[1.05] mt-4">See it on you.<br />See it in your home.</h2>
-              <p className="font-display italic text-beige/75 text-[17px] mt-5 max-w-lg">Use the Mirror for wearable pieces, Space for the room around you, and the Concierge when the choice is personal.</p>
+              <p className="font-display italic text-beige/75 text-[17px] mt-5 max-w-lg">
+                Use the Mirror for wearable pieces, Space for the room around you, and the Concierge when the choice is personal.
+              </p>
               <div className="mt-8 flex flex-wrap gap-5 items-center">
                 <Link href="/ai/mirror" className="btn-primary">TRY THE MIRROR</Link>
                 <Link href="/ai/gift" className="micro-link !text-ivory/80 hover:!text-banarasi">GIFT CONCIERGE →</Link>
@@ -287,27 +344,45 @@ export default async function HomePage() {
         </div>
       </section>
 
-      <section className="bg-paper-deep/55 border-y border-mitti/12 py-16 md:py-20">
-        <div className="max-w-[1440px] mx-auto px-5 sm:px-8 lg:px-12">
-          <div className="text-center mb-10">
-            <p className="editorial-kicker">STORIES</p>
-            <h2 className="font-display text-[38px] md:text-[46px] text-kohl mt-3">From the Journal</h2>
+      {data.journalEntries.length > 0 && (
+        <section className="bg-paper-deep/55 border-y border-mitti/12 py-16 md:py-20">
+          <div className="max-w-[1440px] mx-auto px-5 sm:px-8 lg:px-12">
+            <div className="text-center mb-10">
+              <p className="editorial-kicker">STORIES</p>
+              <h2 className="font-display text-[38px] md:text-[46px] text-kohl mt-3">From the Journal</h2>
+            </div>
+            <div className="grid md:grid-cols-3 gap-7 lg:gap-9">
+              {data.journalEntries.map((entry) => (
+                <Link key={entry.id} href={`/p/${entry.slug}`} className="group block">
+                  <div className="aspect-[4/3] bg-ivory overflow-hidden border border-mitti/12">
+                    {entry.coverImage ? (
+                      // CMS media can be stored on approved external providers that
+                      // are not guaranteed to be in next/image remotePatterns.
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={entry.coverImage}
+                        alt={entry.title}
+                        className="w-full h-full object-cover group-hover:scale-[1.025] transition-transform duration-700"
+                      />
+                    ) : (
+                      <div className="w-full h-full bg-gradient-to-br from-beige to-mitti/15" />
+                    )}
+                  </div>
+                  <p className="editorial-kicker mt-4">JOURNAL</p>
+                  <h3 className="font-display text-[22px] text-kohl mt-1.5 group-hover:text-madder transition-colors">{entry.title}</h3>
+                  {entry.excerpt && (
+                    <p className="font-display italic text-mitti text-[14px] mt-2 line-clamp-2">{entry.excerpt}</p>
+                  )}
+                  <p className="micro-link mt-3">READ →</p>
+                </Link>
+              ))}
+            </div>
+            <div className="text-center mt-10">
+              <Link href="/journal" className="micro-link">VIEW THE JOURNAL →</Link>
+            </div>
           </div>
-          <div className="grid md:grid-cols-3 gap-7 lg:gap-9">
-            {JOURNAL_FALLBACK.map((j) => (
-              <Link key={j.slug} href={`/journal/${j.slug}`} className="group block">
-                <div className="aspect-[4/3] bg-ivory overflow-hidden border border-mitti/12">
-                  <Image src={j.image} alt={j.title} width={800} height={600} className="w-full h-full object-cover group-hover:scale-[1.025] transition-transform duration-700" />
-                </div>
-                <p className="editorial-kicker mt-4">JOURNAL</p>
-                <h3 className="font-display text-[22px] text-kohl mt-1.5 group-hover:text-madder transition-colors">{j.title}</h3>
-                <p className="font-display italic text-mitti text-[14px] mt-2 line-clamp-2">{j.excerpt}</p>
-                <p className="micro-link mt-3">READ →</p>
-              </Link>
-            ))}
-          </div>
-        </div>
-      </section>
+        </section>
+      )}
 
       <section className="max-w-3xl mx-auto px-6 py-16 md:py-20 text-center">
         <p className="editorial-kicker">STAY IN THE TRUNK</p>
