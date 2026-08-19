@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Loader2, CheckCircle2, XCircle, Clock, FileText, ExternalLink } from 'lucide-react';
 
 const STATUS_TABS = [
@@ -17,16 +17,22 @@ export default function AdminChangeRequestsPage() {
   const [reviewModal, setReviewModal] = useState<{ id: string; action: 'APPROVE' | 'REJECT' } | null>(null);
   const [note, setNote] = useState('');
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setLoading(true);
-    const url = new URL('/api/admin/vendor-change-requests', window.location.origin);
-    url.searchParams.set('status', tab);
-    const r = await fetch(url.toString(), { cache: 'no-store' });
-    const d = await r.json();
-    setRequests(d.requests || []);
-    setLoading(false);
-  };
-  useEffect(() => { load(); /* eslint-disable-next-line */ }, [tab]);
+    try {
+      const url = new URL('/api/admin/vendor-change-requests', window.location.origin);
+      url.searchParams.set('status', tab);
+      const r = await fetch(url.toString(), { cache: 'no-store' });
+      const d = await r.json();
+      setRequests(d.requests || []);
+    } finally {
+      setLoading(false);
+    }
+  }, [tab]);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
 
   const review = async () => {
     if (!reviewModal) return;
