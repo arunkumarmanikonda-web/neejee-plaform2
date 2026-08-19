@@ -27,15 +27,33 @@ export default function VendorsPage() {
 
   const load = async () => {
     setLoading(true);
-    const url = new URL('/api/admin/vendors', window.location.origin);
-    if (q) url.searchParams.set('q', q);
-    if (statusFilter) url.searchParams.set('status', statusFilter);
-    const r = await fetch(url.toString(), { cache: 'no-store' });
-    const d = await r.json();
-    setVendors(d.vendors || []);
-    setLoading(false);
+    try {
+      const url = new URL('/api/admin/vendors', window.location.origin);
+      if (q) url.searchParams.set('q', q);
+      if (statusFilter) url.searchParams.set('status', statusFilter);
+      const r = await fetch(url.toString(), { cache: 'no-store' });
+      const d = await r.json();
+      setVendors(d.vendors || []);
+    } finally {
+      setLoading(false);
+    }
   };
-  useEffect(() => { load(); /* eslint-disable-next-line */ }, []);
+
+  useEffect(() => {
+    let active = true;
+    const initialLoad = async () => {
+      setLoading(true);
+      try {
+        const r = await fetch('/api/admin/vendors', { cache: 'no-store' });
+        const d = await r.json();
+        if (active) setVendors(d.vendors || []);
+      } finally {
+        if (active) setLoading(false);
+      }
+    };
+    void initialLoad();
+    return () => { active = false; };
+  }, []);
 
   return (
     <div className="max-w-6xl mx-auto p-6 lg:p-8">
@@ -49,9 +67,8 @@ export default function VendorsPage() {
         </button>
       </div>
 
-      {/* Filters */}
       <div className="flex flex-wrap gap-3 mb-4">
-        <form onSubmit={e => { e.preventDefault(); load(); }} className="flex items-center gap-2">
+        <form onSubmit={e => { e.preventDefault(); void load(); }} className="flex items-center gap-2">
           <div className="relative">
             <Search className="w-4 h-4 text-mitti absolute left-2 top-1/2 -translate-y-1/2" />
             <input
@@ -77,7 +94,6 @@ export default function VendorsPage() {
         </form>
       </div>
 
-      {/* Table */}
       {loading ? (
         <Loader2 className="w-5 h-5 animate-spin text-madder" />
       ) : vendors.length === 0 ? (
@@ -120,7 +136,7 @@ export default function VendorsPage() {
         </div>
       )}
 
-      {showCreate && <CreateVendorModal onClose={() => setShowCreate(false)} onCreated={() => { setShowCreate(false); load(); }} />}
+      {showCreate && <CreateVendorModal onClose={() => setShowCreate(false)} onCreated={() => { setShowCreate(false); void load(); }} />}
     </div>
   );
 }
