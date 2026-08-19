@@ -69,7 +69,7 @@ export default function MegaMenuNav() {
 
         if (alive && merged.length > 0) setMains(orderRoots(merged));
       } catch {
-        // Stable fallback navigation remains available if taxonomy is unavailable.
+        // Keep the stable fallback navigation if the taxonomy service is unavailable.
       }
     }
 
@@ -80,7 +80,7 @@ export default function MegaMenuNav() {
   const orderedMains = useMemo(() => orderRoots(mains), [mains]);
 
   return (
-    <nav className="hidden lg:flex items-center gap-5 xl:gap-7 min-w-0">
+    <nav className="hidden lg:flex items-center gap-6">
       {orderedMains.map((main) => {
         const children = Array.isArray(main.children) ? orderChildren(main.children) : [];
         const hasChildren = children.length > 0;
@@ -94,29 +94,28 @@ export default function MegaMenuNav() {
           >
             <Link
               href={hrefFor(main)}
-              className="inline-flex items-center font-display text-[13px] xl:text-[14px] uppercase tracking-[0.09em] text-kohl hover:text-madder transition-colors whitespace-nowrap"
+              className="inline-flex items-center text-[13px] font-medium uppercase tracking-[0.18em] text-neutral-900 hover:text-black"
             >
               {main.name}
             </Link>
 
             {hasChildren && openId === main.id && (
-              <div className="absolute left-1/2 -translate-x-1/2 top-full z-[120] mt-[29px] min-w-[860px] border border-mitti/20 bg-ivory p-8 shadow-[0_24px_60px_rgba(26,22,19,0.14)]">
-                <div className="absolute -top-px left-0 right-0 h-px bg-madder/45" />
+              <div className="absolute left-0 top-full z-[120] mt-4 min-w-[860px] rounded-2xl border border-neutral-200 bg-white p-6 shadow-2xl">
                 <div className="grid grid-cols-4 gap-8">
                   {children.map((l2) => {
                     const l3s = Array.isArray(l2.children) ? orderChildren(l2.children) : [];
                     return (
                       <div key={l2.id} className="min-w-0">
-                        <Link href={hrefFor(l2)} className="mb-4 block font-ui text-[10px] uppercase tracking-[0.2em] text-madder hover:text-kohl transition-colors">
+                        <Link href={hrefFor(l2)} className="mb-3 block text-[12px] font-semibold uppercase tracking-[0.16em] text-neutral-900 hover:text-black">
                           {l2.name}
                         </Link>
-                        <div className="space-y-2.5">
+                        <div className="space-y-2">
                           {l3s.length > 0 ? l3s.map((l3) => (
-                            <Link key={l3.id} href={hrefFor(l3)} className="block font-display text-[15px] text-kohl/80 hover:text-madder transition-colors">
+                            <Link key={l3.id} href={hrefFor(l3)} className="block text-sm text-neutral-600 hover:text-black">
                               {l3.name}
                             </Link>
                           )) : (
-                            <Link href={hrefFor(l2)} className="block font-display text-[15px] text-kohl/80 hover:text-madder transition-colors">View all</Link>
+                            <Link href={hrefFor(l2)} className="block text-sm text-neutral-600 hover:text-black">View all</Link>
                           )}
                         </div>
                       </div>
@@ -129,11 +128,11 @@ export default function MegaMenuNav() {
         );
       })}
 
-      <Link href="/journal" className="inline-flex items-center font-display text-[13px] xl:text-[14px] uppercase tracking-[0.09em] text-kohl hover:text-madder transition-colors whitespace-nowrap">
+      <Link href="/journal" className="inline-flex items-center text-[13px] font-medium uppercase tracking-[0.18em] text-neutral-900 hover:text-black">
         STORIES
       </Link>
-      <Link href="/ai" className="inline-flex items-center font-display text-[13px] xl:text-[14px] uppercase tracking-[0.09em] text-madder hover:text-kohl transition-colors whitespace-nowrap">
-        AI
+      <Link href="/ai" className="inline-flex items-center text-[13px] font-medium uppercase tracking-[0.18em] text-neutral-900 hover:text-black">
+        AI ✦
       </Link>
     </nav>
   );
