@@ -1,5 +1,4 @@
-// v23.40.26.0.2 — About page is now CMS-driven.
-// Edit at /admin/cms (slug: about-page). Falls back to default hardcoded content if CMS row is missing or unpublished.
+// About page is CMS-driven (slug: about-page) with evidence-safe fallbacks.
 import Link from 'next/link';
 import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
@@ -7,7 +6,7 @@ import { prisma } from '@/lib/prisma';
 
 export const metadata = {
   title: 'About · NEEJEE',
-  description: 'NEEJEE is the place built for India\'s quiet, generational craft. Weavers, potters, carpenters, metalsmiths, perfumers and the hands behind every piece. Founded by Nidhi Chauhan.',
+  description: "Why NEEJEE exists: to make India's craft traditions easier to discover without losing the maker, place and process behind the piece.",
 };
 
 export const dynamic = 'force-dynamic';
@@ -31,21 +30,17 @@ const DEFAULT_CONTENT: AboutSections = {
   pullquote: 'The rarest things in India are rarely the hardest to make. They are simply the hardest to find.',
   attribution: 'Nidhi Chauhan, Founder',
   paragraphs: [
-    'NEEJEE began with a question I could not answer for myself: where do I buy the things I know India makes?',
-    'In the north, I knew there was a Banarasi being woven on a pit-loom in Varanasi, a Chikankari shadow-stitch being whispered onto white muslin in Lucknow, a Zardozi being couched in gold next to it. A Phulkari being threaded in vintage pink in Amritsar, a Jutti being stitched in Patiala. A Pashmina being spun from changthangi goat-down in Kashmir, a Kani shawl growing one motif a day on a loom, a Sozni needle following a paisley for three winters.',
-    'In the heart of the country, a Maheshwari being woven on the banks of the Narmada, a Chanderi so light it floats, a Bagh block-print laid out on the river-bed of Madhya Pradesh, a Gond painting in dots and stripes, a Dhokra figure cast in lost-wax in Bastar. In Rajasthan, a Gota Patti border being couched in Jaipur, a Bandhani being tied knot-by-knot in Jodhpur.',
-    'In Gujarat, a Patola being double-ikat-tied in Patan for six months. In Bihar, a Madhubani being drawn by a woman on the wall of her own home. In Bengal, a Baluchari telling Mahabharata stories in weft, a Jamdani as light as breath, a Kantha stitched from old saris.',
-    'In the south, a Kalamkari being hand-drawn with a tamarind-twig pen in Srikalahasti, a Kanchipuram silk being weighted with gold zari, a Pochampalli ikat being tied before it ever touches the loom. In Tamil Nadu, a Thanjavur painting layered in gold leaf, a Swamimalai bronze cast in the lost-wax tradition of the Cholas. In Kerala, an Aranmula Kannadi metal mirror.',
-    'In the northeast, a Muga silk in Assam glowing gold without a single dye, an Eri silk in peace-silk, a Naga shawl on a backstrap loom, a Manipuri Wangkhei Phee, an Apatani textile in Arunachal.',
-    'But every search led me to either a mass-produced copy, or a designer interpretation. Never the thing itself. Never the hands that made it.',
-    'So I started travelling. Three years. Eighteen states. Two hundred and forty artisan clusters. And I found that the rare, the rooted, the personal still exists. It is just quiet.',
-    'NEEJEE is the place I built for all of them. Every piece is found, personal, and named. The maker is named. The region is named. The technique is named. We pay our artisans in advance and on time. We never compromise on the thing itself.',
+    'NEEJEE began with a question I could not answer for myself: where do I find the things I know India still makes, without losing the place, process and people that give those things meaning?',
+    'Across India, extraordinary traditions continue in weaving, embroidery, metalwork, pottery, wood, fragrance, painting and many other forms. Yet online, the story of a piece can disappear behind a product tile long before a customer understands what made it worth finding.',
+    'NEEJEE is being built as a quieter alternative. We want a product record to do more than sell: it should explain what is known about the craft, region, material and maker, distinguish verified detail from editorial storytelling, and give the customer enough context to choose with confidence.',
+    'That means curation is not only aesthetic. It is also operational. Images must be approved, stock must be real, commercial terms must be clear, and provenance claims should be supported before they are published as fact.',
+    'The catalogue will grow over time. The principle is meant to remain the same: find carefully, describe truthfully, and make the experience feel personal rather than endless.',
   ],
-  closingLine: 'One place. One spotlight. One honest price. For every pair of hands India has forgotten to celebrate.',
+  closingLine: 'One place. One spotlight. A more considered way to discover India, piece by piece.',
   stats: [
-    { label: 'FOUNDED', value: '2026', note: 'Mumbai · Varanasi · Jaipur' },
-    { label: 'ARTISAN PARTNERS', value: '240+', note: 'Across 18 states' },
-    { label: 'FAIR-TRADE', value: '100%', note: 'Above MSP · Paid in advance' },
+    { label: 'FOUNDED', value: '2026', note: 'Built in India' },
+    { label: 'CURATION', value: 'Founder-led', note: 'Publication is reviewed before a piece is surfaced' },
+    { label: 'DISCLOSURE', value: 'Evidence-led', note: 'Specific claims belong only where the record supports them' },
   ],
   ctaText: 'Begin Finding',
   ctaUrl: '/',
@@ -59,25 +54,22 @@ async function getAboutContent(): Promise<AboutSections> {
     });
     if (!page || page.status !== 'PUBLISHED') return DEFAULT_CONTENT;
     const sections = Array.isArray(page.sections) ? page.sections : [];
-    // CMS structure: one section of type 'text' with `data.body` containing
-    // a single long text with sections separated by blank lines.
-    // First line = title, second line = pullquote (if starts with ").
-    // Or use multiple typed sections.
-    const merged: any = { ...DEFAULT_CONTENT };
-    for (const s of sections as any[]) {
-      if (s?.type === 'hero' && s.data) {
-        if (s.data.eyebrow) merged.eyebrow = s.data.eyebrow;
-        if (s.data.title) merged.title = s.data.title;
-        if (s.data.subtitle) merged.pullquote = s.data.subtitle;
-      } else if (s?.type === 'quote' && s.data) {
-        if (s.data.text) merged.pullquote = s.data.text;
-        if (s.data.attribution) merged.attribution = s.data.attribution;
-      } else if (s?.type === 'text' && s.data?.body) {
-        const paras = String(s.data.body).split(/\n\s*\n/).map((p: string) => p.trim()).filter(Boolean);
-        if (paras.length > 0) merged.paragraphs = paras;
-      } else if (s?.type === 'cta' && s.data) {
-        if (s.data.ctaText) merged.ctaText = s.data.ctaText;
-        if (s.data.ctaUrl) merged.ctaUrl = s.data.ctaUrl;
+    const merged: AboutSections = { ...DEFAULT_CONTENT, paragraphs: [...DEFAULT_CONTENT.paragraphs], stats: [...DEFAULT_CONTENT.stats] };
+
+    for (const section of sections as any[]) {
+      if (section?.type === 'hero' && section.data) {
+        if (section.data.eyebrow) merged.eyebrow = section.data.eyebrow;
+        if (section.data.title) merged.title = section.data.title;
+        if (section.data.subtitle) merged.pullquote = section.data.subtitle;
+      } else if (section?.type === 'quote' && section.data) {
+        if (section.data.text) merged.pullquote = section.data.text;
+        if (section.data.attribution) merged.attribution = section.data.attribution;
+      } else if (section?.type === 'text' && section.data?.body) {
+        const paragraphs = String(section.data.body).split(/\n\s*\n/).map((p: string) => p.trim()).filter(Boolean);
+        if (paragraphs.length > 0) merged.paragraphs = paragraphs;
+      } else if (section?.type === 'cta' && section.data) {
+        if (section.data.ctaText) merged.ctaText = section.data.ctaText;
+        if (section.data.ctaUrl) merged.ctaUrl = section.data.ctaUrl;
       }
     }
     return merged;
@@ -87,38 +79,38 @@ async function getAboutContent(): Promise<AboutSections> {
 }
 
 export default async function AboutPage() {
-  const c = await getAboutContent();
+  const content = await getAboutContent();
   return (
     <>
       <Header />
-      <section className="max-w-3xl mx-auto px-6 py-20 text-center">
-        <p className="label text-madder mb-4">{c.eyebrow}</p>
-        <h1 className="font-display text-5xl md:text-6xl text-kohl leading-tight">{c.title}</h1>
-        <div className="madder-divider mx-auto mt-8"></div>
-        <p className="editorial-pullquote mt-12">&ldquo;{c.pullquote}&rdquo;</p>
-        <p className="text-center text-xs tracking-[0.25em] text-mitti mt-6">{c.attribution}</p>
-      </section>
+      <main>
+        <section className="max-w-3xl mx-auto px-6 pt-20 pb-14 text-center">
+          <p className="editorial-kicker">{content.eyebrow}</p>
+          <h1 className="font-display text-5xl md:text-6xl text-kohl leading-tight mt-4">{content.title}</h1>
+          <div className="ornament-rule justify-center mt-8"><span className="font-display italic text-mitti text-sm">FOUND. PERSONAL.</span></div>
+          <p className="editorial-pullquote mt-12">&ldquo;{content.pullquote}&rdquo;</p>
+          <p className="font-ui text-[9px] tracking-[0.2em] text-mitti mt-6">{content.attribution.toUpperCase()}</p>
+        </section>
 
-      <section className="max-w-2xl mx-auto px-6 py-12 font-body text-[15px] md:text-base text-kohl/85 leading-[1.85] space-y-5">
-        {c.paragraphs.map((p, i) => (<p key={i}>{p}</p>))}
-        {c.closingLine && (
-          <p className="font-display italic text-xl md:text-2xl text-mitti pt-4">{c.closingLine}</p>
-        )}
-      </section>
+        <section className="max-w-3xl mx-auto px-6 py-10 font-display text-[17px] md:text-[18px] text-kohl/82 leading-[1.8] space-y-6">
+          {content.paragraphs.map((paragraph, index) => <p key={index}>{paragraph}</p>)}
+          {content.closingLine && <p className="font-display italic text-2xl text-mitti text-center pt-5">{content.closingLine}</p>}
+        </section>
 
-      <section className="max-w-7xl mx-auto px-6 py-20 grid md:grid-cols-3 gap-6">
-        {c.stats.map(s => (
-          <div key={s.label} className="text-center p-8 bg-beige">
-            <p className="label text-madder">{s.label}</p>
-            <p className="font-display text-5xl text-kohl mt-3">{s.value}</p>
-            <p className="font-italic italic text-mitti mt-2">{s.note}</p>
-          </div>
-        ))}
-      </section>
+        <section className="max-w-6xl mx-auto px-6 py-16 grid md:grid-cols-3 gap-5">
+          {content.stats.map((stat) => (
+            <div key={stat.label} className="paper-panel text-center p-8">
+              <p className="editorial-kicker">{stat.label}</p>
+              <p className="font-display text-[36px] text-kohl mt-3">{stat.value}</p>
+              <p className="font-display italic text-mitti mt-3 text-[13px] leading-relaxed">{stat.note}</p>
+            </div>
+          ))}
+        </section>
 
-      <section className="max-w-2xl mx-auto px-6 py-20 text-center">
-        <Link href={c.ctaUrl} className="btn-primary inline-block">{c.ctaText}</Link>
-      </section>
+        <section className="max-w-2xl mx-auto px-6 pb-20 pt-4 text-center">
+          <Link href={content.ctaUrl} className="btn-primary inline-block">{content.ctaText}</Link>
+        </section>
+      </main>
       <Footer />
     </>
   );
