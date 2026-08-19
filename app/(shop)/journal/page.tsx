@@ -1,5 +1,6 @@
 // The NEEJEE Journal — editorial landing page.
-// Lists all PUBLISHED CmsPage rows where pageType = 'journal'.
+// Lists only PUBLISHED CmsPage rows where pageType = 'journal'.
+import { cache } from 'react';
 import Link from 'next/link';
 import { prisma } from '@/lib/prisma';
 import { Header } from '@/components/layout/Header';
@@ -9,14 +10,9 @@ import type { Metadata } from 'next';
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
-export const metadata: Metadata = {
-  title: 'The Journal · NEEJEE',
-  description: 'Quiet dispatches from our atelier, our travels, and our makers. Found. Personal.',
-};
-
-async function loadJournal() {
+const loadJournal = cache(async () => {
   try {
-    const entries = await prisma.cmsPage.findMany({
+    return await prisma.cmsPage.findMany({
       where: { pageType: 'journal', status: 'PUBLISHED' },
       orderBy: [{ featured: 'desc' }, { publishedAt: 'desc' }, { updatedAt: 'desc' }],
       take: 50,
@@ -25,10 +21,24 @@ async function loadJournal() {
         author: true, featured: true, tags: true, publishedAt: true, updatedAt: true,
       },
     });
-    return entries;
   } catch {
     return [];
   }
+});
+
+export async function generateMetadata(): Promise<Metadata> {
+  const entries = await loadJournal();
+  const indexable = entries.length > 0;
+  return {
+    title: 'The Journal',
+    description: 'NEEJEE notes on craft, curation, provenance, care and the stories behind published pieces.',
+    alternates: { canonical: '/journal' },
+    robots: {
+      index: indexable,
+      follow: true,
+      googleBot: { index: indexable, follow: true },
+    },
+  };
 }
 
 export default async function JournalLanding() {
@@ -36,19 +46,17 @@ export default async function JournalLanding() {
   const featured = entries.filter(e => e.featured)[0] || entries[0] || null;
   const rest = entries.filter(e => e.id !== featured?.id);
 
-  // Collect all unique tags for filter chips
   const allTags = Array.from(new Set(entries.flatMap(e => e.tags || []))).sort();
 
   return (
     <>
       <Header />
 
-      {/* Hero */}
       <section className="bg-beige py-20 px-6 text-center">
         <p className="label text-madder">QUIET DISPATCHES</p>
         <h1 className="font-display text-5xl md:text-6xl text-kohl mt-4">The Journal</h1>
         <p className="font-italic italic text-mitti text-lg mt-4 max-w-xl mx-auto">
-          Notes from our atelier, our travels, and the people whose hands made what you wear.
+          Notes on craft, curation, provenance, care, and the pieces we choose to publish.
         </p>
       </section>
 
@@ -56,11 +64,10 @@ export default async function JournalLanding() {
         {entries.length === 0 ? (
           <div className="py-20 text-center">
             <p className="font-display text-2xl text-kohl">The journal is being written.</p>
-            <p className="font-italic italic text-mitti mt-2">Check back soon — the first entries are coming.</p>
+            <p className="font-italic italic text-mitti mt-2">Published entries will appear here as they are ready.</p>
           </div>
         ) : (
           <>
-            {/* Tag chips */}
             {allTags.length > 0 && (
               <div className="flex flex-wrap gap-2 mb-12 justify-center">
                 {allTags.slice(0, 12).map(tag => (
@@ -71,7 +78,6 @@ export default async function JournalLanding() {
               </div>
             )}
 
-            {/* Featured */}
             {featured && (
               <Link
                 href={`/p/${featured.slug}`}
@@ -105,7 +111,6 @@ export default async function JournalLanding() {
               </Link>
             )}
 
-            {/* Rest of entries grid */}
             {rest.length > 0 && (
               <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-12">
                 {rest.map(e => (
