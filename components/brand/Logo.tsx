@@ -29,7 +29,6 @@ export function NeejeeLogo({ className = '', size = 'md', variant = 'default', s
       draggable={false}
       priority={size === 'lg' || size === 'xl'}
       style={{
-        display: 'block',
         width,
         height: 'auto',
         maxWidth: '100%',
