@@ -2,7 +2,7 @@
 // app/admin/notification-dispatches/page.tsx
 // v26.3b — Live audit log of every SMS and WhatsApp dispatch.
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 interface Dispatch {
   id: string;
@@ -34,18 +34,23 @@ export default function DispatchLogPage() {
   const [status, setStatus] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setLoading(true);
-    const params = new URLSearchParams();
-    if (channel) params.set('channel', channel);
-    if (status)  params.set('status',  status);
-    const res = await fetch(`/api/admin/notification-dispatches?${params}`);
-    const d = await res.json();
-    setItems(d.dispatches || []);
-    setLoading(false);
-  };
+    try {
+      const params = new URLSearchParams();
+      if (channel) params.set('channel', channel);
+      if (status) params.set('status', status);
+      const res = await fetch(`/api/admin/notification-dispatches?${params}`);
+      const d = await res.json();
+      setItems(d.dispatches || []);
+    } finally {
+      setLoading(false);
+    }
+  }, [channel, status]);
 
-  useEffect(() => { load(); }, [channel, status]);
+  useEffect(() => {
+    void load();
+  }, [load]);
 
   return (
     <main className="p-8 max-w-7xl mx-auto">
@@ -70,7 +75,7 @@ export default function DispatchLogPage() {
           <option value="read">read</option>
           <option value="failed">failed</option>
         </select>
-        <button onClick={load} className="border border-mitti/30 px-3 py-2 text-sm">Refresh</button>
+        <button onClick={() => { void load(); }} className="border border-mitti/30 px-3 py-2 text-sm">Refresh</button>
       </div>
 
       {loading ? (
