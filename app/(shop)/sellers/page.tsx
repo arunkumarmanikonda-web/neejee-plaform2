@@ -25,12 +25,12 @@ export default function SellersPage() {
 
       <section className="max-w-5xl mx-auto px-6 py-12 grid md:grid-cols-3 gap-6">
         {[
-          { t: 'CURATED, NOT CROWDED', d: 'We accept fewer than 1 in 30 applications. Quality over volume.' },
-          { t: 'FAIR PAY, PAID FAST', d: 'Weekly payouts. 18-22% commission. No hidden fees.' },
-          { t: 'STORY-FIRST LISTINGS', d: 'We feature you, your craft, your name. Not just the SKU.' },
-          { t: 'AI-POWERED MARKETING', d: 'NEEJEE Mirror & Space drive 4x more conversions on your products.' },
-          { t: 'PAN-INDIA LOGISTICS', d: 'Shiprocket-powered. Pick-up from your studio. Door delivery, COD.' },
-          { t: 'GROW WITH NEEJEE SELECT', d: 'Top sellers get featured in our quarterly editorial drops.' },
+          { t: 'CURATED, NOT CROWDED', d: 'Applications are reviewed for craft quality, provenance, business readiness and fit before approval.' },
+          { t: 'CLEAR COMMERCIAL TERMS', d: 'Your commission, payout cycle and commercial terms are stated in the seller instrument for review before you sign.' },
+          { t: 'STORY-FIRST LISTINGS', d: 'We feature you, your craft and your name, not just the SKU.' },
+          { t: 'AI-ASSISTED DISCOVERY', d: 'Eligible products can use NEEJEE Mirror, Space and other assisted-discovery experiences where available.' },
+          { t: 'CONNECTED FULFILMENT', d: 'Integrated fulfilment workflows support pickup, shipment tracking and eligible payment methods.' },
+          { t: 'GROW WITH NEEJEE SELECT', d: 'Selected sellers and products may be featured in curated NEEJEE edits and editorial experiences.' },
         ].map((b) => (
           <div key={b.t} className="bg-beige p-6">
             <p className="label text-madder">{b.t}</p>
@@ -45,10 +45,10 @@ export default function SellersPage() {
         <ol className="space-y-6 font-body text-lg text-kohl/85">
           {[
             ['01', 'APPLY', 'Tell us about your craft, region, and clusters. Complete KYC and onboarding.'],
-            ['02', 'CURATE', 'Upload samples and documents. We review with our craft council.'],
+            ['02', 'CURATE', 'Upload samples and documents. We review them as part of the curation process.'],
             ['03', 'REVIEW', 'We verify business, bank, and craft details.'],
-            ['04', 'APPROVE', 'Sign fair-trade terms and get your seller dashboard.'],
-            ['05', 'LAUNCH', 'Upload your catalogue. We photograph, story, and list.'],
+            ['04', 'APPROVE', 'Review and sign your commercial terms, then activate your seller dashboard.'],
+            ['05', 'LAUNCH', 'Upload your catalogue. Approved products can then be prepared and listed for sale.'],
           ].map(([n, t, d]) => (
             <li key={n} className="flex gap-6">
               <span className="font-display text-4xl text-mitti/40">{n}</span>
