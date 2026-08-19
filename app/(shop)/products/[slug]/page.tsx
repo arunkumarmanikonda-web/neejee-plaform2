@@ -1,4 +1,5 @@
 'use client';
+
 import { useEffect, useState, Suspense } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Image from 'next/image';
@@ -11,7 +12,7 @@ import { isPreorder, isSoldOut, fulfilmentStatusLine, buyCtaLabel, checkoutPaise
 import { useCart } from '@/lib/cart-store';
 import { WaitlistSignup } from '@/components/product/WaitlistSignup';
 import { ReviewsSection } from '@/components/product/ReviewsSection';
-import { BadgeRow } from '@/components/ui/Badge';
+import { BadgeChipRow } from '@/components/ui/Badge';
 import { track } from '@/lib/analytics';
 import { CompleteTheLook } from '@/components/product/CompleteTheLook';
 
@@ -37,17 +38,21 @@ function PDPInner() {
 
   useEffect(() => {
     if (!slug) return;
-    setLoading(true); setError('');
+    setLoading(true);
+    setError('');
     fetch(`/api/products/${slug}`)
-      .then(r => r.json())
-      .then(d => {
-        if (d.error) { setError(d.error); return; }
-        setProduct(d.product);
-        const firstInStock = d.product.variants?.find((v: any) => v.inStock) || d.product.variants?.[0];
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.error) {
+          setError(data.error);
+          return;
+        }
+        setProduct(data.product);
+        const firstInStock = data.product.variants?.find((v: any) => v.inStock) || data.product.variants?.[0];
         setActiveVariant(firstInStock);
-        track({ type: 'PRODUCT_VIEW', productId: d.product.id, value: d.product.sellingPrice });
+        track({ type: 'PRODUCT_VIEW', productId: data.product.id, value: data.product.sellingPrice });
       })
-      .catch(e => setError(e.message))
+      .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
   }, [slug]);
 
@@ -55,18 +60,23 @@ function PDPInner() {
     if (!product?.id) return;
     let cancelled = false;
     fetch('/api/wishlist', { credentials: 'include', cache: 'no-store' })
-      .then(r => r.ok ? r.json() : null)
-      .then(d => {
-        if (cancelled || !d?.loggedIn) return;
-        const ids = Array.isArray(d.productIds) ? d.productIds : [];
+      .then((r) => r.ok ? r.json() : null)
+      .then((data) => {
+        if (cancelled || !data?.loggedIn) return;
+        const ids = Array.isArray(data.productIds) ? data.productIds : [];
         setInWishlist(ids.includes(product.id));
       })
       .catch(() => {});
     return () => { cancelled = true; };
   }, [product?.id]);
 
-  if (loading) return <><Header /><div className="max-w-8xl mx-auto px-6 py-20 text-mitti">Loading...</div><Footer /></>;
-  if (error || !product) return <><Header /><div className="max-w-8xl mx-auto px-6 py-20"><p className="font-display text-2xl">Product not found.</p><Link href="/" className="btn-outline mt-6">BACK HOME</Link></div><Footer /></>;
+  if (loading) {
+    return <><Header /><div className="max-w-[1440px] mx-auto px-6 py-28 font-display italic text-mitti">Finding your piece…</div><Footer /></>;
+  }
+
+  if (error || !product) {
+    return <><Header /><div className="max-w-3xl mx-auto px-6 py-28 text-center"><p className="editorial-kicker">THE EDIT</p><h1 className="font-display text-4xl mt-3">This piece is no longer here.</h1><Link href="/" className="btn-outline mt-8">RETURN HOME</Link></div><Footer /></>;
+  }
 
   const eff = effectivePricePaise(product.sellingPrice, product.salePrice, product.saleStartsAt, product.saleEndsAt);
   const dp = discountPct(product.mrp, eff.price);
@@ -89,7 +99,10 @@ function PDPInner() {
     setTimeout(() => setAdded(false), 2000);
   };
 
-  const handleBuyNow = () => { handleAdd(); router.push('/cart'); };
+  const handleBuyNow = () => {
+    handleAdd();
+    router.push('/cart');
+  };
 
   const handleWishlist = async () => {
     if (wishlistBusy) return;
@@ -118,110 +131,95 @@ function PDPInner() {
     }
   };
 
-  const TABS = [
+  const tabs = [
     { id: 'craft', label: 'CRAFT STORY', body: product.story || product.description },
-    { id: 'artisan', label: 'ARTISAN', body: product.artisanName
-      ? `${product.artisanName} · ${product.region}${product.cluster ? ', ' + product.cluster : ''}. ${product.craftNote || ''}`
-      : (product.craftNote || product.seller?.businessName || 'Crafted by NEEJEE-verified makers.')
+    {
+      id: 'artisan',
+      label: 'ARTISAN PROFILE',
+      body: product.artisanName
+        ? `${product.artisanName} · ${product.region}${product.cluster ? ', ' + product.cluster : ''}. ${product.craftNote || ''}`
+        : (product.craftNote || product.seller?.businessName || 'Crafted by NEEJEE-verified makers.'),
     },
     { id: 'care', label: 'CARE', body: product.careInstructions || 'Care guidance will be confirmed with your piece.' },
-    { id: 'delivery', label: 'DELIVERY & RETURNS', body: [
-      product.deliveryInfo || 'Delivery timing is confirmed at checkout.',
-      product.returnPolicy || (product.returnEligible ? 'Eligible for return under the NEEJEE returns policy.' : 'Please review the product-specific return terms before purchase.'),
-    ].filter(Boolean).join(' ') },
+    {
+      id: 'delivery',
+      label: 'DELIVERY & RETURNS',
+      body: [
+        product.deliveryInfo || 'Delivery timing is confirmed at checkout.',
+        product.returnPolicy || (product.returnEligible ? 'Eligible for return under the NEEJEE returns policy.' : 'Please review the product-specific return terms before purchase.'),
+      ].filter(Boolean).join(' '),
+    },
   ];
 
   const variants = Array.isArray(product.variants) ? product.variants : [];
   const sizes = Array.from(new Set(variants.map((v: any) => v.size).filter(Boolean)));
   const colors = Array.from(new Set(variants.map((v: any) => v.color).filter(Boolean)));
-
-  const galleryImages: string[] =
-    Array.isArray(activeVariant?.images) && activeVariant.images.length > 0
-      ? activeVariant.images
-      : (Array.isArray(product.images) ? product.images : []);
+  const galleryImages: string[] = Array.isArray(activeVariant?.images) && activeVariant.images.length > 0
+    ? activeVariant.images
+    : Array.isArray(product.images) ? product.images : [];
 
   return (
     <>
       <Header />
 
-      <nav className="max-w-8xl mx-auto px-6 lg:px-12 pt-6 font-ui text-xs tracking-widest text-mitti">
-        <Link href="/" className="hover:text-madder">HOME</Link> ·
-        {product.category && <> <Link href={`/categories/${product.category.path || product.category.slug}`} className="hover:text-madder"> {product.category.name.toUpperCase()}</Link> · </>}
-        <span> {product.name.toUpperCase()}</span>
+      <nav className="max-w-[1600px] mx-auto px-5 sm:px-8 lg:px-12 pt-6 font-ui text-[9px] tracking-[0.16em] text-mitti">
+        <Link href="/" className="hover:text-madder">HOME</Link>
+        {product.category && <> <span className="mx-2">/</span><Link href={`/categories/${product.category.path || product.category.slug}`} className="hover:text-madder">{product.category.name.toUpperCase()}</Link></>}
+        <span className="hidden sm:inline"><span className="mx-2">/</span>{product.name.toUpperCase()}</span>
       </nav>
 
-      <article className="max-w-8xl mx-auto px-6 lg:px-12 py-8 grid lg:grid-cols-2 gap-12">
-        <section>
-          <div className="aspect-[4/5] bg-beige relative overflow-hidden">
+      <article className="max-w-[1600px] mx-auto px-5 sm:px-8 lg:px-12 pt-6 pb-14 lg:pb-20 grid lg:grid-cols-[1.08fr_.92fr] gap-8 lg:gap-12 xl:gap-16 items-start">
+        <section className="min-w-0">
+          <div className="aspect-square sm:aspect-[5/4] xl:aspect-[4/3] bg-beige relative overflow-hidden border border-mitti/12">
             {galleryImages?.[activeImage] ? (
-              <Image src={galleryImages[activeImage]} alt={product.name} fill priority sizes="(min-width:1024px) 50vw, 100vw" className="object-cover" />
+              <Image src={galleryImages[activeImage]} alt={product.name} fill priority sizes="(min-width:1024px) 58vw, 100vw" className="object-cover" />
             ) : (
-              <div className="w-full h-full flex items-center justify-center text-mitti italic">No image</div>
+              <div className="w-full h-full flex items-center justify-center text-mitti font-display italic">Image being prepared</div>
             )}
-            {eff.onSale && (
-              <span className="absolute top-4 left-4 badge-founder">ON SALE · -{dp}%</span>
-            )}
-            {product.aiTryOnEligible && (
-              <span className="absolute top-4 right-4 bg-kohl/80 text-ivory text-[10px] px-3 py-1 font-ui tracking-widest">✦ MIRROR ELIGIBLE</span>
-            )}
-            {product.aiRoomEligible && (
-              <span className={`absolute ${product.aiTryOnEligible ? 'top-12' : 'top-4'} right-4 bg-mitti/90 text-ivory text-[10px] px-3 py-1 font-ui tracking-widest`}>✦ SPACE ELIGIBLE</span>
-            )}
-            {product.arTryOnEligible && (
-              <span className="absolute top-20 right-4 bg-madder/85 text-ivory text-[10px] px-3 py-1 font-ui tracking-widest">✦ AR TRY-ON</span>
-            )}
+            {eff.onSale && <span className="absolute top-4 left-4 badge-founder">ON SALE · {dp}% OFF</span>}
+            {product.aiTryOnEligible && <span className="absolute bottom-4 left-4 border border-ivory/70 bg-kohl/70 backdrop-blur-sm text-ivory text-[9px] px-3 py-1.5 font-ui tracking-[0.18em]">MIRROR ✦</span>}
           </div>
+
           {galleryImages?.length > 1 && (
-            <div className="grid grid-cols-5 gap-2 mt-2">
-              {galleryImages.slice(0, 5).map((img: string, i: number) => (
-                <button key={i} onClick={() => setActiveImage(i)}
-                  className={`aspect-square overflow-hidden bg-beige ${activeImage === i ? 'ring-2 ring-madder' : ''}`}>
-                  <Image src={img} alt={`View ${i + 1}`} width={150} height={150} className="w-full h-full object-cover" />
+            <div className="grid grid-cols-4 sm:grid-cols-5 gap-2 mt-2.5">
+              {galleryImages.slice(0, 5).map((img: string, index: number) => (
+                <button key={img + index} onClick={() => setActiveImage(index)} aria-label={`View product image ${index + 1}`} className={`aspect-[4/3] overflow-hidden bg-beige border transition-colors ${activeImage === index ? 'border-madder' : 'border-mitti/15 hover:border-mitti/50'}`}>
+                  <Image src={img} alt={`${product.name}, view ${index + 1}`} width={220} height={165} className="w-full h-full object-cover" />
                 </button>
               ))}
             </div>
           )}
         </section>
 
-        <section>
-          {product.badges && product.badges.length > 0 && (
-            <BadgeRow badges={product.badges} size="md" className="mb-4" />
-          )}
-          <h1 className="font-display text-4xl lg:text-5xl text-kohl mt-4">{product.name}</h1>
-          {product.poeticLine && (
-            <p className="font-italic italic text-mitti text-lg mt-2">{product.poeticLine}</p>
-          )}
+        <section className="lg:sticky lg:top-[122px] lg:self-start max-w-xl">
+          {product.badges?.length > 0 && <BadgeChipRow badges={product.badges} />}
+          <p className="editorial-kicker mt-5">{[product.craft, product.region].filter(Boolean).join(' · ') || 'NEEJEE SELECT'}</p>
+          <h1 className="font-display text-[38px] sm:text-[46px] lg:text-[52px] leading-[1.02] text-kohl mt-3">{product.name}</h1>
+          {product.poeticLine && <p className="font-display italic text-mitti text-[17px] mt-3">{product.poeticLine}</p>}
+          <div className="madder-divider mt-6" />
 
-          {fulfilmentStatusLine(product) && (
-            <p className="font-display text-lg text-madder mt-3 tracking-wide">
-              {fulfilmentStatusLine(product)}
-            </p>
-          )}
+          {fulfilmentStatusLine(product) && <p className="font-ui text-[10px] tracking-[0.16em] text-madder mt-5">{fulfilmentStatusLine(product).toUpperCase()}</p>}
 
           <div className="mt-6 flex items-baseline gap-3 flex-wrap">
-            <span className={`font-display text-3xl ${eff.onSale ? 'text-madder' : 'text-kohl'}`}>{formatINR(eff.price)}</span>
-            {eff.onSale && <span className="font-ui text-mitti line-through">{formatINR(product.sellingPrice)}</span>}
-            {!eff.onSale && product.mrp > product.sellingPrice && (
-              <span className="font-ui text-mitti line-through">{formatINR(product.mrp)}</span>
-            )}
-            {dp > 0 && <span className="font-ui text-sm text-madder">-{dp}% off</span>}
+            <span className={`font-display text-[28px] ${eff.onSale ? 'text-madder' : 'text-kohl'}`}>{formatINR(eff.price)}</span>
+            {eff.onSale && <span className="font-ui text-xs text-mitti line-through">{formatINR(product.sellingPrice)}</span>}
+            {!eff.onSale && product.mrp > product.sellingPrice && <span className="font-ui text-xs text-mitti line-through">{formatINR(product.mrp)}</span>}
+            {dp > 0 && <span className="font-ui text-[10px] tracking-wider text-madder">{dp}% OFF</span>}
           </div>
-          <p className="font-ui text-xs text-mitti mt-1">Inclusive of all taxes</p>
+          <p className="font-ui text-[9px] tracking-wide text-mitti mt-1.5">INCLUSIVE OF ALL TAXES</p>
 
           {colors.length > 0 && (
-            <div className="mt-8">
-              <p className="label text-mitti mb-3">COLOR · {(activeVariant?.color || '').toUpperCase()}</p>
-              <div className="flex gap-2 flex-wrap items-center">
-                {colors.map((c: any) => {
-                  const variant = variants.find((v: any) => v.color === c);
+            <div className="mt-8 pt-6 border-t border-mitti/15">
+              <p className="font-ui text-[9px] tracking-[0.18em] text-kohl mb-3">COLOUR · {(activeVariant?.color || '').toUpperCase()}</p>
+              <div className="flex gap-3 flex-wrap items-center">
+                {colors.map((color: any) => {
+                  const variant = variants.find((v: any) => v.color === color);
                   const hex = variant?.colorHex;
+                  const selected = activeVariant?.color === color;
                   return (
-                    <button key={c} onClick={() => { setActiveVariant(variant); setActiveImage(0); }}
-                      className={`flex items-center gap-2 px-4 py-2 font-ui text-xs tracking-widest border transition-colors ${activeVariant?.color === c ? 'border-madder bg-madder text-ivory' : 'border-mitti/30 text-kohl hover:border-kohl'}`}>
-                      {hex && (
-                        <span className="inline-block w-3 h-3 rounded-full border border-mitti/30" style={{ backgroundColor: hex }} aria-hidden />
-                      )}
-                      {c}
+                    <button key={color} onClick={() => { setActiveVariant(variant); setActiveImage(0); }} className={`group/color flex items-center gap-2 p-1 border ${selected ? 'border-madder' : 'border-transparent hover:border-mitti/30'}`} aria-label={`Colour ${color}`} aria-pressed={selected}>
+                      <span className="w-7 h-7 rounded-full border border-mitti/25" style={{ backgroundColor: hex || '#E8DFCF' }} aria-hidden="true" />
+                      <span className="font-ui text-[9px] tracking-wider text-mitti hidden sm:inline">{String(color).toUpperCase()}</span>
                     </button>
                   );
                 })}
@@ -231,15 +229,13 @@ function PDPInner() {
 
           {sizes.length > 0 && (
             <div className="mt-6">
-              <p className="label text-mitti mb-3">SIZE · {(activeVariant?.size || 'FREE SIZE').toUpperCase()}</p>
+              <p className="font-ui text-[9px] tracking-[0.18em] text-kohl mb-3">SIZE · {(activeVariant?.size || 'FREE SIZE').toUpperCase()}</p>
               <div className="flex gap-2 flex-wrap">
-                {sizes.map((s: any) => {
-                  const variant = variants.find((v: any) => v.size === s && (!activeVariant?.color || v.color === activeVariant.color));
+                {sizes.map((size: any) => {
+                  const variant = variants.find((v: any) => v.size === size && (!activeVariant?.color || v.color === activeVariant.color));
                   return (
-                    <button key={s} onClick={() => { if (variant) { setActiveVariant(variant); setActiveImage(0); } }}
-                      disabled={!variant || variant.inventory === 0}
-                      className={`px-4 py-2 font-ui text-xs tracking-widest border transition-colors ${activeVariant?.id === variant?.id ? 'border-madder bg-madder text-ivory' : 'border-mitti/30 text-kohl hover:border-kohl'} disabled:opacity-30 disabled:line-through`}>
-                      {s}
+                    <button key={size} onClick={() => { if (variant) { setActiveVariant(variant); setActiveImage(0); } }} disabled={!variant || variant.inventory === 0} className={`min-w-12 px-4 py-2.5 font-ui text-[10px] tracking-widest border transition-colors ${activeVariant?.id === variant?.id ? 'border-madder bg-madder text-ivory' : 'border-mitti/30 text-kohl hover:border-kohl'} disabled:opacity-30 disabled:line-through`}>
+                      {size}
                     </button>
                   );
                 })}
@@ -248,133 +244,66 @@ function PDPInner() {
           )}
 
           <div className="mt-8 space-y-3">
-            <div className="flex items-center gap-4">
-              <div className="flex items-center border border-mitti/20">
-                <button onClick={() => setQty(Math.max(1, qty - 1))} className="p-3 hover:bg-beige" aria-label="Decrease">
-                  <Minus className="w-3 h-3" />
-                </button>
-                <span className="px-6 font-ui text-sm w-12 text-center">{qty}</span>
-                <button onClick={() => setQty(Math.min(stockLeft || 10, qty + 1))} className="p-3 hover:bg-beige" aria-label="Increase">
-                  <Plus className="w-3 h-3" />
-                </button>
+            <div className="flex items-center justify-between gap-4 pb-3">
+              <div className="flex items-center border border-mitti/25">
+                <button onClick={() => setQty(Math.max(1, qty - 1))} className="p-3 hover:bg-beige" aria-label="Decrease quantity"><Minus className="w-3.5 h-3.5" strokeWidth={1.3} /></button>
+                <span className="px-4 font-ui text-xs min-w-12 text-center">{qty}</span>
+                <button onClick={() => setQty(Math.min(stockLeft || 10, qty + 1))} className="p-3 hover:bg-beige" aria-label="Increase quantity"><Plus className="w-3.5 h-3.5" strokeWidth={1.3} /></button>
               </div>
-              <p className="font-italic italic text-mitti text-sm">
-                {fulfilmentStatusLine(product)
-                  ? null
-                  : (inStock
-                      ? (stockLeft <= 3 ? `Only ${stockLeft} left · found personally` : 'Ready to ship')
-                      : 'Sold out')}
+              <p className="font-display italic text-mitti text-[13px] text-right">
+                {fulfilmentStatusLine(product) ? null : inStock ? (stockLeft <= 3 ? `Only ${stockLeft} left` : 'Ready to ship') : 'Sold out'}
               </p>
             </div>
 
             {isPreorder(product) && (
-              <div className="mb-3 p-3 bg-beige/40 border border-mitti/20 text-xs text-mitti">
-                Deposit today: <strong className="text-madder">{formatINR(checkoutPaise(product))}</strong>
-                {' '}· Balance billed when piece is ready.
+              <div className="p-3 bg-paper-deep/55 border border-mitti/15 font-ui text-[10px] tracking-wide text-mitti">
+                DEPOSIT TODAY · <strong className="text-madder">{formatINR(checkoutPaise(product))}</strong> · BALANCE WHEN READY
               </div>
             )}
 
             {isSoldOut(product) ? (
               <WaitlistSignup productId={product.id} productName={product.name} source="pdp" />
             ) : (
-              <div className="flex gap-3">
-                <button onClick={handleAdd} disabled={!inStock || added}
-                  className="btn-primary flex-1 disabled:opacity-50 flex items-center justify-center gap-2">
-                  {added ? (<><Check className="w-4 h-4" /> ADDED TO TRUNK</>) : buyCtaLabel(product).toUpperCase()}
+              <div className="grid grid-cols-2 gap-3">
+                <button onClick={handleAdd} disabled={!inStock || added} className="btn-primary disabled:opacity-50 flex items-center justify-center gap-2">
+                  {added ? <><Check className="w-4 h-4" /> ADDED</> : buyCtaLabel(product).toUpperCase()}
                 </button>
-                <button onClick={handleBuyNow} disabled={!inStock} className="btn-outline flex-1 disabled:opacity-50">
-                  {isPreorder(product) ? 'RESERVE NOW' : 'BUY NOW'}
-                </button>
+                <button onClick={handleBuyNow} disabled={!inStock} className="btn-outline disabled:opacity-50">{isPreorder(product) ? 'RESERVE NOW' : 'BUY NOW'}</button>
               </div>
             )}
 
-            <button
-              type="button"
-              onClick={handleWishlist}
-              disabled={wishlistBusy}
-              aria-pressed={inWishlist}
-              className={`w-full mt-2 font-ui text-xs tracking-widest flex items-center justify-center gap-2 transition-colors ${inWishlist ? 'text-madder' : 'text-mitti hover:text-madder'} disabled:opacity-50`}
-            >
-              <Heart className={`w-4 h-4 ${inWishlist ? 'fill-current' : ''}`} />
-              {wishlistBusy ? 'SAVING…' : inWishlist ? 'SAVED TO WISHLIST' : 'ADD TO WISHLIST'}
+            <button type="button" onClick={handleWishlist} disabled={wishlistBusy} aria-pressed={inWishlist} className={`w-full py-2 font-ui text-[9px] tracking-[0.18em] flex items-center justify-center gap-2 transition-colors ${inWishlist ? 'text-madder' : 'text-mitti hover:text-madder'} disabled:opacity-50`}>
+              <Heart className={`w-4 h-4 ${inWishlist ? 'fill-current' : ''}`} strokeWidth={1.35} />
+              {wishlistBusy ? 'SAVING…' : inWishlist ? 'SAVED TO WISHLIST' : 'SAVE THIS PIECE'}
             </button>
-            {wishlistMessage && <p className="text-center font-italic italic text-xs text-mitti">{wishlistMessage}</p>}
+            {wishlistMessage && <p className="text-center font-display italic text-xs text-mitti">{wishlistMessage}</p>}
           </div>
 
-          <div className="mt-8 pt-6 border-t border-mitti/15 grid grid-cols-3 gap-4 text-center">
-            <div>
-              <Truck className="w-5 h-5 mx-auto text-madder" />
-              <p className="font-ui text-[10px] tracking-widest text-kohl mt-2">DELIVERY</p>
-              <p className="font-italic italic text-mitti text-xs">Calculated at checkout</p>
-            </div>
-            <div>
-              <RotateCcw className="w-5 h-5 mx-auto text-madder" />
-              <p className="font-ui text-[10px] tracking-widest text-kohl mt-2">RETURNS</p>
-              <p className="font-italic italic text-mitti text-xs">
-                {product.returnEligible ? (product.returnPolicy || 'Eligible') : (product.returnPolicy || 'Product-specific')}
-              </p>
-            </div>
-            <div>
-              <ShieldCheck className="w-5 h-5 mx-auto text-madder" />
-              <p className="font-ui text-[10px] tracking-widest text-kohl mt-2">AUTHENTICITY</p>
-              <p className="font-italic italic text-mitti text-xs">NEEJEE verified</p>
-            </div>
+          <div className="mt-7 border-y border-mitti/15 grid grid-cols-3 divide-x divide-mitti/15 text-center">
+            <div className="px-2 py-4"><Truck className="w-4 h-4 mx-auto text-madder" strokeWidth={1.3} /><p className="font-ui text-[8px] tracking-[0.16em] text-kohl mt-2">DELIVERY</p><p className="font-display italic text-mitti text-[11px] mt-1">At checkout</p></div>
+            <div className="px-2 py-4"><RotateCcw className="w-4 h-4 mx-auto text-madder" strokeWidth={1.3} /><p className="font-ui text-[8px] tracking-[0.16em] text-kohl mt-2">RETURNS</p><p className="font-display italic text-mitti text-[11px] mt-1">{product.returnEligible ? 'Eligible' : 'Product-specific'}</p></div>
+            <div className="px-2 py-4"><ShieldCheck className="w-4 h-4 mx-auto text-madder" strokeWidth={1.3} /><p className="font-ui text-[8px] tracking-[0.16em] text-kohl mt-2">AUTHENTICITY</p><p className="font-display italic text-mitti text-[11px] mt-1">NEEJEE verified</p></div>
           </div>
 
-          {product.aiTryOnEligible && (
-            <Link href={`/ai/mirror?product=${product.id}`}
-              className="mt-6 block bg-kohl text-ivory p-5 hover:bg-mitti transition-colors">
-              <div className="flex items-center gap-3">
-                <Sparkles className="w-5 h-5 text-banarasi" />
-                <div>
-                  <p className="font-ui text-[10px] tracking-widest text-banarasi">THE NEEJEE MIRROR</p>
-                  <p className="font-display text-lg">See how it may live on you</p>
-                  <p className="font-italic italic text-xs text-ivory/70 mt-1">Preview the mood, personally rendered.</p>
-                </div>
+          {(product.aiTryOnEligible || product.aiRoomEligible || product.arTryOnEligible) && (
+            <div className="mt-7 border border-madder/28 bg-paper-deep/35 p-5">
+              <p className="editorial-kicker flex items-center gap-2"><Sparkles className="w-4 h-4" strokeWidth={1.2} /> SEE IT PERSONALLY</p>
+              <div className="mt-3 space-y-2">
+                {product.aiTryOnEligible && <Link href={`/ai/mirror?product=${product.id}`} className="flex items-center justify-between font-display text-lg text-kohl hover:text-madder">The NEEJEE Mirror <span className="font-ui text-[9px] tracking-wider">OPEN →</span></Link>}
+                {product.aiRoomEligible && <Link href={`/ai/space?product=${product.id}`} className="flex items-center justify-between font-display text-lg text-kohl hover:text-madder">The NEEJEE Space <Home className="w-4 h-4 text-madder" strokeWidth={1.2} /></Link>}
+                {product.arTryOnEligible && <Link href={`/ai/tryon?product=${product.id}`} className="flex items-center justify-between font-display text-lg text-kohl hover:text-madder">AR Try-on <span className="font-ui text-[9px] tracking-wider">OPEN →</span></Link>}
               </div>
-            </Link>
+            </div>
           )}
 
-          {product.aiRoomEligible && (
-            <Link href={`/ai/space?product=${product.id}`}
-              className="mt-3 block bg-mitti text-ivory p-5 hover:bg-kohl transition-colors">
-              <div className="flex items-center gap-3">
-                <Home className="w-5 h-5 text-banarasi" />
-                <div>
-                  <p className="font-ui text-[10px] tracking-widest text-banarasi">THE NEEJEE SPACE</p>
-                  <p className="font-display text-lg">Place it personally</p>
-                  <p className="font-italic italic text-xs text-ivory/70 mt-1">See this piece within your own room.</p>
-                </div>
-              </div>
-            </Link>
-          )}
-
-          {product.arTryOnEligible && (
-            <Link href={`/ai/tryon?product=${product.id}`}
-              className="mt-3 block bg-madder text-ivory p-5 hover:bg-kohl transition-colors">
-              <div className="flex items-center gap-3">
-                <Sparkles className="w-5 h-5 text-banarasi" />
-                <div>
-                  <p className="font-ui text-[10px] tracking-widest text-banarasi">AR TRY-ON</p>
-                  <p className="font-display text-lg">See this piece on you</p>
-                </div>
-              </div>
-            </Link>
-          )}
-
-          <div className="mt-10 border-t border-mitti/15">
-            {TABS.map(t => (
-              <div key={t.id} className="border-b border-mitti/15">
-                <button onClick={() => setOpenTab(openTab === t.id ? '' : t.id)}
-                  className="w-full flex items-center justify-between py-4 text-left">
-                  <span className="label text-kohl">{t.label}</span>
-                  <ChevronDown className={`w-4 h-4 transition-transform ${openTab === t.id ? 'rotate-180' : ''}`} />
+          <div className="mt-8 border-t border-mitti/15">
+            {tabs.map((tab) => (
+              <div key={tab.id} className="border-b border-mitti/15">
+                <button onClick={() => setOpenTab(openTab === tab.id ? '' : tab.id)} className="w-full flex items-center justify-between py-4 text-left" aria-expanded={openTab === tab.id}>
+                  <span className="font-ui text-[9px] tracking-[0.18em] text-kohl">{tab.label}</span>
+                  <ChevronDown className={`w-4 h-4 transition-transform ${openTab === tab.id ? 'rotate-180' : ''}`} strokeWidth={1.2} />
                 </button>
-                {openTab === t.id && (
-                  <div className="pb-5 font-body text-kohl/85 text-sm">
-                    {t.body}
-                  </div>
-                )}
+                {openTab === tab.id && <div className="pb-5 font-display text-kohl/80 text-[14px] leading-relaxed">{tab.body}</div>}
               </div>
             ))}
           </div>
@@ -382,11 +311,7 @@ function PDPInner() {
       </article>
 
       <CompleteTheLook productId={product.id} limit={4} />
-
-      <section className="max-w-8xl mx-auto px-6 lg:px-12 pb-20">
-        <ReviewsSection productSlug={product.slug} />
-      </section>
-
+      <section className="max-w-[1440px] mx-auto px-5 sm:px-8 lg:px-12 pb-20"><ReviewsSection productSlug={product.slug} /></section>
       <Footer />
     </>
   );
@@ -394,7 +319,7 @@ function PDPInner() {
 
 export default function PDPPage() {
   return (
-    <Suspense fallback={<div className="p-12 text-mitti">Loading...</div>}>
+    <Suspense fallback={<div className="min-h-screen bg-ivory p-12 font-display italic text-mitti">Finding your piece…</div>}>
       <PDPInner />
     </Suspense>
   );
