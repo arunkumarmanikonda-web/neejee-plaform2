@@ -72,7 +72,7 @@ export const SEO_FIELD_META: Record<SeoFieldKey, SeoFieldMeta> = {
   NEXT_PUBLIC_DEFAULT_META_DESCRIPTION: {
     label: 'Default meta description',
     helper: 'Fallback search description used across the site.',
-    defaultValue: "India's finest craft — hand-woven sarees, oxidised silver, mitti attars, Phulkari dupattas. Personally chosen, founder-verified, fair-trade.",
+    defaultValue: "India's finest craft — hand-woven sarees, oxidised silver, mitti attars, Phulkari dupattas. Personally chosen, founder-verified.",
     multiline: true,
     placeholder: 'Write the default search description',
   },
@@ -156,6 +156,15 @@ function canonicalizeBrandLine(value: string) {
     .replace(/found\s+personal\.?/gi, 'FOUND. PERSONAL.');
 }
 
+function removeUnverifiedFairTradeClaim(value: string) {
+  return value
+    .replace(/,\s*fair[- ]trade\s*\.?/gi, '.')
+    .replace(/\s+fair[- ]trade\s*\.?/gi, '.')
+    .replace(/\.\.+/g, '.')
+    .replace(/\s+\./g, '.')
+    .trim();
+}
+
 function toBoolean(value: string, fallback: boolean) {
   const normalized = value.trim().toLowerCase();
   if (normalized === 'true') return true;
@@ -203,7 +212,9 @@ export function getSiteSeoConfig(): SiteSeoConfig {
   );
   const defaultTitle = canonicalizeBrandLine(readValue('NEXT_PUBLIC_DEFAULT_META_TITLE'));
   const titleTemplate = readValue('NEXT_PUBLIC_META_TITLE_TEMPLATE');
-  const defaultDescription = readValue('NEXT_PUBLIC_DEFAULT_META_DESCRIPTION');
+  const defaultDescription = removeUnverifiedFairTradeClaim(
+    readValue('NEXT_PUBLIC_DEFAULT_META_DESCRIPTION'),
+  );
   const keywords = normalizeKeywords(readValue('NEXT_PUBLIC_META_KEYWORDS'));
   const ogTitle = canonicalizeBrandLine(readValue('NEXT_PUBLIC_OG_TITLE'));
   const ogDescription = readValue('NEXT_PUBLIC_OG_DESCRIPTION');
