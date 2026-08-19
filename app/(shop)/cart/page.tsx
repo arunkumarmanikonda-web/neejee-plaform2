@@ -60,7 +60,7 @@ export default function CartPage() {
           <div className="madder-divider mx-auto mt-6"></div>
           <div className="mt-10 flex gap-3 justify-center">
             <Link href="/" className="btn-primary">SHOP THE EDIT</Link>
-            <Link href="/categories/sarees" className="btn-outline">EXPLORE SAREES</Link>
+            <Link href="/categories/women-sarees" className="btn-outline">EXPLORE SAREES</Link>
           </div>
         </section>
         <Footer />
