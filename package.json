@@ -5,7 +5,7 @@
   "description": "NEEJEE — Found. Personal. Premium Indian craft ecommerce + marketplace + AI commerce.",
   "scripts": {
     "dev": "next dev",
-    "build": "prisma generate && next build",
+    "build": "npm run test:security && prisma generate && next build",
     "start": "next start",
     "lint": "next lint",
     "type-check": "tsc --noEmit",
