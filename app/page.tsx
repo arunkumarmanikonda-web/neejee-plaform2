@@ -68,6 +68,21 @@ async function getHomeData() {
       return null;
     });
 
+    const journalPages = await prisma.cmsPage.findMany({
+      where: { pageType: 'journal', status: 'PUBLISHED' },
+      orderBy: [{ featured: 'desc' }, { publishedAt: 'desc' }, { updatedAt: 'desc' }],
+      take: 3,
+      select: {
+        slug: true,
+        title: true,
+        excerpt: true,
+        coverImage: true,
+      },
+    }).catch((e: any) => {
+      console.warn('[home] Journal query failed:', e.message);
+      return [];
+    });
+
     let founderNoteTitle: string | null = null;
     let founderNoteBody: string | null = null;
     let founderNoteAlign: 'left' | 'center' | 'justify' = 'center';
@@ -130,6 +145,7 @@ async function getHomeData() {
       founderNoteTitle,
       founderNoteBody,
       founderNoteAlign,
+      journalPages,
     };
   } catch (e: any) {
     console.warn('[home] DB query failed:', e.message);
@@ -141,31 +157,11 @@ async function getHomeData() {
       founderNoteTitle: null,
       founderNoteBody: null,
       founderNoteAlign: 'center' as const,
+      journalPages: [],
       error: e.message,
     };
   }
 }
-
-const JOURNAL_FALLBACK = [
-  {
-    slug: 'why-we-built-neejee',
-    title: 'Why we built NEEJEE',
-    excerpt: 'I searched for years for the things I knew existed in India, and found nothing good enough online. So I built it.',
-    image: 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=800&q=80',
-  },
-  {
-    slug: 'fourteen-days-on-a-loom',
-    title: 'Fourteen days on a loom',
-    excerpt: 'Fourteen days of weaving. One saree. Three generations.',
-    image: 'https://images.unsplash.com/photo-1583391733956-3750e0ff4e8b?w=800&q=80',
-  },
-  {
-    slug: 'how-to-store-a-banarasi',
-    title: 'How to store a Banarasi',
-    excerpt: 'Wrap it in muslin, not plastic. Refold it once a season. Let it breathe.',
-    image: 'https://images.unsplash.com/photo-1583394293214-28a4b6cdf5b2?w=800&q=80',
-  },
-];
 
 export default async function HomePage() {
   const data = await getHomeData();
@@ -287,27 +283,33 @@ export default async function HomePage() {
         </div>
       </section>
 
-      <section className="bg-paper-deep/55 border-y border-mitti/12 py-16 md:py-20">
-        <div className="max-w-[1440px] mx-auto px-5 sm:px-8 lg:px-12">
-          <div className="text-center mb-10">
-            <p className="editorial-kicker">STORIES</p>
-            <h2 className="font-display text-[38px] md:text-[46px] text-kohl mt-3">From the Journal</h2>
+      {data.journalPages.length > 0 && (
+        <section className="bg-paper-deep/55 border-y border-mitti/12 py-16 md:py-20">
+          <div className="max-w-[1440px] mx-auto px-5 sm:px-8 lg:px-12">
+            <div className="text-center mb-10">
+              <p className="editorial-kicker">STORIES</p>
+              <h2 className="font-display text-[38px] md:text-[46px] text-kohl mt-3">From the Journal</h2>
+            </div>
+            <div className="grid md:grid-cols-3 gap-7 lg:gap-9">
+              {data.journalPages.map((j) => (
+                <Link key={j.slug} href={`/p/${j.slug}`} className="group block">
+                  <div className="aspect-[4/3] bg-ivory overflow-hidden border border-mitti/12">
+                    {j.coverImage ? (
+                      <Image src={j.coverImage} alt={j.title} width={800} height={600} className="w-full h-full object-cover group-hover:scale-[1.025] transition-transform duration-700" />
+                    ) : (
+                      <div className="w-full h-full bg-gradient-to-br from-beige to-mitti/20" />
+                    )}
+                  </div>
+                  <p className="editorial-kicker mt-4">JOURNAL</p>
+                  <h3 className="font-display text-[22px] text-kohl mt-1.5 group-hover:text-madder transition-colors">{j.title}</h3>
+                  {j.excerpt && <p className="font-display italic text-mitti text-[14px] mt-2 line-clamp-2">{j.excerpt}</p>}
+                  <p className="micro-link mt-3">READ →</p>
+                </Link>
+              ))}
+            </div>
           </div>
-          <div className="grid md:grid-cols-3 gap-7 lg:gap-9">
-            {JOURNAL_FALLBACK.map((j) => (
-              <Link key={j.slug} href={`/journal/${j.slug}`} className="group block">
-                <div className="aspect-[4/3] bg-ivory overflow-hidden border border-mitti/12">
-                  <Image src={j.image} alt={j.title} width={800} height={600} className="w-full h-full object-cover group-hover:scale-[1.025] transition-transform duration-700" />
-                </div>
-                <p className="editorial-kicker mt-4">JOURNAL</p>
-                <h3 className="font-display text-[22px] text-kohl mt-1.5 group-hover:text-madder transition-colors">{j.title}</h3>
-                <p className="font-display italic text-mitti text-[14px] mt-2 line-clamp-2">{j.excerpt}</p>
-                <p className="micro-link mt-3">READ →</p>
-              </Link>
-            ))}
-          </div>
-        </div>
-      </section>
+        </section>
+      )}
 
       <section className="max-w-3xl mx-auto px-6 py-16 md:py-20 text-center">
         <p className="editorial-kicker">STAY IN THE TRUNK</p>
