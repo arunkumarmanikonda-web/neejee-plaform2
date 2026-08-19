@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { Loader2, Plus, Trash2, ArrowLeft } from 'lucide-react';
@@ -14,21 +14,28 @@ export default function SellerCommissionsPage() {
   const [msg, setMsg] = useState('');
   const [err, setErr] = useState('');
 
-  const load = async () => {
+  const load = useCallback(async () => {
+    if (!sellerId) return;
     setLoading(true);
-    const [cR, ctR, prR] = await Promise.all([
-      fetch(`/api/admin/sellers/${sellerId}/commissions`),
-      fetch('/api/admin/categories').catch(() => null),
-      fetch(`/api/admin/products?sellerId=${sellerId}&limit=200`).catch(() => null),
-    ]);
-    const cJ = await cR.json();
-    if (!cR.ok) { setErr(cJ.error); setLoading(false); return; }
-    setData(cJ);
-    if (ctR) { const j = await ctR.json(); setCategories(j.categories || j || []); }
-    if (prR) { const j = await prR.json(); setProducts(j.products || j || []); }
-    setLoading(false);
-  };
-  useEffect(() => { load(); /* eslint-disable-next-line */ }, [sellerId]);
+    try {
+      const [cR, ctR, prR] = await Promise.all([
+        fetch(`/api/admin/sellers/${sellerId}/commissions`),
+        fetch('/api/admin/categories').catch(() => null),
+        fetch(`/api/admin/products?sellerId=${sellerId}&limit=200`).catch(() => null),
+      ]);
+      const cJ = await cR.json();
+      if (!cR.ok) { setErr(cJ.error); return; }
+      setData(cJ);
+      if (ctR) { const j = await ctR.json(); setCategories(j.categories || j || []); }
+      if (prR) { const j = await prR.json(); setProducts(j.products || j || []); }
+    } finally {
+      setLoading(false);
+    }
+  }, [sellerId]);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
 
   const saveDefault = async (val: string) => {
     setErr(''); setMsg('');
@@ -38,7 +45,7 @@ export default function SellerCommissionsPage() {
     });
     const j = await r.json();
     if (!r.ok) { setErr(j.error); return; }
-    setMsg('Default commission updated'); load();
+    setMsg('Default commission updated'); await load();
   };
 
   const addOverride = async (type: 'category' | 'product', refId: string, pct: string) => {
@@ -50,7 +57,7 @@ export default function SellerCommissionsPage() {
     });
     const j = await r.json();
     if (!r.ok) { setErr(j.error); return; }
-    setMsg(`${type} override saved`); load();
+    setMsg(`${type} override saved`); await load();
   };
 
   const removeOverride = async (type: 'category' | 'product', refId: string) => {
@@ -58,7 +65,7 @@ export default function SellerCommissionsPage() {
     const r = await fetch(`/api/admin/sellers/${sellerId}/commissions?type=${type}&refId=${refId}`, {
       method: 'DELETE',
     });
-    if (r.ok) { setMsg(`${type} override removed`); load(); }
+    if (r.ok) { setMsg(`${type} override removed`); await load(); }
   };
 
   if (loading) return <div className="text-mitti py-20 text-center"><Loader2 className="w-5 h-5 animate-spin inline mr-2" />Loading…</div>;
@@ -78,12 +85,10 @@ export default function SellerCommissionsPage() {
       {msg && <div className="bg-emerald-50 border border-emerald-200 p-3 text-sm">{msg}</div>}
       {err && <div className="bg-madder/10 border border-madder p-3 text-madder text-sm">{err}</div>}
 
-      {/* Seller default */}
       <Section title="Studio default commission">
         <DefaultEditor initial={data.seller.commissionPct} onSave={saveDefault} />
       </Section>
 
-      {/* Category overrides */}
       <Section title="Category overrides" subtitle={`${data.categoryCommissions.length} active`}>
         <AddRow label="category" options={categories.map((c: any) => ({ v: c.id, l: c.name }))}
           onAdd={(refId, pct) => addOverride('category', refId, pct)} />
@@ -113,7 +118,6 @@ export default function SellerCommissionsPage() {
         )}
       </Section>
 
-      {/* Product overrides */}
       <Section title="Product overrides" subtitle={`${data.productCommissions.length} active · most specific level`}>
         <AddRow label="product"
           options={products.map((p: any) => ({ v: p.id, l: `${p.name} (${p.sku || p.id.slice(0, 6)})` }))}
