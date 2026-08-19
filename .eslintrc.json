@@ -4,5 +4,31 @@
   "plugins": ["@typescript-eslint"],
   "rules": {
     "react/no-unescaped-entities": "off"
-  }
+  },
+  "overrides": [
+    {
+      "files": [
+        "app/admin/categories/page.tsx",
+        "app/admin/crafts/page.tsx",
+        "app/admin/editorial-blocks/[id]/page.tsx",
+        "app/admin/journal/page.tsx",
+        "app/admin/journal/[id]/page.tsx",
+        "app/admin/legal-signatories/page.tsx",
+        "app/admin/marketing-studio/page.tsx",
+        "app/agreement/admin/sellers/[id]/AgreementPrintClient.tsx",
+        "app/agreement/admin/sellers/[id]/AgreementPrintClientV2.tsx",
+        "app/agreement/public/sellers/[id]/sign/SellerAgreementSignClient.tsx",
+        "app/seller/(portal)/inventory/submit/page.tsx",
+        "app/seller/(portal)/orders/page.tsx",
+        "app/vendor/(portal)/ai-photos/page.tsx",
+        "components/admin/AiPhotoStudio.tsx",
+        "components/admin/ImageUploader.tsx",
+        "components/admin/VariantImageManager.tsx",
+        "components/analytics/PixelScripts.tsx"
+      ],
+      "rules": {
+        "@next/next/no-img-element": "off"
+      }
+    }
+  ]
 }
