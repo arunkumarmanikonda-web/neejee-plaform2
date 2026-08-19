@@ -14,7 +14,7 @@ import {
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
-const ROUTE_READ_MODEL_VERSION = 'phase1.public.products.v5';
+const ROUTE_READ_MODEL_VERSION = 'phase1.public.products.v6';
 const DEFAULT_PAGE = 1;
 const DEFAULT_LIMIT = 24;
 const MAX_LIMIT = 100;
@@ -158,6 +158,72 @@ function compareProducts(sort: string) {
   };
 }
 
+function mapPublicVariant(
+  read: ReturnType<typeof buildProductReadModel>,
+  variant: ReturnType<typeof buildProductReadModel>['variants'][number],
+) {
+  // Variant rows only store SKU/option/price/stock/media URLs. Publication,
+  // catalogue curation and media-approval state live on the parent Product.
+  // Public variant output therefore inherits those parent-level controls and
+  // applies only the variant's own stock state as an additional blocker.
+  const parentBlockers = Array.isArray(read.catalogueReadiness?.blockers)
+    ? read.catalogueReadiness.blockers.filter((blocker: string) => blocker !== 'hidden_by_stock_rule')
+    : [];
+  const hiddenByVariantStock =
+    variant.stock.stockVisibility === 'IN_STOCK_ONLY' && !variant.stock.inStock;
+  const blockers = Array.from(new Set([
+    ...parentBlockers,
+    ...(hiddenByVariantStock ? ['hidden_by_stock_rule'] : []),
+  ]));
+  const readyForCatalogue = blockers.length === 0;
+  const inheritedImageApproved = !!(variant.media?.imageApproved || read.media.imageApproved);
+  const inheritedApprovedPrimaryImage =
+    variant.media?.approvedPrimaryImage ?? read.media.approvedPrimaryImage ?? null;
+
+  return {
+    ...variant,
+    active: read.identity.active,
+    identity: {
+      ...variant.identity,
+      status: read.identity.status,
+      active: read.identity.active,
+      enabled: read.identity.enabled,
+      published: read.identity.published,
+    },
+    media: {
+      ...variant.media,
+      approvedPrimaryImage: inheritedApprovedPrimaryImage,
+      imageApproved: inheritedImageApproved,
+      hasApprovedMedia: inheritedImageApproved && !!inheritedApprovedPrimaryImage,
+    },
+    catalogue: {
+      ...variant.catalogue,
+      featured: read.catalogue.featured,
+      bestseller: read.catalogue.bestseller,
+      editorial: read.catalogue.editorial,
+      pinHero: read.catalogue.pinHero,
+      exclude: read.catalogue.exclude,
+      audienceTag: read.catalogue.audienceTag,
+      ctaMode: read.catalogue.ctaMode,
+      mode: read.catalogue.mode,
+      storyBlock: read.catalogue.storyBlock,
+      preferredImage: variant.catalogue?.preferredImage ?? read.catalogue.preferredImage,
+      imageApproved: inheritedImageApproved,
+      imageQualityScore: variant.catalogue?.imageQualityScore ?? read.catalogue.imageQualityScore,
+      stockVisibility: variant.stock.stockVisibility,
+      cta: read.catalogue.cta,
+      readiness: {
+        ...read.catalogueReadiness,
+        ready: readyForCatalogue,
+        readyForCatalogue,
+        visibleInFeed: read.catalogueReadiness?.visibleInFeed ?? readyForCatalogue,
+        usesApprovedMedia: inheritedImageApproved && !!inheritedApprovedPrimaryImage,
+        blockers,
+      },
+    },
+  };
+}
+
 function mapPublicProduct(read: ReturnType<typeof buildProductReadModel>) {
   return {
     id: read.id,
@@ -216,7 +282,7 @@ function mapPublicProduct(read: ReturnType<typeof buildProductReadModel>) {
       ...read.stock,
       visibleInListing: read.stock.stockVisibility === 'IN_STOCK_ONLY' ? read.stock.inStock : true,
     },
-    variants: read.variants,
+    variants: read.variants.map((variant) => mapPublicVariant(read, variant)),
     source: read.source,
     version: read.version,
     createdAt: read.timestamps.createdAt,
