@@ -1,8 +1,8 @@
 'use client';
 // app/admin/abandoned-carts/page.tsx
-// v26.3a — Admin list of abandoned carts (recovery state machine view).
+// Admin list of abandoned carts (recovery state machine view).
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 
 interface Cart {
@@ -39,19 +39,24 @@ export default function AbandonedCartsPage() {
   const [summary, setSummary] = useState({ active: 0, recovered: 0, optedOut: 0, atHandoff: 0 });
   const [filter, setFilter] = useState<'active' | 'recovered' | 'opted_out' | 'telecaller'>('active');
   const [search, setSearch] = useState('');
+  const searchRef = useRef('');
   const [loading, setLoading] = useState(false);
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setLoading(true);
-    const url = `/api/admin/abandoned-carts?status=${filter}${search ? `&q=${encodeURIComponent(search)}` : ''}`;
-    const res = await fetch(url);
-    const d = await res.json();
-    setCarts(d.carts || []);
-    setSummary(d.summary || summary);
-    setLoading(false);
-  };
+    try {
+      const query = searchRef.current;
+      const url = `/api/admin/abandoned-carts?status=${filter}${query ? `&q=${encodeURIComponent(query)}` : ''}`;
+      const res = await fetch(url);
+      const data = await res.json();
+      setCarts(data.carts || []);
+      if (data.summary) setSummary(data.summary);
+    } finally {
+      setLoading(false);
+    }
+  }, [filter]);
 
-  useEffect(() => { load(); /* eslint-disable-next-line */ }, [filter]);
+  useEffect(() => { void load(); }, [load]);
 
   const onResend = async (id: string) => {
     if (!confirm('Resend the next stage email now?')) return;
@@ -95,10 +100,13 @@ export default function AbandonedCartsPage() {
             className={`px-4 py-2 text-sm border ${filter === f ? 'bg-kohl text-ivory border-kohl' : 'border-mitti/30 text-mitti'}`}
           >{f.replace('_', ' ')}</button>
         ))}
-        <form onSubmit={(e) => { e.preventDefault(); load(); }} className="flex-1 max-w-md ml-auto">
+        <form onSubmit={(e) => { e.preventDefault(); void load(); }} className="flex-1 max-w-md ml-auto">
           <input
             value={search}
-            onChange={e => setSearch(e.target.value)}
+            onChange={e => {
+              setSearch(e.target.value);
+              searchRef.current = e.target.value;
+            }}
             placeholder="Search email, name, phone…"
             className="w-full border border-mitti/30 px-3 py-2 text-sm"
           />
@@ -134,15 +142,9 @@ export default function AbandonedCartsPage() {
                   </td>
                   <td className="py-3">{c.itemCount}</td>
                   <td className="py-3">₹{(c.subtotal / 100).toLocaleString('en-IN', { maximumFractionDigits: 0 })}</td>
-                  <td className="py-3">
-                    <span className="px-2 py-1 text-xs bg-beige text-kohl">{STAGE_LABEL[c.recoveryStage] || c.recoveryStage}</span>
-                  </td>
-                  <td className="py-3 text-xs text-mitti">
-                    {c.nextActionAt ? new Date(c.nextActionAt).toLocaleString('en-IN', { dateStyle: 'short', timeStyle: 'short' }) : '—'}
-                  </td>
-                  <td className="py-3 text-xs">
-                    {c.discountCode ? <span className="font-mono">{c.discountCode} · {c.discountPercent}%</span> : '—'}
-                  </td>
+                  <td className="py-3"><span className="px-2 py-1 text-xs bg-beige text-kohl">{STAGE_LABEL[c.recoveryStage] || c.recoveryStage}</span></td>
+                  <td className="py-3 text-xs text-mitti">{c.nextActionAt ? new Date(c.nextActionAt).toLocaleString('en-IN', { dateStyle: 'short', timeStyle: 'short' }) : '—'}</td>
+                  <td className="py-3 text-xs">{c.discountCode ? <span className="font-mono">{c.discountCode} · {c.discountPercent}%</span> : '—'}</td>
                   <td className="py-3 text-xs">{c.paymentMethodPicked || '—'}</td>
                   <td className="py-3">
                     {!c.recoveredOrderId && !c.optedOut && (
