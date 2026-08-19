@@ -3,6 +3,7 @@ import { Suspense } from 'react';
 import { Cormorant_Garamond, Inter, Playfair_Display } from 'next/font/google';
 import './globals.css';
 import './phase25.css';
+import './quiet-phase2.css';
 import { AnalyticsProvider } from '@/components/analytics/AnalyticsProvider';
 import { PixelScripts } from '@/components/analytics/PixelScripts';
 import { PwaRegistrar } from '@/components/pwa/PwaRegistrar';
