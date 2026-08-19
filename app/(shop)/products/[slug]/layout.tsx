@@ -28,7 +28,7 @@ export default async function ProductSeoLayout({
           }}
         />
       )}
-      {children}
+      <div className="neejee-pdp-v25">{children}</div>
     </>
   );
 }
