@@ -1,45 +1,59 @@
 .checkout-phase2 {
-  background: var(--ivory);
+  background: #f7f1e7;
+  color: var(--kohl);
 }
 
 .checkout-phase2 section.max-w-6xl {
-  max-width: 1380px;
-  padding-top: 3.5rem;
-  padding-bottom: 5rem;
+  max-width: 1420px;
+  padding-top: 3.75rem;
+  padding-bottom: 5.5rem;
 }
 
 .checkout-phase2 section.max-w-6xl > h1 {
-  font-size: clamp(2.9rem, 5vw, 4.6rem);
-  line-height: .98;
-  letter-spacing: -.025em;
+  font-size: clamp(3.4rem, 5.5vw, 5.4rem);
+  line-height: .94;
+  letter-spacing: -.045em;
+  max-width: 10ch;
 }
 
 .checkout-phase2 section.max-w-6xl > .madder-divider {
-  margin-top: 1.4rem;
+  width: 78px;
+  margin-top: 1.6rem;
 }
 
 .checkout-phase2 .bg-beige {
-  background-color: rgba(239, 229, 215, .5) !important;
+  background-color: rgba(239, 229, 215, .38) !important;
 }
 
 .checkout-phase2 .grid > .bg-beige,
 .checkout-phase2 aside > .bg-beige {
   border: 1px solid rgba(107, 68, 35, .16);
-  box-shadow: 0 14px 36px rgba(43, 28, 17, .035);
+  box-shadow: none;
+}
+
+.checkout-phase2 aside {
+  position: sticky;
+  top: 138px;
+  align-self: start;
 }
 
 .checkout-phase2 aside > .bg-beige {
-  background-color: rgba(248, 243, 234, .9) !important;
-  box-shadow: 0 18px 46px rgba(43, 28, 17, .055);
+  background:
+    linear-gradient(rgba(248,243,234,.94), rgba(248,243,234,.94)),
+    radial-gradient(circle at 92% 8%, rgba(139,46,42,.08) 0 1px, transparent 1.5px) !important;
+  background-size: auto, 18px 18px !important;
+  border-color: rgba(107,68,35,.22) !important;
+  box-shadow: 0 24px 60px rgba(43,28,17,.05);
 }
 
 .checkout-phase2 input:not([type='checkbox']):not([type='radio']):not([type='range']),
 .checkout-phase2 textarea,
 .checkout-phase2 select {
   border-radius: 0 !important;
-  border-color: rgba(107, 68, 35, .28) !important;
-  background: rgba(255, 255, 255, .28) !important;
-  min-height: 46px;
+  border-color: rgba(107, 68, 35, .26) !important;
+  background: rgba(255, 255, 255, .2) !important;
+  min-height: 48px;
+  color: var(--kohl);
 }
 
 .checkout-phase2 input:focus,
@@ -47,7 +61,7 @@
 .checkout-phase2 select:focus {
   outline: none !important;
   border-color: var(--madder) !important;
-  box-shadow: 0 0 0 1px rgba(139, 46, 42, .1);
+  box-shadow: 0 0 0 1px rgba(139, 46, 42, .08);
 }
 
 .checkout-phase2 input[type='checkbox'],
@@ -74,22 +88,75 @@
   transition: border-color .18s ease, background-color .18s ease;
 }
 
+/* Step rail: reduce app-like chrome and make it read as a quiet process marker. */
+.checkout-phase2 .flex.items-center.justify-between.mb-8,
+.checkout-phase2 .flex.items-center.justify-center.mb-8,
+.checkout-phase2 .flex.items-center.justify-center.mb-10 {
+  border-top: 1px solid rgba(107,68,35,.15);
+  border-bottom: 1px solid rgba(107,68,35,.15);
+  padding: .95rem 0;
+}
+
+.checkout-phase2 .flex.items-center.justify-between.mb-8 .rounded-full,
+.checkout-phase2 .flex.items-center.justify-center.mb-8 .rounded-full,
+.checkout-phase2 .flex.items-center.justify-center.mb-10 .rounded-full {
+  width: 24px;
+  height: 24px;
+  box-shadow: none !important;
+}
+
+/* Customer-detail and shipping/payment sections read as editorial forms, not dashboard cards. */
+.checkout-phase2 main > div,
+.checkout-phase2 main > section,
+.checkout-phase2 .lg\:col-span-2 > div,
+.checkout-phase2 .lg\:col-span-2 > section {
+  border-color: rgba(107,68,35,.16) !important;
+}
+
+.checkout-phase2 label.border,
+.checkout-phase2 button.border {
+  border-color: rgba(107,68,35,.22) !important;
+  background: rgba(248,243,234,.42);
+}
+
+.checkout-phase2 label.border:hover,
+.checkout-phase2 button.border:hover {
+  border-color: rgba(139,46,42,.52) !important;
+  background: rgba(239,229,215,.5);
+}
+
+.checkout-phase2 img {
+  filter: saturate(.94) contrast(.99);
+}
+
 .checkout-phase2 footer {
-  margin-top: 2rem;
+  margin-top: 1rem;
+}
+
+@media (max-width: 1023px) {
+  .checkout-phase2 aside {
+    position: static;
+  }
 }
 
 @media (max-width: 767px) {
   .checkout-phase2 section.max-w-6xl {
     padding-top: 2.5rem;
-    padding-bottom: 3.5rem;
+    padding-bottom: 3.75rem;
+    padding-left: 1.15rem;
+    padding-right: 1.15rem;
   }
 
   .checkout-phase2 section.max-w-6xl > h1 {
-    font-size: 2.9rem;
+    font-size: clamp(3rem, 14vw, 4.2rem);
   }
 
   .checkout-phase2 .bg-beige {
-    padding-left: 1.15rem;
-    padding-right: 1.15rem;
+    padding-left: 1.1rem;
+    padding-right: 1.1rem;
+  }
+
+  .checkout-phase2 .grid {
+    gap: 1.5rem;
   }
 }
