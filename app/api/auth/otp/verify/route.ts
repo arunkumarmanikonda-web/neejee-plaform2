@@ -16,18 +16,15 @@ const BodySchema = z.object({
   email: z.string().optional(),
 });
 
-const ADMIN_ROLES = new Set([
-  'ADMIN',
-  'SUPER_ADMIN',
-  'CONTENT_EDITOR',
-  'QC_TEAM',
-  'FINANCE',
-  'FINANCE_OPERATOR',
-  'MARKETING_OPERATOR',
-  'MARKETING_MANAGER',
-]);
+type PublicOtpPurpose =
+  | 'login_customer'
+  | 'login_vendor'
+  | 'login_seller'
+  | 'signup'
+  | 'signup_customer'
+  | 'checkout_guest';
 
-function normalizePurpose(value?: string | null): OtpPurpose {
+function normalizePurpose(value?: string | null): PublicOtpPurpose | 'admin_2fa' | 'change_phone' {
   const raw = String(value || '').trim().toLowerCase();
 
   switch (raw) {
@@ -35,17 +32,33 @@ function normalizePurpose(value?: string | null): OtpPurpose {
       return 'signup';
     case 'signup_customer':
       return 'signup_customer';
-    case 'login_customer':
-      return 'login';
+    case 'login_vendor':
+      return 'login_vendor';
+    case 'login_seller':
+      return 'login_seller';
     case 'admin_2fa':
       return 'admin_2fa';
     case 'checkout_guest':
       return 'checkout_guest';
     case 'change_phone':
       return 'change_phone';
+    case 'login_customer':
     case 'login':
     default:
-      return 'login';
+      return 'login_customer';
+  }
+}
+
+function expectedRolesForPurpose(purpose: PublicOtpPurpose): string[] | null {
+  switch (purpose) {
+    case 'login_customer':
+      return ['CUSTOMER'];
+    case 'login_vendor':
+      return ['VENDOR', 'VENDOR_STAFF'];
+    case 'login_seller':
+      return ['SELLER', 'SELLER_STAFF'];
+    default:
+      return null;
   }
 }
 
@@ -62,10 +75,6 @@ function normalizeOptionalEmail(value?: string) {
 function normalizeOptionalName(value?: string) {
   const name = String(value || '').trim();
   return name || null;
-}
-
-function isAdminSideRole(role: unknown): role is string {
-  return typeof role === 'string' && ADMIN_ROLES.has(role);
 }
 
 function isPlaceholderEmail(email?: string | null, phone?: string | null) {
@@ -86,7 +95,7 @@ function isPlaceholderEmail(email?: string | null, phone?: string | null) {
 
 function needsProfileCompletion(
   user: { email?: string | null; name?: string | null; phone?: string | null },
-  purpose: OtpPurpose,
+  purpose: PublicOtpPurpose,
 ) {
   if (purpose === 'signup' || purpose === 'signup_customer') return true;
 
@@ -99,11 +108,11 @@ function needsProfileCompletion(
 
 function redirectFor(
   role: string,
-  purpose: OtpPurpose,
+  purpose: PublicOtpPurpose,
   user: { email?: string | null; name?: string | null; phone?: string | null },
 ) {
-  if (isAdminSideRole(role)) return '/admin';
-  if (role === 'SELLER') return '/seller';
+  if (role === 'SELLER' || role === 'SELLER_STAFF') return '/seller/dashboard';
+  if (role === 'VENDOR' || role === 'VENDOR_STAFF') return '/vendor/dashboard';
   if (needsProfileCompletion(user, purpose)) return '/complete-profile';
   return '/account';
 }
@@ -147,19 +156,89 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Please enter a valid mobile number' }, { status: 400 });
     }
 
+    // Privileged flows never create sessions through the anonymous OTP verifier.
+    // Admin 2FA must pass through /api/auth/login/2fa, which re-checks the
+    // password before consuming the OTP. Phone changes require an authenticated
+    // account-specific flow.
+    if (purpose === 'admin_2fa' || purpose === 'change_phone') {
+      return NextResponse.json(
+        { error: 'This verification flow must be completed through its dedicated authenticated endpoint.' },
+        { status: 403 },
+      );
+    }
+
+    // Resolve and authorize portal role BEFORE consuming the OTP. This prevents
+    // a generic customer OTP from becoming a passwordless admin/seller/vendor
+    // session simply because the phone number belongs to a privileged account.
+    const expectedRoles = expectedRolesForPurpose(purpose);
+    let loginUser: {
+      id: string;
+      email: string | null;
+      name: string | null;
+      role: any;
+      phone: string | null;
+      phoneVerifiedAt: Date | null;
+      primaryAuthMethod: string | null;
+    } | null = null;
+
+    if (expectedRoles) {
+      loginUser = await prisma.user.findFirst({
+        where: { phone: normalizedPhone },
+        select: {
+          id: true,
+          email: true,
+          name: true,
+          role: true,
+          phone: true,
+          phoneVerifiedAt: true,
+          primaryAuthMethod: true,
+        },
+      });
+
+      if (!loginUser) {
+        return NextResponse.json({ error: 'No account found for this mobile number' }, { status: 404 });
+      }
+
+      if (!expectedRoles.includes(String(loginUser.role))) {
+        return NextResponse.json(
+          { error: 'This account must use its dedicated portal sign-in method.' },
+          { status: 403 },
+        );
+      }
+
+      if (purpose === 'login_vendor') {
+        const vendor = await prisma.vendor.findUnique({
+          where: { userId: loginUser.id },
+          select: { status: true },
+        });
+        if (!vendor || vendor.status === 'ARCHIVED' || vendor.status === 'SUSPENDED') {
+          return NextResponse.json({ error: 'Vendor account is not active' }, { status: 403 });
+        }
+      }
+
+      if (purpose === 'login_seller') {
+        const seller = await prisma.seller.findFirst({
+          where: { userId: loginUser.id },
+          select: { id: true },
+        });
+        if (!seller) {
+          return NextResponse.json({ error: 'Seller account is not linked' }, { status: 403 });
+        }
+      }
+    }
+
     const verification = await verifyOtp({
       phone: normalizedPhone,
       code,
-      purpose,
+      purpose: purpose as OtpPurpose,
     });
 
     if (!verification.ok) {
       return NextResponse.json({ error: otpReasonToMessage(verification.reason) }, { status: 401 });
     }
 
-    // Guest checkout deliberately verifies possession of the phone without
-    // creating an account or session. /api/checkout remains the authority that
-    // checks the recently consumed checkout_guest OTP when the gate is enabled.
+    // Guest checkout verifies phone possession without creating an account or
+    // session. /api/checkout remains the authority for its consumed OTP gate.
     if (purpose === 'checkout_guest') {
       return NextResponse.json({
         ok: true,
@@ -210,29 +289,16 @@ export async function POST(req: Request) {
       });
     }
 
-    const currentUser = await prisma.user.findFirst({
-      where: { phone: normalizedPhone },
-      select: {
-        id: true,
-        email: true,
-        name: true,
-        role: true,
-        phone: true,
-        phoneVerifiedAt: true,
-        primaryAuthMethod: true,
-      },
-    });
-
-    if (!currentUser) {
+    if (!loginUser) {
       return NextResponse.json({ error: 'No account found for this mobile number' }, { status: 404 });
     }
 
     const user = await prisma.user.update({
-      where: { id: currentUser.id },
+      where: { id: loginUser.id },
       data: {
         phoneVerified: true,
-        phoneVerifiedAt: currentUser.phoneVerifiedAt || new Date(),
-        primaryAuthMethod: currentUser.primaryAuthMethod || 'PHONE_OTP',
+        phoneVerifiedAt: loginUser.phoneVerifiedAt || new Date(),
+        primaryAuthMethod: loginUser.primaryAuthMethod || 'PHONE_OTP',
       },
       select: { id: true, email: true, name: true, role: true, phone: true },
     });
