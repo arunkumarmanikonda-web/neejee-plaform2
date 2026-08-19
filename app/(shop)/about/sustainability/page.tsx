@@ -8,7 +8,7 @@ export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
 export const metadata = {
-  title: 'Sustainability · NEEJEE',
+  title: 'Sustainability',
   description: 'NEEJEE’s approach to slower consumption, craft provenance, materials disclosure, responsible packaging and evidence-led sustainability claims.',
 };
 
