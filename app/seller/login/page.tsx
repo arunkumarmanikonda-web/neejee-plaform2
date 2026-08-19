@@ -11,7 +11,7 @@ import { Footer } from '@/components/layout/Footer';
 
 export const dynamic = 'force-dynamic';
 
-const SELLER_ROLES = ['SELLER', 'SELLER_STAFF', 'ADMIN', 'SUPER_ADMIN'];
+const SELLER_ROLES = ['SELLER', 'SELLER_STAFF'];
 
 export default function SellerLoginPage() {
   return (
@@ -63,7 +63,12 @@ function SellerLoginInner() {
         return;
       }
 
-      const role = data?.role || '';
+      if (data?.requires2FA) {
+        setError('Privileged NEEJEE accounts must complete secure sign-in through the Admin login.');
+        return;
+      }
+
+      const role = data?.user?.role || data?.role || '';
       if (SELLER_ROLES.includes(role)) {
         router.push('/seller/dashboard');
         router.refresh();
@@ -139,7 +144,7 @@ function SellerLoginInner() {
             </p>
             <p className="font-display text-xl text-kohl mt-2 leading-snug">Why NEEJEE?</p>
             <p className="font-body text-sm text-kohl/70 mt-2">
-              Curated catalogue, weekly payouts, story-first listings, AI tools.
+              Curated catalogue, clear commercial terms, story-first listings, AI tools.
             </p>
             <span className="mt-3 inline-flex items-center gap-1.5 text-xs tracking-widest text-kohl group-hover:gap-2.5 transition-all">
               READ MORE <ArrowRight className="w-3 h-3" />
