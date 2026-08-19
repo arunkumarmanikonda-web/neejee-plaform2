@@ -69,21 +69,21 @@ export function ProductCard({ product }: { product: ProductCardData }) {
             </div>
 
             {product.aiTryOnEligible && (
-              <span className="absolute bottom-3 left-3 border border-ivory/65 bg-kohl/58 backdrop-blur-sm text-ivory text-[8px] px-2.5 py-1 font-ui tracking-[0.18em]">MIRROR ✦</span>
+              <span className="absolute bottom-3 left-3 border border-ivory/[0.65] bg-kohl/[0.58] backdrop-blur-sm text-ivory text-[8px] px-2.5 py-1 font-ui tracking-[0.18em]">MIRROR ✦</span>
             )}
 
             {product.inventory != null && product.inventory <= 3 && product.inventory > 0 && (
-              <span className="absolute bottom-3 right-3 bg-ivory/88 text-madder px-2.5 py-1 font-ui text-[8px] tracking-[0.16em]">ONLY {product.inventory} LEFT</span>
+              <span className="absolute bottom-3 right-3 bg-ivory/[0.88] text-madder px-2.5 py-1 font-ui text-[8px] tracking-[0.16em]">ONLY {product.inventory} LEFT</span>
             )}
             {product.inventory === 0 && (
-              <span className="absolute bottom-3 right-3 bg-kohl/72 text-ivory px-2.5 py-1 font-ui text-[8px] tracking-[0.16em]">SOLD OUT</span>
+              <span className="absolute bottom-3 right-3 bg-kohl/[0.72] text-ivory px-2.5 py-1 font-ui text-[8px] tracking-[0.16em]">SOLD OUT</span>
             )}
           </div>
         </Link>
 
         <button
           onClick={() => toggle(product.id, product.slug)}
-          className="absolute top-3 right-3 z-10 w-9 h-9 flex items-center justify-center text-kohl bg-ivory/72 backdrop-blur-[2px] transition-all hover:bg-ivory hover:text-madder"
+          className="absolute top-3 right-3 z-10 w-9 h-9 flex items-center justify-center text-kohl bg-ivory/[0.72] backdrop-blur-[2px] transition-all hover:bg-ivory hover:text-madder"
           aria-label={wishlisted ? 'Remove from wishlist' : 'Add to wishlist'}
           aria-pressed={wishlisted}
         >
