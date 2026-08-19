@@ -5,18 +5,12 @@ import { getSiteSeoConfig } from '@/lib/site/seo-config';
 export const dynamic = 'force-dynamic';
 export const revalidate = 3600;
 
-const INTERNAL_CMS_SLUGS = new Set([
-  'about',
-  'about-page',
-  'home-founder-note',
-]);
+const INTERNAL_CMS_SLUGS = new Set(['about', 'about-page', 'home-founder-note']);
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const base = getSiteSeoConfig().baseUrl.replace(/\/$/, '');
   const now = new Date();
 
-  // Only routes confirmed as genuine public/indexable pages belong here.
-  // Legal drafts that do not exist yet must never be advertised to crawlers.
   const staticRoutes: MetadataRoute.Sitemap = [
     '',
     '/about',
@@ -40,23 +34,26 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   let cmsRoutes: MetadataRoute.Sitemap = [];
 
   try {
-    const [products, categories, cmsPages] = await Promise.all([
-      prisma.product.findMany({
-        where: { status: 'ACTIVE', catalogueExclude: false },
-        select: { slug: true, updatedAt: true },
-        take: 5000,
-      }),
-      prisma.category.findMany({
-        where: { active: true, hidden: false },
-        select: { slug: true, updatedAt: true },
-        take: 5000,
-      }),
-      prisma.cmsPage.findMany({
-        where: { status: 'PUBLISHED' },
-        select: { slug: true, updatedAt: true },
-        take: 5000,
-      }).catch(() => []),
-    ]);
+    // As with homepage ISR, production may run Prisma with a deliberately small
+    // serverless pool. Keep these independent reads sequential so sitemap
+    // generation cannot self-contend and silently lose catalogue URLs.
+    const products = await prisma.product.findMany({
+      where: { status: 'ACTIVE', catalogueExclude: false },
+      select: { slug: true, updatedAt: true },
+      take: 5000,
+    });
+
+    const categories = await prisma.category.findMany({
+      where: { active: true, hidden: false },
+      select: { slug: true, updatedAt: true },
+      take: 5000,
+    });
+
+    const cmsPages = await prisma.cmsPage.findMany({
+      where: { status: 'PUBLISHED' },
+      select: { slug: true, updatedAt: true },
+      take: 5000,
+    }).catch(() => []);
 
     productRoutes = products.map((product) => ({
       url: `${base}/products/${encodeURIComponent(product.slug)}`,
@@ -85,8 +82,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   }
 
   const unique = new Map<string, MetadataRoute.Sitemap[number]>();
-  for (const entry of [...staticRoutes, ...productRoutes, ...categoryRoutes, ...cmsRoutes]) {
-    unique.set(entry.url, entry);
-  }
+  for (const entry of [...staticRoutes, ...productRoutes, ...categoryRoutes, ...cmsRoutes]) unique.set(entry.url, entry);
   return Array.from(unique.values());
 }
