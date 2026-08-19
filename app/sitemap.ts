@@ -19,7 +19,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     '/sellers',
     '/help/shipping',
     '/help/returns',
-    '/help/track',
     '/help/contact',
     '/help/faq',
     '/legal/privacy',
@@ -38,9 +37,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   let editorialLandingRoutes: MetadataRoute.Sitemap = [];
 
   try {
-    // Keep these reads sequential because production deliberately uses a small
-    // serverless pool. Sitemap publication mirrors the public catalogue rules:
-    // active, not excluded, and visible under the configured stock policy.
     const products = await prisma.product.findMany({
       where: {
         status: 'ACTIVE',
@@ -82,9 +78,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       priority: 0.9,
     }));
 
-    // Publish only category pages that contain a live public product, plus the
-    // ancestors needed to reach that product. Empty taxonomy scaffolding stays
-    // navigable for customers but does not consume search-engine crawl budget.
     const visibleCategoryPaths = new Set<string>();
     for (const product of products) {
       const parts = String(product.category?.path || '')
@@ -125,8 +118,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       }];
     });
 
-    // Journal/lookbook entries are served through /p/:slug, like other
-    // published CMS pages. Prototype/mock content is intentionally excluded.
     cmsRoutes = cmsPages
       .filter((page) => !INTERNAL_CMS_SLUGS.has(page.slug))
       .map((page) => ({
