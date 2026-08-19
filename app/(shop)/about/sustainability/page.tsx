@@ -1,4 +1,4 @@
-// v23.40.25 — Sustainability page. CMS-overridable.
+// Sustainability — CMS-overridable commitments and disclosure page.
 import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
 import { SectionRenderer, type Section } from '@/components/cms/SectionRenderer';
@@ -9,7 +9,7 @@ export const runtime = 'nodejs';
 
 export const metadata = {
   title: 'Sustainability · NEEJEE',
-  description: 'Hand-loomed. Natural dyes. Above-MSP wages. Paid in advance. Sustainability at NEEJEE is not a campaign — it is the only way we know how to work.',
+  description: 'NEEJEE’s approach to slower consumption, craft provenance, materials disclosure, responsible packaging and evidence-led sustainability claims.',
 };
 
 export default async function SustainabilityPage() {
@@ -20,56 +20,49 @@ export default async function SustainabilityPage() {
     <>
       <Header />
       {cms && sections.length > 0 ? (
-        <main>{sections.map((s) => <SectionRenderer key={s.id} section={s} />)}</main>
+        <main>{sections.map((section) => <SectionRenderer key={section.id} section={section} />)}</main>
       ) : (
-        <>
-          <section className="max-w-3xl mx-auto px-6 py-20 text-center">
-            <p className="label text-madder mb-4">SLOW, NOT LOUD</p>
-            <h1 className="font-display text-5xl md:text-6xl text-kohl leading-tight">Sustainability.</h1>
-            <div className="madder-divider mx-auto mt-8"></div>
-            <p className="editorial-quote mt-12">
-              &ldquo;The cleanest piece is the one that already exists, made by hand, paid for honestly.&rdquo;
-            </p>
-            <p className="font-italic italic text-mitti mt-6">— Nidhi Chauhan, Founder</p>
-          </section>
-
-          <section className="max-w-3xl mx-auto px-6 py-12 font-body text-lg text-kohl/85 leading-relaxed space-y-6">
-            <p>
-              Sustainability at NEEJEE is not a campaign. It is the only way we know how to work.
-            </p>
-            <p>
-              Every NEEJEE piece is hand-loomed, hand-finished, or hand-painted. No factory tracks. No bulk dye-runs.
-              No synthetic shortcuts. We use natural dyes where the tradition does, and we let traditions that use
-              acid dyes stay honest about it — we never greenwash.
-            </p>
-            <p>
-              We pay our weavers above the government Minimum Support Price, in advance, every cycle. Some pieces take
-              fourteen days, some take fourteen months. We do not rush. Speed is the opposite of craft.
-            </p>
-            <p>
-              Our packaging is paper, muslin, and neem leaves. Every order arrives in a mango-wood Sandook with a
-              brass clasp — designed to be re-used as a keepsake box, not discarded.
-            </p>
-            <p className="font-display italic text-2xl text-mitti">
-              If sustainability has a sound, it is the quiet of a loom in motion.
+        <main>
+          <section className="max-w-3xl mx-auto px-6 pt-20 pb-14 text-center">
+            <p className="editorial-kicker">SLOWER. CLEARER. ACCOUNTABLE.</p>
+            <h1 className="font-display text-5xl md:text-6xl text-kohl leading-tight mt-4">Sustainability.</h1>
+            <div className="ornament-rule justify-center mt-8"><span className="font-display italic text-mitti text-sm">A practice, not a badge.</span></div>
+            <p className="editorial-pullquote mt-12">
+              We would rather make a modest claim we can support than a beautiful claim we cannot prove.
             </p>
           </section>
 
-          <section className="max-w-8xl mx-auto px-6 py-20 grid lg:grid-cols-4 gap-6">
+          <section className="max-w-3xl mx-auto px-6 py-10 font-display text-[17px] md:text-[18px] text-kohl/82 leading-[1.8] space-y-6">
+            <p>
+              NEEJEE is being built around a simple preference: buy fewer things, know more about them, and keep them longer. Craft can support that idea, but craft by itself is not proof of environmental or social performance.
+            </p>
+            <p>
+              Our product pages are intended to distinguish documented facts from editorial storytelling. Material, process, region, maker and packaging claims should be shown only to the extent that the underlying product or supplier record supports them.
+            </p>
+            <p>
+              We favour durable materials, repairable objects, reusable presentation and lower-waste fulfilment choices where they are practical. As supplier evidence improves, we intend to publish more specific disclosures rather than rely on generic “green” language.
+            </p>
+            <p>
+              The same standard applies to social claims. Commercial arrangements with makers and sellers can vary by engagement, so payment, wage or sourcing claims should be stated only where they are documented for the relevant relationship.
+            </p>
+            <p className="font-display italic text-2xl text-mitti text-center pt-3">The work is to make the record better, not the slogan louder.</p>
+          </section>
+
+          <section className="max-w-6xl mx-auto px-6 py-16 grid md:grid-cols-2 lg:grid-cols-4 gap-5">
             {[
-              { label: 'HAND-MADE', value: '100%', note: 'Every piece touched by a human hand.' },
-              { label: 'WAGES', value: 'Above MSP', note: 'Paid in advance, every cycle.' },
-              { label: 'PACKAGING', value: 'Plastic-free', note: 'Mango-wood, muslin, neem.' },
-              { label: 'WATER USE', value: '90% less', note: 'vs. mass-market textile dyeing.' },
-            ].map(s => (
-              <div key={s.label} className="text-center p-6 bg-beige">
-                <p className="label text-madder">{s.label}</p>
-                <p className="font-display text-4xl text-kohl mt-3">{s.value}</p>
-                <p className="font-italic italic text-mitti mt-2 text-sm">{s.note}</p>
+              { label: 'PROVENANCE', value: 'Evidence first', note: 'Publish origin and making details when the supporting record exists.' },
+              { label: 'MATERIALS', value: 'Be specific', note: 'Avoid broad natural, organic or low-impact claims without product-level support.' },
+              { label: 'PACKAGING', value: 'Reduce waste', note: 'Prefer reusable and lower-waste choices, then disclose what is actually used.' },
+              { label: 'PROGRESS', value: 'Keep measuring', note: 'Quantified impact claims belong here only after a defensible methodology exists.' },
+            ].map((item) => (
+              <div key={item.label} className="paper-panel text-center p-7">
+                <p className="editorial-kicker">{item.label}</p>
+                <p className="font-display text-[30px] text-kohl mt-3">{item.value}</p>
+                <p className="font-display italic text-mitti mt-3 text-[13px] leading-relaxed">{item.note}</p>
               </div>
             ))}
           </section>
-        </>
+        </main>
       )}
       <Footer />
     </>
