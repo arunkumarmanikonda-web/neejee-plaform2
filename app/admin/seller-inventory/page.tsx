@@ -1,8 +1,7 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Loader2, ExternalLink, FileSpreadsheet, Image as ImageIcon } from 'lucide-react';
-import { formatINR } from '@/lib/money';
 
 const STATUS: Record<string, { l: string; cls: string }> = {
   SUBMITTED:    { l: 'Submitted',     cls: 'bg-banarasi/20 text-banarasi' },
@@ -20,17 +19,23 @@ export default function SellerInventoryAdminPage() {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('SUBMITTED');
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setLoading(true);
-    const params = new URLSearchParams();
-    if (filter) params.set('status', filter);
-    const r = await fetch(`/api/admin/seller-inventory?${params}`);
-    const j = await r.json();
-    setRows(j.submissions || []);
-    setCounts(j.counts || []);
-    setLoading(false);
-  };
-  useEffect(() => { load(); /* eslint-disable-next-line */ }, [filter]);
+    try {
+      const params = new URLSearchParams();
+      if (filter) params.set('status', filter);
+      const r = await fetch(`/api/admin/seller-inventory?${params}`);
+      const j = await r.json();
+      setRows(j.submissions || []);
+      setCounts(j.counts || []);
+    } finally {
+      setLoading(false);
+    }
+  }, [filter]);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
 
   const countOf = (s: string) => counts.find(c => c.status === s)?._count._all || 0;
 
@@ -41,7 +46,6 @@ export default function SellerInventoryAdminPage() {
         <p className="text-mitti text-sm">Review, polish, and publish seller submissions</p>
       </div>
 
-      {/* Status filters with counts */}
       <div className="flex gap-2 flex-wrap">
         {['SUBMITTED', 'UNDER_REVIEW', 'NEEDS_INFO', 'APPROVED', 'PUBLISHED', 'REJECTED', ''].map(s => (
           <button key={s || 'all'} onClick={() => setFilter(s)}
@@ -91,7 +95,10 @@ export default function SellerInventoryAdminPage() {
                     </td>
                     <td className="p-3 text-mitti text-xs">{s.submissionType.replace(/_/g, ' ')}</td>
                     <td className="p-3 text-kohl flex items-center gap-2">
-                      {data.images?.[0] && <img src={data.images[0]} alt="" className="w-8 h-8 object-cover rounded" />}
+                      {data.images?.[0] && (
+                        // eslint-disable-next-line @next/next/no-img-element -- seller media may come from approved dynamic hosts not known at build time
+                        <img src={data.images[0]} alt="" className="w-8 h-8 object-cover rounded" />
+                      )}
                       {productName}
                     </td>
                     <td className="p-3 text-right tabular-nums text-kohl">
