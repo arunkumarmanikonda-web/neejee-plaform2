@@ -16,7 +16,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     '/about',
     '/about/select',
     '/about/sustainability',
-    '/lookbook',
     '/sellers',
     '/help/shipping',
     '/help/returns',
@@ -36,7 +35,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   let productRoutes: MetadataRoute.Sitemap = [];
   let categoryRoutes: MetadataRoute.Sitemap = [];
   let cmsRoutes: MetadataRoute.Sitemap = [];
-  let journalRoute: MetadataRoute.Sitemap = [];
+  let editorialLandingRoutes: MetadataRoute.Sitemap = [];
 
   try {
     // Keep these reads sequential because production deliberately uses a small
@@ -106,36 +105,42 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         priority: 0.8,
       }));
 
-    const publishedJournalPages = cmsPages.filter((page) => page.pageType === 'journal');
-    if (publishedJournalPages.length > 0) {
-      const newestJournalUpdate = publishedJournalPages.reduce<Date>((latest, page) => {
+    const landingSpecs = [
+      { pageType: 'journal', path: '/journal', priority: 0.7 as const },
+      { pageType: 'lookbook', path: '/lookbook', priority: 0.7 as const },
+    ];
+
+    editorialLandingRoutes = landingSpecs.flatMap((spec) => {
+      const publishedPages = cmsPages.filter((page) => page.pageType === spec.pageType);
+      if (publishedPages.length === 0) return [];
+      const newestUpdate = publishedPages.reduce<Date>((latest, page) => {
         const candidate = page.publishedAt || page.updatedAt || now;
         return candidate > latest ? candidate : latest;
       }, new Date(0));
-      journalRoute = [{
-        url: `${base}/journal`,
-        lastModified: newestJournalUpdate,
-        changeFrequency: 'weekly',
-        priority: 0.7,
+      return [{
+        url: `${base}${spec.path}`,
+        lastModified: newestUpdate,
+        changeFrequency: 'weekly' as const,
+        priority: spec.priority,
       }];
-    }
+    });
 
-    // Journal entries are served through /p/:slug, just like other published
-    // CMS pages. Prototype/mock stories are intentionally excluded from SEO.
+    // Journal/lookbook entries are served through /p/:slug, like other
+    // published CMS pages. Prototype/mock content is intentionally excluded.
     cmsRoutes = cmsPages
       .filter((page) => !INTERNAL_CMS_SLUGS.has(page.slug))
       .map((page) => ({
         url: `${base}/p/${encodeURIComponent(page.slug)}`,
         lastModified: page.publishedAt || page.updatedAt || now,
-        changeFrequency: page.pageType === 'journal' ? 'monthly' : 'monthly',
-        priority: page.pageType === 'journal' ? 0.65 : 0.6,
+        changeFrequency: 'monthly',
+        priority: page.pageType === 'journal' || page.pageType === 'lookbook' ? 0.65 : 0.6,
       }));
   } catch (error: any) {
     console.warn('[sitemap] catalogue query failed:', error?.message);
   }
 
   const unique = new Map<string, MetadataRoute.Sitemap[number]>();
-  for (const entry of [...staticRoutes, ...journalRoute, ...productRoutes, ...categoryRoutes, ...cmsRoutes]) {
+  for (const entry of [...staticRoutes, ...editorialLandingRoutes, ...productRoutes, ...categoryRoutes, ...cmsRoutes]) {
     unique.set(entry.url, entry);
   }
   return Array.from(unique.values());
