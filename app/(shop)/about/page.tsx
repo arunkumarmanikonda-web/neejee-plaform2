@@ -5,7 +5,7 @@ import { Footer } from '@/components/layout/Footer';
 import { prisma } from '@/lib/prisma';
 
 export const metadata = {
-  title: 'About · NEEJEE',
+  title: 'About',
   description: "Why NEEJEE exists: to make India's craft traditions easier to discover without losing the maker, place and process behind the piece.",
 };
 
