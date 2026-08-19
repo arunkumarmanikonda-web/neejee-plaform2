@@ -1,0 +1,494 @@
+/* NEEJEE Phase 2.5 visual reconciliation.
+   Presentation-only layer: no data, auth, commerce or API behaviour lives here. */
+
+.neejee-plp-v25,
+.neejee-pdp-v25,
+.neejee-cart-v25,
+.neejee-ai-v25 {
+  background: #f7f1e7;
+  color: var(--kohl);
+}
+
+/* -----------------------------
+   PLP / category discovery
+   ----------------------------- */
+.neejee-plp-v25 > section:first-of-type {
+  min-height: 245px;
+  background:
+    linear-gradient(90deg, rgba(139,46,42,.055), transparent 24%, transparent 76%, rgba(107,68,35,.05)),
+    radial-gradient(circle at 78% 25%, rgba(139,46,42,.06) 0 1px, transparent 1.4px),
+    #efe5d7 !important;
+  background-size: auto, 18px 18px, auto;
+  border-bottom: 1px solid rgba(107,68,35,.2) !important;
+}
+
+.neejee-plp-v25 > section:first-of-type > div:last-child {
+  min-height: 245px;
+  align-items: center;
+}
+
+.neejee-plp-v25 > section:first-of-type h1 {
+  font-size: clamp(3.25rem, 5.4vw, 5.8rem) !important;
+  line-height: .92 !important;
+  letter-spacing: -.045em !important;
+  max-width: 10ch;
+}
+
+.neejee-plp-v25 > section:first-of-type .editorial-kicker {
+  margin-top: 1.35rem !important;
+}
+
+.neejee-plp-v25 > section:first-of-type p.font-display {
+  font-size: 1rem !important;
+  letter-spacing: .015em;
+}
+
+.neejee-plp-v25 > section:first-of-type .rounded-full {
+  background: rgba(247,241,231,.45);
+  box-shadow: inset 0 0 0 1px rgba(139,46,42,.08);
+}
+
+.neejee-plp-v25 > section:nth-of-type(2) {
+  top: 126px !important;
+  background: rgba(247,241,231,.94) !important;
+  border-color: rgba(107,68,35,.18) !important;
+  box-shadow: 0 8px 20px rgba(43,28,17,.025);
+}
+
+.neejee-plp-v25 aside {
+  border-color: rgba(107,68,35,.18) !important;
+}
+
+.neejee-plp-v25 aside h3,
+.neejee-plp-v25 aside button,
+.neejee-plp-v25 aside label {
+  letter-spacing: .13em;
+}
+
+.neejee-plp-v25 select {
+  border-radius: 0 !important;
+  background: rgba(248,243,234,.72) !important;
+  border-color: rgba(107,68,35,.24) !important;
+}
+
+.neejee-plp-v25 article img {
+  filter: saturate(.94) contrast(.99);
+}
+
+.neejee-plp-v25 article:hover img {
+  filter: saturate(1) contrast(1.01);
+}
+
+.neejee-plp-v25 article h3 {
+  letter-spacing: .035em !important;
+}
+
+/* -----------------------------
+   PDP / product theatre
+   ----------------------------- */
+.neejee-pdp-v25 nav {
+  padding-top: 1.25rem !important;
+  padding-bottom: .5rem;
+}
+
+.neejee-pdp-v25 > article {
+  max-width: 1680px !important;
+  grid-template-columns: minmax(0, 1.16fr) minmax(420px, .84fr) !important;
+  gap: clamp(2.5rem, 5vw, 6rem) !important;
+  padding-top: .85rem !important;
+}
+
+.neejee-pdp-v25 > article > section:first-child > div:first-child {
+  border: 0 !important;
+  background: #eee4d5 !important;
+  box-shadow: 0 0 0 1px rgba(107,68,35,.08);
+}
+
+.neejee-pdp-v25 > article > section:first-child > div:first-child img {
+  filter: saturate(.94) contrast(.99);
+}
+
+.neejee-pdp-v25 > article > section:first-child > div:nth-child(2) button {
+  border-width: 1px !important;
+  background: transparent !important;
+}
+
+.neejee-pdp-v25 > article > section:first-child > div:nth-child(2) button:first-child {
+  border-color: var(--madder) !important;
+}
+
+.neejee-pdp-v25 > article > section:nth-child(2) {
+  top: 138px !important;
+  padding-top: .4rem;
+}
+
+.neejee-pdp-v25 > article > section:nth-child(2) h1 {
+  font-size: clamp(2.8rem, 4vw, 4.35rem) !important;
+  line-height: .98 !important;
+  letter-spacing: -.035em !important;
+  text-transform: uppercase;
+}
+
+.neejee-pdp-v25 > article > section:nth-child(2) .madder-divider {
+  width: 86px;
+}
+
+.neejee-pdp-v25 > article > section:nth-child(2) .font-display.text-\[28px\] {
+  font-size: 2.45rem !important;
+  color: #7e211f !important;
+}
+
+.neejee-pdp-v25 > article > section:nth-child(2) button,
+.neejee-pdp-v25 > article > section:nth-child(2) a {
+  border-radius: 0 !important;
+}
+
+.neejee-pdp-v25 > article > section:nth-child(2) .grid.grid-cols-2 > button {
+  min-height: 58px;
+  letter-spacing: .18em;
+}
+
+.neejee-pdp-v25 > article > section:nth-child(2) .border-y,
+.neejee-pdp-v25 > article > section:nth-child(2) .border-t,
+.neejee-pdp-v25 > article > section:nth-child(2) .border-b {
+  border-color: rgba(107,68,35,.19) !important;
+}
+
+.neejee-pdp-v25 > article + section,
+.neejee-pdp-v25 > article ~ section {
+  border-color: rgba(107,68,35,.14) !important;
+}
+
+/* -----------------------------
+   Cart / Sandook trunk
+   ----------------------------- */
+.neejee-cart-v25 > section:first-of-type {
+  max-width: 1680px !important;
+}
+
+.neejee-cart-v25 > section:first-of-type h1 {
+  font-size: clamp(3.6rem, 6vw, 5.8rem) !important;
+  letter-spacing: -.05em !important;
+}
+
+.neejee-cart-v25 article {
+  border-color: rgba(107,68,35,.18) !important;
+}
+
+.neejee-cart-v25 article > a:first-child {
+  border: 0 !important;
+  background: #eee4d5 !important;
+}
+
+.neejee-cart-v25 article img {
+  filter: saturate(.94);
+}
+
+.neejee-cart-v25 aside {
+  top: 138px !important;
+}
+
+.neejee-cart-v25 .paper-panel {
+  background:
+    linear-gradient(rgba(248,243,234,.94), rgba(248,243,234,.94)),
+    radial-gradient(circle at 90% 10%, rgba(139,46,42,.09) 0 1px, transparent 1.5px) !important;
+  background-size: auto, 18px 18px !important;
+  border-color: rgba(107,68,35,.22) !important;
+  box-shadow: 0 24px 60px rgba(43,28,17,.055) !important;
+}
+
+.neejee-cart-v25 textarea,
+.neejee-cart-v25 input {
+  border-radius: 0 !important;
+}
+
+/* -----------------------------
+   AI hub + experiences
+   ----------------------------- */
+.neejee-ai-v25 {
+  min-height: 100vh;
+}
+
+.neejee-ai-v25 > section:first-of-type,
+.ai-mirror-v25 section.bg-kohl,
+.ai-space-v25 section.bg-mitti,
+.ai-gift-v25 section.bg-madder {
+  position: relative;
+  overflow: hidden;
+  background: #efe5d7 !important;
+  color: var(--kohl) !important;
+  border-bottom: 1px solid rgba(107,68,35,.18);
+  min-height: 250px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.neejee-ai-v25 > section:first-of-type::before,
+.ai-mirror-v25 section.bg-kohl::before,
+.ai-space-v25 section.bg-mitti::before,
+.ai-gift-v25 section.bg-madder::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 15% 25%, rgba(139,46,42,.085) 0 1px, transparent 1.5px),
+    linear-gradient(105deg, rgba(139,46,42,.055), transparent 38%, rgba(164,126,59,.06));
+  background-size: 20px 20px, auto;
+}
+
+.neejee-ai-v25 > section:first-of-type > *,
+.ai-mirror-v25 section.bg-kohl > *,
+.ai-space-v25 section.bg-mitti > *,
+.ai-gift-v25 section.bg-madder > * {
+  position: relative;
+}
+
+.neejee-ai-v25 > section:first-of-type h1,
+.ai-mirror-v25 section.bg-kohl h1,
+.ai-space-v25 section.bg-mitti h1,
+.ai-gift-v25 section.bg-madder h1 {
+  font-size: clamp(3.3rem, 6vw, 6rem) !important;
+  line-height: .95 !important;
+  letter-spacing: -.045em !important;
+  max-width: 12ch;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.neejee-ai-v25 > section:first-of-type p:first-child,
+.ai-mirror-v25 section.bg-kohl p:first-child,
+.ai-space-v25 section.bg-mitti p:first-child,
+.ai-gift-v25 section.bg-madder p:first-child {
+  color: var(--madder) !important;
+  font-family: var(--font-ui), sans-serif;
+  font-size: 9px !important;
+  letter-spacing: .25em !important;
+}
+
+.neejee-ai-v25 > section:first-of-type p:last-child,
+.ai-mirror-v25 section.bg-kohl p:last-child,
+.ai-space-v25 section.bg-mitti p:last-child,
+.ai-gift-v25 section.bg-madder p:last-child {
+  color: rgba(107,68,35,.9) !important;
+  font-size: 1.08rem !important;
+}
+
+.neejee-ai-v25 > div.max-w-6xl {
+  max-width: 1420px !important;
+  gap: 0 !important;
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+  border-left: 1px solid rgba(107,68,35,.15);
+  border-right: 1px solid rgba(107,68,35,.15);
+}
+
+.neejee-ai-v25 > div.max-w-6xl > a {
+  min-height: 390px;
+  border: 0 !important;
+  border-right: 1px solid rgba(107,68,35,.16) !important;
+  padding: 3rem !important;
+  background: rgba(248,243,234,.66) !important;
+  display: flex !important;
+  flex-direction: column;
+  justify-content: flex-end;
+}
+
+.neejee-ai-v25 > div.max-w-6xl > a:last-child {
+  border-right: 0 !important;
+}
+
+.neejee-ai-v25 > div.max-w-6xl > a > div:first-child {
+  width: 52px !important;
+  height: 52px !important;
+  border-radius: 50% !important;
+  background: transparent !important;
+  color: var(--madder) !important;
+  border: 1px solid rgba(139,46,42,.38);
+}
+
+.neejee-ai-v25 > div.max-w-6xl > a h3 {
+  font-size: 2.6rem !important;
+  letter-spacing: -.03em;
+}
+
+.neejee-ai-v25 > div.max-w-6xl > a:hover {
+  background: #efe5d7 !important;
+}
+
+.ai-mirror-v25 > div,
+.ai-space-v25 > div,
+.ai-gift-v25 > div {
+  background: #f7f1e7;
+}
+
+.ai-mirror-v25 .max-w-4xl {
+  max-width: 1280px !important;
+  padding-top: 3rem !important;
+  padding-bottom: 5rem !important;
+}
+
+.ai-mirror-v25 .max-w-4xl > .flex.items-center.justify-center {
+  border-top: 1px solid rgba(107,68,35,.16);
+  border-bottom: 1px solid rgba(107,68,35,.16);
+  padding: 1rem 0;
+  margin-bottom: 2.5rem !important;
+}
+
+.ai-mirror-v25 label.border-dashed,
+.ai-space-v25 label.border-dashed {
+  border-width: 1px !important;
+  border-color: rgba(107,68,35,.32) !important;
+  background: rgba(239,229,215,.36) !important;
+  min-height: 360px;
+  display: flex !important;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.ai-mirror-v25 input,
+.ai-mirror-v25 select,
+.ai-mirror-v25 textarea,
+.ai-space-v25 input,
+.ai-space-v25 select,
+.ai-space-v25 textarea,
+.ai-gift-v25 input,
+.ai-gift-v25 select,
+.ai-gift-v25 textarea {
+  border-radius: 0 !important;
+}
+
+.ai-gift-v25 > div.max-w-5xl {
+  max-width: 1320px !important;
+  grid-template-columns: minmax(360px, .82fr) minmax(0, 1.18fr) !important;
+  gap: clamp(2rem, 5vw, 6rem) !important;
+  padding-top: 3.5rem !important;
+  padding-bottom: 5rem !important;
+}
+
+.ai-gift-v25 form {
+  top: 138px !important;
+  background: rgba(248,243,234,.72);
+  border: 1px solid rgba(107,68,35,.18);
+  padding: 2rem;
+}
+
+.ai-gift-v25 form input,
+.ai-gift-v25 form select,
+.ai-gift-v25 form textarea {
+  background: rgba(255,255,255,.22) !important;
+  border-color: rgba(107,68,35,.25) !important;
+}
+
+/* -----------------------------
+   Responsive visual direction
+   ----------------------------- */
+@media (max-width: 1023px) {
+  .neejee-plp-v25 > section:nth-of-type(2) { top: 107px !important; }
+
+  .neejee-pdp-v25 > article {
+    display: block !important;
+    padding-left: 1.15rem !important;
+    padding-right: 1.15rem !important;
+  }
+
+  .neejee-pdp-v25 > article > section:nth-child(2) {
+    position: static !important;
+    max-width: none !important;
+    padding-top: 2rem;
+  }
+
+  .neejee-pdp-v25 > article > section:nth-child(2) h1 {
+    font-size: clamp(2.5rem, 10vw, 4rem) !important;
+  }
+
+  .neejee-cart-v25 aside { position: static !important; }
+
+  .ai-gift-v25 > div.max-w-5xl {
+    display: block !important;
+  }
+
+  .ai-gift-v25 form {
+    position: static !important;
+    margin-bottom: 3rem;
+  }
+}
+
+@media (max-width: 767px) {
+  .neejee-plp-v25 > section:first-of-type {
+    min-height: 220px;
+  }
+
+  .neejee-plp-v25 > section:first-of-type > div:last-child {
+    min-height: 220px;
+    padding-top: 2rem !important;
+    padding-bottom: 2rem !important;
+  }
+
+  .neejee-plp-v25 > section:first-of-type h1 {
+    font-size: clamp(2.8rem, 14vw, 4.4rem) !important;
+  }
+
+  .neejee-plp-v25 > section:first-of-type .rounded-full {
+    display: none !important;
+  }
+
+  .neejee-pdp-v25 nav {
+    padding-left: 1.15rem !important;
+    padding-right: 1.15rem !important;
+  }
+
+  .neejee-pdp-v25 > article > section:first-child > div:first-child {
+    aspect-ratio: 4 / 5 !important;
+  }
+
+  .neejee-pdp-v25 > article > section:nth-child(2) .grid.grid-cols-2 {
+    grid-template-columns: 1fr !important;
+  }
+
+  .neejee-cart-v25 > section:first-of-type {
+    padding-left: 1.15rem !important;
+    padding-right: 1.15rem !important;
+  }
+
+  .neejee-cart-v25 > section:first-of-type h1 {
+    font-size: 3.6rem !important;
+  }
+
+  .neejee-ai-v25 > section:first-of-type,
+  .ai-mirror-v25 section.bg-kohl,
+  .ai-space-v25 section.bg-mitti,
+  .ai-gift-v25 section.bg-madder {
+    min-height: 300px;
+    padding-left: 1.25rem !important;
+    padding-right: 1.25rem !important;
+  }
+
+  .neejee-ai-v25 > section:first-of-type h1,
+  .ai-mirror-v25 section.bg-kohl h1,
+  .ai-space-v25 section.bg-mitti h1,
+  .ai-gift-v25 section.bg-madder h1 {
+    font-size: clamp(3rem, 14vw, 4.5rem) !important;
+  }
+
+  .neejee-ai-v25 > div.max-w-6xl {
+    display: block !important;
+    border: 0;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+  }
+
+  .neejee-ai-v25 > div.max-w-6xl > a {
+    min-height: 330px;
+    border-right: 0 !important;
+    border-bottom: 1px solid rgba(107,68,35,.16) !important;
+    padding: 2rem 1.4rem !important;
+  }
+
+  .ai-mirror-v25 .max-w-4xl,
+  .ai-gift-v25 > div.max-w-5xl {
+    padding-left: 1.15rem !important;
+    padding-right: 1.15rem !important;
+  }
+}
