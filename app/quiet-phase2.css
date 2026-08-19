@@ -1,0 +1,287 @@
+/* NEEJEE Phase 2 quiet-fidelity pass.
+   Subtractive presentation overrides only. No commerce, auth or data behaviour. */
+
+/* Shared shell: smaller, calmer, more air. */
+header.sticky {
+  background: rgba(247,241,231,.97) !important;
+  backdrop-filter: blur(8px) !important;
+  box-shadow: none !important;
+}
+
+header.sticky > div:first-child {
+  min-height: 76px !important;
+  grid-template-columns: 42px minmax(0,1fr) auto !important;
+}
+
+header.sticky img[alt="NEEJEE"] {
+  width: 132px !important;
+}
+
+@media (min-width: 1024px) {
+  header.sticky > div:first-child {
+    min-height: 82px !important;
+    grid-template-columns: 180px minmax(0,1fr) 180px !important;
+    gap: 1.25rem !important;
+  }
+  header.sticky img[alt="NEEJEE"] { width: 154px !important; }
+}
+
+/* Keep announcement as a whisper rather than a campaign banner. */
+body > div:first-child[class*="text-center"] {
+  letter-spacing: .15em;
+}
+
+/* Founder note: homepage excerpt, not a manifesto wall. */
+section[class*="bg-[#eee2d2]"] {
+  padding-top: 3.5rem !important;
+  padding-bottom: 3.5rem !important;
+  background: #f1e9de !important;
+}
+
+section[class*="bg-[#eee2d2]"] > div:first-child {
+  opacity: .055 !important;
+}
+
+section[class*="bg-[#eee2d2]"] > div:last-child {
+  max-width: 980px !important;
+}
+
+section[class*="bg-[#eee2d2]"] .grid {
+  grid-template-columns: 210px minmax(0,1fr) !important;
+  gap: 3rem !important;
+}
+
+section[class*="bg-[#eee2d2]"] h2 {
+  font-size: clamp(2.25rem,4vw,3.25rem) !important;
+}
+
+section[class*="bg-[#eee2d2]"] .space-y-5 p:not(:first-child) {
+  display: none !important;
+}
+
+section[class*="bg-[#eee2d2]"] .space-y-5 p:first-child {
+  font-size: clamp(1.1rem,1.6vw,1.35rem) !important;
+  line-height: 1.65 !important;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 4;
+  overflow: hidden;
+}
+
+section[class*="bg-[#eee2d2]"] .space-y-5 + div {
+  margin-top: 1.75rem !important;
+}
+
+/* Homepage AI: pale editorial invitation, never a black technology billboard. */
+div[class*="bg-kohl"][class*="border-kohl"][class*="relative"] {
+  background: #f1e9de !important;
+  color: var(--kohl) !important;
+  border-color: rgba(107,68,35,.18) !important;
+}
+
+div[class*="bg-kohl"][class*="border-kohl"][class*="relative"] > div:first-child {
+  opacity: .035 !important;
+}
+
+div[class*="bg-kohl"][class*="border-kohl"][class*="relative"] > div:last-child {
+  min-height: 300px !important;
+}
+
+div[class*="bg-kohl"][class*="border-kohl"][class*="relative"] h2 {
+  color: var(--kohl) !important;
+  font-size: clamp(2.2rem,4.2vw,3.45rem) !important;
+  max-width: 12ch !important;
+}
+
+div[class*="bg-kohl"][class*="border-kohl"][class*="relative"] p[class*="text-beige"] {
+  color: rgba(107,68,35,.84) !important;
+  font-size: 1rem !important;
+}
+
+div[class*="bg-kohl"][class*="border-kohl"][class*="relative"] [class*="border-ivory"] {
+  border-color: rgba(107,68,35,.16) !important;
+}
+
+div[class*="bg-kohl"][class*="border-kohl"][class*="relative"] a[class*="text-ivory"]:not([class*="bg-madder"]),
+div[class*="bg-kohl"][class*="border-kohl"][class*="relative"] p[class*="text-ivory"] {
+  color: rgba(26,22,19,.76) !important;
+}
+
+div[class*="bg-kohl"][class*="border-kohl"][class*="relative"] .grid.grid-cols-3 > a {
+  min-height: 145px !important;
+  background: transparent !important;
+}
+
+div[class*="bg-kohl"][class*="border-kohl"][class*="relative"] .grid.grid-cols-3 > a:hover {
+  background: rgba(139,46,42,.035) !important;
+}
+
+div[class*="bg-kohl"][class*="border-kohl"][class*="relative"] .grid.grid-cols-3 p.font-display {
+  color: var(--kohl) !important;
+  font-size: 1.4rem !important;
+}
+
+/* Newsletter should feel like a closing note, not another hero. */
+section.max-w-3xl.mx-auto.text-center {
+  padding-top: 3.5rem !important;
+  padding-bottom: 3.5rem !important;
+}
+
+section.max-w-3xl.mx-auto.text-center h2 {
+  font-size: clamp(1.9rem,3vw,2.55rem) !important;
+}
+
+/* Footer: compact, quiet and non-repetitive. */
+footer {
+  margin-top: 3rem !important;
+}
+
+footer > div:first-child {
+  padding-top: 3rem !important;
+  padding-bottom: 3rem !important;
+  gap: 2.5rem !important;
+}
+
+footer img {
+  max-width: 150px !important;
+}
+
+footer [class*="lg:col-span-2"] > div.mt-8 {
+  display: none !important;
+}
+
+footer [class*="lg:col-span-2"] > p {
+  max-width: 24rem !important;
+}
+
+footer > div:last-child {
+  padding-top: 1rem !important;
+  padding-bottom: 1rem !important;
+}
+
+/* PLP: editorial masthead without oversized display theatre. */
+.neejee-plp-v25 > section:first-of-type,
+.neejee-plp-v25 > section:first-of-type > div:last-child {
+  min-height: 185px !important;
+}
+
+.neejee-plp-v25 > section:first-of-type h1 {
+  font-size: clamp(2.65rem,4.2vw,4.35rem) !important;
+  letter-spacing: -.035em !important;
+}
+
+.neejee-plp-v25 > section:nth-of-type(2) {
+  top: 82px !important;
+  box-shadow: none !important;
+}
+
+/* PDP: preserve product theatre but remove shouting. */
+.neejee-pdp-v25 > article {
+  grid-template-columns: minmax(0,1.08fr) minmax(390px,.92fr) !important;
+  gap: clamp(2.25rem,4vw,4.75rem) !important;
+}
+
+.neejee-pdp-v25 > article > section:nth-child(2) {
+  top: 98px !important;
+}
+
+.neejee-pdp-v25 > article > section:nth-child(2) h1 {
+  font-size: clamp(2.25rem,3.3vw,3.55rem) !important;
+  text-transform: none !important;
+  letter-spacing: -.03em !important;
+}
+
+.neejee-pdp-v25 > article > section:nth-child(2) .font-display.text-\[28px\] {
+  font-size: 2rem !important;
+}
+
+/* Cart: quieter scale, same Sandook personality. */
+.neejee-cart-v25 > section:first-of-type h1 {
+  font-size: clamp(2.8rem,5vw,4.6rem) !important;
+}
+
+.neejee-cart-v25 aside {
+  top: 98px !important;
+}
+
+/* AI destinations: premium utility inside NEEJEE, not a separate loud brand. */
+.neejee-ai-v25 > section:first-of-type,
+.ai-mirror-v25 section.bg-kohl,
+.ai-space-v25 section.bg-mitti,
+.ai-gift-v25 section.bg-madder {
+  min-height: 185px !important;
+  padding-top: 3rem !important;
+  padding-bottom: 3rem !important;
+  background: #f1e9de !important;
+}
+
+.neejee-ai-v25 > section:first-of-type h1,
+.ai-mirror-v25 section.bg-kohl h1,
+.ai-space-v25 section.bg-mitti h1,
+.ai-gift-v25 section.bg-madder h1 {
+  font-size: clamp(2.65rem,4.5vw,4.5rem) !important;
+  max-width: 14ch !important;
+}
+
+.neejee-ai-v25 > div.max-w-6xl > a {
+  min-height: 275px !important;
+  padding: 2.25rem !important;
+}
+
+.neejee-ai-v25 > div.max-w-6xl > a h3 {
+  font-size: 2.05rem !important;
+}
+
+.ai-mirror-v25 label.border-dashed,
+.ai-space-v25 label.border-dashed {
+  min-height: 270px !important;
+}
+
+.ai-gift-v25 form {
+  top: 98px !important;
+}
+
+@media (max-width: 1023px) {
+  section[class*="bg-[#eee2d2]"] .grid {
+    display: block !important;
+  }
+
+  section[class*="bg-[#eee2d2]"] .grid > div:first-child {
+    margin-bottom: 2rem;
+  }
+
+  .neejee-plp-v25 > section:nth-of-type(2) { top: 76px !important; }
+
+  .neejee-pdp-v25 > article {
+    display: block !important;
+  }
+}
+
+@media (max-width: 767px) {
+  header.sticky img[alt="NEEJEE"] { width: 116px !important; }
+
+  section[class*="bg-[#eee2d2]"] {
+    padding-top: 2.75rem !important;
+    padding-bottom: 2.75rem !important;
+  }
+
+  div[class*="bg-kohl"][class*="border-kohl"][class*="relative"] > div:last-child {
+    display: block !important;
+    min-height: 0 !important;
+  }
+
+  div[class*="bg-kohl"][class*="border-kohl"][class*="relative"] .grid.grid-cols-3 {
+    border-top: 1px solid rgba(107,68,35,.15) !important;
+  }
+
+  .neejee-plp-v25 > section:first-of-type,
+  .neejee-plp-v25 > section:first-of-type > div:last-child {
+    min-height: 155px !important;
+  }
+
+  .neejee-ai-v25 > div.max-w-6xl > a {
+    min-height: 220px !important;
+    border-right: 0 !important;
+    border-bottom: 1px solid rgba(107,68,35,.14) !important;
+  }
+}
