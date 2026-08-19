@@ -1,11 +1,9 @@
 'use client';
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Loader2, ArrowLeft, Check, X, MessageSquare, Upload } from 'lucide-react';
 
 export default function ReviewSubmissionPage({ params }: { params: { id: string } }) {
-  const router = useRouter();
   const [sub, setSub] = useState<any>(null);
   const [categories, setCategories] = useState<any[]>([]);
   const [overrides, setOverrides] = useState<any>({});
@@ -14,7 +12,7 @@ export default function ReviewSubmissionPage({ params }: { params: { id: string 
   const [err, setErr] = useState('');
   const [msg, setMsg] = useState('');
 
-  const load = async () => {
+  const load = useCallback(async () => {
     const [sR, cR] = await Promise.all([
       fetch(`/api/admin/seller-inventory/${params.id}`),
       fetch('/api/admin/categories').catch(() => null),
@@ -27,8 +25,11 @@ export default function ReviewSubmissionPage({ params }: { params: { id: string 
       const cJ = await cR.json();
       setCategories(cJ.categories || cJ || []);
     }
-  };
-  useEffect(() => { load(); /* eslint-disable-next-line */ }, [params.id]);
+  }, [params.id]);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
 
   const act = async (action: string) => {
     setErr(''); setMsg(''); setBusy(action);
@@ -72,7 +73,6 @@ export default function ReviewSubmissionPage({ params }: { params: { id: string 
       {msg && <div className="bg-emerald-50 border border-emerald-200 p-3 text-sm">{msg}</div>}
       {err && <div className="bg-madder/10 border border-madder p-3 text-madder text-sm">{err}</div>}
 
-      {/* Source file (bulk) */}
       {sub.sourceFileUrl && (
         <div className="bg-banarasi/10 border border-banarasi/30 p-4 rounded">
           <p className="label text-banarasi mb-1">BULK SOURCE</p>
@@ -81,19 +81,18 @@ export default function ReviewSubmissionPage({ params }: { params: { id: string 
         </div>
       )}
 
-      {/* Image gallery */}
       {data.images?.length > 0 && (
         <div>
           <p className="label text-banarasi mb-2">IMAGES ({data.images.length})</p>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             {data.images.map((url: string, i: number) => (
+              // eslint-disable-next-line @next/next/no-img-element -- seller media may come from approved dynamic hosts not known at build time
               <img key={i} src={url} alt="" className="w-full aspect-square object-cover rounded border border-mitti/20" />
             ))}
           </div>
         </div>
       )}
 
-      {/* Proposed data, side-by-side admin polish */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <Panel title="Seller submitted">
           <DataRow k="Name" v={data.name} />
@@ -121,7 +120,6 @@ export default function ReviewSubmissionPage({ params }: { params: { id: string 
         </Panel>
       </div>
 
-      {/* Note */}
       <div>
         <p className="label text-banarasi mb-1">REVIEWER NOTE</p>
         <textarea value={note} onChange={e => setNote(e.target.value)} rows={2}
@@ -129,7 +127,6 @@ export default function ReviewSubmissionPage({ params }: { params: { id: string 
           className="w-full border border-mitti/30 px-3 py-2 font-ui text-sm bg-ivory" />
       </div>
 
-      {/* Actions */}
       <div className="bg-ivory border border-mitti/20 p-4 rounded flex gap-2 flex-wrap sticky bottom-4 shadow-lg">
         {status === 'SUBMITTED' && (
           <button onClick={() => act('review')} disabled={!!busy}
