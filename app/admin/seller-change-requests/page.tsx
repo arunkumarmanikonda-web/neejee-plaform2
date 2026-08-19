@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Loader2, Check, X, FileText } from 'lucide-react';
 
@@ -10,16 +10,22 @@ export default function SellerChangeRequestsAdminPage() {
   const [busy, setBusy] = useState('');
   const [msg, setMsg] = useState('');
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setLoading(true);
-    const params = new URLSearchParams();
-    if (filter) params.set('status', filter);
-    const r = await fetch(`/api/admin/seller-change-requests?${params}`);
-    const j = await r.json();
-    setRows(j.changeRequests || []);
-    setLoading(false);
-  };
-  useEffect(() => { load(); /* eslint-disable-next-line */ }, [filter]);
+    try {
+      const params = new URLSearchParams();
+      if (filter) params.set('status', filter);
+      const r = await fetch(`/api/admin/seller-change-requests?${params}`);
+      const j = await r.json();
+      setRows(j.changeRequests || []);
+    } finally {
+      setLoading(false);
+    }
+  }, [filter]);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
 
   const act = async (id: string, action: 'approve' | 'reject') => {
     let note = '';
@@ -39,7 +45,7 @@ export default function SellerChangeRequestsAdminPage() {
     setBusy('');
     if (!r.ok) { alert(j.error); return; }
     setMsg(`Request ${action}d`);
-    load();
+    await load();
   };
 
   return (
