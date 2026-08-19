@@ -4,7 +4,7 @@
 // HSN code, MOQ, lead time. Each row can optionally link to a Product, so the
 // PO line editor can auto-fill from the catalog.
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 
@@ -46,7 +46,7 @@ export default function VendorCatalogPage() {
   const [editing, setEditing] = useState<Partial<Item> | null>(null);
   const [saving, setSaving] = useState(false);
 
-  async function load() {
+  const load = useCallback(async () => {
     setLoading(true);
     try {
       const url = `/api/admin/vendors/${vendorId}/catalog${includeInactive ? '?inactive=1' : ''}`;
@@ -56,10 +56,11 @@ export default function VendorCatalogPage() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [includeInactive, vendorId]);
+
   useEffect(() => {
-    load();
-  }, [includeInactive]);
+    void load();
+  }, [load]);
 
   async function save() {
     if (!editing) return;
@@ -80,7 +81,7 @@ export default function VendorCatalogPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Save failed');
       setEditing(null);
-      load();
+      await load();
     } catch (e: any) {
       alert(e.message);
     } finally {
@@ -93,7 +94,7 @@ export default function VendorCatalogPage() {
     const res = await fetch(`/api/admin/vendors/${vendorId}/catalog?itemId=${itemId}`, {
       method: 'DELETE',
     });
-    if (res.ok) load();
+    if (res.ok) await load();
   }
 
   const inr = (paise: number) =>
