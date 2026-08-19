@@ -2,6 +2,10 @@ import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { prisma } from '@/lib/prisma';
 import { setSessionCookie, hashPassword } from '@/lib/auth';
+import {
+  assertNewPasswordIsSafe,
+  PasswordSecurityError,
+} from '@/lib/password-security';
 import { sendEmail, welcomeEmail } from '@/lib/email';
 import { generateWelcomeCoupon } from '@/lib/welcome-coupon';
 
@@ -13,23 +17,50 @@ const SignupSchema = z.object({
   name: z.string().min(2),
   email: z.string().email(),
   phone: z.string().regex(/^\+\d{7,15}$/, 'Invalid phone format'),
-  password: z.string().min(8),
+  password: z.string().min(8).max(128),
   marketingConsent: z.boolean().optional().default(false),
   smsOptIn: z.boolean().optional().default(false),
   whatsappOptIn: z.boolean().optional().default(false),
   referralCode: z.string().optional(),
 });
 
-// In-memory fallback for dev without DB
+// Development-only fallback for local work without a database.
 const memoryUsers: Record<string, any> = {};
 
 export async function POST(request: Request) {
-  const body = await request.json();
+  const body = await request.json().catch(() => null);
   const parsed = SignupSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json({ error: 'Invalid input', details: parsed.error.flatten() }, { status: 400 });
   }
-  const { name, email, phone, password, marketingConsent, smsOptIn, whatsappOptIn, referralCode } = parsed.data;
+
+  const {
+    name,
+    phone,
+    password,
+    marketingConsent,
+    smsOptIn,
+    whatsappOptIn,
+    referralCode,
+  } = parsed.data;
+  const email = parsed.data.email.trim().toLowerCase();
+
+  try {
+    await assertNewPasswordIsSafe(password);
+  } catch (error) {
+    if (error instanceof PasswordSecurityError) {
+      return NextResponse.json(
+        { error: error.message, code: error.code },
+        { status: error.code === 'PASSWORD_CHECK_UNAVAILABLE' ? 503 : 400 },
+      );
+    }
+
+    console.error('[signup] password security check failed', error);
+    return NextResponse.json(
+      { error: 'We could not safely validate this password right now. Please try again.' },
+      { status: 503 },
+    );
+  }
 
   if (process.env.DATABASE_URL) {
     try {
@@ -83,6 +114,7 @@ export async function POST(request: Request) {
           },
         }).catch(() => null);
       }
+      void referralRow;
 
       // Auto-generate this user's own referral code
       try {
@@ -95,7 +127,6 @@ export async function POST(request: Request) {
       const coupon = await generateWelcomeCoupon(name, user.id).catch(() => null);
       if (coupon) {
         welcomeCode = coupon.code;
-        // Save the link back on the user record
         await prisma.user.update({
           where: { id: user.id },
           data: { welcomeCouponId: coupon.id },
@@ -107,9 +138,10 @@ export async function POST(request: Request) {
         email: user.email,
         name: user.name || undefined,
         role: user.role as any,
+        aal: 'aal1',
+        amr: ['password'],
       });
 
-      // Welcome email (with personalised coupon)
       sendEmail({
         to: user.email,
         subject: `Welcome to NEEJEE${welcomeCode ? ` — your code: ${welcomeCode}` : ''}`,
@@ -122,17 +154,37 @@ export async function POST(request: Request) {
         welcomeCode,
       });
     } catch (e: any) {
-      console.warn('[signup] DB failed, using memory fallback:', e.message);
+      console.error('[signup] database operation failed:', e?.message || e);
+
+      if (process.env.NODE_ENV === 'production') {
+        return NextResponse.json(
+          { error: 'Account creation is temporarily unavailable. Please try again.' },
+          { status: 503 },
+        );
+      }
     }
+  } else if (process.env.NODE_ENV === 'production') {
+    console.error('[signup] DATABASE_URL is missing in production');
+    return NextResponse.json(
+      { error: 'Account creation is temporarily unavailable. Please try again.' },
+      { status: 503 },
+    );
   }
 
-  // Memory fallback
+  // Development-only memory fallback.
   if (memoryUsers[email]) {
     return NextResponse.json({ error: 'Email already registered' }, { status: 409 });
   }
   const id = 'u_' + Math.random().toString(36).slice(2, 10);
   const passwordHash = await hashPassword(password);
   memoryUsers[email] = { id, name, email, phone, passwordHash };
-  await setSessionCookie({ id, email, name, role: 'CUSTOMER' });
+  await setSessionCookie({
+    id,
+    email,
+    name,
+    role: 'CUSTOMER',
+    aal: 'aal1',
+    amr: ['password'],
+  });
   return NextResponse.json({ success: true, user: { id, name, email }, source: 'memory' });
 }
