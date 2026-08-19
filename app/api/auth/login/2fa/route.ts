@@ -1,8 +1,13 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
-import bcrypt from 'bcryptjs';
 import { prisma } from '@/lib/prisma';
-import { setSessionCookie } from '@/lib/auth';
+import {
+  clearAdminMfaChallenge,
+  getAdminMfaChallenge,
+  isPrivilegedRole,
+  setSessionCookie,
+  type SessionRole,
+} from '@/lib/auth';
 import { verifyOtp } from '@/lib/otp';
 
 export const dynamic = 'force-dynamic';
@@ -10,27 +15,14 @@ export const runtime = 'nodejs';
 
 const BodySchema = z.object({
   email: z.string().email(),
-  password: z.string().min(1),
+  // Retained as optional for backwards compatibility with the current client.
+  // The password proof is the signed, short-lived HttpOnly challenge cookie.
+  password: z.string().min(1).optional(),
   code: z.string().trim().regex(/^\d{4,8}$/),
 });
 
-const ADMIN_ROLES = new Set([
-  'ADMIN',
-  'SUPER_ADMIN',
-  'CONTENT_EDITOR',
-  'QC_TEAM',
-  'FINANCE',
-  'FINANCE_OPERATOR',
-  'MARKETING_OPERATOR',
-  'MARKETING_MANAGER',
-]);
-
-function isAdminSideRole(role: unknown): role is string {
-  return typeof role === 'string' && ADMIN_ROLES.has(role);
-}
-
 function redirectFor(role: string) {
-  if (isAdminSideRole(role)) return '/admin';
+  if (isPrivilegedRole(role)) return '/admin';
   if (role === 'SELLER') return '/seller';
   return '/account';
 }
@@ -69,44 +61,42 @@ export async function POST(request: Request) {
 
     if (!parsed.success) {
       return NextResponse.json(
-        { error: 'Email, password and 2FA code are required' },
+        { error: 'Email and 2FA code are required' },
         { status: 400 },
       );
     }
 
     const email = parsed.data.email.trim().toLowerCase();
-    const password = parsed.data.password;
     const code = parsed.data.code.trim();
+    const challenge = await getAdminMfaChallenge();
 
-    const user = await prisma.user.findFirst({
-      where: { email },
+    if (!challenge || challenge.email !== email) {
+      clearAdminMfaChallenge();
+      return NextResponse.json(
+        { error: 'Your admin sign-in challenge is missing or expired. Please sign in again.' },
+        { status: 401 },
+      );
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { id: challenge.userId },
       select: {
         id: true,
         email: true,
         name: true,
         role: true,
-        passwordHash: true,
         phone: true,
       },
     });
 
-    if (!user || !user.passwordHash) {
-      return NextResponse.json(
-        { error: 'Invalid email or password' },
-        { status: 401 },
-      );
-    }
-
-    const passwordOk = await bcrypt.compare(password, user.passwordHash);
-
-    if (!passwordOk) {
-      return NextResponse.json(
-        { error: 'Invalid email or password' },
-        { status: 401 },
-      );
-    }
-
-    if (!isAdminSideRole(user.role)) {
+    if (
+      !user ||
+      !user.email ||
+      user.email.toLowerCase() !== challenge.email ||
+      user.role !== challenge.role ||
+      !isPrivilegedRole(user.role)
+    ) {
+      clearAdminMfaChallenge();
       return NextResponse.json(
         { error: 'Admin access is not allowed for this account' },
         { status: 403 },
@@ -114,6 +104,7 @@ export async function POST(request: Request) {
     }
 
     if (!user.phone) {
+      clearAdminMfaChallenge();
       return NextResponse.json(
         { error: 'Admin account does not have a phone number configured' },
         { status: 400 },
@@ -127,23 +118,38 @@ export async function POST(request: Request) {
     });
 
     if (!verification.ok) {
+      if (
+        verification.reason === 'no_active_otp' ||
+        verification.reason === 'expired' ||
+        verification.reason === 'max_attempts'
+      ) {
+        clearAdminMfaChallenge();
+      }
+
       return NextResponse.json(
         { error: otpReasonToMessage(verification.reason) },
         { status: 401 },
       );
     }
 
+    const mfaVerifiedAt = new Date().toISOString();
+
     await setSessionCookie({
       id: user.id,
-      email: user.email || `${user.id}@neejee.local`,
+      email: user.email,
       name: user.name || 'Admin',
-      role: user.role,
+      role: user.role as SessionRole,
+      aal: 'aal2',
+      amr: ['password', 'otp'],
+      mfaVerifiedAt,
     });
+    clearAdminMfaChallenge();
 
     return NextResponse.json({
       ok: true,
       success: true,
       role: user.role,
+      aal: 'aal2',
       redirect: redirectFor(user.role),
       user: {
         id: user.id,
