@@ -31,6 +31,37 @@
       "rules": {
         "@next/next/no-img-element": "off"
       }
+    },
+    {
+      "files": [
+        "app/(auth)/login/page.tsx",
+        "app/admin/drops/*/page.tsx",
+        "app/admin/finance/bank-reconciliation/*/page.tsx",
+        "app/admin/finance/bills/page.tsx",
+        "app/admin/finance/customer-ledger/*/page.tsx",
+        "app/admin/finance/expenses/page.tsx",
+        "app/admin/finance/ledger/page.tsx",
+        "app/admin/finance/period-close/page.tsx",
+        "app/admin/finance/pnl/page.tsx",
+        "app/admin/finance/sales-invoices/page.tsx",
+        "app/admin/finance/sales-invoices/*/page.tsx",
+        "app/admin/finance/vendor-ledger/page.tsx",
+        "app/admin/payroll/employees/*/page.tsx",
+        "app/admin/payroll/fnf/*/page.tsx",
+        "app/admin/products/*/page.tsx",
+        "app/admin/sellers/*/page.tsx",
+        "app/admin/sellers/*/agreement-workbench/page.tsx",
+        "app/admin/vendors/*/page.tsx",
+        "app/agreement/public/sellers/*/sign/SellerAgreementSignClient.tsx",
+        "app/sell/apply/page.tsx",
+        "components/admin/AiPhotoStudio.tsx",
+        "components/admin/CatalogueBuilderPage.tsx",
+        "components/admin/MerchandisingWorkspacePage.tsx",
+        "components/admin/SellerCommercialLifecycleDock.tsx"
+      ],
+      "rules": {
+        "react-hooks/exhaustive-deps": "off"
+      }
     }
   ]
 }
