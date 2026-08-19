@@ -1,3 +1,4 @@
+import Image from 'next/image';
 import { NEEJEE_TAGLINE } from '@/lib/brand';
 
 type Props = {
@@ -7,50 +8,30 @@ type Props = {
   showTagline?: boolean;
 };
 
-const SIZE_MAP = {
-  sm: 88,
-  md: 132,
-  lg: 180,
-  xl: 260,
-};
-
+const SIZE_MAP = { sm: 88, md: 132, lg: 180, xl: 260 };
 const COMPACT_ASPECT = 1425 / 285;
 const FULL_ASPECT = 1425 / 415;
 
-/**
- * Canonical NEEJEE identity.
- *
- * These assets are traced directly from the owner-approved NEEJEE artwork.
- * Nothing is retyped, reconstructed, recoloured, stretched or manually cropped
- * at render time. Compact placements use the approved NEE · JEE wordmark;
- * full placements use the approved lockup with FOUND. PERSONAL.
- */
-export function NeejeeLogo({
-  className = '',
-  size = 'md',
-  variant = 'default',
-  showTagline = false,
-}: Props) {
+/** Canonical NEEJEE identity traced from the owner-approved artwork. */
+export function NeejeeLogo({ className = '', size = 'md', variant = 'default', showTagline = false }: Props) {
   const width = SIZE_MAP[size];
   const aspect = showTagline ? FULL_ASPECT : COMPACT_ASPECT;
-  const height = width / aspect;
-  const src = showTagline
-    ? '/brand/neejee-logo.svg'
-    : '/brand/neejee-logo-compact.svg';
+  const height = Math.round(width / aspect);
+  const src = showTagline ? '/brand/neejee-logo.svg' : '/brand/neejee-logo-compact.svg';
 
   return (
-    <img
+    <Image
       className={className}
       src={src}
       alt={showTagline ? `NEEJEE — ${NEEJEE_TAGLINE}` : 'NEEJEE'}
       width={width}
       height={height}
-      decoding="async"
       draggable={false}
+      priority={size === 'lg' || size === 'xl'}
       style={{
         display: 'block',
         width,
-        height,
+        height: 'auto',
         maxWidth: '100%',
         objectFit: 'contain',
         flexShrink: 0,
