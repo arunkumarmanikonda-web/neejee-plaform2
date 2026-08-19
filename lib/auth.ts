@@ -84,7 +84,7 @@ export function isPrivilegedRole(role: unknown): role is SessionRole {
   return typeof role === 'string' && PRIVILEGED_ROLE_SET.has(role as SessionRole);
 }
 
-function hasValidPrivilegedAssurance(user: SessionUser): boolean {
+export function hasValidPrivilegedAssurance(user: SessionUser): boolean {
   if (user.aal !== 'aal2') return false;
   if (!Array.isArray(user.amr)) return false;
   if (!user.amr.includes('password') || !user.amr.includes('otp')) return false;
@@ -93,7 +93,6 @@ function hasValidPrivilegedAssurance(user: SessionUser): boolean {
   const verifiedAt = Date.parse(user.mfaVerifiedAt);
   if (!Number.isFinite(verifiedAt)) return false;
 
-  // Privileged sessions are intentionally capped at the same 12-hour window.
   return Date.now() - verifiedAt <= PRIVILEGED_SESSION_SECONDS * 1000;
 }
 
@@ -135,8 +134,6 @@ export async function verifySession(token: string): Promise<SessionUser | null> 
 
     const user = normaliseSession(payload as unknown as SessionUser);
 
-    // In production a privileged role is never authorised by a password-only
-    // or legacy session. A fresh password + OTP ceremony is required.
     if (
       process.env.NODE_ENV === 'production' &&
       isPrivilegedRole(user.role) &&
