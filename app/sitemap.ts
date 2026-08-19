@@ -1,7 +1,6 @@
 import { MetadataRoute } from 'next';
 import { prisma } from '@/lib/prisma';
 import { getSiteSeoConfig } from '@/lib/site/seo-config';
-import { stories } from '@/lib/data';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 3600;
@@ -17,7 +16,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     '/about',
     '/about/select',
     '/about/sustainability',
-    '/journal',
     '/lookbook',
     '/sellers',
     '/help/shipping',
@@ -35,35 +33,46 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     priority: path === '' ? 1 : path.startsWith('/help/') || path.startsWith('/legal/') ? 0.5 : 0.7,
   }));
 
-  const staticStoryRoutes: MetadataRoute.Sitemap = stories.map((story) => ({
-    url: `${base}/journal/${encodeURIComponent(story.slug)}`,
-    lastModified: story.publishedAt ? new Date(story.publishedAt) : now,
-    changeFrequency: 'monthly',
-    priority: 0.65,
-  }));
-
   let productRoutes: MetadataRoute.Sitemap = [];
   let categoryRoutes: MetadataRoute.Sitemap = [];
   let cmsRoutes: MetadataRoute.Sitemap = [];
+  let journalRoute: MetadataRoute.Sitemap = [];
 
   try {
-    // Production may run Prisma with a deliberately small serverless pool.
-    // Keep these reads sequential so sitemap generation cannot self-contend.
+    // Keep these reads sequential because production deliberately uses a small
+    // serverless pool. Sitemap publication mirrors the public catalogue rules:
+    // active, not excluded, and visible under the configured stock policy.
     const products = await prisma.product.findMany({
-      where: { status: 'ACTIVE', catalogueExclude: false },
-      select: { slug: true, updatedAt: true },
+      where: {
+        status: 'ACTIVE',
+        catalogueExclude: false,
+        OR: [
+          { catalogueStockVisibility: { in: ['SHOW_ALL', 'HIDE_STOCK'] } },
+          {
+            AND: [
+              { catalogueStockVisibility: 'IN_STOCK_ONLY' },
+              { variants: { some: { inventory: { gt: 0 } } } },
+            ],
+          },
+        ],
+      },
+      select: {
+        slug: true,
+        updatedAt: true,
+        category: { select: { path: true } },
+      },
       take: 5000,
     });
 
     const categories = await prisma.category.findMany({
       where: { active: true, hidden: false },
-      select: { slug: true, updatedAt: true },
+      select: { slug: true, path: true, updatedAt: true },
       take: 5000,
     });
 
     const cmsPages = await prisma.cmsPage.findMany({
       where: { status: 'PUBLISHED' },
-      select: { slug: true, updatedAt: true },
+      select: { slug: true, pageType: true, updatedAt: true, publishedAt: true },
       take: 5000,
     }).catch(() => []);
 
@@ -74,26 +83,60 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       priority: 0.9,
     }));
 
-    categoryRoutes = categories.map((category) => ({
-      url: `${base}/categories/${encodeURIComponent(category.slug)}`,
-      lastModified: category.updatedAt || now,
-      changeFrequency: 'weekly',
-      priority: 0.8,
-    }));
+    // Publish only category pages that contain a live public product, plus the
+    // ancestors needed to reach that product. Empty taxonomy scaffolding stays
+    // navigable for customers but does not consume search-engine crawl budget.
+    const visibleCategoryPaths = new Set<string>();
+    for (const product of products) {
+      const parts = String(product.category?.path || '')
+        .split('/')
+        .map((part) => part.trim())
+        .filter(Boolean);
+      for (let depth = 1; depth <= parts.length; depth += 1) {
+        visibleCategoryPaths.add(parts.slice(0, depth).join('/'));
+      }
+    }
 
+    categoryRoutes = categories
+      .filter((category) => !!category.path && visibleCategoryPaths.has(category.path))
+      .map((category) => ({
+        url: `${base}/categories/${encodeURIComponent(category.slug)}`,
+        lastModified: category.updatedAt || now,
+        changeFrequency: 'weekly',
+        priority: 0.8,
+      }));
+
+    const publishedJournalPages = cmsPages.filter((page) => page.pageType === 'journal');
+    if (publishedJournalPages.length > 0) {
+      const newestJournalUpdate = publishedJournalPages.reduce<Date>((latest, page) => {
+        const candidate = page.publishedAt || page.updatedAt || now;
+        return candidate > latest ? candidate : latest;
+      }, new Date(0));
+      journalRoute = [{
+        url: `${base}/journal`,
+        lastModified: newestJournalUpdate,
+        changeFrequency: 'weekly',
+        priority: 0.7,
+      }];
+    }
+
+    // Journal entries are served through /p/:slug, just like other published
+    // CMS pages. Prototype/mock stories are intentionally excluded from SEO.
     cmsRoutes = cmsPages
       .filter((page) => !INTERNAL_CMS_SLUGS.has(page.slug))
       .map((page) => ({
         url: `${base}/p/${encodeURIComponent(page.slug)}`,
-        lastModified: page.updatedAt || now,
-        changeFrequency: 'monthly',
-        priority: 0.6,
+        lastModified: page.publishedAt || page.updatedAt || now,
+        changeFrequency: page.pageType === 'journal' ? 'monthly' : 'monthly',
+        priority: page.pageType === 'journal' ? 0.65 : 0.6,
       }));
   } catch (error: any) {
     console.warn('[sitemap] catalogue query failed:', error?.message);
   }
 
   const unique = new Map<string, MetadataRoute.Sitemap[number]>();
-  for (const entry of [...staticRoutes, ...staticStoryRoutes, ...productRoutes, ...categoryRoutes, ...cmsRoutes]) unique.set(entry.url, entry);
+  for (const entry of [...staticRoutes, ...journalRoute, ...productRoutes, ...categoryRoutes, ...cmsRoutes]) {
+    unique.set(entry.url, entry);
+  }
   return Array.from(unique.values());
 }
