@@ -126,6 +126,7 @@ export const getCategorySeoRecord = cache(async (pathOrSlug: string) => {
       OR: [{ path: normalized }, { slug: normalized }],
     },
     select: {
+      id: true,
       slug: true,
       name: true,
       path: true,
@@ -140,6 +141,45 @@ export const getCategorySeoRecord = cache(async (pathOrSlug: string) => {
   });
 });
 
+async function hasPublicProductInCategoryTree(category: { id: string; path: string | null }): Promise<boolean> {
+  const categoryScope = category.path
+    ? {
+        category: {
+          is: {
+            OR: [
+              { path: category.path },
+              { path: { startsWith: `${category.path}/` } },
+            ],
+          },
+        },
+      }
+    : { categoryId: category.id };
+
+  const product = await prisma.product.findFirst({
+    where: {
+      AND: [
+        { status: 'ACTIVE' },
+        { catalogueExclude: false },
+        categoryScope,
+        {
+          OR: [
+            { catalogueStockVisibility: { in: ['SHOW_ALL', 'HIDE_STOCK'] } },
+            {
+              AND: [
+                { catalogueStockVisibility: 'IN_STOCK_ONLY' },
+                { variants: { some: { inventory: { gt: 0 } } } },
+              ],
+            },
+          ],
+        },
+      ],
+    },
+    select: { id: true },
+  });
+
+  return !!product;
+}
+
 export async function buildCategoryMetadata(pathOrSlug: string): Promise<Metadata> {
   const category = await getCategorySeoRecord(pathOrSlug);
   if (!category) {
@@ -148,17 +188,26 @@ export async function buildCategoryMetadata(pathOrSlug: string): Promise<Metadat
 
   const seo = getSiteSeoConfig();
   const canonical = `${seo.baseUrl.replace(/\/$/, '')}/categories/${encodeURIComponent(category.slug)}`;
+  const hasPublicProduct = category.active && !category.hidden
+    ? await hasPublicProductInCategoryTree(category)
+    : false;
   const description = cleanDescription(
     category.seoDesc || category.description,
-    `Discover ${category.name}, personally chosen by NEEJEE.`,
+    hasPublicProduct
+      ? `Discover ${category.name}, personally chosen by NEEJEE.`
+      : `${category.name} is part of the NEEJEE catalogue. This edit will be searchable when publishable pieces are available.`,
   );
-  const indexable = category.active && !category.hidden;
+  const indexable = category.active && !category.hidden && hasPublicProduct;
 
   return {
     title: category.seoTitle || category.name,
     description,
     alternates: { canonical },
-    robots: { index: indexable, follow: indexable },
+    robots: {
+      index: indexable,
+      follow: true,
+      googleBot: { index: indexable, follow: true },
+    },
     openGraph: {
       type: 'website',
       url: canonical,
