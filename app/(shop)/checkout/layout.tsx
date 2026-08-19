@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import './checkout-phase2.css';
 
 export const metadata: Metadata = {
-  title: 'Checkout · NEEJEE',
+  title: 'Checkout',
   robots: { index: false, follow: false, googleBot: { index: false, follow: false } },
 };
 
