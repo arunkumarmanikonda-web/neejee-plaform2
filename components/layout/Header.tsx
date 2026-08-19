@@ -10,7 +10,6 @@ import { NeejeeLogo } from '@/components/brand/Logo';
 import { getCategoryTree } from '@/lib/client/category-tree';
 
 interface Me { id: string; email: string; name?: string | null; role?: string }
-
 type MobileMain = { slug: string; name: string; subs: any[] };
 
 export function Header() {
@@ -59,51 +58,58 @@ export function Header() {
   };
 
   const firstName = me?.name?.split(' ')[0] || '';
-  const isAdmin = me && ['ADMIN', 'SUPER_ADMIN', 'CONTENT_EDITOR', 'QC_TEAM'].includes(me.role || '');
+  const isAdmin = !!me && ['ADMIN', 'SUPER_ADMIN', 'CONTENT_EDITOR', 'QC_TEAM'].includes(me.role || '');
 
   return (
     <>
       <AnnouncementBar />
-      <header className="sticky top-0 z-40 bg-ivory border-b border-beige">
-        <div className="max-w-8xl mx-auto px-6 lg:px-12 h-20 flex items-center justify-between">
-          <button onClick={() => setOpen(!open)} className="lg:hidden" aria-label="Menu">
-            {open ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+      <header className="sticky top-0 z-40 bg-ivory/95 backdrop-blur-sm border-b border-mitti/15">
+        <div className="mx-auto max-w-[1680px] px-4 sm:px-6 lg:px-10 min-h-[72px] lg:min-h-[88px] grid grid-cols-[44px_1fr_auto] lg:grid-cols-[auto_1fr_auto] items-center gap-3 lg:gap-8">
+          <button
+            onClick={() => setOpen(!open)}
+            className="lg:hidden w-10 h-10 flex items-center justify-start text-kohl"
+            aria-label="Menu"
+          >
+            {open ? <X className="w-6 h-6" strokeWidth={1.4} /> : <Menu className="w-6 h-6" strokeWidth={1.4} />}
           </button>
 
-          <Link href="/" aria-label="NEEJEE Home" className="flex items-center">
-            <NeejeeLogo size="md" />
+          <Link href="/" aria-label="NEEJEE Home" className="justify-self-center lg:justify-self-start flex items-center">
+            <NeejeeLogo size="sm" className="sm:hidden" />
+            <NeejeeLogo size="lg" className="hidden sm:block" />
           </Link>
 
-          <MegaMenuNav />
+          <div className="hidden lg:flex justify-center min-w-0">
+            <MegaMenuNav />
+          </div>
 
-          <div className="flex items-center gap-5">
+          <div className="flex items-center justify-self-end gap-3 sm:gap-4 lg:gap-5 text-kohl">
             <button onClick={() => setSearchOpen(true)} aria-label="Search" className="hover:text-madder transition-colors">
-              <Search className="w-5 h-5" />
+              <Search className="w-[19px] h-[19px] lg:w-5 lg:h-5" strokeWidth={1.45} />
             </button>
 
             {me ? (
               <div className="hidden sm:block relative">
                 <button onClick={() => setAccountMenu(!accountMenu)} className="flex items-center gap-1.5 hover:text-madder transition-colors" aria-label="Account menu">
-                  <User className="w-5 h-5" />
-                  <span className="text-xs tracking-wider hidden md:inline">{firstName ? firstName.toUpperCase() : 'ACCOUNT'}</span>
+                  <User className="w-5 h-5" strokeWidth={1.4} />
+                  <span className="font-ui text-[10px] tracking-[0.16em] hidden xl:inline">{firstName ? firstName.toUpperCase() : 'ACCOUNT'}</span>
                 </button>
                 {accountMenu && (
                   <>
                     <div className="fixed inset-0 z-30" onClick={() => setAccountMenu(false)} />
-                    <div className="absolute right-0 top-full mt-2 w-56 bg-ivory border border-mitti/20 shadow-lg z-40">
+                    <div className="absolute right-0 top-full mt-4 w-56 bg-ivory border border-mitti/20 shadow-[0_18px_50px_rgba(26,22,19,0.12)] z-40">
                       <div className="px-4 py-3 border-b border-mitti/10">
-                        <p className="text-xs tracking-wider text-mitti">SIGNED IN AS</p>
+                        <p className="font-ui text-[9px] tracking-[0.18em] text-mitti">SIGNED IN AS</p>
                         <p className="text-sm text-kohl mt-1 truncate">{me.email}</p>
-                        {isAdmin && <p className="text-[10px] tracking-wider text-madder mt-1">{me.role?.replace(/_/g, ' ')}</p>}
+                        {isAdmin && <p className="font-ui text-[9px] tracking-wider text-madder mt-1">{me.role?.replace(/_/g, ' ')}</p>}
                       </div>
-                      <Link href={isAdmin ? '/admin' : '/account'} className="block px-4 py-2.5 text-sm hover:bg-beige text-kohl" onClick={() => setAccountMenu(false)}>
+                      <Link href={isAdmin ? '/admin' : '/account'} className="block px-4 py-2.5 text-sm hover:bg-beige/60 text-kohl" onClick={() => setAccountMenu(false)}>
                         {isAdmin ? 'Admin dashboard' : 'My account'}
                       </Link>
                       {!isAdmin && (
                         <>
-                          <Link href="/account?tab=orders" className="block px-4 py-2.5 text-sm hover:bg-beige text-kohl" onClick={() => setAccountMenu(false)}>My orders</Link>
-                          <Link href="/account?tab=wishlist" className="block px-4 py-2.5 text-sm hover:bg-beige text-kohl" onClick={() => setAccountMenu(false)}>Wishlist</Link>
-                          <Link href="/account?tab=addresses" className="block px-4 py-2.5 text-sm hover:bg-beige text-kohl" onClick={() => setAccountMenu(false)}>Addresses</Link>
+                          <Link href="/account?tab=orders" className="block px-4 py-2.5 text-sm hover:bg-beige/60 text-kohl" onClick={() => setAccountMenu(false)}>My orders</Link>
+                          <Link href="/account?tab=wishlist" className="block px-4 py-2.5 text-sm hover:bg-beige/60 text-kohl" onClick={() => setAccountMenu(false)}>Wishlist</Link>
+                          <Link href="/account?tab=addresses" className="block px-4 py-2.5 text-sm hover:bg-beige/60 text-kohl" onClick={() => setAccountMenu(false)}>Addresses</Link>
                         </>
                       )}
                       <button onClick={logout} className="w-full text-left px-4 py-2.5 text-sm hover:bg-madder/5 text-madder border-t border-mitti/10 flex items-center gap-2">
@@ -115,27 +121,28 @@ export function Header() {
               </div>
             ) : (
               <Link href="/login" aria-label="Sign in" className="hidden sm:block hover:text-madder transition-colors">
-                <User className="w-5 h-5" />
+                <User className="w-5 h-5" strokeWidth={1.4} />
               </Link>
             )}
 
             {!isAdmin && (
-              <Link href={me ? '/account?tab=wishlist' : '/login?next=%2Faccount%3Ftab%3Dwishlist'} aria-label="Wishlist" className="hidden sm:block hover:text-madder transition-colors">
-                <Heart className="w-5 h-5" />
+              <Link href={me ? '/account?tab=wishlist' : '/login?next=%2Faccount%3Ftab%3Dwishlist'} aria-label="Wishlist" className="hidden md:block hover:text-madder transition-colors">
+                <Heart className="w-5 h-5" strokeWidth={1.4} />
               </Link>
             )}
+
             <Link href="/cart" aria-label="Cart" className="relative hover:text-madder transition-colors">
-              <ShoppingBag className="w-5 h-5" />
+              <ShoppingBag className="w-5 h-5" strokeWidth={1.4} />
               {count > 0 && (
-                <span className="absolute -top-2 -right-2 bg-madder text-ivory text-[10px] rounded-full w-4 h-4 flex items-center justify-center font-ui">{count}</span>
+                <span className="absolute -top-2.5 -right-2.5 bg-madder text-ivory text-[9px] rounded-full min-w-4 h-4 px-1 flex items-center justify-center font-ui">{count}</span>
               )}
             </Link>
           </div>
         </div>
 
         {open && (
-          <div className="lg:hidden border-t border-beige bg-ivory max-h-[80vh] overflow-y-auto">
-            <nav className="flex flex-col py-2 font-ui text-sm tracking-wide">
+          <div className="lg:hidden border-t border-mitti/10 bg-ivory max-h-[calc(100vh-100px)] overflow-y-auto">
+            <nav className="flex flex-col py-2 font-ui text-[12px] tracking-[0.13em]">
               {(mobileMains.length > 0 ? mobileMains : [
                 { slug: 'women', name: 'Women', subs: [] },
                 { slug: 'men', name: 'Men', subs: [] },
@@ -147,9 +154,9 @@ export function Header() {
                 const isOpen = mobileOpenMain === main.slug;
                 const hasSubs = main.subs.length > 0;
                 return (
-                  <div key={main.slug} className="border-b border-beige/60 last:border-0">
+                  <div key={main.slug} className="border-b border-mitti/10 last:border-0">
                     <div className="flex items-stretch">
-                      <Link href={`/categories/${encodeURIComponent(main.slug)}`} onClick={() => setOpen(false)} className="flex-1 px-6 py-3 hover:bg-beige hover:text-madder transition-colors">
+                      <Link href={`/categories/${encodeURIComponent(main.slug)}`} onClick={() => setOpen(false)} className="flex-1 px-6 py-4 hover:bg-beige/60 hover:text-madder transition-colors">
                         {main.name.toUpperCase()}
                       </Link>
                       {hasSubs && (
@@ -159,10 +166,10 @@ export function Header() {
                       )}
                     </div>
                     {isOpen && hasSubs && (
-                      <div className="bg-beige/30 px-6 py-2 pb-3">
+                      <div className="bg-beige/35 px-6 py-2 pb-3">
                         {main.subs.map((sub: any) => (
-                          <Link key={sub.id} href={`/categories/${encodeURIComponent(sub.slug)}`} onClick={() => setOpen(false)} className="block py-1.5 text-xs text-mitti hover:text-madder font-ui tracking-wider">
-                            {sub.name}
+                          <Link key={sub.id} href={`/categories/${encodeURIComponent(sub.slug)}`} onClick={() => setOpen(false)} className="block py-2 text-[11px] text-mitti hover:text-madder font-ui tracking-[0.12em]">
+                            {sub.name.toUpperCase()}
                           </Link>
                         ))}
                       </div>
@@ -170,19 +177,19 @@ export function Header() {
                   </div>
                 );
               })}
-              <Link href="/journal" onClick={() => setOpen(false)} className="px-6 py-3 border-b border-beige/60 hover:bg-beige hover:text-madder transition-colors">STORIES</Link>
-              <Link href="/ai" onClick={() => setOpen(false)} className="px-6 py-3 text-madder hover:bg-beige transition-colors">AI ✨</Link>
-              <div className="border-t border-beige mt-2 pt-2">
+              <Link href="/journal" onClick={() => setOpen(false)} className="px-6 py-4 border-b border-mitti/10 hover:bg-beige/60 hover:text-madder transition-colors">STORIES</Link>
+              <Link href="/ai" onClick={() => setOpen(false)} className="px-6 py-4 text-madder hover:bg-beige/60 transition-colors">NEEJEE AI ✦</Link>
+              <div className="border-t border-mitti/10 mt-2 pt-2">
                 {me ? (
                   <>
-                    <p className="px-6 py-2 text-xs tracking-wider text-mitti">SIGNED IN · {firstName?.toUpperCase()}</p>
-                    <Link href={isAdmin ? '/admin' : '/account'} className="px-6 py-3 block hover:bg-beige" onClick={() => setOpen(false)}>{isAdmin ? 'Admin dashboard' : 'My account'}</Link>
+                    <p className="px-6 py-2 text-[10px] tracking-wider text-mitti">SIGNED IN · {firstName?.toUpperCase()}</p>
+                    <Link href={isAdmin ? '/admin' : '/account'} className="px-6 py-3 block hover:bg-beige/60" onClick={() => setOpen(false)}>{isAdmin ? 'Admin dashboard' : 'My account'}</Link>
                     <button onClick={logout} className="px-6 py-3 block text-left text-madder w-full">Sign out</button>
                   </>
                 ) : (
                   <>
-                    <Link href="/login" className="px-6 py-3 block hover:bg-beige" onClick={() => setOpen(false)}>SIGN IN</Link>
-                    <Link href="/signup" className="px-6 py-3 block hover:bg-beige" onClick={() => setOpen(false)}>CREATE ACCOUNT</Link>
+                    <Link href="/login" className="px-6 py-3 block hover:bg-beige/60" onClick={() => setOpen(false)}>SIGN IN</Link>
+                    <Link href="/signup" className="px-6 py-3 block hover:bg-beige/60" onClick={() => setOpen(false)}>CREATE ACCOUNT</Link>
                   </>
                 )}
               </div>
