@@ -1,8 +1,13 @@
+import type { Metadata } from 'next';
 import Link from 'next/link';
 import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
 
-export const metadata = { title: 'Sell with NEEJEE · Artisan Onboarding' };
+export const metadata: Metadata = {
+  title: 'Sell with us · Artisan Onboarding',
+  description: 'Apply to sell with NEEJEE. Review curation, onboarding and commercial terms before seller activation.',
+  alternates: { canonical: '/sellers' },
+};
 
 export default function SellersPage() {
   return (
@@ -11,7 +16,7 @@ export default function SellersPage() {
       <section className="max-w-3xl mx-auto px-6 py-20 text-center">
         <p className="label text-madder">FOR ARTISANS · STUDIOS · ATELIERS</p>
         <h1 className="font-display text-5xl md:text-6xl text-kohl mt-4 leading-tight">Sell with NEEJEE.</h1>
-        <p className="font-italic italic text-xl text-mitti mt-4">
+        <p className="font-display italic text-xl text-mitti mt-4">
           A platform for India&apos;s finest. Curated, never crowded.
         </p>
         <div className="madder-divider mx-auto mt-8"></div>
