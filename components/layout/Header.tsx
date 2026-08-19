@@ -63,56 +63,56 @@ export function Header() {
   return (
     <>
       <AnnouncementBar />
-      <header className="sticky top-0 z-40 bg-ivory/95 backdrop-blur-sm border-b border-mitti/15">
-        <div className="mx-auto max-w-[1680px] px-4 sm:px-6 lg:px-10 min-h-[72px] lg:min-h-[88px] grid grid-cols-[44px_1fr_auto] lg:grid-cols-[auto_1fr_auto] items-center gap-3 lg:gap-8">
+      <header className="sticky top-0 z-40 bg-[#f7f1e7]/95 backdrop-blur-md border-b border-mitti/[0.18] shadow-[0_1px_0_rgba(255,255,255,0.35)]">
+        <div className="mx-auto max-w-[1680px] px-5 sm:px-7 lg:px-10 xl:px-12 min-h-[78px] lg:min-h-[96px] grid grid-cols-[44px_1fr_auto] lg:grid-cols-[240px_1fr_240px] items-center gap-3 lg:gap-7">
           <button
             onClick={() => setOpen(!open)}
             className="lg:hidden w-10 h-10 flex items-center justify-start text-kohl"
             aria-label="Menu"
           >
-            {open ? <X className="w-6 h-6" strokeWidth={1.4} /> : <Menu className="w-6 h-6" strokeWidth={1.4} />}
+            {open ? <X className="w-6 h-6" strokeWidth={1.25} /> : <Menu className="w-6 h-6" strokeWidth={1.25} />}
           </button>
 
           <Link href="/" aria-label="NEEJEE Home" className="justify-self-center lg:justify-self-start flex items-center">
-            <NeejeeLogo size="sm" className="sm:hidden" />
-            <NeejeeLogo size="lg" className="hidden sm:block" />
+            <NeejeeLogo size="md" className="sm:hidden !w-[118px]" />
+            <NeejeeLogo size="xl" className="hidden sm:block !w-[220px] lg:!w-[228px]" />
           </Link>
 
           <div className="hidden lg:flex justify-center min-w-0">
             <MegaMenuNav />
           </div>
 
-          <div className="flex items-center justify-self-end gap-3 sm:gap-4 lg:gap-5 text-kohl">
+          <div className="flex items-center justify-self-end gap-3.5 sm:gap-4 lg:gap-5 text-kohl">
             <button onClick={() => setSearchOpen(true)} aria-label="Search" className="hover:text-madder transition-colors">
-              <Search className="w-[19px] h-[19px] lg:w-5 lg:h-5" strokeWidth={1.45} />
+              <Search className="w-[21px] h-[21px]" strokeWidth={1.25} />
             </button>
 
             {me ? (
               <div className="hidden sm:block relative">
                 <button onClick={() => setAccountMenu(!accountMenu)} className="flex items-center gap-1.5 hover:text-madder transition-colors" aria-label="Account menu">
-                  <User className="w-5 h-5" strokeWidth={1.4} />
-                  <span className="font-ui text-[10px] tracking-[0.16em] hidden xl:inline">{firstName ? firstName.toUpperCase() : 'ACCOUNT'}</span>
+                  <User className="w-[21px] h-[21px]" strokeWidth={1.2} />
+                  <span className="font-ui text-[9px] tracking-[0.16em] hidden xl:inline">{firstName ? firstName.toUpperCase() : 'ACCOUNT'}</span>
                 </button>
                 {accountMenu && (
                   <>
                     <div className="fixed inset-0 z-30" onClick={() => setAccountMenu(false)} />
-                    <div className="absolute right-0 top-full mt-4 w-56 bg-ivory border border-mitti/20 shadow-[0_18px_50px_rgba(26,22,19,0.12)] z-40">
+                    <div className="absolute right-0 top-full mt-5 w-60 bg-[#f7f1e7] border border-mitti/20 shadow-[0_18px_50px_rgba(26,22,19,0.12)] z-40">
                       <div className="px-4 py-3 border-b border-mitti/10">
-                        <p className="font-ui text-[9px] tracking-[0.18em] text-mitti">SIGNED IN AS</p>
-                        <p className="text-sm text-kohl mt-1 truncate">{me.email}</p>
-                        {isAdmin && <p className="font-ui text-[9px] tracking-wider text-madder mt-1">{me.role?.replace(/_/g, ' ')}</p>}
+                        <p className="font-ui text-[8px] tracking-[0.18em] text-mitti">SIGNED IN AS</p>
+                        <p className="font-display text-[15px] text-kohl mt-1 truncate">{me.email}</p>
+                        {isAdmin && <p className="font-ui text-[8px] tracking-wider text-madder mt-1">{me.role?.replace(/_/g, ' ')}</p>}
                       </div>
-                      <Link href={isAdmin ? '/admin' : '/account'} className="block px-4 py-2.5 text-sm hover:bg-beige/60 text-kohl" onClick={() => setAccountMenu(false)}>
+                      <Link href={isAdmin ? '/admin' : '/account'} className="block px-4 py-2.5 font-display text-[15px] hover:bg-beige/60 text-kohl" onClick={() => setAccountMenu(false)}>
                         {isAdmin ? 'Admin dashboard' : 'My account'}
                       </Link>
                       {!isAdmin && (
                         <>
-                          <Link href="/account?tab=orders" className="block px-4 py-2.5 text-sm hover:bg-beige/60 text-kohl" onClick={() => setAccountMenu(false)}>My orders</Link>
-                          <Link href="/account?tab=wishlist" className="block px-4 py-2.5 text-sm hover:bg-beige/60 text-kohl" onClick={() => setAccountMenu(false)}>Wishlist</Link>
-                          <Link href="/account?tab=addresses" className="block px-4 py-2.5 text-sm hover:bg-beige/60 text-kohl" onClick={() => setAccountMenu(false)}>Addresses</Link>
+                          <Link href="/account?tab=orders" className="block px-4 py-2.5 font-display text-[15px] hover:bg-beige/60 text-kohl" onClick={() => setAccountMenu(false)}>My orders</Link>
+                          <Link href="/account?tab=wishlist" className="block px-4 py-2.5 font-display text-[15px] hover:bg-beige/60 text-kohl" onClick={() => setAccountMenu(false)}>Wishlist</Link>
+                          <Link href="/account?tab=addresses" className="block px-4 py-2.5 font-display text-[15px] hover:bg-beige/60 text-kohl" onClick={() => setAccountMenu(false)}>Addresses</Link>
                         </>
                       )}
-                      <button onClick={logout} className="w-full text-left px-4 py-2.5 text-sm hover:bg-madder/5 text-madder border-t border-mitti/10 flex items-center gap-2">
+                      <button onClick={logout} className="w-full text-left px-4 py-2.5 font-display text-[15px] hover:bg-madder/5 text-madder border-t border-mitti/10 flex items-center gap-2">
                         <LogOut className="w-3.5 h-3.5" /> Sign out
                       </button>
                     </div>
@@ -121,28 +121,28 @@ export function Header() {
               </div>
             ) : (
               <Link href="/login" aria-label="Sign in" className="hidden sm:block hover:text-madder transition-colors">
-                <User className="w-5 h-5" strokeWidth={1.4} />
+                <User className="w-[21px] h-[21px]" strokeWidth={1.2} />
               </Link>
             )}
 
             {!isAdmin && (
               <Link href={me ? '/account?tab=wishlist' : '/login?next=%2Faccount%3Ftab%3Dwishlist'} aria-label="Wishlist" className="hidden md:block hover:text-madder transition-colors">
-                <Heart className="w-5 h-5" strokeWidth={1.4} />
+                <Heart className="w-[21px] h-[21px]" strokeWidth={1.2} />
               </Link>
             )}
 
             <Link href="/cart" aria-label="Cart" className="relative hover:text-madder transition-colors">
-              <ShoppingBag className="w-5 h-5" strokeWidth={1.4} />
+              <ShoppingBag className="w-[21px] h-[21px]" strokeWidth={1.2} />
               {count > 0 && (
-                <span className="absolute -top-2.5 -right-2.5 bg-madder text-ivory text-[9px] rounded-full min-w-4 h-4 px-1 flex items-center justify-center font-ui">{count}</span>
+                <span className="absolute -top-2.5 -right-2.5 bg-madder text-ivory text-[8px] rounded-full min-w-4 h-4 px-1 flex items-center justify-center font-ui">{count}</span>
               )}
             </Link>
           </div>
         </div>
 
         {open && (
-          <div className="lg:hidden border-t border-mitti/10 bg-ivory max-h-[calc(100vh-100px)] overflow-y-auto">
-            <nav className="flex flex-col py-2 font-ui text-[12px] tracking-[0.13em]">
+          <div className="lg:hidden border-t border-mitti/[0.12] bg-[#f7f1e7] max-h-[calc(100vh-110px)] overflow-y-auto">
+            <nav className="flex flex-col py-2 font-display text-[17px] tracking-[0.02em]">
               {(mobileMains.length > 0 ? mobileMains : [
                 { slug: 'women', name: 'Women', subs: [] },
                 { slug: 'men', name: 'Men', subs: [] },
@@ -156,7 +156,7 @@ export function Header() {
                 return (
                   <div key={main.slug} className="border-b border-mitti/10 last:border-0">
                     <div className="flex items-stretch">
-                      <Link href={`/categories/${encodeURIComponent(main.slug)}`} onClick={() => setOpen(false)} className="flex-1 px-6 py-4 hover:bg-beige/60 hover:text-madder transition-colors">
+                      <Link href={`/categories/${encodeURIComponent(main.slug)}`} onClick={() => setOpen(false)} className="flex-1 px-6 py-4 hover:bg-beige/55 hover:text-madder transition-colors">
                         {main.name.toUpperCase()}
                       </Link>
                       {hasSubs && (
@@ -168,8 +168,8 @@ export function Header() {
                     {isOpen && hasSubs && (
                       <div className="bg-beige/35 px-6 py-2 pb-3">
                         {main.subs.map((sub: any) => (
-                          <Link key={sub.id} href={`/categories/${encodeURIComponent(sub.slug)}`} onClick={() => setOpen(false)} className="block py-2 text-[11px] text-mitti hover:text-madder font-ui tracking-[0.12em]">
-                            {sub.name.toUpperCase()}
+                          <Link key={sub.id} href={`/categories/${encodeURIComponent(sub.slug)}`} onClick={() => setOpen(false)} className="block py-2.5 text-[14px] text-mitti hover:text-madder font-display tracking-[0.015em]">
+                            {sub.name}
                           </Link>
                         ))}
                       </div>
@@ -179,12 +179,12 @@ export function Header() {
               })}
               <Link href="/journal" onClick={() => setOpen(false)} className="px-6 py-4 border-b border-mitti/10 hover:bg-beige/60 hover:text-madder transition-colors">STORIES</Link>
               <Link href="/ai" onClick={() => setOpen(false)} className="px-6 py-4 text-madder hover:bg-beige/60 transition-colors">NEEJEE AI ✦</Link>
-              <div className="border-t border-mitti/10 mt-2 pt-2">
+              <div className="border-t border-mitti/10 mt-2 pt-2 font-ui text-[10px] tracking-[0.14em]">
                 {me ? (
                   <>
-                    <p className="px-6 py-2 text-[10px] tracking-wider text-mitti">SIGNED IN · {firstName?.toUpperCase()}</p>
-                    <Link href={isAdmin ? '/admin' : '/account'} className="px-6 py-3 block hover:bg-beige/60" onClick={() => setOpen(false)}>{isAdmin ? 'Admin dashboard' : 'My account'}</Link>
-                    <button onClick={logout} className="px-6 py-3 block text-left text-madder w-full">Sign out</button>
+                    <p className="px-6 py-2 text-[9px] tracking-wider text-mitti">SIGNED IN · {firstName?.toUpperCase()}</p>
+                    <Link href={isAdmin ? '/admin' : '/account'} className="px-6 py-3 block hover:bg-beige/60" onClick={() => setOpen(false)}>{isAdmin ? 'ADMIN DASHBOARD' : 'MY ACCOUNT'}</Link>
+                    <button onClick={logout} className="px-6 py-3 block text-left text-madder w-full">SIGN OUT</button>
                   </>
                 ) : (
                   <>

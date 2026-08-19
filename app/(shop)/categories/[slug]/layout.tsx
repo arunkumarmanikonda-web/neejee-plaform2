@@ -10,5 +10,5 @@ export async function generateMetadata({
 }
 
 export default function CategorySeoLayout({ children }: { children: React.ReactNode }) {
-  return children;
+  return <div className="neejee-plp-v25">{children}</div>;
 }

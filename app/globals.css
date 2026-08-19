@@ -22,15 +22,16 @@
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
     scroll-behavior: smooth;
+    background: var(--ivory);
   }
 
   body {
     min-height: 100vh;
-    background-color: var(--ivory);
+    background-color: #F6F0E7;
     background-image:
-      radial-gradient(circle at 15% 10%, rgba(139,46,42,0.025) 0 1px, transparent 1px),
-      radial-gradient(circle at 70% 45%, rgba(107,68,35,0.018) 0 1px, transparent 1px);
-    background-size: 22px 22px, 31px 31px;
+      linear-gradient(rgba(107,68,35,0.012), rgba(107,68,35,0.012)),
+      radial-gradient(circle at 18% 12%, rgba(107,68,35,0.035) 0 0.7px, transparent 0.8px);
+    background-size: auto, 26px 26px;
     color: var(--kohl);
     font-family: var(--font-body), Georgia, serif;
   }
@@ -38,7 +39,7 @@
   h1, h2, h3, h4 {
     font-family: var(--font-display), var(--font-body), Georgia, serif;
     font-weight: 500;
-    letter-spacing: -0.018em;
+    letter-spacing: -0.022em;
   }
 
   p { text-wrap: pretty; }
@@ -46,7 +47,7 @@
   input, textarea, button, select { font-family: inherit; }
 
   :where(a, button, input, textarea, select, summary, [tabindex]):focus-visible {
-    outline: 2px solid var(--madder);
+    outline: 1px solid var(--madder);
     outline-offset: 3px;
   }
 
@@ -73,14 +74,14 @@
 
   .label {
     font-family: var(--font-ui), sans-serif;
-    font-size: 10px;
+    font-size: 9px;
     letter-spacing: 0.22em;
     text-transform: uppercase;
     color: var(--monsoon);
   }
 
   .madder-divider {
-    width: 60px;
+    width: 48px;
     height: 1px;
     background: var(--madder);
   }
@@ -96,19 +97,19 @@
   .ornament-rule::after {
     content: '';
     height: 1px;
-    width: 72px;
-    background: rgba(139,46,42,0.38);
+    width: 62px;
+    background: rgba(139,46,42,0.34);
   }
 
   .paper-panel {
-    background: rgba(248,243,234,0.86);
-    border: 1px solid rgba(107,68,35,0.18);
-    box-shadow: 0 14px 40px rgba(43,28,17,0.055);
+    background: rgba(248,243,234,0.82);
+    border: 1px solid rgba(107,68,35,0.16);
+    box-shadow: 0 18px 48px rgba(43,28,17,0.04);
   }
 
   .editorial-kicker {
     font-family: var(--font-ui), sans-serif;
-    font-size: 10px;
+    font-size: 9px;
     letter-spacing: 0.24em;
     text-transform: uppercase;
     color: var(--madder);
@@ -116,24 +117,24 @@
 
   .micro-link {
     font-family: var(--font-ui), sans-serif;
-    font-size: 10px;
+    font-size: 9px;
     letter-spacing: 0.19em;
     text-transform: uppercase;
     color: var(--madder);
-    text-underline-offset: 4px;
+    text-underline-offset: 5px;
   }
 
-  .micro-link:hover { text-decoration: underline; }
+  .micro-link:hover { text-decoration: underline; text-decoration-thickness: 1px; }
 
   .btn-primary {
     background: var(--madder);
     color: var(--ivory);
-    padding: 15px 30px;
+    padding: 14px 28px;
     font-family: var(--font-ui), sans-serif;
-    font-size: 11px;
+    font-size: 10px;
     letter-spacing: 0.18em;
     text-transform: uppercase;
-    transition: background-color 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
+    transition: background-color 0.2s ease, border-color 0.2s ease;
     display: inline-block;
     text-align: center;
     cursor: pointer;
@@ -141,21 +142,20 @@
   }
 
   .btn-primary:hover {
-    background: #6e2421;
-    border-color: #6e2421;
-    transform: translateY(-1px);
+    background: #742522;
+    border-color: #742522;
   }
 
   .btn-outline {
     background: transparent;
     color: var(--kohl);
-    padding: 14px 29px;
+    padding: 13px 27px;
     font-family: var(--font-ui), sans-serif;
-    font-size: 11px;
+    font-size: 10px;
     letter-spacing: 0.18em;
     text-transform: uppercase;
-    border: 1px solid rgba(26,22,19,0.72);
-    transition: background-color 0.2s ease, color 0.2s ease, transform 0.2s ease;
+    border: 1px solid rgba(26,22,19,0.66);
+    transition: background-color 0.2s ease, color 0.2s ease;
     display: inline-block;
     text-align: center;
     cursor: pointer;
@@ -164,27 +164,28 @@
   .btn-outline:hover {
     background: var(--kohl);
     color: var(--ivory);
-    transform: translateY(-1px);
   }
 
   .badge-founder {
-    background: var(--madder);
-    color: var(--ivory);
-    padding: 4px 9px;
+    background: rgba(244,239,230,0.91);
+    color: var(--madder);
+    border: 1px solid rgba(139,46,42,0.7);
+    padding: 4px 8px;
     font-family: var(--font-ui), sans-serif;
-    font-size: 9px;
+    font-size: 8px;
     letter-spacing: 0.16em;
     text-transform: uppercase;
     display: inline-block;
+    backdrop-filter: blur(2px);
   }
 
   .badge-handloom {
-    background: transparent;
+    background: rgba(244,239,230,0.9);
     color: var(--madder);
-    border: 1px solid rgba(139,46,42,0.72);
+    border: 1px solid rgba(139,46,42,0.62);
     padding: 3px 8px;
     font-family: var(--font-ui), sans-serif;
-    font-size: 9px;
+    font-size: 8px;
     letter-spacing: 0.15em;
     text-transform: uppercase;
   }
@@ -211,16 +212,17 @@
 
   .neejee-field {
     width: 100%;
-    background: rgba(255,255,255,0.25);
-    border: 1px solid rgba(107,68,35,0.28);
+    background: rgba(255,255,255,0.16);
+    border: 1px solid rgba(107,68,35,0.25);
     padding: 12px 14px;
     color: var(--kohl);
+    border-radius: 0;
     transition: border-color 0.18s ease, background-color 0.18s ease;
   }
 
   .neejee-field:focus {
     border-color: var(--madder);
-    background: rgba(255,255,255,0.45);
+    background: rgba(255,255,255,0.34);
     outline: none;
   }
 
@@ -230,11 +232,11 @@
 }
 
 @keyframes fadeUp {
-  from { opacity: 0; transform: translateY(12px); }
+  from { opacity: 0; transform: translateY(10px); }
   to { opacity: 1; transform: translateY(0); }
 }
 
-.fade-up { animation: fadeUp 0.6s ease-out; }
+.fade-up { animation: fadeUp 0.55s ease-out; }
 
 @media (prefers-reduced-motion: reduce) {
   html:focus-within { scroll-behavior: auto; }

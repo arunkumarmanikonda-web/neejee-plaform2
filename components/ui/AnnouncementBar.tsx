@@ -27,14 +27,16 @@ const COLOR_MAP: Record<string, string> = {
 };
 
 const FALLBACK_MESSAGES = [
-  'FREE SHIPPING ABOVE ₹2,500',
-  "THE FOUNDER'S EDIT IS LIVE",
-  'COD AVAILABLE ON SELECT PINCODES',
-  'AUTHENTICITY CARD WITH EVERY ORDER',
+  'Free shipping above ₹2,500',
+  "The Founder’s Edit is live",
+  'COD available on select pincodes',
+  'Authenticity card with every order',
 ];
 
 const DISMISS_KEY = 'neejee.announcement.dismissed';
 const DISMISS_TTL = 24 * 60 * 60 * 1000; // 24h
+
+const BAR_CLASS = 'text-[13px] md:text-[14px] text-center py-1.5 md:py-2 font-display tracking-[0.01em] border-b border-kohl/10';
 
 export function AnnouncementBar() {
   const [banners, setBanners] = useState<Banner[]>([]);
@@ -66,20 +68,16 @@ export function AnnouncementBar() {
       .catch(() => setLoaded(true));
   }, []);
 
-  // Auto-rotate every 5s
   useEffect(() => {
     const total = banners.length > 0 ? banners.length : FALLBACK_MESSAGES.length;
     if (total <= 1) return;
-    const t = setInterval(() => {
-      setActive(a => (a + 1) % total);
-    }, 5000);
+    const t = setInterval(() => setActive(a => (a + 1) % total), 5000);
     return () => clearInterval(t);
   }, [banners.length]);
 
   if (!loaded || dismissed) {
-    // SSR-friendly fallback to keep layout stable
     return (
-      <div className="bg-mitti text-ivory text-xs tracking-widest text-center py-2 font-ui">
+      <div className={`bg-mitti text-ivory ${BAR_CLASS}`}>
         <span>{FALLBACK_MESSAGES[0]}</span>
       </div>
     );
@@ -90,10 +88,9 @@ export function AnnouncementBar() {
     setDismissed(true);
   };
 
-  // No CMS banners — show fallback
   if (banners.length === 0) {
     return (
-      <div className="bg-mitti text-ivory text-xs tracking-widest text-center py-2 font-ui">
+      <div className={`bg-mitti text-ivory ${BAR_CLASS}`}>
         <span>{FALLBACK_MESSAGES[active % FALLBACK_MESSAGES.length]}</span>
       </div>
     );
@@ -104,7 +101,7 @@ export function AnnouncementBar() {
 
   if (!b) {
     return (
-      <div className="bg-mitti text-ivory text-xs tracking-widest text-center py-2 font-ui">
+      <div className={`bg-mitti text-ivory ${BAR_CLASS}`}>
         <span>{FALLBACK_MESSAGES[0]}</span>
       </div>
     );
@@ -113,13 +110,13 @@ export function AnnouncementBar() {
   const style = COLOR_MAP[b.bgColor || 'mitti'] || 'bg-mitti text-ivory';
 
   return (
-    <div className={`${style} text-xs tracking-widest py-2 px-4 font-ui relative`}>
+    <div className={`${style} ${BAR_CLASS} px-10 relative`}>
       <div className="max-w-7xl mx-auto flex items-center justify-center gap-3">
-        <div className="text-center flex items-center gap-3 flex-wrap justify-center">
+        <div className="text-center flex items-center gap-2 flex-wrap justify-center">
           {b.title && <span>{b.title}</span>}
-          {b.subtitle && <span className="opacity-80 hidden sm:inline">· {b.subtitle}</span>}
+          {b.subtitle && <span className="opacity-75 hidden sm:inline">· {b.subtitle}</span>}
           {b.ctaText && b.ctaUrl && (
-            <Link href={b.ctaUrl} className="underline underline-offset-4 hover:no-underline">
+            <Link href={b.ctaUrl} className="underline underline-offset-4 decoration-current/50 hover:decoration-current">
               {b.ctaText} →
             </Link>
           )}
@@ -127,10 +124,10 @@ export function AnnouncementBar() {
       </div>
       <button
         onClick={dismiss}
-        className="absolute right-3 top-1/2 -translate-y-1/2 opacity-60 hover:opacity-100"
+        className="absolute right-3 top-1/2 -translate-y-1/2 opacity-45 hover:opacity-100"
         aria-label="Dismiss"
       >
-        <X className="w-3 h-3" />
+        <X className="w-3 h-3" strokeWidth={1.2} />
       </button>
     </div>
   );

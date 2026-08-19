@@ -6,5 +6,5 @@ export const metadata: Metadata = {
 };
 
 export default function CartLayout({ children }: { children: React.ReactNode }) {
-  return children;
+  return <div className="neejee-cart-v25">{children}</div>;
 }

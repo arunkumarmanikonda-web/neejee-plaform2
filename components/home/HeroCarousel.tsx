@@ -62,7 +62,7 @@ export function HeroCarousel({ banners, primaryCatSlug }: Props) {
 
   return (
     <section
-      className="relative overflow-hidden border-b border-mitti/15 bg-beige"
+      className="group/hero relative overflow-hidden border-b border-mitti/20 bg-beige"
       onMouseEnter={() => setPaused(true)}
       onMouseLeave={() => setPaused(false)}
     >
@@ -83,30 +83,30 @@ export function HeroCarousel({ banners, primaryCatSlug }: Props) {
             type="button"
             onClick={() => setActive(a => (a - 1 + slides.length) % slides.length)}
             aria-label="Previous banner"
-            className="hidden md:flex absolute left-5 top-1/2 -translate-y-1/2 z-20 w-10 h-10 items-center justify-center border border-kohl/25 bg-ivory/75 backdrop-blur-sm text-kohl hover:bg-ivory transition"
+            className="hidden lg:flex absolute left-6 top-1/2 -translate-y-1/2 z-20 w-11 h-11 items-center justify-center border border-ivory/55 bg-kohl/15 text-ivory backdrop-blur-sm opacity-0 group-hover/hero:opacity-100 transition-all hover:bg-kohl/35"
           >
-            <ChevronLeft className="w-5 h-5" strokeWidth={1.4} />
+            <ChevronLeft className="w-5 h-5" strokeWidth={1.25} />
           </button>
           <button
             type="button"
             onClick={() => setActive(a => (a + 1) % slides.length)}
             aria-label="Next banner"
-            className="hidden md:flex absolute right-5 top-1/2 -translate-y-1/2 z-20 w-10 h-10 items-center justify-center border border-kohl/25 bg-ivory/75 backdrop-blur-sm text-kohl hover:bg-ivory transition"
+            className="hidden lg:flex absolute right-6 top-1/2 -translate-y-1/2 z-20 w-11 h-11 items-center justify-center border border-ivory/55 bg-kohl/15 text-ivory backdrop-blur-sm opacity-0 group-hover/hero:opacity-100 transition-all hover:bg-kohl/35"
           >
-            <ChevronRight className="w-5 h-5" strokeWidth={1.4} />
+            <ChevronRight className="w-5 h-5" strokeWidth={1.25} />
           </button>
         </>
       )}
 
       {slides.length > 1 && (
-        <div className="absolute bottom-5 right-5 md:right-10 z-20 flex items-center gap-2 bg-ivory/70 backdrop-blur-sm px-3 py-2">
+        <div className="absolute bottom-5 right-5 md:right-9 z-20 flex items-center gap-2.5">
           {slides.map((_, idx) => (
             <button
               key={idx}
               type="button"
               onClick={() => setActive(idx)}
               aria-label={`Show banner ${idx + 1}`}
-              className={`h-1.5 rounded-full transition-all ${active === idx ? 'w-7 bg-madder' : 'w-2 bg-mitti/35 hover:bg-mitti/60'}`}
+              className={`h-[2px] transition-all ${active === idx ? 'w-9 bg-ivory' : 'w-4 bg-ivory/45 hover:bg-ivory/75'}`}
             />
           ))}
         </div>
@@ -124,7 +124,7 @@ function HeroSlide({ banner, primaryCatSlug }: { banner: HeroBanner; primaryCatS
   const image = banner.image || DEFAULT_HERO.image;
 
   return (
-    <div className="relative min-h-[600px] h-[72vh] max-h-[760px] sm:min-h-[620px] w-full flex-shrink-0 snap-start overflow-hidden">
+    <div className="relative h-[72svh] min-h-[560px] max-h-[790px] md:h-[74vh] md:min-h-[620px] w-full flex-shrink-0 snap-start overflow-hidden">
       {image && (
         <Image
           src={image}
@@ -132,27 +132,34 @@ function HeroSlide({ banner, primaryCatSlug }: { banner: HeroBanner; primaryCatS
           fill
           priority
           sizes="100vw"
-          className="object-cover object-center"
+          className="object-cover object-[62%_center] sm:object-[60%_center] lg:object-center scale-[1.015]"
         />
       )}
 
-      <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(244,239,230,0.98)_0%,rgba(244,239,230,0.92)_24%,rgba(244,239,230,0.56)_43%,rgba(244,239,230,0.08)_67%,rgba(244,239,230,0)_100%)]" />
-      <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(26,22,19,0.04)_0%,rgba(26,22,19,0)_45%,rgba(26,22,19,0.08)_100%)]" />
+      <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(244,239,230,0.97)_0%,rgba(244,239,230,0.91)_26%,rgba(244,239,230,0.62)_42%,rgba(244,239,230,0.18)_58%,rgba(26,22,19,0.08)_100%)] md:bg-[linear-gradient(90deg,rgba(244,239,230,0.95)_0%,rgba(244,239,230,0.86)_24%,rgba(244,239,230,0.42)_43%,rgba(244,239,230,0.02)_68%)]" />
+      <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(26,22,19,0.03)_0%,rgba(26,22,19,0)_56%,rgba(26,22,19,0.17)_100%)]" />
 
-      <div className="relative h-full mx-auto max-w-[1680px] px-6 sm:px-10 lg:px-16 flex items-center">
-        <div className="max-w-[620px] pt-6">
-          <p className="editorial-kicker">FOUND. PERSONAL.</p>
-          <h1 className="font-display text-[48px] sm:text-[62px] lg:text-[72px] leading-[0.98] text-kohl mt-5 max-w-[10ch]">
+      <div className="relative h-full mx-auto max-w-[1680px] px-6 sm:px-10 lg:px-16 xl:px-20 flex items-center">
+        <div className="max-w-[650px] -translate-y-2 md:-translate-y-4">
+          <h1 className="font-display text-[49px] leading-[0.98] sm:text-[64px] lg:text-[74px] xl:text-[82px] text-kohl max-w-[9.2ch] tracking-[-0.035em] drop-shadow-[0_1px_0_rgba(244,239,230,0.2)]">
             {isDefault ? (<>The rare,<br />the rooted,<br />the personal.</>) : title}
           </h1>
-          <div className="madder-divider mt-6" />
-          <p className="font-display tracking-[0.12em] uppercase text-[14px] sm:text-[16px] text-mitti mt-5">{subtitle}</p>
-          <div className="mt-7 flex flex-wrap items-center gap-5">
-            <Link href={ctaUrl} className="btn-primary">{ctaText}</Link>
-            <Link href="/about" className="micro-link text-kohl/80 hover:text-madder">THE NEEJEE STORY →</Link>
+          <div className="w-12 h-px bg-madder mt-5 md:mt-6" />
+          <p className="font-ui text-[11px] sm:text-[12px] tracking-[0.28em] uppercase text-kohl/78 mt-5 md:mt-6 max-w-[38rem] leading-[1.8]">
+            {isDefault ? 'FOUND. PERSONAL.' : subtitle}
+          </p>
+          {!isDefault && (
+            <p className="font-display italic text-[16px] md:text-[18px] text-mitti/90 mt-2 max-w-[31rem] leading-relaxed">{subtitle}</p>
+          )}
+          <div className="mt-7 md:mt-8 flex items-center gap-5">
+            <Link href={ctaUrl} className="bg-madder text-ivory px-7 md:px-8 py-3.5 md:py-4 font-display text-[16px] md:text-[17px] tracking-[0.02em] border border-madder transition-colors hover:bg-[#742522] hover:border-[#742522]">
+              {ctaText}
+            </Link>
           </div>
         </div>
       </div>
+
+      <div className="absolute left-0 right-0 bottom-0 h-px bg-ivory/30" />
     </div>
   );
 }
