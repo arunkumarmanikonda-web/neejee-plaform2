@@ -14,7 +14,7 @@ import {
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
-const ROUTE_READ_MODEL_VERSION = 'phase1.public.products.v4';
+const ROUTE_READ_MODEL_VERSION = 'phase1.public.products.v5';
 const DEFAULT_PAGE = 1;
 const DEFAULT_LIMIT = 24;
 const MAX_LIMIT = 100;
@@ -57,6 +57,10 @@ function parseRupees(value: string | null): number | null {
   const parsed = Number(value);
   if (!Number.isFinite(parsed) || parsed < 0 || parsed > 100_000_000) return null;
   return Math.round(parsed * 100);
+}
+
+function normalizeAudienceToken(value: string): string {
+  return value.trim().replace(/[\s_-]+/g, '_').toUpperCase();
 }
 
 function buildInclude() {
@@ -266,7 +270,14 @@ export async function GET(request: NextRequest) {
     if (material) andClauses.push({ material: { contains: material, mode: 'insensitive' } });
     if (occasion) andClauses.push({ occasion: { contains: occasion, mode: 'insensitive' } });
     if (badge) andClauses.push({ badges: { has: badge } });
-    if (audience) andClauses.push({ catalogueAudienceTag: audience });
+    if (audience) {
+      andClauses.push({
+        catalogueAudienceTag: {
+          contains: normalizeAudienceToken(audience),
+          mode: 'insensitive',
+        },
+      });
+    }
 
     if (search) {
       andClauses.push({ OR: [
@@ -308,17 +319,17 @@ export async function GET(request: NextRequest) {
     let total = 0;
 
     if (!needsComputedFiltering) {
-      const [count, rows] = await Promise.all([
-        prisma.product.count({ where }),
-        prisma.product.findMany({
-          where,
-          orderBy: buildBaseOrderBy(sort),
-          skip: (page - 1) * limit,
-          take: limit,
-          include: buildInclude(),
-        }),
-      ]);
-      total = count;
+      // Production Prisma is intentionally configured with a small serverless pool.
+      // Keep the two public listing reads sequential so a normal PLP request cannot
+      // compete with itself for the only available pooled connection under load.
+      total = await prisma.product.count({ where });
+      const rows = await prisma.product.findMany({
+        where,
+        orderBy: buildBaseOrderBy(sort),
+        skip: (page - 1) * limit,
+        take: limit,
+        include: buildInclude(),
+      });
       const reads = (rows as unknown as ProductReadSourceRow[])
         .map((row) => buildProductReadModel(row, 'public_api', now));
       products = reads.map(mapPublicProduct);
