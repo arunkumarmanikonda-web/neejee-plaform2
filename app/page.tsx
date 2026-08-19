@@ -1,4 +1,4 @@
-// NEEJEE Homepage — Phase 2 editorial storefront, backed only by live catalogue/CMS data.
+// NEEJEE Homepage — pre-Phase-2-fidelity visual composition with current live-data safeguards.
 import Link from 'next/link';
 import { prisma } from '@/lib/prisma';
 import { Header } from '@/components/layout/Header';
@@ -32,8 +32,7 @@ async function getHomeData() {
     const now = new Date();
     const publicWhere = publicProductWhere();
 
-    // Production deliberately uses a small serverless connection pool. Keep the
-    // reads sequential so one ISR regeneration cannot self-starve Prisma.
+    // Keep reads sequential for the intentionally small production serverless pool.
     const founderEdit = await prisma.product.findMany({
       where: {
         AND: [
@@ -215,68 +214,49 @@ export default async function HomePage() {
   return (
     <>
       <Header />
+
       <HeroCarousel banners={data.heroBanners || []} primaryCatSlug={data.primaryCatSlug || 'women-sarees'} />
 
-      {data.founder.length > 0 && (
-        <section className="max-w-[1680px] mx-auto px-5 sm:px-8 lg:px-12 pt-16 md:pt-20 pb-16">
-          <div className="text-center max-w-2xl mx-auto mb-10 md:mb-12">
-            <p className="editorial-kicker">THE FIRST EDIT</p>
-            <h2 className="font-display text-[38px] md:text-[50px] leading-none text-kohl mt-3">Founder&apos;s Edit</h2>
-            <div className="ornament-rule justify-center mt-5">
-              <span className="font-display italic text-mitti text-sm">Personally chosen by Nidhi</span>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-x-4 gap-y-9 sm:gap-6 lg:gap-8 max-w-6xl mx-auto">
-            {data.founder.slice(0, 3).map((p) => <ProductCard key={p.id} product={p} />)}
-          </div>
-
-          <div className="mt-10 text-center">
-            <Link href={`/categories/${data.primaryCatSlug || 'women-sarees'}`} className="micro-link">VIEW THE EDIT →</Link>
-          </div>
-        </section>
-      )}
-
-      <section className="border-y border-mitti/15 bg-paper-deep/55">
-        <div className="max-w-[1380px] mx-auto px-6 py-7 grid grid-cols-2 lg:grid-cols-4 gap-x-6 gap-y-7">
+      <section className="bg-beige border-y border-mitti/20">
+        <div className="max-w-8xl mx-auto px-6 lg:px-12 py-6 grid grid-cols-2 md:grid-cols-4 gap-4">
           {[
             { icon: ShieldCheck, label: 'FOUNDER-VERIFIED', sub: 'Curated before publication' },
             { icon: Truck, label: 'FREE SHIPPING', sub: 'Above ₹2,500 across India' },
             { icon: RotateCcw, label: 'RETURNS', sub: 'Product-specific eligibility' },
             { icon: LockKeyhole, label: 'SECURE CHECKOUT', sub: 'Server-verified orders' },
           ].map((item) => (
-            <div key={item.label} className="flex items-start gap-3">
-              <item.icon className="w-[18px] h-[18px] text-madder flex-shrink-0 mt-0.5" strokeWidth={1.35} />
+            <div key={item.label} className="flex items-center gap-3">
+              <item.icon className="w-6 h-6 text-madder flex-shrink-0" />
               <div>
-                <p className="font-ui text-[9px] tracking-[0.18em] text-kohl">{item.label}</p>
-                <p className="font-display italic text-mitti text-[13px] mt-1">{item.sub}</p>
+                <p className="font-ui text-[10px] tracking-widest text-kohl">{item.label}</p>
+                <p className="font-italic italic text-mitti text-sm">{item.sub}</p>
               </div>
             </div>
           ))}
         </div>
       </section>
 
-      {data.newArrivals.length > 0 && (
-        <section className="max-w-[1680px] mx-auto px-5 sm:px-8 lg:px-12 py-16 md:py-20">
-          <div className="flex items-end justify-between gap-6 mb-9">
+      {data.founder.length > 0 && (
+        <section className="max-w-8xl mx-auto px-6 lg:px-12 py-20">
+          <div className="flex items-baseline justify-between mb-10">
             <div>
-              <p className="editorial-kicker">NEW IN</p>
-              <h2 className="font-display text-[36px] md:text-[46px] leading-none text-kohl mt-3">Just arrived</h2>
+              <p className="label text-madder">THE FIRST EDIT</p>
+              <h2 className="font-display text-4xl lg:text-5xl text-kohl mt-2">Founder&apos;s Edit</h2>
+              <p className="font-italic italic text-mitti mt-2">Personally chosen · Limited edit</p>
             </div>
-            <Link href={`/categories/${data.primaryCatSlug || 'women-sarees'}?sort=newest`} className="micro-link hidden sm:block">BROWSE ALL →</Link>
+            <Link href={`/categories/${data.primaryCatSlug || 'women-sarees'}`} className="font-ui text-xs tracking-widest text-madder hover:underline">VIEW ALL →</Link>
           </div>
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-4 gap-y-9 sm:gap-6 lg:gap-8">
-            {data.newArrivals.slice(0, 4).map((p) => <ProductCard key={p.id} product={p} />)}
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 lg:gap-8">
+            {data.founder.slice(0, 4).map((p) => <ProductCard key={p.id} product={p} />)}
           </div>
         </section>
       )}
 
       {data.founderNoteBody && (
-        <section className="bg-paper-deep/65 border-y border-mitti/12 py-16 md:py-24">
-          <div className="max-w-3xl mx-auto px-6 text-center">
-            <p className="editorial-kicker mb-4">A NOTE FROM THE FOUNDER</p>
+        <section className="bg-beige py-16 md:py-24">
+          <div className="max-w-3xl mx-auto px-6">
             {data.founderNoteTitle && (
-              <h2 className="font-display text-3xl md:text-[42px] leading-tight text-kohl mb-9">{data.founderNoteTitle}</h2>
+              <h2 className="font-display text-3xl md:text-4xl text-kohl mb-10 text-center">{data.founderNoteTitle}</h2>
             )}
             {(() => {
               const paragraphs = data.founderNoteBody.split(/\n\s*\n/).map((p) => p.trim()).filter(Boolean);
@@ -286,26 +266,15 @@ export default async function HomePage() {
                 signature = last;
                 paragraphs.pop();
               }
-              const alignClass = data.founderNoteAlign === 'justify'
-                ? 'text-justify'
-                : data.founderNoteAlign === 'left'
-                  ? 'text-left'
-                  : 'text-center';
-
+              const alignClass = data.founderNoteAlign === 'justify' ? 'text-justify' : data.founderNoteAlign === 'left' ? 'text-left' : 'text-center';
               return (
                 <>
-                  <div
-                    className={`font-display text-kohl/80 text-[16px] md:text-[18px] leading-[1.8] space-y-5 ${alignClass}`}
-                    style={{ textAlign: data.founderNoteAlign || 'center' }}
-                  >
+                  <div className={`font-body text-kohl/80 text-[15px] md:text-base leading-[1.85] space-y-5 ${alignClass}`} style={{ textAlign: data.founderNoteAlign || 'center' }}>
                     {paragraphs.map((p, i) => <p key={i}>{p}</p>)}
                   </div>
                   {signature && (
-                    <div className="mt-10 flex justify-center">
-                      <div className="min-w-52 border-t border-madder/25 pt-5">
-                        <p className="font-display italic text-madder text-lg">{signature}</p>
-                        <p className="font-ui text-[9px] tracking-[0.2em] text-mitti mt-1">FOUNDER</p>
-                      </div>
+                    <div className="mt-10 pt-6 border-t border-madder/20 flex justify-center">
+                      <p className="font-display italic text-mitti text-lg">{signature}</p>
                     </div>
                   )}
                 </>
@@ -315,28 +284,39 @@ export default async function HomePage() {
         </section>
       )}
 
-      <section className="max-w-[1440px] mx-auto px-5 sm:px-8 lg:px-12 py-16 md:py-20">
-        <div className="bg-kohl text-ivory p-8 sm:p-10 lg:p-14 relative overflow-hidden border border-kohl">
-          <div className="absolute inset-y-0 right-0 w-2/5 opacity-[0.08] bg-[radial-gradient(circle_at_center,#F4EFE6_0_1px,transparent_1.5px)] [background-size:18px_18px]" />
-          <div className="relative grid lg:grid-cols-[1.15fr_.85fr] gap-10 items-center">
+      {data.newArrivals.length > 0 && (
+        <section className="bg-beige py-20">
+          <div className="max-w-8xl mx-auto px-6 lg:px-12">
+            <div className="flex items-baseline justify-between mb-10">
+              <div>
+                <p className="label text-madder">NEW IN</p>
+                <h2 className="font-display text-4xl text-kohl mt-2">Just arrived</h2>
+              </div>
+              <Link href={`/categories/${data.primaryCatSlug || 'women-sarees'}?sort=newest`} className="font-ui text-xs tracking-widest text-madder hover:underline">BROWSE ALL →</Link>
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 lg:gap-8">
+              {data.newArrivals.slice(0, 4).map((p) => <ProductCard key={p.id} product={p} />)}
+            </div>
+          </div>
+        </section>
+      )}
+
+      <section className="max-w-8xl mx-auto px-6 lg:px-12 py-20">
+        <div className="bg-kohl text-ivory p-10 lg:p-16 relative overflow-hidden">
+          <div className="grid lg:grid-cols-2 gap-10 items-center">
             <div>
-              <p className="font-ui text-[9px] tracking-[0.22em] text-banarasi flex items-center gap-2">
-                <Sparkles className="w-4 h-4" /> NEEJEE AI
-              </p>
-              <h2 className="font-display text-[38px] lg:text-[52px] leading-[1.05] mt-4">See it on you.<br />See it in your home.</h2>
-              <p className="font-display italic text-beige/75 text-[17px] mt-5 max-w-lg">
-                Use the Mirror for wearable pieces, Space for the room around you, and the Concierge when the choice is personal.
-              </p>
-              <div className="mt-8 flex flex-wrap gap-5 items-center">
+              <p className="label text-banarasi flex items-center gap-2"><Sparkles className="w-4 h-4" /> NEEJEE AI</p>
+              <h2 className="font-display text-4xl lg:text-5xl mt-4">See it on you.<br />See it in your home.</h2>
+              <p className="font-italic italic text-beige/80 text-lg mt-4 max-w-md">Mirror, Space and Gift Concierge bring personal discovery into the NEEJEE world.</p>
+              <div className="mt-8 flex flex-wrap gap-4">
                 <Link href="/ai/mirror" className="btn-primary">TRY THE MIRROR</Link>
-                <Link href="/ai/gift" className="micro-link !text-ivory/80 hover:!text-banarasi">GIFT CONCIERGE →</Link>
+                <Link href="/ai/gift" className="font-ui text-xs tracking-widest text-ivory hover:text-banarasi self-center underline underline-offset-4">GIFT CONCIERGE →</Link>
               </div>
             </div>
-            <div className="grid grid-cols-3 gap-2.5">
+            <div className="grid grid-cols-3 gap-3">
               {['Mirror', 'Space', 'Gift'].map((label) => (
-                <div key={label} className="aspect-square border border-ivory/18 bg-ivory/[0.03] flex flex-col items-center justify-center text-center px-2">
-                  <Sparkles className="w-4 h-4 text-banarasi mb-3" strokeWidth={1.2} />
-                  <p className="font-display text-[16px] text-ivory">{label}</p>
+                <div key={label} className="aspect-square bg-mitti/30 flex items-center justify-center">
+                  <p className="font-display text-lg text-banarasi">{label}</p>
                 </div>
               ))}
             </div>
@@ -345,49 +325,38 @@ export default async function HomePage() {
       </section>
 
       {data.journalEntries.length > 0 && (
-        <section className="bg-paper-deep/55 border-y border-mitti/12 py-16 md:py-20">
-          <div className="max-w-[1440px] mx-auto px-5 sm:px-8 lg:px-12">
-            <div className="text-center mb-10">
-              <p className="editorial-kicker">STORIES</p>
-              <h2 className="font-display text-[38px] md:text-[46px] text-kohl mt-3">From the Journal</h2>
+        <section className="bg-beige py-20">
+          <div className="max-w-8xl mx-auto px-6 lg:px-12">
+            <div className="text-center mb-12">
+              <p className="label text-madder">STORIES</p>
+              <h2 className="font-display text-4xl text-kohl mt-2">From the Journal</h2>
             </div>
-            <div className="grid md:grid-cols-3 gap-7 lg:gap-9">
+            <div className="grid md:grid-cols-3 gap-6 lg:gap-8">
               {data.journalEntries.map((entry) => (
-                <Link key={entry.id} href={`/p/${entry.slug}`} className="group block">
-                  <div className="aspect-[4/3] bg-ivory overflow-hidden border border-mitti/12">
+                <Link key={entry.id} href={`/p/${entry.slug}`} className="group">
+                  <div className="aspect-[4/3] bg-ivory overflow-hidden">
                     {entry.coverImage ? (
-                      // CMS media can be stored on approved external providers that
-                      // are not guaranteed to be in next/image remotePatterns.
+                      // CMS media providers are not guaranteed to exist in next/image remotePatterns.
                       // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={entry.coverImage}
-                        alt={entry.title}
-                        className="w-full h-full object-cover group-hover:scale-[1.025] transition-transform duration-700"
-                      />
+                      <img src={entry.coverImage} alt={entry.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />
                     ) : (
-                      <div className="w-full h-full bg-gradient-to-br from-beige to-mitti/15" />
+                      <div className="w-full h-full bg-ivory" />
                     )}
                   </div>
-                  <p className="editorial-kicker mt-4">JOURNAL</p>
-                  <h3 className="font-display text-[22px] text-kohl mt-1.5 group-hover:text-madder transition-colors">{entry.title}</h3>
-                  {entry.excerpt && (
-                    <p className="font-display italic text-mitti text-[14px] mt-2 line-clamp-2">{entry.excerpt}</p>
-                  )}
-                  <p className="micro-link mt-3">READ →</p>
+                  <h3 className="font-display text-xl text-kohl mt-4 group-hover:text-madder transition-colors">{entry.title}</h3>
+                  {entry.excerpt && <p className="font-italic italic text-mitti text-sm mt-2">{entry.excerpt}</p>}
+                  <p className="font-ui text-xs tracking-widest text-madder mt-3">READ →</p>
                 </Link>
               ))}
-            </div>
-            <div className="text-center mt-10">
-              <Link href="/journal" className="micro-link">VIEW THE JOURNAL →</Link>
             </div>
           </div>
         </section>
       )}
 
-      <section className="max-w-3xl mx-auto px-6 py-16 md:py-20 text-center">
-        <p className="editorial-kicker">STAY IN THE TRUNK</p>
-        <h2 className="font-display text-[34px] md:text-[42px] text-kohl mt-3">The next find, personally.</h2>
-        <p className="font-display italic text-mitti mt-3 mb-8">Founder&apos;s edits, craft stories and early access. No noise.</p>
+      <section className="max-w-3xl mx-auto px-6 py-20 text-center">
+        <p className="label text-madder">STAY IN THE TRUNK</p>
+        <h2 className="font-display text-3xl text-kohl mt-3">Get our limited drops first.</h2>
+        <p className="font-italic italic text-mitti mt-3 mb-8">Founder&apos;s edits, craft stories and early access.</p>
         <div className="max-w-md mx-auto"><NewsletterForm source="homepage" /></div>
       </section>
 
