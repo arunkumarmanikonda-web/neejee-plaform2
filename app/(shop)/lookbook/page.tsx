@@ -1,4 +1,5 @@
-// Lookbook landing — lists all PUBLISHED CmsPage rows where pageType = 'lookbook'.
+// Lookbook landing — lists only PUBLISHED CmsPage rows where pageType = 'lookbook'.
+import { cache } from 'react';
 import Link from 'next/link';
 import { prisma } from '@/lib/prisma';
 import { Header } from '@/components/layout/Header';
@@ -8,12 +9,7 @@ import type { Metadata } from 'next';
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
-export const metadata: Metadata = {
-  title: 'Lookbooks · NEEJEE',
-  description: 'How to wear it. Lookbook spreads from our seasons.',
-};
-
-async function loadLookbooks() {
+const loadLookbooks = cache(async () => {
   try {
     return await prisma.cmsPage.findMany({
       where: { pageType: 'lookbook', status: 'PUBLISHED' },
@@ -27,6 +23,21 @@ async function loadLookbooks() {
   } catch {
     return [];
   }
+});
+
+export async function generateMetadata(): Promise<Metadata> {
+  const lookbooks = await loadLookbooks();
+  const indexable = lookbooks.length > 0;
+  return {
+    title: 'Lookbooks',
+    description: 'NEEJEE visual edits and styling studies for published pieces.',
+    alternates: { canonical: '/lookbook' },
+    robots: {
+      index: indexable,
+      follow: true,
+      googleBot: { index: indexable, follow: true },
+    },
+  };
 }
 
 export default async function LookbookLanding() {
@@ -37,18 +48,18 @@ export default async function LookbookLanding() {
       <Header />
 
       <section className="bg-kohl text-ivory py-20 px-6 text-center">
-        <p className="label text-banarasi">HOW TO WEAR IT</p>
+        <p className="label text-banarasi">VISUAL EDITS</p>
         <h1 className="font-display text-5xl md:text-6xl mt-4">Lookbooks</h1>
         <p className="font-italic italic text-ivory/80 text-lg mt-4 max-w-xl mx-auto">
-          Seasonal spreads. Curated styling. One piece, three ways.
+          Styling studies and visual stories built around pieces that are ready to publish.
         </p>
       </section>
 
       <main className="max-w-7xl mx-auto px-6 py-16">
         {lookbooks.length === 0 ? (
           <div className="py-20 text-center">
-            <p className="font-display text-2xl text-kohl">Lookbooks coming this season.</p>
-            <p className="font-italic italic text-mitti mt-2">Our editorial team is shooting now.</p>
+            <p className="font-display text-2xl text-kohl">The first lookbook is being prepared.</p>
+            <p className="font-italic italic text-mitti mt-2">Published edits will appear here when they are ready.</p>
           </div>
         ) : (
           <div className="grid sm:grid-cols-2 gap-x-8 gap-y-16">
