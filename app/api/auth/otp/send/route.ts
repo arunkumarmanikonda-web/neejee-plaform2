@@ -1,92 +1,26 @@
-﻿import { NextResponse } from 'next/server';
-import {
-  normalizePhone,
-  OtpError,
-  sendOtpSms,
-  type OtpPurpose,
-} from '@/lib/otp';
+import { NextResponse } from 'next/server';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
-function normalizePurpose(value: unknown): OtpPurpose {
-  const raw = String(value ?? '').trim().toLowerCase();
-
-  switch (raw) {
-    case 'signup':
-      return 'signup';
-    case 'signup_customer':
-      return 'signup_customer';
-    case 'checkout_guest':
-      return 'checkout_guest';
-    case 'change_phone':
-      return 'change_phone';
-    case 'admin_2fa':
-      return 'admin_2fa';
-    case 'login':
-    default:
-      return 'login';
-  }
-}
-
-export async function POST(request: Request) {
-  try {
-    const body = (await request.json().catch(() => null)) as
-      | Record<string, unknown>
-      | null;
-
-    const phoneInput = String(body?.phone ?? '').trim();
-    const code = String(body?.code ?? '').trim();
-    const purpose = normalizePurpose(body?.purpose);
-    const recipientName =
-      String(body?.recipientName ?? body?.name ?? '').trim() || undefined;
-
-    const phone = normalizePhone(phoneInput);
-
-    if (!phone) {
-      return NextResponse.json(
-        { error: 'Please enter a valid mobile number' },
-        { status: 400 },
-      );
-    }
-
-    if (!/^\d{4,8}$/.test(code)) {
-      return NextResponse.json(
-        { error: 'Please enter a valid OTP code' },
-        { status: 400 },
-      );
-    }
-
-    await sendOtpSms({
-      phone,
-      code,
-      purpose,
-      recipientName,
-    });
-
-    return NextResponse.json({
-      ok: true,
-      success: true,
-      phone,
-      purpose,
-    });
-  } catch (error) {
-    if (error instanceof OtpError) {
-      return NextResponse.json(
-        {
-          error: error.message,
-          code: error.code,
-          details: error.details ?? null,
-        },
-        { status: error.status || 400 },
-      );
-    }
-
-    console.error('[auth/otp/send] error', error);
-
-    return NextResponse.json(
-      { error: 'Unable to send OTP right now' },
-      { status: 500 },
-    );
-  }
+/**
+ * Legacy endpoint retired for security.
+ *
+ * This route previously accepted a caller-supplied OTP code and forwarded it
+ * through the SMS provider. Public callers must never be able to use NEEJEE as
+ * an arbitrary security-code SMS relay. All supported OTP delivery now starts
+ * with /api/auth/otp/request, where the server generates, hashes, rate-limits
+ * and persists the code before delivery.
+ */
+export async function POST() {
+  return NextResponse.json(
+    {
+      error: 'Legacy OTP send endpoint is disabled. Request a server-generated OTP instead.',
+      code: 'LEGACY_OTP_SEND_DISABLED',
+    },
+    {
+      status: 410,
+      headers: { 'Cache-Control': 'no-store' },
+    },
+  );
 }
