@@ -2,7 +2,7 @@
 // app/admin/telecaller/page.tsx
 // v26.3a — Telecaller dashboard. Queue of T+7d abandoned carts.
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 interface Cart {
   id: string;
@@ -35,13 +35,15 @@ export default function TelecallerPage() {
   const [openId, setOpenId] = useState<string | null>(null);
   const [notesDraft, setNotesDraft] = useState('');
 
-  const load = async () => {
+  const load = useCallback(async () => {
     const res = await fetch(`/api/admin/telecaller?outcome=${filter}`);
     const d = await res.json();
     setCarts(d.carts || []);
-  };
+  }, [filter]);
 
-  useEffect(() => { load(); /* eslint-disable-next-line */ }, [filter]);
+  useEffect(() => {
+    void load();
+  }, [load]);
 
   const setOutcome = async (id: string, status: string, notes?: string) => {
     await fetch(`/api/admin/abandoned-carts/${id}`, {
