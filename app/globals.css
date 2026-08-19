@@ -14,6 +14,8 @@
     --monsoon: #6B6862;
     --neem: #5A6F3F;
     --haldi: #D4A02A;
+    --paper: #F8F3EA;
+    --paper-deep: #EFE5D7;
   }
   html { -webkit-font-smoothing: antialiased; }
   body {
@@ -27,7 +29,7 @@
     letter-spacing: -0.01em;
   }
   ::selection { background: var(--madder); color: var(--ivory); }
-  input, textarea, button { font-family: inherit; }
+  input, textarea, button, select { font-family: inherit; }
 
   :where(a, button, input, textarea, select, summary, [tabindex]):focus-visible {
     outline: 3px solid var(--madder);
@@ -89,6 +91,17 @@
     margin-left: auto;
     margin-right: auto;
   }
+
+  /* Compatibility utilities retained for later hardened customer routes. */
+  .ornament-rule { display: flex; align-items: center; gap: 10px; color: var(--madder); }
+  .ornament-rule::before, .ornament-rule::after { content: ''; height: 1px; width: 72px; background: rgba(139,46,42,0.38); }
+  .paper-panel { background: rgba(248,243,234,0.86); border: 1px solid rgba(107,68,35,0.18); box-shadow: 0 14px 40px rgba(43,28,17,0.055); }
+  .editorial-kicker { font-family: var(--font-ui), sans-serif; font-size: 10px; letter-spacing: 0.24em; text-transform: uppercase; color: var(--madder); }
+  .micro-link { font-family: var(--font-ui), sans-serif; font-size: 10px; letter-spacing: 0.19em; text-transform: uppercase; color: var(--madder); text-underline-offset: 4px; }
+  .micro-link:hover { text-decoration: underline; }
+  .neejee-field { width: 100%; background: rgba(255,255,255,0.25); border: 1px solid rgba(107,68,35,0.28); padding: 12px 14px; color: var(--kohl); transition: border-color 0.18s ease, background-color 0.18s ease; }
+  .neejee-field:focus { border-color: var(--madder); background: rgba(255,255,255,0.45); outline: none; }
+
   @media (min-width: 768px) {
     .editorial-pullquote { font-size: 24px; }
   }
