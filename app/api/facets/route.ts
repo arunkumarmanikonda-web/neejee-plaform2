@@ -5,7 +5,7 @@ import { resolveCategoryWhere } from '@/lib/category-resolve';
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
-const READ_MODEL_VERSION = 'phase2.facets.v2';
+const READ_MODEL_VERSION = 'phase2.facets.v3';
 
 const CANONICAL_STOCK_VISIBILITY = [
   'IN_STOCK_ONLY',
@@ -240,8 +240,42 @@ function tallyBadges(values: string[]) {
     .sort((a, b) => b[1] - a[1]);
 }
 
+function normalizeAudienceToken(value: string) {
+  return value.trim().replace(/[\s_-]+/g, '_').toUpperCase();
+}
+
+function humanizeAudienceToken(value: string) {
+  return titleCase(value.trim().replace(/[_-]+/g, ' '));
+}
+
+function splitAudienceTokens(value: string | null) {
+  if (!value) return [];
+  return value
+    .split('|')
+    .map((token) => normalizeAudienceToken(token))
+    .filter(Boolean);
+}
+
 function tallyAudience(values: Array<string | null>) {
-  return tally(values);
+  const map: Record<string, { display: string; count: number }> = {};
+
+  for (const value of values) {
+    const seenForProduct = new Set<string>();
+    for (const token of splitAudienceTokens(value)) {
+      const key = token.toLowerCase();
+      if (seenForProduct.has(key)) continue;
+      seenForProduct.add(key);
+
+      if (!map[key]) {
+        map[key] = { display: humanizeAudienceToken(token), count: 0 };
+      }
+      map[key].count += 1;
+    }
+  }
+
+  return Object.values(map)
+    .map(({ display, count }) => [display, count] as [string, number])
+    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
 }
 
 export async function GET(request: NextRequest) {
@@ -300,7 +334,12 @@ export async function GET(request: NextRequest) {
     }
 
     if (audience) {
-      andClauses.push({ catalogueAudienceTag: audience });
+      andClauses.push({
+        catalogueAudienceTag: {
+          contains: normalizeAudienceToken(audience),
+          mode: 'insensitive',
+        },
+      });
     }
 
     if (search) {
