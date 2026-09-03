@@ -100,8 +100,10 @@ async function recordLoginFailure(keyHash: string) {
 }
 
 async function clearLoginFailures(keyHash: string) {
+  // PostgreSQL function returns void. Cast it to text so Prisma can safely
+  // deserialize the SELECT result instead of throwing P2010 on successful login.
   await prisma.$queryRaw`
-    select private.clear_auth_login_failures(${keyHash})
+    select private.clear_auth_login_failures(${keyHash})::text as cleared
   `;
 }
 
