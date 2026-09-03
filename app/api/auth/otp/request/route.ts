@@ -117,8 +117,49 @@ export async function POST(req: Request) {
       }
 
       if (!expectedRoles.includes(String(existingUser.role))) {
+        const role = String(existingUser.role || '');
+
+        if (purpose === 'login_customer') {
+          if (role === 'SELLER' || role === 'SELLER_STAFF') {
+            return NextResponse.json(
+              {
+                error: 'This mobile number belongs to a Seller Studio account. Please use Seller Studio sign-in.',
+                code: 'DEDICATED_PORTAL_REQUIRED',
+                portal: 'seller',
+                redirect: '/seller/login',
+              },
+              { status: 403 },
+            );
+          }
+
+          if (role === 'VENDOR' || role === 'VENDOR_STAFF') {
+            return NextResponse.json(
+              {
+                error: 'This mobile number belongs to a Vendor Portal account. Please use Vendor Portal sign-in.',
+                code: 'DEDICATED_PORTAL_REQUIRED',
+                portal: 'vendor',
+                redirect: '/vendor/login',
+              },
+              { status: 403 },
+            );
+          }
+
+          return NextResponse.json(
+            {
+              error: 'This mobile number belongs to a protected NEEJEE Admin/Staff account. For security, sign in on this page with the registered email and password. A second-factor SMS code will then be sent to the registered mobile.',
+              code: 'ADMIN_EMAIL_PASSWORD_2FA_REQUIRED',
+              portal: 'admin',
+              redirect: '/login',
+            },
+            { status: 403 },
+          );
+        }
+
         return NextResponse.json(
-          { error: 'This account must use its dedicated portal sign-in method.' },
+          {
+            error: 'This account is registered for a different NEEJEE portal. Please use the correct portal sign-in.',
+            code: 'DEDICATED_PORTAL_REQUIRED',
+          },
           { status: 403 },
         );
       }
