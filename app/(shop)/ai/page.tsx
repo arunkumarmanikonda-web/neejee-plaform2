@@ -30,7 +30,7 @@ export default function AiHubPage() {
           icon={<Camera className="w-7 h-7" />}
           name="AI Mirror"
           tagline="See it on you"
-          body="Upload a portrait. We will mirror NEEJEE pieces onto you — privately, in seconds — so you know how something looks before it ships."
+          body="Sign in first, then upload a portrait. We will mirror NEEJEE pieces onto you — privately, in seconds — so you know how something looks before it ships."
           accent="bg-kohl"
         />
         <Surface
@@ -38,7 +38,7 @@ export default function AiHubPage() {
           icon={<Home className="w-7 h-7" />}
           name="AI Space"
           tagline="See it at home"
-          body="Upload a corner of your room. We will place a textile, a lamp, an artefact — so you know how it lives in your light."
+          body="Sign in first, then upload a corner of your room. We will place a textile, a lamp, an artefact — so you know how it lives in your light."
           accent="bg-mitti"
         />
         <Surface

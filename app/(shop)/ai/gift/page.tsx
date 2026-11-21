@@ -88,8 +88,8 @@ export default function GiftConciergePage() {
             <Field label="THE RELATIONSHIP" placeholder="warm and close, formal, family…" value={brief.relationship} onChange={v => setBrief({ ...brief, relationship: v })} />
 
             <div>
-              <label className="label text-mitti">KIND OF GIFT</label>
-              <select value={brief.productType} onChange={e => setBrief({ ...brief, productType: e.target.value })} className="w-full p-3 bg-beige border border-mitti/20 font-ui text-sm mt-1">
+              <label htmlFor="gift-kind" className="label text-mitti">KIND OF GIFT</label>
+              <select id="gift-kind" value={brief.productType} onChange={e => setBrief({ ...brief, productType: e.target.value })} className="w-full p-3 bg-beige border border-mitti/20 font-ui text-sm mt-1">
                 {PRODUCT_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
               </select>
               <p className="text-[10px] tracking-wider text-mitti/70 mt-1">Leave on “Any” to let us choose freely.</p>
@@ -101,8 +101,9 @@ export default function GiftConciergePage() {
             </div>
 
             <div>
-              <label className="label text-mitti">ANYTHING ELSE</label>
+              <label htmlFor="gift-notes" className="label text-mitti">ANYTHING ELSE</label>
               <textarea
+                id="gift-notes"
                 value={brief.notes}
                 onChange={e => setBrief({ ...brief, notes: e.target.value })}
                 placeholder="She loves indigo. He collects fountain pens. They have a young child…"
@@ -173,10 +174,12 @@ export default function GiftConciergePage() {
 }
 
 function Field({ label, value, onChange, placeholder, type = 'text', required = false }: { label: string; value: string; onChange: (v: string) => void; placeholder?: string; type?: string; required?: boolean }) {
+  const id = `gift-${label.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`;
   return (
     <div>
-      <label className="label text-mitti">{label}{required && <span className="text-madder ml-1">*</span>}</label>
+      <label htmlFor={id} className="label text-mitti">{label}{required && <span className="text-madder ml-1">*</span>}</label>
       <input
+        id={id}
         type={type}
         value={value}
         onChange={e => onChange(e.target.value)}

@@ -70,8 +70,11 @@ function PDPInner() {
 
   const eff = effectivePricePaise(product.sellingPrice, product.salePrice, product.saleStartsAt, product.saleEndsAt);
   const dp = discountPct(product.mrp, eff.price);
-  const inStock = (activeVariant?.inventory ?? product.totalInventory) > 0;
-  const stockLeft = activeVariant?.inventory ?? product.totalInventory;
+  const inStock = activeVariant?.inStock ?? product.inStock ?? product.isInStock ?? false;
+  const exactQuantityVisible = product.stock?.showExactQuantity === true;
+  const stockLeft = exactQuantityVisible
+    ? (activeVariant?.inventory ?? product.totalInventory ?? 0)
+    : 50;
 
   const handleAdd = () => {
     addItem({
@@ -237,7 +240,7 @@ function PDPInner() {
                   const variant = variants.find((v: any) => v.size === s && (!activeVariant?.color || v.color === activeVariant.color));
                   return (
                     <button key={s} onClick={() => { if (variant) { setActiveVariant(variant); setActiveImage(0); } }}
-                      disabled={!variant || variant.inventory === 0}
+                      disabled={!variant || !variant.inStock}
                       className={`px-4 py-2 font-ui text-xs tracking-widest border transition-colors ${activeVariant?.id === variant?.id ? 'border-madder bg-madder text-ivory' : 'border-mitti/30 text-kohl hover:border-kohl'} disabled:opacity-30 disabled:line-through`}>
                       {s}
                     </button>
@@ -262,7 +265,7 @@ function PDPInner() {
                 {fulfilmentStatusLine(product)
                   ? null
                   : (inStock
-                      ? (stockLeft <= 3 ? `Only ${stockLeft} left · found personally` : 'Ready to ship')
+                      ? (exactQuantityVisible && stockLeft <= 3 ? `Only ${stockLeft} left · found personally` : 'Ready to ship')
                       : 'Sold out')}
               </p>
             </div>
