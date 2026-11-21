@@ -3,13 +3,17 @@ import { prisma } from '@/lib/prisma';
 import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
 import { ProductCard, type ProductCardData } from '@/components/product/ProductCard';
-import { PitariCounter } from '@/components/home/Pitari';
+import { editLead } from '@/lib/shop-edit-catalog';
+import { shopEdits,editHref } from '@/lib/shop-edits';
+import { FashionFront } from '@/components/home/FashionFront';
+import { StudioDoors } from '@/components/home/StudioDoors';
+import { studioHref } from '@/lib/studio';
 import { HeroCarousel } from '@/components/home/HeroCarousel';
 import { resolveMedia } from '@/lib/catalog/media-read';
 import { buildPricing } from '@/lib/catalog/pricing-read';
 import { formatINR } from '@/lib/money';
 import type { Prisma } from '@prisma/client';
-import { Gift, LampDesk, Shirt } from 'lucide-react';
+
 
 export const revalidate = 60;
 export const runtime = 'nodejs';
@@ -72,12 +76,8 @@ async function getHomeData() {
       include: media,
     });
 
-    const categories = await prisma.category.findMany({
-      where: { active: true, hidden: false, products: { some: publicWhere } },
-      orderBy: [{ featured: 'desc' }, { order: 'asc' }, { name: 'asc' }],
-      select: { id: true, slug: true, name: true },
-      take: 8,
-    });
+    const saree = await editLead(shopEdits[0]);
+    const suit = await editLead(shopEdits[1]);
 
     const heroBanner = await prisma.banner.findMany({
       where: {
@@ -161,6 +161,11 @@ async function getHomeData() {
       title: lead.shortName?.trim() || lead.name,
       name: lead.name,
       image: picture,
+      gallery: [...new Set([picture,...resolveMedia(lead).approvedGallery])].slice(0,6),
+      material: lead.material,
+      roomHref: lead.aiRoomEligible ? studioHref('imagine',lead.slug) : null,
+      mirrorHref: lead.aiTryOnEligible ? studioHref('mirror',lead.slug) : null,
+      slug: lead.slug,
       subtitle: lead.poeticLine,
       origin: [lead.craft, lead.region].filter(Boolean).join(' · '),
       price: formatINR(buildPricing(lead).effectivePrice),
@@ -170,7 +175,7 @@ async function getHomeData() {
     const founder = edit.filter(p => p.id !== (spotlight && lead?.id)).slice(0, 4).map(mapCard);
     const shown = new Set([spotlight && lead?.id, ...founder.map(p => p.id)]);
     return {
-      spotlight, founder, categories,
+      spotlight, founder, saree, suit,
       newArrivals: arrivals.filter(p => !shown.has(p.id)).slice(0, 4).map(mapCard),
       heroBanners: heroBanner,
       founderNoteTitle,
@@ -184,7 +189,7 @@ async function getHomeData() {
       spotlight: null,
       founder: [],
       newArrivals: [],
-      categories: [],
+      saree:null, suit:null,
       heroBanners: [],
       founderNoteTitle: null,
       founderNoteBody: null,
@@ -202,18 +207,16 @@ export default async function HomePage() {
       <Header />
 
       <main>
-        <HeroCarousel banners={data.heroBanners} spotlight={data.spotlight} />
-        <PitariCounter />
-
+        <FashionFront saree={data.saree} suit={data.suit}/>
         <nav aria-label="Shop collections" className="border-y border-mitti/20 bg-ivory">
-          <div className="max-w-8xl mx-auto px-6 lg:px-12 py-4 flex flex-wrap items-center gap-x-6 gap-y-2 font-ui text-sm">
-            <Link className="text-madder font-medium underline underline-offset-4" href="/products">Shop all pieces</Link>
-            {data.categories.map(category => (
-              <Link key={category.id} href={`/categories/${category.slug}`} className="hover:underline underline-offset-4">{category.name}</Link>
-            ))}
-            <Link href="/about" className="sm:ml-auto hover:underline underline-offset-4">Meet NEEJEE</Link>
+          <div className="max-w-8xl mx-auto px-6 lg:px-12 py-4 flex flex-wrap items-center gap-x-7 gap-y-2 font-ui text-sm">
+            {shopEdits.map(edit=><Link key={edit.slug} href={editHref(edit.slug)} className="hover:underline underline-offset-4">{edit.name}</Link>)}
+            <Link className="text-madder underline underline-offset-4" href="/products">Shop all pieces</Link>
+            <Link href="/about" className="sm:ml-auto hover:underline underline-offset-4">Meet Neejee</Link>
           </div>
         </nav>
+        <StudioDoors roomPiece={data.spotlight?.roomHref ? data.spotlight.slug : undefined} wearable={data.saree?.mirror ? data.saree.slug : data.suit?.mirror ? data.suit.slug : undefined}/>
+        {(data.spotlight||data.heroBanners.length>0) && <HeroCarousel banners={data.heroBanners} spotlight={data.spotlight}/>}
 
         {data.founder.length > 0 && (
           <section className="max-w-8xl mx-auto px-6 lg:px-12 py-20">
@@ -282,28 +285,6 @@ export default async function HomePage() {
             </div>
           </section>
         )}
-
-        <section aria-labelledby="personal-shopping" className="bg-kohl text-ivory">
-          <div className="max-w-8xl mx-auto px-6 lg:px-12 py-12 md:py-16 grid lg:grid-cols-[2fr_3fr] gap-8 lg:gap-16">
-            <div>
-              <p className="font-ui text-sm text-beige">Personal shopping</p>
-              <h2 id="personal-shopping" className="font-display text-4xl md:text-5xl leading-tight mt-3">Make it yours.</h2>
-            </div>
-            <div className="divide-y divide-ivory/20 border-y border-ivory/20">
-              {[
-                { href: '/ai/space', title: 'See it in your room', detail: 'Sign in to preview eligible home pieces in your space.', icon: LampDesk },
-                { href: '/ai/mirror', title: 'Try it in the Mirror', detail: 'Sign in to try on eligible pieces with your photo.', icon: Shirt },
-                { href: '/ai/gift', title: 'Find a gift', detail: 'Choose a recipient, an occasion and a budget.', icon: Gift },
-              ].map(item => (
-                <Link key={item.href} href={item.href} className="group flex items-center gap-5 py-5">
-                  <item.icon size={24} strokeWidth={1.25} aria-hidden="true" className="shrink-0 text-beige" />
-                  <div><h3 className="font-display text-2xl group-hover:underline underline-offset-4">{item.title}</h3>
-                    <p className="font-body text-lg text-beige mt-1">{item.detail}</p></div>
-                </Link>
-              ))}
-            </div>
-          </div>
-        </section>
 
         {data.journalEntries.length > 0 && (
           <section className="bg-beige py-20">

@@ -13,6 +13,8 @@ import { WaitlistSignup } from '@/components/product/WaitlistSignup';
 import { ReviewsSection } from '@/components/product/ReviewsSection';
 import { BadgeRow } from '@/components/ui/Badge';
 import { track } from '@/lib/analytics';
+import { ShareFind } from '@/components/product/ShareFind';
+import { studioHref } from '@/lib/studio';
 import { CompleteTheLook } from '@/components/product/CompleteTheLook';
 
 export const dynamic = 'force-dynamic';
@@ -164,19 +166,13 @@ function PDPInner() {
             {eff.onSale && (
               <span className="absolute top-4 left-4 badge-founder">ON SALE · -{dp}%</span>
             )}
-            {product.aiTryOnEligible && (
-              <span className="absolute top-4 right-4 bg-kohl/80 text-ivory text-[10px] px-3 py-1 font-ui tracking-widest">✦ MIRROR ELIGIBLE</span>
-            )}
-            {product.aiRoomEligible && (
-              <span className={`absolute ${product.aiTryOnEligible ? 'top-12' : 'top-4'} right-4 bg-mitti/90 text-ivory text-[10px] px-3 py-1 font-ui tracking-widest`}>✦ SPACE ELIGIBLE</span>
-            )}
             {product.arTryOnEligible && (
               <span className="absolute top-20 right-4 bg-madder/85 text-ivory text-[10px] px-3 py-1 font-ui tracking-widest">✦ AR TRY-ON</span>
             )}
           </div>
           {galleryImages?.length > 1 && (
             <div className="grid grid-cols-5 gap-2 mt-2">
-              {galleryImages.slice(0, 5).map((img: string, i: number) => (
+              {galleryImages.map((img: string, i: number) => (
                 <button key={i} onClick={() => setActiveImage(i)}
                   className={`aspect-square overflow-hidden bg-beige ${activeImage === i ? 'ring-2 ring-madder' : ''}`}>
                   <Image src={img} alt={`View ${i + 1}`} width={150} height={150} className="w-full h-full object-cover" />
@@ -211,6 +207,10 @@ function PDPInner() {
           </div>
           <p className="font-ui text-xs text-mitti mt-1">Inclusive of all taxes</p>
 
+          {(product.aiTryOnEligible || product.aiRoomEligible) && inStock && <div className="my-5 flex flex-wrap gap-3">
+            {product.aiRoomEligible && <Link className="border border-mitti px-4 py-3 font-ui text-sm" href={studioHref('imagine',product.slug,activeVariant?.id)}>AI Imagine · See it in my room</Link>}
+            {product.aiTryOnEligible && <Link className="border border-mitti px-4 py-3 font-ui text-sm" href={studioHref('mirror',product.slug,activeVariant?.id)}>AI Mirror · Try it on</Link>}
+          </div>}
           {colors.length > 0 && (
             <div className="mt-8">
               <p className="label text-mitti mb-3">COLOR · {(activeVariant?.color || '').toUpperCase()}</p>
@@ -311,36 +311,9 @@ function PDPInner() {
               <dt>Delivery</dt><dd><Link className="underline" href="/help/shipping">Shipping and delivery</Link></dd>
               <dt>Returns</dt><dd>{product.returnPolicy || (product.returnEligible?'Eligible under the returns policy.':'This piece is marked ineligible for return.')} <Link className="underline" href="/help/returns">Read policy</Link></dd>
             </dl>
-            <button className="mt-4 text-madder underline underline-offset-4" onClick={()=>window.dispatchEvent(new CustomEvent('neejee:ask-pitari',{detail:'Where is it from?'}))}>Ask Pitari about this piece</button>
+            <button className="mt-4 text-madder underline underline-offset-4" onClick={()=>window.dispatchEvent(new CustomEvent('neejee:ask-pitari',{detail:'Where is it from?'}))}>Ask about this piece</button>
+            <ShareFind href={'/products/'+product.slug} name={product.name}/>
           </section>
-
-          {product.aiTryOnEligible && (
-            <Link href={`/ai/mirror?product=${product.id}`}
-              className="mt-6 block bg-kohl text-ivory p-5 hover:bg-mitti transition-colors">
-              <div className="flex items-center gap-3">
-                <Sparkles className="w-5 h-5 text-banarasi" />
-                <div>
-                  <p className="font-ui text-[10px] tracking-widest text-banarasi">THE NEEJEE MIRROR</p>
-                  <p className="font-display text-lg">See how it may live on you</p>
-                  <p className="font-italic italic text-xs text-ivory/70 mt-1">Preview the mood, personally rendered.</p>
-                </div>
-              </div>
-            </Link>
-          )}
-
-          {product.aiRoomEligible && (
-            <Link href={`/ai/space?product=${product.id}`}
-              className="mt-3 block bg-mitti text-ivory p-5 hover:bg-kohl transition-colors">
-              <div className="flex items-center gap-3">
-                <Home className="w-5 h-5 text-banarasi" />
-                <div>
-                  <p className="font-ui text-[10px] tracking-widest text-banarasi">THE NEEJEE SPACE</p>
-                  <p className="font-display text-lg">Place it personally</p>
-                  <p className="font-italic italic text-xs text-ivory/70 mt-1">See this piece within your own room.</p>
-                </div>
-              </div>
-            </Link>
-          )}
 
           {product.arTryOnEligible && (
             <Link href={`/ai/tryon?product=${product.id}`}

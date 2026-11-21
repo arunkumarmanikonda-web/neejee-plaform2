@@ -1,6 +1,7 @@
 'use client';
 
 import { Suspense, useEffect, useMemo, useState } from 'react';
+import { localReturn } from '@/lib/studio';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Loader2, ArrowLeft } from 'lucide-react';
@@ -51,7 +52,7 @@ function needsProfileCompletion(user?: Partial<SessionUser> | null) {
 function CompleteProfileInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const nextParam = searchParams?.get('next') || '/account';
+  const nextParam = localReturn(searchParams?.get('next'),'/account');
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -79,7 +80,7 @@ function CompleteProfileInner() {
         });
 
         if (!res.ok) {
-          router.replace('/login?next=/complete-profile');
+          router.replace('/login?next='+encodeURIComponent('/complete-profile?next='+encodeURIComponent(nextParam)));
           return;
         }
 
@@ -87,7 +88,7 @@ function CompleteProfileInner() {
         if (cancelled) return;
 
         if (!data.user) {
-          router.replace('/login?next=/complete-profile');
+          router.replace('/login?next='+encodeURIComponent('/complete-profile?next='+encodeURIComponent(nextParam)));
           return;
         }
 
@@ -112,7 +113,7 @@ function CompleteProfileInner() {
         setWhatsappOptIn(!!currentUser.whatsappOptIn);
         setEmailOptIn(currentUser.emailOptIn ?? true);
       } catch {
-        router.replace('/login?next=/complete-profile');
+        router.replace('/login?next='+encodeURIComponent('/complete-profile?next='+encodeURIComponent(nextParam)));
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -121,7 +122,7 @@ function CompleteProfileInner() {
     return () => {
       cancelled = true;
     };
-  }, [router]);
+  }, [router,nextParam]);
 
   const incomplete = useMemo(() => {
     return needsProfileCompletion({

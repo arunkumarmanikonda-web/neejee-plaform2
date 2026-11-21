@@ -16,6 +16,13 @@ export async function POST(req: Request) {
   if (Number(req.headers.get('content-length')) > 4096) return reply({text:'Please ask a shorter question.', links:[]},413);
   try { body = await req.json(); } catch { return reply({text:'Please enter a question.',links:[]},400); }
   if (typeof body?.message !== 'string' || !body.message.trim() || body.message.length > 320) return reply({text:'Ask a question of up to 320 characters.',links:[]},400);
+  const question=body.message.trim().toLowerCase();
+  if (/help me choose a (saree|sari)|saree guide/.test(question)) return reply({text:'Start with a fabric you already enjoy wearing. In the saree edit, open The blouse to see what to check before ordering.',links:[{label:'Choosing your saree',href:'/edits/sarees'},{label:'Visit the fitting room',href:'/ai/mirror'}]});
+  if (/what comes in a suit|included in (this |the |a )?(suit|set)|blouse piece|measurements/.test(question)) {
+    const links=typeof body.piece==='string' && /^[\w-]{1,160}$/.test(body.piece)?[{label:'View the selected piece',href:'/products/'+body.piece}]:[];
+    return reply({text:'A suit may include a kurta, bottoms and a dupatta. A saree may include separate blouse fabric. The contents and measurements depend on the piece. Our team can confirm exactly what comes with your selection.',links:[...links,{label:'Choosing your suit',href:'/edits/suits'},...serviceReplies.contact.links]});
+  }
+  if (/how does mirror|how to (try on|use mirror)|fitting room/.test(question)) return reply({text:'Open Mirror and choose an eligible garment and colour or size. Sign in, add your photo and create a styling preview. The garment measurements are the guide for fit.',links:[{label:'Open AI Mirror',href:'/ai/mirror'}]});
   const p = parsePitari(body.message);
   if (p.service) return reply(serviceReplies[p.service]);
   const prior = typeof body.piece === 'string' && /^[\w-]{1,160}$/.test(body.piece) ? body.piece : undefined;
@@ -23,8 +30,11 @@ export async function POST(req: Request) {
   const keywords = [...p.terms,...p.words].slice(0,5);
   if (!keywords.length && !p.detail && !p.browse && !p.gift && p.maxPaise === undefined) return reply({text:'Tell me the piece, material or gift budget you have in mind. I can also help with shipping or returns.', links:[shop]});
   for (const word of keywords) {
-    const value = {contains:word, mode:'insensitive' as const};
-    filters.push({OR:[{name:value},{shortName:value},{craft:value},{region:value},{material:value},{category:{name:value}}]});
+    const variants = word==='sari' ? ['sari','saree'] : [word];
+    filters.push({OR:variants.flatMap(term=>{
+      const value={contains:term,mode:'insensitive' as const};
+      return [{name:value},{shortName:value},{craft:value},{region:value},{material:value},{category:{name:value}}];
+    })});
   }
   if (p.detail && prior && !keywords.length) filters.push({slug:prior});
   const now = new Date();

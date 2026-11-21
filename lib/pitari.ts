@@ -1,6 +1,6 @@
 export type PitariLink = { label: string; href: string };
 export type PitariReply = { text: string; links: PitariLink[]; piece?: string };
-export const pitariTopics = ['A gift under ₹5,000', 'Where is it from?', 'Shipping to my home'];
+export const pitariTopics = ['Help me choose a saree', 'What comes in a suit?', 'How does Mirror work?'];
 const synonyms: [RegExp, string][] = [
   [/\b(lamps?|lighting|roshni)\b|लैंप|रोशनी/i, 'lamp'],
   [/\b(sarees?|saris?)\b|साड़ी/i, 'sari'],

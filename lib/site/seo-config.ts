@@ -72,14 +72,14 @@ export const SEO_FIELD_META: Record<SeoFieldKey, SeoFieldMeta> = {
   NEXT_PUBLIC_DEFAULT_META_DESCRIPTION: {
     label: 'Default meta description',
     helper: 'Fallback search description used across the site.',
-    defaultValue: "India's finest craft — hand-woven sarees, oxidised silver, mitti attars, Phulkari dupattas. Personally chosen, founder-verified.",
+    defaultValue: "Discover Neejee’s edit of sarees, suits and a few pieces for the home. Found. Personal.",
     multiline: true,
     placeholder: 'Write the default search description',
   },
   NEXT_PUBLIC_META_KEYWORDS: {
     label: 'Meta keywords',
     helper: 'Comma-separated keyword list for the default metadata footprint.',
-    defaultValue: 'Indian craft, Banarasi saree, Phulkari, handloom, Kanjeevaram, Indian jewellery, attar, Indian luxury',
+    defaultValue: 'Indian fashion, sarees, salwar suits, kurta sets, Indian craft, home décor',
     multiline: true,
     placeholder: 'keyword one, keyword two, keyword three',
   },
@@ -92,7 +92,7 @@ export const SEO_FIELD_META: Record<SeoFieldKey, SeoFieldMeta> = {
   NEXT_PUBLIC_OG_DESCRIPTION: {
     label: 'Open Graph description',
     helper: 'Default Open Graph description for social previews.',
-    defaultValue: "India's finest craft, personally chosen. Hand-woven sarees, oxidised silver, mitti attars.",
+    defaultValue: "Sarees, suits and a few pieces for the home, personally chosen by Neejee.",
     multiline: true,
     placeholder: 'Default OG description',
   },
@@ -275,8 +275,8 @@ export function getRootMetadata(): Metadata {
       images: [seo.ogImageUrl],
     },
     icons: {
-      icon: [{ url: '/brand/neejee-personal-mark.svg', type: 'image/svg+xml', sizes: 'any' }],
-      apple: [{ url: '/brand/neejee-personal-apple.png', type: 'image/png', sizes: '180x180' }],
+      icon: [{ url: '/brand/neejee-mark.svg', type: 'image/svg+xml', sizes: 'any' }],
+      apple: [{ url: '/brand/apple-touch-icon.png', type: 'image/png', sizes: '180x180' }],
     },
     manifest: '/manifest.json',
     appleWebApp: {

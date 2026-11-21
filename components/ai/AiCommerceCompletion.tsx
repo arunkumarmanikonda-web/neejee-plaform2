@@ -12,6 +12,7 @@ type Variant = {
   size?: string | null;
   color?: string | null;
   inventory?: number | null;
+  inStock?: boolean;
 };
 
 export type AiSourceProduct = {
@@ -85,7 +86,7 @@ export function AiCommerceCompletion({
   }, [sourceProduct.id]);
 
   const inStockSourceVariants = useMemo(
-    () => (sourceProduct.variants || []).filter(variant => Number(variant.inventory || 0) > 0),
+    () => (sourceProduct.variants || []).filter(variant => variant.inStock ?? Number(variant.inventory || 0) > 0),
     [sourceProduct.variants],
   );
 
@@ -96,7 +97,7 @@ export function AiCommerceCompletion({
     return inStockSourceVariants.length === 1 ? inStockSourceVariants[0] : null;
   }, [inStockSourceVariants, sourceVariantId]);
 
-  const sourceNeedsChoice = inStockSourceVariants.length > 1 && !sourceVariant;
+  const sourceNeedsChoice = !sourceVariant;
   const selectedRecommendations = recommendations.filter(item => selected.has(item.id) && item.quickAddVariant && !item.requiresChoice);
 
   const sourcePrice = effectivePricePaise(

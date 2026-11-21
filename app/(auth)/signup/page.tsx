@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, Suspense } from 'react';
+import { localReturn } from '@/lib/studio';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Eye, EyeOff, Gift } from 'lucide-react';
@@ -25,6 +26,7 @@ export default function SignupPage() {
 function SignupInner() {
   const searchParams = useSearchParams();
   const router = useRouter();
+  const nextPath=localReturn(searchParams?.get('next'));
 
   const [form, setForm] = useState({
     name: '',
@@ -83,7 +85,7 @@ function SignupInner() {
         throw new Error(d.error || 'Signup failed');
       }
 
-      router.push('/account');
+      router.push(nextPath || '/account');
       router.refresh();
     } catch (e: any) {
       setError(e.message || 'Signup failed');
@@ -257,7 +259,7 @@ function SignupInner() {
 
         <p className="font-italic italic text-mitti text-center mt-10">
           Already a member?{' '}
-          <Link href="/login" className="text-madder underline">
+          <Link href={nextPath ? '/login?next='+encodeURIComponent(nextPath) : '/login'} className="text-madder underline">
             Sign in
           </Link>
         </p>

@@ -254,6 +254,20 @@ export async function createSignedUploadUrl(
   };
 }
 
+export async function privateStudioReadUrl(filePath:string):Promise<string> {
+  const path=safeObjectPath(filePath);
+  if (!path || !storageConfigured()) throw Error('Private photo unavailable');
+  const endpoint=SUPABASE_URL+'/storage/v1/object/sign/'+encodeURIComponent(PRIVATE_AI_STORAGE_BUCKET)+'/'+path.split('/').map(encodeURIComponent).join('/');
+  const res=await fetch(endpoint,{method:'POST',headers:{Authorization:'Bearer '+SUPABASE_SERVICE_KEY, apikey:SUPABASE_SERVICE_KEY,'Content-Type':'application/json'},body:JSON.stringify({expiresIn:1800}),cache:'no-store'});
+  if (!res.ok) throw Error('Could not prepare the private photo');
+  const data=await res.json();
+  if (typeof data.signedURL!=='string') throw Error('Photo link unavailable');
+  const candidate = data.signedURL.startsWith('/object/sign/') ? '/storage/v1'+data.signedURL : data.signedURL;
+  const signed = new URL(candidate,SUPABASE_URL);
+  if (signed.origin !== new URL(SUPABASE_URL).origin || !signed.pathname.startsWith('/storage/v1/object/sign/')) throw Error('Photo link unavailable');
+  return signed.href;
+}
+
 /** Fetch one private AI object server-side using the service role. */
 export async function fetchPrivateAiObject(filePath: string): Promise<Response> {
   if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) throw new Error('Supabase storage not configured');

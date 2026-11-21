@@ -1,131 +1,19 @@
 'use client';
-
 import Link from 'next/link';
-import { useEffect, useMemo, useState } from 'react';
-import { getCategoryTree, type CategoryTreeNode } from '@/lib/client/category-tree';
+import { useEffect,useState } from 'react';
+import { getCategoryTree,type CategoryTreeNode } from '@/lib/client/category-tree';
+import { shopEdits,editHref } from '@/lib/shop-edits';
 
-type NavNode = CategoryTreeNode & {
-  path: string;
-  children: NavNode[];
-};
-
-const MAIN_ORDER = ['women', 'men', 'accessories', 'home', 'fragrance', 'gifting'];
-
-function hrefFor(node: Pick<NavNode, 'slug'>) {
-  return '/categories/' + encodeURIComponent(node.slug);
+export function stockedDepartments(tree:CategoryTreeNode[]) {
+  return tree.filter(node=>!['women','home'].includes(node.slug) && node.active!==false && !node.hidden && Number(node.descendantSellableCount||node.directSellableCount||0)>0);
 }
-
-function orderRoots(nodes: NavNode[]) {
-  const rank = new Map(MAIN_ORDER.map((slug, i) => [slug, i]));
-  return [...nodes].sort((a, b) => {
-    const ai = rank.has(a.slug) ? rank.get(a.slug)! : 999;
-    const bi = rank.has(b.slug) ? rank.get(b.slug)! : 999;
-    if (ai !== bi) return ai - bi;
-    return a.name.localeCompare(b.name);
-  });
-}
-
-function orderChildren(nodes: NavNode[]) {
-  return [...nodes].sort((a, b) => a.name.localeCompare(b.name));
-}
-
 export default function MegaMenuNav() {
-  const [mains, setMains] = useState<NavNode[]>([]);
-  const [openId, setOpenId] = useState<string | null>(null);
-
-  useEffect(() => {
-    let alive = true;
-
-    async function loadTree() {
-      try {
-        const menuPreview = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('menuPreview') === '1';
-        const tree = await getCategoryTree(menuPreview);
-        const merged = tree
-          .map((node) => ({
-            ...node!,
-            path: node!.path || node!.slug,
-            children: (node!.children || []).map((child) => ({
-              ...child,
-              path: child.path || child.slug,
-              children: (child.children || []).map((grandchild) => ({
-                ...grandchild,
-                path: grandchild.path || grandchild.slug,
-                children: (grandchild.children || []) as NavNode[],
-              })) as NavNode[],
-            })) as NavNode[],
-          })) as NavNode[];
-
-        if (alive) setMains(orderRoots(merged));
-      } catch {
-        // The shop and journal links remain usable while the taxonomy is unavailable.
-      }
-    }
-
-    loadTree();
-    return () => { alive = false; };
-  }, []);
-
-  const orderedMains = useMemo(() => orderRoots(mains), [mains]);
-
-  return (
-    <nav aria-label="Shop navigation" className="hidden lg:flex items-center gap-6">
-      <Link href="/products" className="text-sm font-medium uppercase tracking-widest">Shop all</Link>
-      {orderedMains.map((main) => {
-        const children = Array.isArray(main.children) ? orderChildren(main.children) : [];
-        const hasChildren = children.length > 0;
-
-        return (
-          <div
-            key={main.id}
-            className="relative"
-            onFocus={() => hasChildren && setOpenId(main.id)}
-            onBlur={e => {if (!e.currentTarget.contains(e.relatedTarget)) setOpenId(null);}}
-            onKeyDown={e => {if(e.key==='Escape') setOpenId(null);}}
-            onMouseEnter={() => hasChildren && setOpenId(main.id)}
-            onMouseLeave={() => setOpenId((curr) => (curr === main.id ? null : curr))}
-          >
-            <Link
-              href={hrefFor(main)}
-              className="inline-flex items-center text-[13px] font-medium uppercase tracking-[0.18em] text-neutral-900 hover:text-black"
-            >
-              {main.name}
-            </Link>
-
-            {hasChildren && openId === main.id && (
-              <div className="absolute left-0 top-full z-[120] w-max max-w-[min(68vw,48rem)] rounded-2xl border border-neutral-200 bg-white p-6 shadow-2xl">
-                <div className="flex flex-wrap gap-8">
-                  {children.map((l2) => {
-                    const l3s = Array.isArray(l2.children) ? orderChildren(l2.children) : [];
-                    return (
-                      <div key={l2.id} className="min-w-0">
-                        <Link href={hrefFor(l2)} className="mb-3 block text-[12px] font-semibold uppercase tracking-[0.16em] text-neutral-900 hover:text-black">
-                          {l2.name}
-                        </Link>
-                        <div className="space-y-2">
-                          {l3s.length > 0 ? l3s.map((l3) => (
-                            <Link key={l3.id} href={hrefFor(l3)} className="block text-sm text-neutral-600 hover:text-black">
-                              {l3.name}
-                            </Link>
-                          )) : (
-                            <Link href={hrefFor(l2)} className="block text-sm text-neutral-600 hover:text-black">View all</Link>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-          </div>
-        );
-      })}
-
-      <Link href="/journal" className="inline-flex items-center text-[13px] font-medium uppercase tracking-[0.18em] text-neutral-900 hover:text-black">
-        STORIES
-      </Link>
-      <Link href="/ai" className="inline-flex items-center text-[13px] font-medium uppercase tracking-[0.18em] text-neutral-900 hover:text-black">
-        Personal shopping
-      </Link>
-    </nav>
-  );
+  const [more,setMore]=useState<CategoryTreeNode[]>([]);
+  useEffect(()=>{let active=true;getCategoryTree().then(tree=>{if(active)setMore(stockedDepartments(tree));}).catch(()=>{});return ()=>{active=false;};},[]);
+  return <nav aria-label="Shop navigation" className="hidden lg:flex items-center gap-4 xl:gap-7 font-ui text-[.9rem]">
+    {shopEdits.map(e=><Link key={e.slug} className="font-medium hover:underline underline-offset-4" href={editHref(e.slug)}>{e.name}</Link>)}
+    <Link href="/ai/mirror" className="text-madder hover:underline">AI Mirror</Link><Link href="/ai/imagine" className="text-madder hover:underline">AI Imagine</Link>
+    <details className="relative"><summary className="cursor-pointer">Explore</summary><div className="absolute top-full right-0 z-50 mt-2 w-48 border border-mitti/20 bg-ivory shadow-md p-4 grid gap-3">
+      <Link href="/products">Shop all pieces</Link><Link href="/journal">The Journal</Link>{more.map(node=><Link key={node.id} href={'/categories/'+node.slug}>{node.name}</Link>)}</div></details>
+  </nav>;
 }

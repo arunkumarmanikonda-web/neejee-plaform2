@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { ChevronLeft, ChevronRight, Pause, Play } from 'lucide-react';
+import { ShareFind } from '@/components/product/ShareFind';
 import styles from './HeroCarousel.module.css';
 
 interface HeroBanner {
@@ -23,6 +24,10 @@ interface Spotlight {
   price: string;
   href: string;
   curated: boolean;
+  gallery: string[];
+  material: string | null;
+  roomHref: string | null;
+  mirrorHref: string | null;
 }
 
 const fallback: HeroBanner = {
@@ -34,6 +39,7 @@ export function HeroCarousel({ banners, spotlight }: { banners: HeroBanner[]; sp
   const slides = banners.length || spotlight ? banners : [fallback];
   const count = slides.length + (spotlight ? 1 : 0);
   const [index, setIndex] = useState(0);
+  const [photoIndex,setPhotoIndex]=useState(0);
   const [playing, setPlaying] = useState(false);
   const [hover, setHover] = useState(false);
   const touchStart = useRef<{ x: number; y: number } | null>(null);
@@ -65,26 +71,30 @@ export function HeroCarousel({ banners, spotlight }: { banners: HeroBanner[]; sp
         const dx = e.changedTouches[0].clientX - touchStart.current.x;
         const dy = e.changedTouches[0].clientY - touchStart.current.y;
         touchStart.current = null;
+        if ((e.target as HTMLElement).closest('[data-photo-gallery]')) return;
         if (Math.abs(dx) > 65 && Math.abs(dx) > Math.abs(dy) * 1.5) step(dx < 0 ? 1 : -1);
       }}>
       {piece ? (
         <div className={styles.feature}>
           <div className={styles.copy}>
-            <p className={styles.wordmark}><span lang="hi">निजी</span> <span>Something of your own</span></p>
-            <p className={styles.kicker}>{piece.curated ? 'The founder’s edit' : 'New to NEEJEE'}</p>
-            <h1 className={styles.title}>{piece.title}</h1>
+            <p className={styles.kicker}>{piece.curated ? 'From the founder’s edit' : 'New in the shop'}</p>
+            <h2 className={styles.title}>{piece.title}</h2>
             {piece.subtitle && <p className={styles.line}>{piece.subtitle}</p>}
-            {piece.origin && <p className={styles.origin}>{piece.origin}</p>}
-            <div className={styles.actions}>
-              <Link className={styles.cta} href={piece.href}>Explore the piece</Link>
-              <span className={styles.price}>{piece.price}</span>
-            </div>
+            <dl className={styles.facts}>{[['Origin',piece.origin],['Material',piece.material]].map(([label,value])=>value && <div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}</dl>
+            <div className={styles.actions}><Link className={styles.cta} href={piece.href}>Shop this piece <span>{piece.price}</span></Link>
+              {piece.roomHref && <Link className={styles.studioLink} href={piece.roomHref}>See it in my room</Link>}
+              {piece.mirrorHref && <Link className={styles.studioLink} href={piece.mirrorHref}>Try it on in Mirror</Link>}</div>
+            <ShareFind href={piece.href} name={piece.name}/>
           </div>
-          <Link href={piece.href} aria-label={piece.name} className={styles.photo}>
-            {/* Approved catalogue images may be served from different media providers. */}
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={piece.image} alt={piece.name} fetchPriority="high" />
-          </Link>
+          <div className={styles.gallery} data-photo-gallery>
+            <Link href={piece.href} aria-label={piece.name} className={styles.photo}>
+              <img src={piece.gallery[photoIndex] || piece.image} alt={piece.name} fetchPriority="high" />
+            </Link>
+            {piece.gallery.length>1 && <div className={styles.film} aria-label="Photographs of the featured piece">
+              {piece.gallery.map((src,i)=><button type="button" key={src} aria-label={'View photograph '+(i+1)} aria-pressed={photoIndex===i} onClick={()=>{setPlaying(false);setPhotoIndex(i);}}>
+                <img src={src} alt="" loading="lazy"/></button>)}
+            </div>}
+          </div>
         </div>
       ) : (
         <div className={styles.campaign}>
@@ -94,7 +104,7 @@ export function HeroCarousel({ banners, spotlight }: { banners: HeroBanner[]; sp
           )}
           <div className={styles.campaignCopy}>
             <p className={styles.kicker}>NEEJEE</p>
-            <h1 className={styles.title}>{banner.title || 'Found. Personal.'}</h1>
+            <h2 className={styles.title}>{banner.title || 'Found. Personal.'}</h2>
             {banner.subtitle && <p className={styles.line}>{banner.subtitle}</p>}
             <Link className={styles.cta} href={banner.ctaUrl || '/products'}>{banner.ctaText || 'Explore the collection'}</Link>
           </div>
