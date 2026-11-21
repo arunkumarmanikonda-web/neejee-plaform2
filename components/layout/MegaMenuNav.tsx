@@ -11,15 +11,6 @@ type NavNode = CategoryTreeNode & {
 
 const MAIN_ORDER = ['women', 'men', 'accessories', 'home', 'fragrance', 'gifting'];
 
-const FALLBACK_MAINS: NavNode[] = [
-  { id: 'fallback-women', slug: 'women', name: 'WOMEN', level: 1, path: 'women', parentId: null, children: [] },
-  { id: 'fallback-men', slug: 'men', name: 'MEN', level: 1, path: 'men', parentId: null, children: [] },
-  { id: 'fallback-accessories', slug: 'accessories', name: 'ACCESSORIES', level: 1, path: 'accessories', parentId: null, children: [] },
-  { id: 'fallback-home', slug: 'home', name: 'HOME', level: 1, path: 'home', parentId: null, children: [] },
-  { id: 'fallback-fragrance', slug: 'fragrance', name: 'FRAGRANCE', level: 1, path: 'fragrance', parentId: null, children: [] },
-  { id: 'fallback-gifting', slug: 'gifting', name: 'GIFTING', level: 1, path: 'gifting', parentId: null, children: [] },
-];
-
 function hrefFor(node: Pick<NavNode, 'slug'>) {
   return '/categories/' + encodeURIComponent(node.slug);
 }
@@ -39,7 +30,7 @@ function orderChildren(nodes: NavNode[]) {
 }
 
 export default function MegaMenuNav() {
-  const [mains, setMains] = useState<NavNode[]>(FALLBACK_MAINS);
+  const [mains, setMains] = useState<NavNode[]>([]);
   const [openId, setOpenId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -49,10 +40,7 @@ export default function MegaMenuNav() {
       try {
         const menuPreview = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('menuPreview') === '1';
         const tree = await getCategoryTree(menuPreview);
-        const fetchedBySlug = new Map(tree.map((n) => [n.slug, n]));
-        const merged = MAIN_ORDER
-          .map((slug) => fetchedBySlug.get(slug))
-          .filter(Boolean)
+        const merged = tree
           .map((node) => ({
             ...node!,
             path: node!.path || node!.slug,
@@ -67,9 +55,9 @@ export default function MegaMenuNav() {
             })) as NavNode[],
           })) as NavNode[];
 
-        if (alive && merged.length > 0) setMains(orderRoots(merged));
+        if (alive) setMains(orderRoots(merged));
       } catch {
-        // Keep the stable fallback navigation if the taxonomy service is unavailable.
+        // The shop and journal links remain usable while the taxonomy is unavailable.
       }
     }
 
@@ -80,7 +68,8 @@ export default function MegaMenuNav() {
   const orderedMains = useMemo(() => orderRoots(mains), [mains]);
 
   return (
-    <nav className="hidden lg:flex items-center gap-6">
+    <nav aria-label="Shop navigation" className="hidden lg:flex items-center gap-6">
+      <Link href="/products" className="text-sm font-medium uppercase tracking-widest">Shop all</Link>
       {orderedMains.map((main) => {
         const children = Array.isArray(main.children) ? orderChildren(main.children) : [];
         const hasChildren = children.length > 0;
@@ -89,6 +78,9 @@ export default function MegaMenuNav() {
           <div
             key={main.id}
             className="relative"
+            onFocus={() => hasChildren && setOpenId(main.id)}
+            onBlur={e => {if (!e.currentTarget.contains(e.relatedTarget)) setOpenId(null);}}
+            onKeyDown={e => {if(e.key==='Escape') setOpenId(null);}}
             onMouseEnter={() => hasChildren && setOpenId(main.id)}
             onMouseLeave={() => setOpenId((curr) => (curr === main.id ? null : curr))}
           >
@@ -100,8 +92,8 @@ export default function MegaMenuNav() {
             </Link>
 
             {hasChildren && openId === main.id && (
-              <div className="absolute left-0 top-full z-[120] mt-4 min-w-[860px] rounded-2xl border border-neutral-200 bg-white p-6 shadow-2xl">
-                <div className="grid grid-cols-4 gap-8">
+              <div className="absolute left-0 top-full z-[120] w-max max-w-[min(68vw,48rem)] rounded-2xl border border-neutral-200 bg-white p-6 shadow-2xl">
+                <div className="flex flex-wrap gap-8">
                   {children.map((l2) => {
                     const l3s = Array.isArray(l2.children) ? orderChildren(l2.children) : [];
                     return (
@@ -132,7 +124,7 @@ export default function MegaMenuNav() {
         STORIES
       </Link>
       <Link href="/ai" className="inline-flex items-center text-[13px] font-medium uppercase tracking-[0.18em] text-neutral-900 hover:text-black">
-        AI ✦
+        Personal shopping
       </Link>
     </nav>
   );

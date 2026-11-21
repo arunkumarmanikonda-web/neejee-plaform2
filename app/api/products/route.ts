@@ -332,7 +332,7 @@ export async function GET(request: NextRequest) {
   try {
     let matchedCategory: unknown = null;
     const andClauses: any[] = [
-      { status: 'ACTIVE' },
+      { status: 'ACTIVE', takedownAt: null },
       { catalogueExclude: false },
       buildPublicListingVisibilityWhere(),
     ];

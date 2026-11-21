@@ -247,6 +247,7 @@ export async function GET(req: NextRequest) {
       const products = await prisma.product.findMany({
         where: {
           status: 'ACTIVE',
+          takedownAt: null,
         },
         select: {
           id: true,

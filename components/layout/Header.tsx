@@ -67,7 +67,7 @@ export function Header() {
       <AnnouncementBar />
       <header className="sticky top-0 z-40 bg-ivory border-b border-beige">
         <div className="max-w-8xl mx-auto px-6 lg:px-12 h-20 flex items-center justify-between">
-          <button onClick={() => setOpen(!open)} className="lg:hidden" aria-label="Menu">
+          <button onClick={() => setOpen(!open)} className="lg:hidden" aria-label="Menu" aria-expanded={open}>
             {open ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
           </button>
 
@@ -138,14 +138,8 @@ export function Header() {
         {open && (
           <div className="lg:hidden border-t border-beige bg-ivory max-h-[80vh] overflow-y-auto">
             <nav className="flex flex-col py-2 font-ui text-sm tracking-wide">
-              {(mobileMains.length > 0 ? mobileMains : [
-                { slug: 'women', name: 'Women', subs: [] },
-                { slug: 'men', name: 'Men', subs: [] },
-                { slug: 'accessories', name: 'Accessories', subs: [] },
-                { slug: 'home', name: 'Home', subs: [] },
-                { slug: 'fragrance', name: 'Fragrance', subs: [] },
-                { slug: 'gifting', name: 'Gifting', subs: [] },
-              ]).map(main => {
+              <Link href="/products" onClick={() => setOpen(false)} className="px-6 py-3 border-b border-beige">Shop all</Link>
+              {mobileMains.map(main => {
                 const isOpen = mobileOpenMain === main.slug;
                 const hasSubs = main.subs.length > 0;
                 return (
@@ -173,7 +167,7 @@ export function Header() {
                 );
               })}
               <Link href="/journal" onClick={() => setOpen(false)} className="px-6 py-3 border-b border-beige/60 hover:bg-beige hover:text-madder transition-colors">STORIES</Link>
-              <Link href="/ai" onClick={() => setOpen(false)} className="px-6 py-3 text-madder hover:bg-beige transition-colors">AI ✨</Link>
+              <Link href="/ai" onClick={() => setOpen(false)} className="px-6 py-3 text-madder hover:bg-beige transition-colors">Personal shopping</Link>
               <div className="border-t border-beige mt-2 pt-2">
                 {me ? (
                   <>

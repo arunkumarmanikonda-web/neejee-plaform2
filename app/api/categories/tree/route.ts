@@ -121,14 +121,6 @@ function sumCounts(node: Node) {
 
 function filterPublic(nodes: Node[]): Node[] {
   function keep(node: Node): Node | null {
-    if (node.level === 1) {
-      if (!node.active || node.hidden) return null;
-      return {
-        ...node,
-        children: node.children.map(keep).filter(Boolean) as Node[],
-      };
-    }
-
     const visibleChildren = node.children.map(keep).filter(Boolean) as Node[];
     const branchVisible = node.directVisibleProductCount > 0 || visibleChildren.length > 0;
 
@@ -198,6 +190,7 @@ export async function GET(req: NextRequest) {
       prisma.product.findMany({
         where: {
           status: 'ACTIVE',
+          takedownAt: null,
         },
         select: {
           id: true,
