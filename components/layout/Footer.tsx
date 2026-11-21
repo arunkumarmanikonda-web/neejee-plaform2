@@ -28,17 +28,9 @@ const FALLBACK_CONTACT: PublicContact = {
   socialInstagram: '',
 };
 
-const FALLBACK_CATEGORIES: FooterCategory[] = [
-  { slug: 'women-sarees', name: 'Sarees' },
-  { slug: 'accessories-jewellery', name: 'Jewellery' },
-  { slug: 'fragrance', name: 'Fragrance' },
-  { slug: 'home', name: 'Home' },
-  { slug: 'gifting', name: 'Gifting' },
-];
-
 export function Footer() {
   const [contact, setContact] = useState<PublicContact>(FALLBACK_CONTACT);
-  const [categories, setCategories] = useState<FooterCategory[]>(FALLBACK_CATEGORIES);
+  const [categories, setCategories] = useState<FooterCategory[]>([]);
 
   useEffect(() => {
     let active = true;
@@ -51,7 +43,7 @@ export function Footer() {
       .then(d => {
         if (!active) return;
         if (d.contact) setContact({ ...FALLBACK_CONTACT, ...d.contact });
-        if (Array.isArray(d.categories) && d.categories.length > 0) setCategories(d.categories);
+        if (Array.isArray(d.categories)) setCategories(d.categories);
       })
       .catch(() => {});
 
@@ -81,6 +73,7 @@ export function Footer() {
         <div>
           <div className="label text-madder mb-4">SHOP</div>
           <ul className="space-y-2 font-ui text-xs text-beige/80">
+            <li><Link href="/products" className="hover:text-ivory">Shop all pieces</Link></li>
             {categories.map(c => (
               <li key={c.slug}><Link href={`/categories/${c.slug}`} className="hover:text-ivory">{c.name}</Link></li>
             ))}
