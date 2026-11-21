@@ -350,9 +350,13 @@ function PLPInner() {
             </div>
           ) : products.length === 0 ? (
             <div className="py-20 text-center">
-              <p className="font-display text-2xl text-kohl">Nothing matches yet.</p>
-              <p className="font-italic italic text-mitti mt-2">Try removing some filters.</p>
-              {activeFilters > 0 && <button type="button" onClick={clearAll} className="btn-outline mt-6">CLEAR ALL FILTERS</button>}
+              <p className="font-display text-2xl text-kohl">{activeFilters > 0 ? 'Nothing matches yet.' : 'This collection is taking shape.'}</p>
+              <p className="font-italic italic text-mitti mt-2">{activeFilters > 0 ? 'Try removing a filter, or start again.' : 'We are bringing thoughtful pieces into this collection. Explore what is available now.'}</p>
+              {activeFilters > 0 ? (
+                <button type="button" onClick={clearAll} className="btn-outline mt-6">CLEAR ALL FILTERS</button>
+              ) : (
+                <Link href="/" className="btn-outline inline-block mt-6">EXPLORE NEEJEE</Link>
+              )}
             </div>
           ) : (
             <>

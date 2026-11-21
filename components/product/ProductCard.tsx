@@ -21,7 +21,7 @@ export interface ProductCardData {
   saleEndsAt?: string | Date | null;
   images: string[];
   badges?: string[];
-  inventory?: number;
+  inventory?: number | null;
   aiTryOnEligible?: boolean;
 }
 

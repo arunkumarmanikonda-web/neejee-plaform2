@@ -32,6 +32,7 @@ export function mapPublicProductDetail(
   const policies = rawRead.policies ?? rawRead.purchase ?? rawRead.commerce ?? {};
   const fulfilment = rawRead.fulfilment ?? {};
   const stock = rawRead.stock ?? {};
+  const revealExactQuantity = stock.stockVisibility === 'SHOW_ALL';
   const variants = Array.isArray(rawRead.variants) ? rawRead.variants : [];
   const lineage = Array.isArray(hierarchy.lineage) ? hierarchy.lineage : [];
 
@@ -142,36 +143,43 @@ export function mapPublicProductDetail(
       colorHex: variant?.colorHex ?? null,
       material: variant?.material ?? null,
       images: variant?.images ?? variant?.media?.gallery ?? [],
-      inventory: variant?.stock?.totalInventory ?? variant?.inventory ?? 0,
+      inventory: revealExactQuantity ? (variant?.stock?.totalInventory ?? variant?.inventory ?? 0) : null,
       mrp: variant?.mrp ?? variant?.pricing?.mrp ?? null,
       sellingPrice: variant?.sellingPrice ?? variant?.pricing?.sellingPrice ?? null,
       salePrice:
         variant?.salePrice ?? variant?.pricing?.salePrice ?? pricing.salePrice ?? null,
-      lowStockThreshold: variant?.lowStockThreshold ?? null,
+      lowStockThreshold: revealExactQuantity ? (variant?.lowStockThreshold ?? null) : null,
       inStock:
         variant?.stock?.inStock ??
         ((variant?.stock?.totalInventory ?? variant?.inventory ?? 0) > 0),
     })),
 
-    inventory: stock.totalInventory ?? 0,
-    inventoryCount: stock.totalInventory ?? 0,
+    inventory: revealExactQuantity ? (stock.totalInventory ?? 0) : null,
+    inventoryCount: revealExactQuantity ? (stock.totalInventory ?? 0) : null,
     visibleInventory:
       stock.stockVisibility === 'SHOW_ALL'
         ? (stock.availableQuantity ?? stock.totalInventory ?? 0)
-        : (stock.totalInventory ?? 0),
+        : null,
     stockVisibleQuantity:
       stock.stockVisibility === 'SHOW_ALL'
         ? (stock.availableQuantity ?? stock.totalInventory ?? 0)
-        : (stock.totalInventory ?? 0),
+        : null,
     isInStock: stock.inStock ?? false,
     inStock: stock.inStock ?? false,
-    lowStock: stock.lowStock ?? false,
-    isLowStock: stock.lowStock ?? false,
-    stockLabel: stock.label ?? null,
-    availabilityLabel: stock.label ?? null,
+    lowStock: revealExactQuantity ? (stock.lowStock ?? false) : false,
+    isLowStock: revealExactQuantity ? (stock.lowStock ?? false) : false,
+    stockLabel: revealExactQuantity ? (stock.label ?? null) : (stock.inStock ? 'In stock' : 'Out of stock'),
+    availabilityLabel: revealExactQuantity ? (stock.label ?? null) : (stock.inStock ? 'In stock' : 'Out of stock'),
     stockVisibility: stock.stockVisibility ?? null,
-    totalInventory: stock.totalInventory ?? 0,
-    stock,
+    totalInventory: revealExactQuantity ? (stock.totalInventory ?? 0) : null,
+    stock: {
+      ...stock,
+      totalInventory: revealExactQuantity ? (stock.totalInventory ?? 0) : null,
+      availableQuantity: revealExactQuantity ? (stock.availableQuantity ?? null) : null,
+      lowStock: revealExactQuantity ? (stock.lowStock ?? false) : false,
+      showExactQuantity: revealExactQuantity,
+      label: revealExactQuantity ? (stock.label ?? null) : (stock.inStock ? 'In stock' : 'Out of stock'),
+    },
 
     seller: row.seller ?? null,
 

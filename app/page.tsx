@@ -171,7 +171,9 @@ async function getHomeData() {
         images: imgs,
         badges: Array.isArray(p.badges) ? p.badges : [],
         aiTryOnEligible: !!p.aiTryOnEligible,
-        inventory: p.variants.reduce((sum: number, v: any) => sum + (v.inventory || 0), 0),
+        inventory: p.catalogueStockVisibility === 'SHOW_ALL'
+          ? p.variants.reduce((sum: number, v: any) => sum + (v.inventory || 0), 0)
+          : null,
       };
     };
 

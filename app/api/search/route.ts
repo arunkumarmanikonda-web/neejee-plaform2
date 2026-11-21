@@ -121,7 +121,7 @@ export async function GET(request: Request) {
         badges: product.badges,
         aiTryOnEligible: product.aiTryOnEligible,
         aiRoomEligible: product.aiRoomEligible,
-        inventory,
+        inventory: product.catalogueStockVisibility === 'SHOW_ALL' ? inventory : null,
         inStock: inventory > 0,
       };
     });

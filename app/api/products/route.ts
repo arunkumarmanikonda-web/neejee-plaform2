@@ -162,6 +162,7 @@ function mapPublicVariant(
   read: ReturnType<typeof buildProductReadModel>,
   variant: ReturnType<typeof buildProductReadModel>['variants'][number],
 ) {
+  const revealExactQuantity = read.stock.stockVisibility === 'SHOW_ALL';
   // Variant rows only store SKU/option/price/stock/media URLs. Publication,
   // catalogue curation and media-approval state live on the parent Product.
   // Public variant output therefore inherits those parent-level controls and
@@ -182,6 +183,15 @@ function mapPublicVariant(
 
   return {
     ...variant,
+    inventory: revealExactQuantity ? variant.stock.totalInventory : null,
+    lowStock: revealExactQuantity ? variant.stock.lowStock : false,
+    stock: {
+      ...variant.stock,
+      totalInventory: revealExactQuantity ? variant.stock.totalInventory : null,
+      availableQuantity: revealExactQuantity ? variant.stock.availableQuantity : null,
+      lowStock: revealExactQuantity ? variant.stock.lowStock : false,
+      showExactQuantity: revealExactQuantity,
+    },
     active: read.identity.active,
     identity: {
       ...variant.identity,
@@ -225,6 +235,7 @@ function mapPublicVariant(
 }
 
 function mapPublicProduct(read: ReturnType<typeof buildProductReadModel>) {
+  const revealExactQuantity = read.stock.stockVisibility === 'SHOW_ALL';
   return {
     id: read.id,
     slug: read.slug,
@@ -241,7 +252,7 @@ function mapPublicProduct(read: ReturnType<typeof buildProductReadModel>) {
     material: read.craft.material,
     technique: read.craft.technique,
     occasion: read.craft.occasion,
-    category: read.category?.slug ?? null,
+    category: read.category?.slug ?? read.hierarchy.leafCategory?.slug ?? null,
     categoryName: read.category?.name ?? null,
     categoryPath: read.category?.path ?? null,
     categoryLevel: read.category?.level ?? null,
@@ -280,6 +291,10 @@ function mapPublicProduct(read: ReturnType<typeof buildProductReadModel>) {
     catalogueReadiness: read.catalogueReadiness,
     stock: {
       ...read.stock,
+      totalInventory: revealExactQuantity ? read.stock.totalInventory : null,
+      availableQuantity: revealExactQuantity ? read.stock.availableQuantity : null,
+      lowStock: revealExactQuantity ? read.stock.lowStock : false,
+      showExactQuantity: revealExactQuantity,
       visibleInListing: read.stock.stockVisibility === 'IN_STOCK_ONLY' ? read.stock.inStock : true,
     },
     variants: read.variants.map((variant) => mapPublicVariant(read, variant)),
