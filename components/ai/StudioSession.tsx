@@ -8,6 +8,7 @@ import { formatINR } from '@/lib/money';
 import { studioHref, type StudioMode } from '@/lib/studio';
 import type { StudioPiece } from '@/lib/studio-catalog';
 import { AiCommerceCompletion } from './AiCommerceCompletion';
+import { PhotoPair } from './PhotoPair';
 import { DeleteAiPreviewButton } from './DeleteAiPreviewButton';
 import styles from './Studio.module.css';
 
@@ -102,6 +103,7 @@ export function StudioSession({mode,piece,initialVariant,signedIn,configured}:Pr
               {status && <p role="status" className={styles.note}>{status}</p>}
               {error && <p role="alert" className={styles.notice}>{error}</p>}</>}
       </>}
+      <PhotoPair productImage={variant?.image || piece.image} name={piece.name} wearable={mirror}/>
     </section>
   </div>;
 }
