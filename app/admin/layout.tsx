@@ -141,6 +141,7 @@ const NAV_GROUPS: NavGroup[] = [
     label: 'ERP',
     items: [
       { href: '/admin/erp', label: 'ERP Home', icon: LayoutDashboard },
+      { href: '/admin/keeper', label: 'Bahi Khata · Shop Keeper', icon: BookOpen },
       { href: '/admin/erp/dashboard', label: 'Sync Dashboard', icon: BarChart3 },
       { href: '/admin/erp/failures', label: 'Failure Queue', icon: MessageSquareWarning },
       { href: '/admin/erp/reconciliation', label: 'Reconciliation', icon: FileSpreadsheet },

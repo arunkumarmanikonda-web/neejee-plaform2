@@ -1,5 +1,6 @@
 'use client';
 import MegaMenuNav from './MegaMenuNav';
+import { Pitari } from '@/components/home/Pitari';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { Search, Heart, ShoppingBag, User, Menu, X, LogOut } from 'lucide-react';
@@ -76,7 +77,8 @@ export function Header() {
 
           <MegaMenuNav />
 
-          <div className="flex items-center gap-5">
+          <div className="flex items-center gap-3 sm:gap-4">
+            <Pitari />
             <button onClick={() => setSearchOpen(true)} aria-label="Search" className="hover:text-madder transition-colors">
               <Search className="w-5 h-5" />
             </button>

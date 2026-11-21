@@ -245,9 +245,10 @@ interface ChatArgs {
   model?: string;
   temperature?: number;
   jsonMode?: boolean;
+  timeoutMs?: number;
 }
 
-export async function openaiChat({ system, messages, model = 'gpt-4o-mini', temperature = 0.7, jsonMode = false }: ChatArgs): Promise<{ ok: boolean; text?: string; json?: any; error?: string }> {
+export async function openaiChat({ system, messages, model = 'gpt-4o-mini', temperature = 0.7, jsonMode = false, timeoutMs }: ChatArgs): Promise<{ ok: boolean; text?: string; json?: any; error?: string }> {
   const key = process.env.OPENAI_API_KEY;
   if (!key) return { ok: false, error: 'OPENAI_API_KEY not set' };
 
@@ -260,6 +261,7 @@ export async function openaiChat({ system, messages, model = 'gpt-4o-mini', temp
     if (jsonMode) body.response_format = { type: 'json_object' };
 
     const res = await fetch('https://api.openai.com/v1/chat/completions', {
+      ...(timeoutMs && {signal:AbortSignal.timeout(timeoutMs)}),
       method: 'POST',
       headers: {
         Authorization: `Bearer ${key}`,

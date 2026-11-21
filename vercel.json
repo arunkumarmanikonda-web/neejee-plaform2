@@ -24,6 +24,10 @@
     {
       "path": "/api/cron/journal/publish",
       "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/cron/store-keeper",
+      "schedule": "27 * * * *"
     }
   ]
 }

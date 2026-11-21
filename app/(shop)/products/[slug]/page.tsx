@@ -5,7 +5,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
-import { Heart, Sparkles, Truck, RotateCcw, ShieldCheck, Plus, Minus, ChevronDown, Check, Home } from 'lucide-react';
+import { Heart, Sparkles, Truck, RotateCcw, Plus, Minus, ChevronDown, Check, Home } from 'lucide-react';
 import { formatINR, effectivePricePaise, discountPct } from '@/lib/money';
 import { isPreorder, isSoldOut, fulfilmentStatusLine, buyCtaLabel, checkoutPaise } from '@/lib/fulfilment';
 import { useCart } from '@/lib/cart-store';
@@ -124,8 +124,8 @@ function PDPInner() {
   const TABS = [
     { id: 'craft', label: 'CRAFT STORY', body: product.story || product.description },
     { id: 'artisan', label: 'ARTISAN', body: product.artisanName
-      ? `${product.artisanName} · ${product.region}${product.cluster ? ', ' + product.cluster : ''}. ${product.craftNote || ''}`
-      : (product.craftNote || product.seller?.businessName || 'Crafted by NEEJEE-verified makers.')
+      ? `${[product.artisanName,product.region].filter(Boolean).join(' · ')}${product.cluster ? ', ' + product.cluster : ''}. ${product.craftNote || ''}`
+      : (product.craftNote || product.seller?.businessName || 'Ask our team about the maker of this piece.')
     },
     { id: 'care', label: 'CARE', body: product.careInstructions || 'Care guidance will be confirmed with your piece.' },
     { id: 'delivery', label: 'DELIVERY & RETURNS', body: [
@@ -304,25 +304,15 @@ function PDPInner() {
             {wishlistMessage && <p className="text-center font-italic italic text-xs text-mitti">{wishlistMessage}</p>}
           </div>
 
-          <div className="mt-8 pt-6 border-t border-mitti/15 grid grid-cols-3 gap-4 text-center">
-            <div>
-              <Truck className="w-5 h-5 mx-auto text-madder" />
-              <p className="font-ui text-[10px] tracking-widest text-kohl mt-2">DELIVERY</p>
-              <p className="font-italic italic text-mitti text-xs">Calculated at checkout</p>
-            </div>
-            <div>
-              <RotateCcw className="w-5 h-5 mx-auto text-madder" />
-              <p className="font-ui text-[10px] tracking-widest text-kohl mt-2">RETURNS</p>
-              <p className="font-italic italic text-mitti text-xs">
-                {product.returnEligible ? (product.returnPolicy || 'Eligible') : (product.returnPolicy || 'Product-specific')}
-              </p>
-            </div>
-            <div>
-              <ShieldCheck className="w-5 h-5 mx-auto text-madder" />
-              <p className="font-ui text-[10px] tracking-widest text-kohl mt-2">AUTHENTICITY</p>
-              <p className="font-italic italic text-mitti text-xs">NEEJEE verified</p>
-            </div>
-          </div>
+          <section aria-label="Details about this piece" className="mt-8 border-y border-mitti/25 py-5">
+            <h2 className="font-display text-2xl">The piece, up close</h2>
+            <dl className="mt-3 grid grid-cols-[auto_1fr] gap-x-5 gap-y-2 text-sm">
+              {Object.entries({Origin:product.region,Material:product.material,Technique:product.technique,Maker:product.artisanName}).filter(([,v])=>v).map(([key,value])=><div className="contents" key={key}><dt className="font-medium">{key}</dt><dd>{String(value)}</dd></div>)}
+              <dt>Delivery</dt><dd><Link className="underline" href="/help/shipping">Shipping and delivery</Link></dd>
+              <dt>Returns</dt><dd>{product.returnPolicy || (product.returnEligible?'Eligible under the returns policy.':'This piece is marked ineligible for return.')} <Link className="underline" href="/help/returns">Read policy</Link></dd>
+            </dl>
+            <button className="mt-4 text-madder underline underline-offset-4" onClick={()=>window.dispatchEvent(new CustomEvent('neejee:ask-pitari',{detail:'Where is it from?'}))}>Ask Pitari about this piece</button>
+          </section>
 
           {product.aiTryOnEligible && (
             <Link href={`/ai/mirror?product=${product.id}`}

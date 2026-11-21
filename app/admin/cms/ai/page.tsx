@@ -14,6 +14,7 @@ type CreatedPage = {
   title: string;
   slug: string;
   status?: string;
+  method?: string;
   configured?: boolean;
   updatedAt?: string;
 };
@@ -346,7 +347,7 @@ export default function AdminCmsAiBatchWorkbenchPage() {
                   <p className="font-display text-xl text-kohl">{page.title}</p>
                   <p className="font-ui text-xs text-mitti mt-2">/{page.slug}</p>
                   <p className="font-ui text-xs text-mitti mt-2">
-                    {page.updatedAt ? new Date(page.updatedAt).toLocaleString('en-IN', { dateStyle: 'short', timeStyle: 'short' }) : ''}
+                    {page.method && <span>{page.method} · </span>}{page.updatedAt ? new Date(page.updatedAt).toLocaleString('en-IN', { dateStyle: 'short', timeStyle: 'short' }) : ''}
                   </p>
                   <div className="flex flex-wrap gap-2 mt-4">
                     <Link href={`/admin/cms/${page.id}`} className="bg-kohl text-ivory px-3 py-2 rounded-sm text-xs font-medium">

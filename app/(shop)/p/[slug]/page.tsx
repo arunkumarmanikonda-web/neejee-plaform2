@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/prisma';
+import { publicEditorialWhere } from '@/lib/public-editorial';
 import { redirect } from 'next/navigation';
 
 export const dynamic = 'force-dynamic';
@@ -18,12 +19,12 @@ export default async function ShortProductRedirectPage({ params }: PageProps) {
 
   // Older newsletters and CMS cards linked to journal entries through /p.
   const article = await prisma.cmsPage.findFirst({
-    where: { slug, pageType: 'journal', status: 'PUBLISHED' },
-    select: { id: true },
+    where: { AND: [publicEditorialWhere,{slug}] },
+    select: { pageType: true },
   }).catch(() => null);
   if (article) {
     const product = await prisma.product.findUnique({ where: { slug }, select: { id: true } });
-    if (!product) redirect(`/journal/${encodeURIComponent(slug)}`);
+    if (!product) redirect(`/${article.pageType === 'journal' ? 'journal' : 'pages'}/${encodeURIComponent(slug)}`);
   }
   redirect(`/products/${encodeURIComponent(slug)}`);
 }

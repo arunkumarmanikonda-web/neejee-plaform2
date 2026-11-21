@@ -1,3 +1,4 @@
+import { publicEditorialWhere } from '@/lib/public-editorial';
 import { MetadataRoute } from 'next';
 import { prisma } from '@/lib/prisma';
 import { getSiteSeoConfig } from '@/lib/site/seo-config';
@@ -40,6 +41,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     const products = await prisma.product.findMany({
       where: {
         status: 'ACTIVE',
+        takedownAt: null,
         catalogueExclude: false,
         OR: [
           { catalogueStockVisibility: { in: ['SHOW_ALL', 'HIDE_STOCK'] } },
@@ -66,7 +68,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     });
 
     const cmsPages = await prisma.cmsPage.findMany({
-      where: { status: 'PUBLISHED' },
+      where: publicEditorialWhere,
       select: { slug: true, pageType: true, updatedAt: true, publishedAt: true },
       take: 5000,
     }).catch(() => []);
@@ -121,7 +123,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     cmsRoutes = cmsPages
       .filter((page) => !INTERNAL_CMS_SLUGS.has(page.slug))
       .map((page) => ({
-        url: `${base}/${page.pageType === 'journal' ? 'journal' : 'p'}/${encodeURIComponent(page.slug)}`,
+        url: `${base}/${page.pageType === 'journal' ? 'journal' : 'pages'}/${encodeURIComponent(page.slug)}`,
         lastModified: page.publishedAt || page.updatedAt || now,
         changeFrequency: 'monthly',
         priority: page.pageType === 'journal' || page.pageType === 'lookbook' ? 0.65 : 0.6,

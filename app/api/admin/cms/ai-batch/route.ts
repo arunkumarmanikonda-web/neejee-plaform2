@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getSession, requireRole } from '@/lib/auth';
 import { aiTextConfigured, openaiChat } from '@/lib/ai';
-import { SECTION_TYPES, defaultData, type SectionType } from '@/lib/cms-sections';
+import { SECTION_TYPES, type SectionType } from '@/lib/cms-sections';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -67,20 +67,20 @@ function fallbackScaffold(item: BatchItem) {
     seoTitle: `${baseTitle || 'New page'} | Neejee`.slice(0, 60),
     seoDesc: `A Neejee page for ${item.brief.trim()}`.slice(0, 160),
     sections: [
-      { id: cuid(), type: 'hero', data: defaultData('hero') },
-      { id: cuid(), type: 'text', data: defaultData('text') },
-      { id: cuid(), type: 'productCarousel', data: defaultData('productCarousel') },
-      { id: cuid(), type: 'cta', data: defaultData('cta') },
+      { id: cuid(), type: 'hero', data: {title:baseTitle,ctaText:'Explore the shop',ctaUrl:'/products',dark:true} },
+      { id: cuid(), type: 'text', data: {title:'',body:'',align:'left'} },
+      { id: cuid(), type: 'productCarousel', data: {title:'Explore the collection',source:'founder'} },
+      { id: cuid(), type: 'cta', data: {title:'Browse Neejee',ctaText:'Shop the collection',ctaUrl:'/products'} },
     ],
   };
 }
 
-async function aiScaffold(item: BatchItem) {
+async function aiScaffold(item: BatchItem, timeoutMs:number) {
   const system = `You are NEEJEE's CMS Page Architect.
 NEEJEE is a personal Indian craft brand. Voice: quiet, reverent, sincere, never sales-y.
 Brand pillar: "Found. Personal." Sensory, named, slow.
 Avoid: "luxurious", "exquisite", "premium", "elegant", emojis, exclamation marks.
-Prefer: specific places (Banaras, Kanchipuram), specific techniques (zari, tapchi, meenakari), real-feeling artisan names, Indian English, no marketing voice.
+Use only facts explicitly supplied in the brief. Use Indian English. Never invent makers, quotes, testimonials, provenance, stock, certifications or timelines. Leave unsupported details empty. Link to /products for shopping.
 
 Given a brief from the content editor, scaffold a NEEJEE landing page as JSON.
 
@@ -113,7 +113,8 @@ Scaffold the page now.`;
   const ai = await openaiChat({
     system,
     messages: [{ role: 'user', content: userMsg }],
-    temperature: 0.75,
+    temperature: 0.5,
+    timeoutMs,
     jsonMode: true,
   });
 
@@ -129,7 +130,7 @@ Scaffold the page now.`;
         .map((s: any) => ({
           id: cuid(),
           type: s.type as SectionType,
-          data: { ...defaultData(s.type as SectionType), ...(s.data || {}) },
+          data: typeof s.data === 'object' && s.data && !Array.isArray(s.data) ? s.data : {},
         }))
     : [];
 
@@ -184,13 +185,23 @@ export async function POST(request: Request) {
     }
 
     const configured = aiTextConfigured();
+    const deadline = Date.now() + 42000;
     const created: any[] = [];
     const failed: any[] = [];
 
     for (let i = 0; i < cleaned.length; i++) {
       const item = cleaned[i];
       try {
-        const scaffold = configured ? await aiScaffold(item) : fallbackScaffold(item);
+        let method = 'Editorial scaffold';
+        let scaffold = fallbackScaffold(item);
+        if (configured && deadline > Date.now()+1200) {
+          try {
+            scaffold = await aiScaffold(item,Math.min(14000,deadline-Date.now())) as typeof scaffold;
+            method = 'AI draft';
+          } catch {
+            method = 'Editorial scaffold · AI unavailable';
+          }
+        }
         const finalSlug = await makeUniqueSlug(scaffold.slug || item.brief);
 
         const page = await prisma.cmsPage.create({
@@ -210,6 +221,7 @@ export async function POST(request: Request) {
           title: page.title,
           slug: page.slug,
           status: page.status,
+          method,
           configured,
           updatedAt: page.updatedAt.toISOString(),
         });

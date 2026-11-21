@@ -24,6 +24,7 @@ export async function GET(
       where: {
         OR: [{ slug: params.slug }, { id: params.slug }, { sku: params.slug }],
         status: 'ACTIVE',
+        takedownAt: null,
         catalogueExclude: false,
       },
       select: {

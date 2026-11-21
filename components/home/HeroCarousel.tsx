@@ -70,6 +70,7 @@ export function HeroCarousel({ banners, spotlight }: { banners: HeroBanner[]; sp
       {piece ? (
         <div className={styles.feature}>
           <div className={styles.copy}>
+            <p className={styles.wordmark}><span lang="hi">निजी</span> <span>Something of your own</span></p>
             <p className={styles.kicker}>{piece.curated ? 'The founder’s edit' : 'New to NEEJEE'}</p>
             <h1 className={styles.title}>{piece.title}</h1>
             {piece.subtitle && <p className={styles.line}>{piece.subtitle}</p>}

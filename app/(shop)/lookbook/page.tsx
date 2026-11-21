@@ -64,7 +64,7 @@ export default async function LookbookLanding() {
         ) : (
           <div className="grid sm:grid-cols-2 gap-x-8 gap-y-16">
             {lookbooks.map(l => (
-              <Link key={l.id} href={`/p/${l.slug}`} className="group block">
+              <Link key={l.id} href={`/pages/${l.slug}`} className="group block">
                 <div className="aspect-[3/4] bg-mitti/10 overflow-hidden">
                   {l.coverImage ? (
                     // eslint-disable-next-line @next/next/no-img-element

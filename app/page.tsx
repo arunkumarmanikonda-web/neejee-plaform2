@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
 import { ProductCard, type ProductCardData } from '@/components/product/ProductCard';
+import { PitariCounter } from '@/components/home/Pitari';
 import { HeroCarousel } from '@/components/home/HeroCarousel';
 import { resolveMedia } from '@/lib/catalog/media-read';
 import { buildPricing } from '@/lib/catalog/pricing-read';
@@ -202,6 +203,7 @@ export default async function HomePage() {
 
       <main>
         <HeroCarousel banners={data.heroBanners} spotlight={data.spotlight} />
+        <PitariCounter />
 
         <nav aria-label="Shop collections" className="border-y border-mitti/20 bg-ivory">
           <div className="max-w-8xl mx-auto px-6 lg:px-12 py-4 flex flex-wrap items-center gap-x-6 gap-y-2 font-ui text-sm">

@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { stockSheetHeader } from '@/lib/erp/reconciliation/stock-sheet';
 import { useCallback, useEffect, useState } from 'react';
 import type {
   ErpReconciliationFilter,
@@ -48,9 +49,10 @@ export default function AdminErpReconciliationPage() {
   const [filter, setFilter] = useState<ErpReconciliationFilter>('DRIFT');
   const [data, setData] = useState<ErpReconciliationResponse>(EMPTY_RESPONSE);
   const [loading, setLoading] = useState(true);
+  const [sheet,setSheet] = useState<File | null>(null);
   const [err, setErr] = useState('');
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (signal?: AbortSignal) => {
     setLoading(true);
     setErr('');
 
@@ -58,6 +60,9 @@ export default function AdminErpReconciliationPage() {
       const response = await fetch(
         `/api/admin/erp/reconciliation?filter=${encodeURIComponent(filter)}&limit=200`,
         {
+          method: sheet ? 'POST' : 'GET',
+          body: sheet || undefined,
+          signal,
           credentials: 'include',
           cache: 'no-store',
         }
@@ -69,17 +74,20 @@ export default function AdminErpReconciliationPage() {
         throw new Error(body?.error || 'Failed to load reconciliation report');
       }
 
-      setData(body);
+      if (!signal?.aborted) setData(body);
     } catch (error: any) {
+      if (signal?.aborted) return;
       setData(EMPTY_RESPONSE);
       setErr(error?.message || 'Failed to load reconciliation report');
     } finally {
-      setLoading(false);
+      if (!signal?.aborted) setLoading(false);
     }
-  }, [filter]);
+  }, [filter,sheet]);
 
   useEffect(() => {
-    void load();
+    const controller = new AbortController();
+    void load(controller.signal);
+    return ()=>controller.abort();
   }, [load]);
 
   return (
@@ -91,8 +99,16 @@ export default function AdminErpReconciliationPage() {
           <p className="mt-1 font-italic italic text-mitti">
             Compare platform catalogue truth against ERP product, price, and stock snapshots.
           </p>
+          <div className="mt-4 rounded border border-mitti/30 p-4 space-y-2">
+            <p className="font-medium">{sheet ? 'Comparing '+sheet.name : 'Adapter comparison'}</p>
+            {!sheet && data.adapterKind === 'mock' && <p>Demo records are selected. Upload your complete product-level ERP stock export for an operational comparison.</p>}
+            <label className="block text-sm">Compare a stock sheet (CSV)
+              <input type="file" accept=".csv,text/csv" className="block mt-2" onChange={e=>{const f=e.target.files?.[0];if(f && f.size>1500000){setErr('Use a CSV smaller than 1.5 MB.');return;}setSheet(f||null);}}/></label>
+            <p className="text-sm">One row per product SKU. Amounts in rupees, quantity summed across variants. Missing SKUs are reported on either side.</p>
+            <a className="underline" download="neejee-stock-columns.csv" href={'data:text/csv;charset=utf-8,'+encodeURIComponent(stockSheetHeader+'\r\n')}>Download CSV headings</a>
+          </div>
           <p className="mt-2 text-xs text-mitti">
-            Adapter: {data.adapterKind} · Generated {formatDate(data.generatedAt)}
+            {loading ? 'Checking…' : err ? 'Report unavailable' : data.adapterKind+' · '+formatDate(data.generatedAt)}
           </p>
         </div>
 

@@ -104,7 +104,7 @@ export default function CMSEditor() {
 
   const save = (status?: string) => saveMeta({ sections, ...(status && { status }) });
   const scheduled = page?.status === 'PREVIEW' && page?.scheduledAt;
-  const publicPath = `/${page?.pageType === 'journal' ? 'journal' : 'p'}/${page?.slug}`;
+  const publicPath = `/${page?.pageType === 'journal' ? 'journal' : 'pages'}/${page?.slug}`;
 
   if (loading) return <p className="text-mitti p-12 text-center font-italic italic">Loading…</p>;
   if (!page) return <p className="text-madder p-12 text-center">Page not found.</p>;

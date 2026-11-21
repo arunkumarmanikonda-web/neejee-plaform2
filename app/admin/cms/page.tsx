@@ -348,14 +348,14 @@ export default function AdminCMSPage() {
                 {pages.map(p => (
                   <tr key={p.id} className="border-b border-mitti/10 hover:bg-beige/40">
                     <td className="p-3 font-display text-kohl">{p.title}</td>
-                    <td className="p-3 font-mono text-sm text-mitti">/{p.pageType === 'journal' ? 'journal' : 'p'}/{p.slug}</td>
+                    <td className="p-3 font-mono text-sm text-mitti">/{p.pageType === 'journal' ? 'journal' : 'pages'}/{p.slug}</td>
                     <td className="p-3">
                       <span className={`text-xs px-2 py-1 tracking-wider ${p.status === 'PUBLISHED' ? 'bg-neem/20 text-neem' : p.status === 'DRAFT' ? 'bg-mitti/20 text-mitti' : 'bg-haldi/20 text-mitti'}`}>{p.status === 'PREVIEW' && p.scheduledAt ? `Scheduled · ${new Date(p.scheduledAt).toLocaleString()}` : p.status}</span>
                     </td>
                     <td className="p-3 text-sm text-mitti">{new Date(p.updatedAt).toLocaleDateString()}</td>
                     <td className="p-3 text-right">
                       <div className="inline-flex items-center gap-2">
-                        {p.status === 'PUBLISHED' && <Link href={`/${p.pageType === 'journal' ? 'journal' : 'p'}/${p.slug}`} target="_blank" className="p-1.5 hover:bg-mitti/10" title="View"><Eye className="w-4 h-4" /></Link>}
+                        {p.status === 'PUBLISHED' && <Link href={`/${p.pageType === 'journal' ? 'journal' : 'pages'}/${p.slug}`} target="_blank" className="p-1.5 hover:bg-mitti/10" title="View"><Eye className="w-4 h-4" /></Link>}
                         <Link href={`/admin/cms/${p.id}`} className="p-1.5 hover:bg-mitti/10" title="Edit"><Edit className="w-4 h-4" /></Link>
                         <button onClick={() => void del(p.id, p.title)} disabled={deletingId === p.id} className="p-1.5 hover:bg-madder/10 text-madder disabled:opacity-40" title="Delete"><Trash2 className="w-4 h-4" /></button>
                       </div>
