@@ -121,7 +121,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     cmsRoutes = cmsPages
       .filter((page) => !INTERNAL_CMS_SLUGS.has(page.slug))
       .map((page) => ({
-        url: `${base}/p/${encodeURIComponent(page.slug)}`,
+        url: `${base}/${page.pageType === 'journal' ? 'journal' : 'p'}/${encodeURIComponent(page.slug)}`,
         lastModified: page.publishedAt || page.updatedAt || now,
         changeFrequency: 'monthly',
         priority: page.pageType === 'journal' || page.pageType === 'lookbook' ? 0.65 : 0.6,
