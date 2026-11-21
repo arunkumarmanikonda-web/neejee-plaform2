@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { getSession, requireRole } from '@/lib/auth';
 import {
   asString,
   buildProductReadModel,
@@ -194,6 +195,7 @@ function compareProducts(sort: string) {
 }
 
 function mapCatalogueProduct(read: ReturnType<typeof buildProductReadModel>) {
+  const revealExactQuantity = read.stock.stockVisibility === 'SHOW_ALL';
   return {
     id: read.id,
     slug: read.slug,
@@ -221,7 +223,14 @@ function mapCatalogueProduct(read: ReturnType<typeof buildProductReadModel>) {
     hierarchy: read.hierarchy,
     media: read.media,
     pricing: read.pricing,
-    stock: read.stock,
+    stock: {
+      ...read.stock,
+      totalInventory: revealExactQuantity ? read.stock.totalInventory : null,
+      availableQuantity: revealExactQuantity ? read.stock.availableQuantity : null,
+      lowStock: revealExactQuantity ? read.stock.lowStock : false,
+      showExactQuantity: revealExactQuantity,
+      label: revealExactQuantity ? read.stock.label : (read.stock.inStock ? 'In stock' : 'Out of stock'),
+    },
 
     editorial: {
       featured: read.catalogue.featured,
@@ -281,7 +290,16 @@ function mapCatalogueProduct(read: ReturnType<typeof buildProductReadModel>) {
     },
 
     catalogueReadiness: read.catalogueReadiness,
-    variants: read.variants,
+    variants: read.variants.map((variant) => ({
+      ...variant,
+      stock: {
+        ...variant.stock,
+        totalInventory: revealExactQuantity ? variant.stock.totalInventory : null,
+        availableQuantity: revealExactQuantity ? variant.stock.availableQuantity : null,
+        lowStock: revealExactQuantity ? variant.stock.lowStock : false,
+        showExactQuantity: revealExactQuantity,
+      },
+    })),
     source: read.source,
     version: read.version,
     timestamps: read.timestamps,
@@ -298,8 +316,15 @@ export async function GET(request: NextRequest) {
   const hero = truthyParam(url.searchParams.get('hero'));
   const ready = truthyParam(url.searchParams.get('ready')) || truthyParam(url.searchParams.get('catalogueReady'));
   const includeExcluded = truthyParam(url.searchParams.get('includeExcluded'));
-  const publicOnly = !truthyParam(url.searchParams.get('publicOnly')) ? false : true;
+  const publicOnlyParam = url.searchParams.get('publicOnly');
+  const publicOnly = publicOnlyParam === null ? true : truthyParam(publicOnlyParam);
   const approvedMediaOnly = truthyParam(url.searchParams.get('approvedMediaOnly'));
+  if (!publicOnly || includeExcluded) {
+    const user = await getSession();
+    if (!requireRole(user, ['ADMIN', 'SUPER_ADMIN', 'CONTENT_EDITOR'])) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+  }
   const slug = asString(url.searchParams.get('slug'));
   const excludeId = asString(url.searchParams.get('excludeId'));
   const ids = parseCsv(url.searchParams.get('ids'));
