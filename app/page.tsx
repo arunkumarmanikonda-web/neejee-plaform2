@@ -5,12 +5,11 @@ import { Footer } from '@/components/layout/Footer';
 import { ProductCard, type ProductCardData } from '@/components/product/ProductCard';
 import { editLead } from '@/lib/shop-edit-catalog';
 import { shopEdits } from '@/lib/shop-edits';
-import { Lookbook } from '@/components/looks/Lookbook';
-import { defaultStyling } from '@/lib/stylebook';
-import { aiMirrorConfigured } from '@/lib/ai';
-import { storageConfigured } from '@/lib/storage';
-import { getStyleAccessories } from '@/lib/style-accessories';
-import { getCounterStock } from '@/lib/counter-shop';
+import { ShopSign, StoreAisles } from '@/components/shop/ShopSign';
+import { StudyShelf } from '@/components/shop/StudyShelf';
+import { previewPricingEnabled } from '@/lib/shop-studies';
+import { readEdit } from '@/lib/shop-edit-catalog';
+import { getPublicContact } from '@/lib/public-contact';
 import { CraftHouse } from '@/components/home/CraftHouse';
 import { StudioDoors } from '@/components/home/StudioDoors';
 import { studioHref } from '@/lib/studio';
@@ -153,7 +152,7 @@ async function getHomeData() {
     type HomeProduct = (typeof arrivals)[number];
     const mapCard = (p: HomeProduct): ProductCardData => ({
       id: p.id, slug: p.slug, name: p.name, poeticLine: p.poeticLine,
-      craft: p.craft, region: p.region, mrp: p.mrp, sellingPrice: p.sellingPrice,
+      material:p.material, craft: p.craft, region: p.region, mrp: p.mrp, sellingPrice: p.sellingPrice,
       salePrice: p.salePrice, saleStartsAt: p.saleStartsAt, saleEndsAt: p.saleEndsAt,
       images: p.images.length ? p.images : p.variants.flatMap(v => v.images),
       badges: p.badges, aiTryOnEligible: p.aiTryOnEligible,
@@ -207,15 +206,17 @@ async function getHomeData() {
 
 export default async function HomePage() {
   const data = await getHomeData();
-  const wearables = await getCounterStock([]).catch(()=>[]);
-
-  const accessories=await getStyleAccessories().catch(()=>[]);
+  const fashion = await readEdit(shopEdits[3],1).catch(() => null);
+  const {email} = await getPublicContact();
   return (
     <>
-      <Header />
-
+      <Header shop/>
       <main>
-        <Lookbook personalMirror={aiMirrorConfigured()&&storageConfigured()} accessories={accessories} initial={defaultStyling()} items={wearables}/>
+        <div className="nj-market" style={{paddingBottom:'1rem'}}>
+          <ShopSign department="entrance"/><StoreAisles active="entrance"/>
+          {fashion?.pieces.length ? <section className="nj-shelf"><div className="nj-shelf-head"><h2>On the counter</h2><Link className="nj-text-link" href="/edits/clothing">Browse all ↗</Link></div><div className="nj-grid">{fashion.pieces.slice(0,4).map(p=><ProductCard key={p.id} product={{...p,images:p.cover?[p.cover,...p.images.filter(i=>i!==p.cover)]:p.images}}/>)}</div></section> :
+            <StudyShelf home ids={['surkh','neel','haldi','wine-suit']} preview={previewPricingEnabled()} email={email}/>}
+        </div>
         {(data.spotlight||data.heroBanners.length>0) && <HeroCarousel banners={data.heroBanners} spotlight={data.spotlight}/>}
 
         {data.founder.length > 0 && (

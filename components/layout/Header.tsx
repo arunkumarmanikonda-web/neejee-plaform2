@@ -16,7 +16,7 @@ interface Me { id: string; email: string; name?: string | null; role?: string }
 
 type MobileMain = { slug: string; name: string; subs: any[] };
 
-export function Header() {
+export function Header({ shop = false }: { shop?: boolean } = {}) {
   const [open, setOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [accountMenu, setAccountMenu] = useState(false);
@@ -67,8 +67,8 @@ export function Header() {
 
   return (
     <>
-      <AnnouncementBar />
-      <header className="sticky top-0 z-40 bg-ivory border-b border-beige">
+      {!shop && <AnnouncementBar />}
+      <header className={"sticky top-0 z-40 bg-ivory border-b border-beige" + (shop ? " nj-shop-header" : "")}>
         <div className="max-w-8xl mx-auto px-6 lg:px-12 h-20 flex items-center justify-between">
           <button onClick={() => setOpen(!open)} className="lg:hidden" aria-label="Menu" aria-expanded={open}>
             {open ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}

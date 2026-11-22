@@ -12,7 +12,7 @@ export function editProductWhere(edit:Edit):Prisma.ProductWhereInput {
     OR:[{cataloguePreferredImage:{not:''}},{images:{isEmpty:false}},{variants:{some:{inventory:{gt:0},images:{isEmpty:false}}}}],
     category:{active:true,hidden:false,OR:[
       ...edit.paths.flatMap(path=>[{path},{path:{startsWith:path+'/'}}]),
-      {path:null,slug:{in:[...edit.legacy]}},
+      {slug:{in:[...edit.legacy, ...edit.paths.map(path => path.replaceAll('/', '-'))]}, OR:[{path:null},{path:''},{path:{startsWith:edit.slug==='home'||edit.slug==='furniture'?'home/':'women/'}}]},
     ]},
   };
 }
@@ -36,12 +36,15 @@ export async function editLead(edit:Edit) {
   const p=card(row);
   return {slug:p.slug,name:p.name,cover:p.cover,price:p.price,mirror:p.aiTryOnEligible};
 }
-export async function readEdit(edit:Edit,requestedPage:number) {
-  const where=editProductWhere(edit);
-  const perPage=12;
-  const total=await prisma.product.count({where});
-  const pages=Math.max(1,Math.ceil(total/perPage));
-  const page=Math.min(pages,Math.max(1,Number.isFinite(requestedPage)?requestedPage:1));
-  const rows=total?await prisma.product.findMany({where,select:pick,orderBy:order,skip:(page-1)*perPage,take:perPage}):[];
-  return {pieces:rows.map(card),page,pages,total};
+export async function readEdit(edit:Edit,requestedPage:number,colour = '',sort = 'featured') {
+  const base = editProductWhere(edit);
+  const total = await prisma.product.count({where:base});
+  const where: Prisma.ProductWhereInput = colour ? {AND:[base,{variants:{some:{inventory:{gt:0},color:colour}}}]} : base;
+  const matches = colour && total ? await prisma.product.count({where}) : total;
+  const pages = Math.max(1, Math.ceil(matches/12));
+  const page = Math.min(pages, Math.max(1, Number.isFinite(requestedPage) ? Math.floor(requestedPage) : 1));
+  const ordered: Prisma.ProductOrderByWithRelationInput[] = sort === 'name' ? [{name:'asc'},{id:'asc'}] : sort === 'newest' ? [{createdAt:'desc'},{id:'asc'}] : order;
+  const rows = matches ? await prisma.product.findMany({where,select:pick,orderBy:ordered,skip:(page-1)*12,take:12}) : [];
+  const variants = total ? await prisma.variant.findMany({where:{product:base,inventory:{gt:0},color:{not:null}},select:{color:true},distinct:['color'],orderBy:{color:'asc'}}) : [];
+  return {pieces:rows.map(card),page,pages,total,matches,colours:variants.flatMap(v=>v.color?[v.color]:[])};
 }

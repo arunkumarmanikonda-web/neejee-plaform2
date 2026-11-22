@@ -1,11 +1,13 @@
 'use client';
 import Link from 'next/link';
-import Image from 'next/image';
-import { Heart } from 'lucide-react';
+import { Bookmark, Scan } from 'lucide-react';
 import { useState } from 'react';
-import { formatINR, effectivePricePaise, discountPct } from '@/lib/money';
+import { formatINR } from '@/lib/money';
+import { buildPricing } from '@/lib/catalog/pricing-read';
 import { useWishlist } from '@/lib/wishlist-store';
 import { BadgeChipRow } from '@/components/ui/Badge';
+import { studioHref } from '@/lib/studio';
+import '@/components/shop/shop.css';
 
 export interface ProductCardData {
   id: string;
@@ -13,6 +15,7 @@ export interface ProductCardData {
   name: string;
   poeticLine?: string | null;
   craft?: string | null;
+  material?: string | null;
   region?: string | null;
   mrp: number;
   sellingPrice: number;
@@ -24,89 +27,28 @@ export interface ProductCardData {
   inventory?: number | null;
   aiTryOnEligible?: boolean;
 }
-
 export function ProductCard({ product }: { product: ProductCardData }) {
   const { has, toggle } = useWishlist();
-  const wishlisted = has(product.id);
-  const eff = effectivePricePaise(product.sellingPrice, product.salePrice, product.saleStartsAt, product.saleEndsAt);
-  const dp = discountPct(product.mrp, eff.price);
-  const img = product.images?.[0];
-
-  return (
-    <div className="group">
-      <Link href={`/products/${product.slug}`} className="block">
-        <div className="aspect-[3/4] bg-beige relative overflow-hidden">
-          {img ? (
-            <Image
-              src={img}
-              alt={product.name}
-              fill
-              sizes="(min-width:1024px) 33vw, 50vw"
-              className="object-cover group-hover:scale-105 transition-transform duration-700"
-            />
-          ) : (
-            <div className="w-full h-full flex items-center justify-center text-mitti/50 font-italic italic">
-              No image
-            </div>
-          )}
-
-          {/* Top-left badges */}
-          <div className="absolute top-3 left-3 flex flex-col gap-1">
-            {eff.onSale && <span className="badge-founder">ON SALE</span>}
-            <BadgeChipRow badges={product.badges} />
-          </div>
-
-          {/* Top-right: Mirror eligibility */}
-          {product.aiTryOnEligible && (
-            <span className="absolute top-3 right-3 bg-kohl/80 text-ivory text-[9px] px-2 py-1 font-ui tracking-widest">✦ MIRROR</span>
-          )}
-
-          {/* Bottom-left: low stock indicator */}
-          {product.inventory != null && product.inventory <= 3 && product.inventory > 0 && (
-            <span className="absolute bottom-3 left-3 badge-founder bg-haldi text-kohl">ONLY {product.inventory} LEFT</span>
-          )}
-          {product.inventory === 0 && (
-            <span className="absolute bottom-3 left-3 badge-founder bg-monsoon">SOLD OUT</span>
-          )}
-
-          {/* Wishlist */}
-          <button
-            onClick={(e) => { e.preventDefault(); toggle(product.id, product.slug); }}
-            className="absolute bottom-3 right-3 w-9 h-9 rounded-full bg-ivory/90 hover:bg-ivory flex items-center justify-center transition-colors"
-            aria-label="Add to wishlist"
-          >
-            <Heart className={`w-4 h-4 ${wishlisted ? 'fill-madder text-madder' : 'text-kohl'}`} />
-          </button>
-        </div>
-
-        <div className="mt-3">
-          {(product.craft || product.region) && (
-            <p className="label text-mitti">
-              {[product.craft, product.region].filter(Boolean).join(' · ').toUpperCase()}
-            </p>
-          )}
-          <h3 className="font-display text-lg text-kohl mt-1 group-hover:text-madder transition-colors">
-            {product.name}
-          </h3>
-          {product.poeticLine && (
-            <p className="font-italic italic text-mitti text-sm mt-1 line-clamp-1">{product.poeticLine}</p>
-          )}
-          <div className="flex items-baseline gap-2 mt-2 flex-wrap">
-            <span className={`font-display text-lg ${eff.onSale ? 'text-madder' : 'text-kohl'}`}>
-              {formatINR(eff.price)}
-            </span>
-            {eff.onSale && (
-              <span className="font-ui text-xs text-monsoon line-through">{formatINR(product.sellingPrice)}</span>
-            )}
-            {!eff.onSale && product.mrp > product.sellingPrice && (
-              <span className="font-ui text-xs text-monsoon line-through">{formatINR(product.mrp)}</span>
-            )}
-            {dp > 0 && (
-              <span className="font-ui text-xs text-madder">-{dp}%</span>
-            )}
-          </div>
-        </div>
-      </Link>
+  const saved = has(product.id);
+  const [detail,setDetail] = useState(false);
+  const info = buildPricing(product);
+  const cover = product.images[0];
+  const second = product.images.find(img => img && img !== cover);
+  const href = '/products/'+encodeURIComponent(product.slug);
+  const descriptor = [...new Set([product.material, product.craft, product.region].filter(Boolean))].join(' · ');
+  return <article className="nj-tile">
+    <div className="nj-ticket"><h3><Link href={href}>{product.name}</Link></h3><span><strong>{formatINR(info.effectivePrice)}</strong>{info.mrp>info.effectivePrice && <del>{formatINR(info.mrp)}</del>}</span></div>
+    <div className="nj-photo">
+      <Link className="nj-image-open" href={href} aria-label={'View '+product.name}>{cover ? <img src={detail && second ? second : cover} alt={product.name+(detail?' · close view':'')} style={detail && !second ? {transform:'scale(1.9)'} : undefined} loading="lazy"/> : <span>View piece</span>}</Link>
+      <div className="nj-live-badges">{info.salePrice && <span className="nj-stock">On sale</span>}<BadgeChipRow badges={product.badges}/>
+        {product.inventory === 0 ? <span className="nj-stock">Sold out</span> : product.inventory != null && product.inventory <= 3 && <span className="nj-stock">Only {product.inventory} left</span>}</div>
+      <button className="nj-save" aria-pressed={saved} aria-label={(saved?'Remove from wishlist: ':'Add to wishlist: ')+product.name} onClick={() => toggle(product.id,product.slug)}><Bookmark size={17} fill={saved?'currentColor':'none'}/></button>
+      {cover && <button className="nj-detail-btn" aria-pressed={detail} onClick={() => setDetail(!detail)}><Scan size={14}/>{detail?'Main view':second?'Another view':'Look closer'}</button>}
     </div>
-  );
+    <div className="nj-card-text">{descriptor && <p className="nj-overline">{descriptor}</p>}
+      {product.poeticLine && <p className="nj-live-info line-clamp-1 mb-2">{product.poeticLine}</p>}
+      <div className="nj-card-bottom"><Link href={href}>View piece ↗</Link></div>
+      {product.aiTryOnEligible && <Link className="nj-text-link mt-2" href={studioHref('mirror',product.slug)}>Try in AI Mirror ↗</Link>}
+    </div>
+  </article>;
 }

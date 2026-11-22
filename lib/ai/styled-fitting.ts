@@ -1,6 +1,6 @@
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { selectedAccessories, type StyleOption, type Styling } from '@/lib/stylebook';
+import { editorialLooks, selectedAccessories, type StyleOption, type Styling } from '@/lib/stylebook';
 
 async function editorialReference(pathname:string) {
   // Local editorial files travel with the function, including on protected previews.
@@ -10,7 +10,7 @@ async function editorialReference(pathname:string) {
 
 export async function buildStyledInput(person:string,garment:string,style:Styling,stock:StyleOption[]=[],origin='') {
   const accessories=selectedAccessories(style,stock);
-  const fabric=garment.startsWith('/brand/lookbook/') ? await editorialReference(garment) : garment;
+  const fabric=editorialLooks.some(look => look.image === garment) ? await editorialReference(garment) : garment;
   const details=await Promise.all(accessories.map(item=>item.productId ? new URL(item.image,origin).href : editorialReference(item.image)));
   const marks=accessories.map((item,i)=>'Image '+(i+3)+' shows the '+item.name+' to put in its natural position on the person.');
   return {

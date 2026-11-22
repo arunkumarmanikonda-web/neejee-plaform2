@@ -17,7 +17,7 @@ const nextConfig = {
     ],
     minimumCacheTTL: 60 * 60 * 24,
   },
-  experimental: { outputFileTracingIncludes: { '/api/ai/mirror': ['./public/brand/lookbook/*.webp'] }, optimizePackageImports: ['lucide-react'] },
+  experimental: { outputFileTracingIncludes: { '/api/ai/mirror': ['./public/brand/lookbook/*.webp','./public/brand/bazaar/surkh.webp','./public/brand/bazaar/neel.webp','./public/brand/bazaar/haldi.webp'] }, optimizePackageImports: ['lucide-react'] },
   poweredByHeader: false,
   compress: true,
 
@@ -31,10 +31,11 @@ const nextConfig = {
       // Canonical category aliases. These are based on the active Category.slug
       // values in production; legacy and hierarchical URLs remain valid but do
       // not render duplicate/noindex category pages.
-      { source: '/sarees', destination: '/categories/women-sarees', permanent: true },
-      { source: '/saree', destination: '/categories/women-sarees', permanent: true },
-      { source: '/categories/sarees', destination: '/categories/women-sarees', permanent: true },
-      { source: '/categories/women/sarees', destination: '/categories/women-sarees', permanent: true },
+      { source: '/suits', destination: '/edits/suits', permanent: false },
+      { source: '/sarees', destination: '/edits/sarees', permanent: true },
+      { source: '/saree', destination: '/edits/sarees', permanent: true },
+      { source: '/categories/sarees', destination: '/edits/sarees', permanent: true },
+      { source: '/categories/women/sarees', destination: '/edits/sarees', permanent: true },
       { source: '/jewellery', destination: '/categories/accessories-jewellery', permanent: true },
       { source: '/jewelry', destination: '/categories/accessories-jewellery', permanent: true },
       { source: '/categories/jewellery', destination: '/categories/accessories-jewellery', permanent: true },
