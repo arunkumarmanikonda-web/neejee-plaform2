@@ -19,6 +19,7 @@ import { ShareFind } from '@/components/product/ShareFind';
 import { defaultStyling, lookUrl } from '@/lib/stylebook';
 import { pickupLink } from '@/lib/counter';
 import { studioHref } from '@/lib/studio';
+import '@/components/shop/dressing.css';
 import { CompleteTheLook } from '@/components/product/CompleteTheLook';
 
 export const dynamic = 'force-dynamic';
@@ -54,7 +55,7 @@ function PDPInner() {
         setProduct(d.product);
         const firstInStock = d.product.variants?.find((v: any) => v.inStock) || d.product.variants?.[0];
         setActiveVariant(d.product.variants?.find((v:any)=>v.id===requestedVariant) || firstInStock);
-        setActiveImage(0);setQty(1);
+        setActiveImage(0);setQty(1);setAdded(false);
         track({ type: 'PRODUCT_VIEW', productId: d.product.id, value: d.product.sellingPrice });
       })
       .catch(e => {if(!controller.signal.aborted)setError(e.message);})
@@ -76,8 +77,8 @@ function PDPInner() {
     return () => { cancelled = true; };
   }, [product?.id]);
 
-  if (loading) return <><Header /><div className="max-w-8xl mx-auto px-6 py-20 text-mitti">Loading...</div><Footer /></>;
-  if (error || !product) return <><Header /><div className="max-w-8xl mx-auto px-6 py-20"><p className="font-display text-2xl">Product not found.</p><Link href="/" className="btn-outline mt-6">BACK HOME</Link></div><Footer /></>;
+  if (loading) return <><Header shop/><div className="max-w-8xl mx-auto px-6 py-20 text-mitti">Loading...</div><Footer /></>;
+  if (error || !product) return <><Header shop/><div className="max-w-8xl mx-auto px-6 py-20"><p className="font-display text-2xl">Product not found.</p><Link href="/" className="btn-outline mt-6">BACK HOME</Link></div><Footer /></>;
 
   const eff = effectivePricePaise(product.sellingPrice, product.salePrice, product.saleStartsAt, product.saleEndsAt);
   const dp = discountPct(product.mrp, eff.price);
@@ -87,7 +88,8 @@ function PDPInner() {
     ? (activeVariant?.inventory ?? product.totalInventory ?? 0)
     : 50;
 
-  const handleAdd = () => {
+  const addAndGo = (destination: '/cart' | '/checkout') => {
+    if (added || !inStock) return;
     addItem({
       id: product.id,
       slug: product.slug,
@@ -100,10 +102,10 @@ function PDPInner() {
       variantLabel: [activeVariant?.size, activeVariant?.color].filter(Boolean).join(' · ') || null,
     } as any, qty);
     setAdded(true);
-    setTimeout(() => setAdded(false), 2000);
+    router.push(destination);
   };
 
-  const handleBuyNow = () => { handleAdd(); router.push('/cart'); };
+
 
   const handleWishlist = async () => {
     if (wishlistBusy) return;
@@ -156,7 +158,7 @@ function PDPInner() {
 
   return (
     <>
-      <Header />
+      <Header shop/>
 
       <nav className="max-w-8xl mx-auto px-6 lg:px-12 pt-6 font-ui text-xs tracking-widest text-mitti">
         <Link href="/" className="hover:text-madder">HOME</Link> ·
@@ -164,7 +166,7 @@ function PDPInner() {
         <span> {product.name.toUpperCase()}</span>
       </nav>
 
-      <article className="max-w-8xl mx-auto px-6 lg:px-12 py-8 grid lg:grid-cols-2 gap-12">
+      <article className="nj-product-detail max-w-8xl mx-auto px-6 lg:px-12 py-8 grid lg:grid-cols-2 gap-12">
         <section>
           <div className="aspect-[4/5] bg-beige relative overflow-hidden">
             {galleryImages?.[activeImage] ? (
@@ -224,13 +226,6 @@ function PDPInner() {
           <p className="font-ui text-xs text-mitti mt-1">Inclusive of all taxes</p>
 
           {(product.material || product.region) && <p className="mt-3 text-sm text-mitti">{[product.material,product.region].filter(Boolean).join(' · ')}</p>}
-          {Object.keys(readPieceFacts(product.pieceFacts)).length>0 && <section className="mt-5 border-t border-mitti/30 pt-4"><h2 className="font-display text-xl">Before you choose</h2><dl className="mt-2 grid gap-2 text-sm">{Object.entries(readPieceFacts(product.pieceFacts)).map(([key,value])=><div key={key}><dt className="font-semibold">{pieceFields[key as keyof PieceFacts]}</dt><dd>{value}</dd></div>)}</dl></section>}
-          {(product.aiTryOnEligible || product.aiRoomEligible) && inStock && <div className="my-5 flex flex-wrap gap-3">
-            {product.aiRoomEligible && <Link className="border border-mitti px-4 py-3 font-ui text-sm" href={studioHref('imagine',product.slug,activeVariant?.id)}>Baithak · See it in my room</Link>}
-            {product.aiTryOnEligible && <Link className="border border-mitti px-4 py-3 font-ui text-sm" href={studioHref('mirror',product.slug,activeVariant?.id)}>Aaina · Try it on</Link>}
-            {product.aiTryOnEligible && activeVariant?.inStock && <Link className="border border-mitti px-4 py-3 font-ui text-sm" href={lookUrl('/looks',defaultStyling(),product.slug,activeVariant.id)}>Style with juttis &amp; jewellery</Link>}
-          </div>}
-          {activeVariant?.inStock && (/^(women\/(sarees|apparel|suits)|men\/apparel)(\/|$)/.test(product.category?.path||'')) && <Link className="my-3 inline-block text-madder underline underline-offset-4" href={pickupLink(activeVariant.id)}>Compare this saree</Link>}
           {colors.length > 0 && (
             <div className="mt-8">
               <p className="label text-mitti mb-3">COLOR · {(activeVariant?.color || '').toUpperCase()}</p>
@@ -301,12 +296,11 @@ function PDPInner() {
               <WaitlistSignup productId={product.id} productName={product.name} source="pdp" />
             ) : (
               <div className="flex gap-3">
-                <button onClick={handleAdd} disabled={!inStock || added}
-                  className="btn-primary flex-1 disabled:opacity-50 flex items-center justify-center gap-2">
-                  {added ? (<><Check className="w-4 h-4" /> ADDED TO BAG</>) : buyCtaLabel(product).toUpperCase()}
-                </button>
-                <button onClick={handleBuyNow} disabled={!inStock} className="btn-outline flex-1 disabled:opacity-50">
+                <button onClick={()=>addAndGo('/checkout')} disabled={!inStock || added} className="btn-primary flex-1 disabled:opacity-50">
                   {isPreorder(product) ? 'RESERVE NOW' : 'BUY NOW'}
+                </button>
+                <button onClick={()=>addAndGo('/cart')} disabled={!inStock || added} className="btn-outline flex-1 disabled:opacity-50">
+                  {added ? 'ADDED TO BAG' : buyCtaLabel(product).toUpperCase()}
                 </button>
               </div>
             )}
@@ -324,6 +318,14 @@ function PDPInner() {
             {wishlistMessage && <p className="text-center font-italic italic text-xs text-mitti">{wishlistMessage}</p>}
           </div>
 
+          {(product.aiTryOnEligible || product.aiRoomEligible) && inStock && <div className="my-5 flex flex-wrap gap-3">
+            {product.aiRoomEligible && <Link className="border border-mitti px-4 py-3 font-ui text-sm" href={studioHref('imagine',product.slug,activeVariant?.id)}>See it in my room</Link>}
+            {product.aiTryOnEligible && <Link className="border border-mitti px-4 py-3 font-ui text-sm" href={studioHref('mirror',product.slug,activeVariant?.id)}>Try on with Aaina</Link>}
+            {product.aiTryOnEligible && activeVariant?.inStock && <Link className="border border-mitti px-4 py-3 font-ui text-sm" href={lookUrl('/looks',defaultStyling(),product.slug,activeVariant.id)}>Style with juttis &amp; jewellery</Link>}
+          </div>}
+          {activeVariant?.inStock && (/^(women\/(sarees|apparel|suits)|men\/apparel)(\/|$)/.test(product.category?.path||'')) && <Link className="my-3 inline-block text-madder underline underline-offset-4" href={pickupLink(activeVariant.id)}>Compare this saree</Link>}
+
+          {Object.keys(readPieceFacts(product.pieceFacts)).length>0 && <section className="mt-5 border-t border-mitti/30 pt-4"><h2 className="font-display text-xl">Before you choose</h2><dl className="mt-2 grid gap-2 text-sm">{Object.entries(readPieceFacts(product.pieceFacts)).map(([key,value])=><div key={key}><dt className="font-semibold">{pieceFields[key as keyof PieceFacts]}</dt><dd>{value}</dd></div>)}</dl></section>}
           <section aria-label="Details about this piece" className="mt-8 border-y border-mitti/25 py-5">
             <h2 className="font-display text-2xl">The piece, up close</h2>
             <dl className="mt-3 grid grid-cols-[auto_1fr] gap-x-5 gap-y-2 text-sm">

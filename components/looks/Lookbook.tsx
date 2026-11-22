@@ -65,11 +65,11 @@ export function Lookbook({initial,personalMirror,items=[],accessories=[],product
     catch {setSaved('Open the link below to bookmark your look.');}
   }
   function switchView(next:View){setView(next);setFocus(58);}
-  if(stale) return <section className={styles.tray}><h1 className={styles.missingTitle}>This piece has left the styling tray.</h1><p>It may have sold. Your saved link still identifies the original piece.</p><Link className={styles.savedLink} href="/looks">Open the current lookbook</Link></section>;
-  return <section className={styles.book} aria-label="The Neejee lookbook">
+  if(stale) return <section className={styles.tray}><h1 className={styles.missingTitle}>This piece has left the styling tray.</h1><p>It may have sold. Your saved link still identifies the original piece.</p><Link className={styles.savedLink} href="/looks">See current styling ideas</Link></section>;
+  return <section className={styles.book} aria-label="Saree styling ideas">
     <div className={styles.spread}>
       <div className={styles.photoColumn}>
-        <div className={styles.photoNav} aria-label="Lookbook colours">{editorialLooks.map(item=><button key={item.id} onClick={()=>changeLook(item.id)} aria-pressed={!garment&&choice.look===item.id}><i style={{background:item.colour}}/>{item.shade}</button>)}</div>
+        <div className={styles.photoNav} aria-label="Saree colours">{editorialLooks.map(item=><button key={item.id} onClick={()=>changeLook(item.id)} aria-pressed={!garment&&choice.look===item.id}><i style={{background:item.colour}}/>{item.shade}</button>)}</div>
         <div className={styles.photoStage}>
           {view==='film' && film ? /youtu\.be|youtube\.com|vimeo\.com/i.test(film) ? <a className={styles.primary} href={film}>Watch the original film</a> : <video key={film} controls autoPlay playsInline muted preload="metadata" aria-label="Drape in motion" src={film} /> :
             <img key={image} className={view==='detail'?styles.closeUp:styles.fullPhoto} style={view==='detail'?{objectPosition:'50% '+focus+'%',transformOrigin:'50% '+focus+'%'}:undefined} src={image} alt={garment?.alt||look.shade+' saree worn head to toe with juttis and jewellery'} fetchPriority="high"/>}
@@ -80,7 +80,7 @@ export function Lookbook({initial,personalMirror,items=[],accessories=[],product
         <div className={styles.viewNav}><button aria-pressed={view==='full'} onClick={()=>switchView('full')}>Full look</button><button aria-pressed={view==='detail'} onClick={()=>switchView('detail')}>Up close</button>{film&&<button aria-pressed={view==='film'} onClick={()=>switchView('film')}><Play size={13}/> {garment?'Watch the drape':'Drape study'}</button>}</div>
       </div>
       <div className={styles.copy}>
-        <p className={styles.kicker}>Neejee &nbsp;/&nbsp; The lookbook</p>
+        <p className={styles.kicker}>Neejee &nbsp;/&nbsp; Saree styling ideas</p>
         <h1>{name}</h1>
         <p className={styles.occasion}>{garment?garment.description:look.occasion}</p>
         <p className={styles.description}>{garment?'Choose a jutti and a piece of jewellery to wear with it. Open the photograph to take a closer look at the finish.':look.description}</p>

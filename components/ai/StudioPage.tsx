@@ -16,7 +16,7 @@ import styles from './Studio.module.css';
 export type StudioQuery = {product?:string;variant?:string;page?:string;look?:string;shoe?:string;jewel?:string;blouse?:string;own?:string;fromBag?:string};
 export async function StudioPage({mode,query}:{mode:StudioMode;query:StudioQuery}) {
   const mirror=mode==='mirror';
-  const name=mirror?'Aaina':'Baithak';
+  const name=mirror?'Try on with Aaina':'See décor in my room';
   const page=Number.parseInt(query.page||'1',10);
   const shelf=await studioShelf(mode,Number.isFinite(page)?page:1);
   const selectedKey=typeof query.product==='string'?query.product.slice(0,200):'';
@@ -29,13 +29,13 @@ export async function StudioPage({mode,query}:{mode:StudioMode;query:StudioQuery
   const variant=selected?.variants.find(v=>v.id===query.variant) || null;
   return <><Header shop/><main className={styles.page}>
     <nav className={styles.nav} aria-label="Photo studios"><Link href="/">Neejee</Link><span>/</span>
-      <Link href="/ai/mirror" aria-current={mirror?'page':undefined}>Aaina</Link>
-      <Link href="/ai/imagine" aria-current={mirror?undefined:'page'}>Baithak</Link></nav>
-    <div className={styles.heading}><div><p className={styles.eyebrow}>{mirror?'आईना · Your fitting room':'बैठक · Your room'}</p><h1>{name}</h1></div>
+      <Link href="/ai/mirror" aria-current={mirror?'page':undefined}>Try on with Aaina</Link>
+      <Link href="/ai/imagine" aria-current={mirror?undefined:'page'}>See décor in my room</Link></nav>
+    <div className={styles.heading}><div><p className={styles.eyebrow}>{mirror?'आईना · Your fitting room':'घर · For your home'}</p><h1>{name}</h1></div>
       <p>{mirror?'Choose something you’d like to wear. Use a photo of yourself to see the look.':'Start with a piece you like. See how it sits beside your bed, on your shelf, or in that corner by the window.'}</p></div>
     {unavailable ? <p className={styles.notice}>A selected piece is no longer available. <Link href="/looks">Choose a new pairing</Link></p> : selected ? <StudioSession accessories={accessories} key={JSON.stringify([selected.id,variant?.id,styling])} styling={styling} editorial={!!study} fromBag={query.fromBag==='sample'?'sample':query.fromBag==='shop'?'shop':undefined} ownSlots={homeSlots(query.own)} mode={mode} piece={selected} initialVariant={variant?.id||''} signedIn={!!session} configured={aiMirrorConfigured() && storageConfigured()}/> :
       <section aria-label="Choose a piece" className={styles.shelf}>
-        {mirror && <div className={styles.lookInvite}><img src="/brand/lookbook/sage.webp" alt="Pistachio saree with gold jhumkas and juttis"/><div><h2>Try a complete look</h2><p>Pick a saree, jutti and jewellery, then bring your own photo to the fitting room.</p><Link className={styles.primary} href="/looks">Open the lookbook</Link></div></div>}
+        {mirror && <div className={styles.lookInvite}><img src="/brand/lookbook/sage.webp" alt="Pistachio saree with gold jhumkas and juttis"/><div><h2>Try a complete look</h2><p>Pick a saree, jutti and jewellery, then bring your own photo to the fitting room.</p><Link className={styles.primary} href="/looks">Explore saree styling ideas</Link></div></div>}
         {selectedKey && <p role="status">That piece is currently unavailable for this preview.</p>}
         {shelf.pieces.length ? <><h2>Choose your piece</h2><div className={styles.grid}>{shelf.pieces.map(p=>
           <Link key={p.id} href={studioHref(mode,p.slug)}><img src={p.image} alt={p.name} loading="lazy"/><strong>{p.name}</strong><span>{formatINR(p.sellingPrice)}</span></Link>)}</div>

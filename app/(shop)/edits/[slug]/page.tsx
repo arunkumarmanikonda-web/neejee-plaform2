@@ -44,6 +44,6 @@ export default async function Page({params,searchParams}: Props) {
       {data.pages>1 && <nav className="nj-aisles" aria-label="Collection pages">{data.page>1&&<Link href={url(colour,sort,data.page-1)}>Previous</Link>}<span>Page {data.page} of {data.pages}</span>{data.page<data.pages&&<Link href={url(colour,sort,data.page+1)}>Next</Link>}</nav>}
     </section> : ids.length>0 ? <StudyShelf key={edit.slug} ids={ids} preview={preview} email={email}/> :
       <section className="nj-empty"><h2>{data?'Enquire about a piece':'The catalogue is temporarily unavailable'}</h2><p>{data?'Tell us what you have in mind for your home.':'Please try again or get in touch with the shop.'}</p><a href={'mailto:'+email+'?subject='+encodeURIComponent(edit.name+' enquiry')} className="nj-text-link mt-3">Ask the shop ↗</a> · <Link className="nj-text-link" href="/products">Browse all pieces</Link></section>}
-    <nav className="nj-aisles mt-7" aria-label="Help choosing">{ids.length ? <><Link href="/looks">Juttis & jewellery ↗</Link><Link href="/ai/mirror">Aaina ↗</Link><Link href="/counter">Compare sarees ↗</Link></> : <Link href="/ai/imagine">See it in my room ↗</Link>}</nav>
+    <nav className="nj-aisles mt-7" aria-label="Help choosing">{ids.length ? <><Link href="/looks">Saree styling ideas</Link><Link href="/ai/mirror">Try on with Aaina</Link><Link href="/counter">Compare sarees ↗</Link></> : <Link href="/ai/imagine">See it in my room ↗</Link>}</nav>
   </main><Footer/></>;
 }

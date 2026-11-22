@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { Search, Heart, ShoppingBag, User, Menu, X, LogOut } from 'lucide-react';
 import { useClientReady } from '@/lib/use-client-ready';
+import { useSampleBag } from '@/lib/sample-bag';
 import { useCart } from '@/lib/cart-store';
 import { SearchBar } from '@/components/ui/SearchBar';
 import { AnnouncementBar } from '@/components/ui/AnnouncementBar';
@@ -24,7 +25,9 @@ export function Header({ shop = false }: { shop?: boolean } = {}) {
   const [mobileMains, setMobileMains] = useState<MobileMain[]>([]);
   const [mobileOpenMain, setMobileOpenMain] = useState<string | null>(null);
   const ready = useClientReady();
-  const count = useCart(s => s.itemCount());
+  const liveCount = useCart(s => s.itemCount());
+  const sample = useSampleBag();
+  const count = liveCount + Object.values(sample).reduce((n,qty)=>n+qty,0);
 
   useEffect(() => {
     let alive = true;
@@ -129,7 +132,7 @@ export function Header({ shop = false }: { shop?: boolean } = {}) {
                 <Heart className="w-5 h-5" />
               </Link>
             )}
-            <Link href="/cart" aria-label="Cart" className="relative hover:text-madder transition-colors">
+            <Link href="/cart" aria-label="Shopping bag" className="relative hover:text-madder transition-colors">
               <ShoppingBag className="w-5 h-5" />
               {ready && count > 0 && (
                 <span className="absolute -top-2 -right-2 bg-madder text-ivory text-[10px] rounded-full w-4 h-4 flex items-center justify-center font-ui">{count}</span>
@@ -170,12 +173,12 @@ export function Header({ shop = false }: { shop?: boolean } = {}) {
                   </div>
                 );
               })}
-              <Link href="/looks" onClick={()=>setOpen(false)} className="px-6 py-3">The lookbook</Link>
-              <Link href="/counter" onClick={()=>setOpen(false)} className="px-6 py-3">The saree counter</Link>
+              <Link href="/looks" onClick={()=>setOpen(false)} className="px-6 py-3">Saree styling ideas</Link>
+              <Link href="/counter" onClick={()=>setOpen(false)} className="px-6 py-3">Compare sarees</Link>
               <Link href="/about" onClick={()=>setOpen(false)} className="px-6 py-3">Nidhi’s story</Link>
               <Link href="/journal" onClick={() => setOpen(false)} className="px-6 py-3 border-b border-beige/60 hover:bg-beige hover:text-madder transition-colors">STORIES</Link>
-              <Link href="/ai/imagine" onClick={()=>setOpen(false)} className="px-6 py-3">Baithak · See it at home</Link>
-              <Link href="/ai/mirror" onClick={()=>setOpen(false)} className="px-6 py-3">Aaina · Try it on</Link>
+              <Link href="/ai/imagine" onClick={()=>setOpen(false)} className="px-6 py-3">See décor in my room</Link>
+              <Link href="/ai/mirror" onClick={()=>setOpen(false)} className="px-6 py-3">Try on with Aaina</Link>
               <Link href="/ai/gift" onClick={()=>setOpen(false)} className="px-6 py-3">Find a gift</Link>
               <div className="border-t border-beige mt-2 pt-2">
                 {me ? (

@@ -1,5 +1,8 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { Suspense, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
+import { useSampleBag, sampleShopping } from '@/lib/sample-bag';
+import { SampleShopping } from '@/components/shop/SampleShopping';
 import { HouseHeading } from '@/components/checkout/HouseHeading';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -16,6 +19,20 @@ const FREE_SHIPPING_THRESHOLD_PAISE = 250000;
 export const dynamic = 'force-dynamic';
 
 export default function CartPage() {
+  return <Suspense fallback={<p role="status">Opening your bag…</p>}><BagRoute/></Suspense>;
+}
+
+function BagRoute() {
+  const ready = useClientReady();
+  const sample = useSampleBag();
+  const liveCount = useCart(s => s.itemCount());
+  const explicitSample = useSearchParams().get('bag') === 'sample';
+  const sampleCount = Object.values(sample).reduce((n,qty)=>n+qty,0);
+  if (!ready) return <><Header shop/><main className="nj-order-page" aria-busy="true">Opening your bag…</main><Footer/></>;
+  if (sampleShopping && (explicitSample || (!liveCount && sampleCount > 0))) return <SampleShopping liveCount={liveCount}/>;
+  return <ShopBag sampleCount={sampleCount}/>;
+}
+function ShopBag({sampleCount}: {sampleCount: number}) {
   const { items, removeItem, updateQuantity, itemsSubtotal, giftWrap, setGiftWrap, personalNote, setPersonalNote, couponCode, couponDiscount, applyCoupon, removeCoupon, giftWrapPaise, total } = useCart();
   const [couponInput, setCouponInput] = useState('');
   const [couponMsg, setCouponMsg] = useState('');
@@ -81,6 +98,7 @@ export default function CartPage() {
         <HouseHeading title="Your bag" stage="The pieces you chose"/>
         <p className="font-italic italic text-mitti mt-2">{items.length} piece{items.length > 1 ? 's' : ''} · {items.reduce((s, i) => s + i.quantity, 0)} item{items.reduce((s, i) => s + i.quantity, 0) > 1 ? 's' : ''}</p>
         <Link href="/checkout" className="nj-mobile-checkout">Checkout · {formatINR(grand)}</Link>
+        {sampleCount > 0 && <Link href="/cart?bag=sample" className="nj-text-link">View sample pieces ({sampleCount})</Link>}
         <div className="madder-divider mt-4"></div>
 
         <div className="grid lg:grid-cols-[1fr_400px] gap-10 mt-10">
@@ -163,7 +181,7 @@ export default function CartPage() {
           </div>
 
           <aside className="lg:sticky lg:top-28 lg:self-start">
-            <div className="bg-beige p-8">
+            <div className="nj-order-summary p-8">
               <p className="label text-madder mb-4">ORDER SUMMARY</p>
               <div className="space-y-2 font-ui text-sm">
                 <Row label="Subtotal" value={formatINR(sub)} />
@@ -177,6 +195,7 @@ export default function CartPage() {
                 <span className="font-display text-2xl text-kohl">{formatINR(grand)}</span>
               </div>
 
+              <Link href="/checkout" className="btn-primary w-full mt-6 block text-center">Checkout</Link>
               <div className="mt-6 pt-4 border-t border-mitti/20">
                 <p className="label text-mitti mb-2 flex items-center gap-2"><Tag className="w-3 h-3" /> COUPON CODE</p>
                 {couponApplied ? (
@@ -200,7 +219,7 @@ export default function CartPage() {
                 {couponMsg && <p className={`font-ui text-xs mt-2 ${couponMsg.startsWith('✓') ? 'text-neem' : 'text-madder'}`}>{couponMsg}</p>}
               </div>
 
-              <CheckoutCTA />
+
               <Link href="/" className="block text-center font-ui text-xs tracking-widest text-mitti hover:text-madder mt-4">CONTINUE SHOPPING</Link>
             </div>
 
@@ -224,44 +243,6 @@ function Row({ label, value, color, small }: any) {
     <div className="flex items-baseline justify-between">
       <span className={`text-kohl ${small ? 'text-xs text-mitti' : ''}`}>{label}</span>
       <span className={`font-ui ${color || 'text-kohl'} ${small ? 'text-xs' : ''}`}>{value}</span>
-    </div>
-  );
-}
-
-function CheckoutCTA() {
-  const [me, setMe] = useState<{ email: string } | null>(null);
-
-
-  useEffect(() => {
-    fetch('/api/me', { credentials: 'include', cache: 'no-store' })
-      .then(r => r.ok ? r.json() : null)
-      .then(d => {
-        if (d?.email) setMe(d);
-
-      })
-      .catch(() => {});
-  }, []);
-
-
-  if (me) {
-    return (
-      <Link href="/checkout" className="btn-primary w-full mt-6 block text-center">
-        PROCEED TO CHECKOUT
-      </Link>
-    );
-  }
-
-  return (
-    <div className="mt-6 space-y-3">
-      <Link href="/checkout" className="btn-primary w-full block text-center">
-        PROCEED TO CHECKOUT
-      </Link>
-      <Link href="/login?next=%2Fcheckout" className="btn-outline w-full block text-center">
-        SIGN IN FOR YOUR NEEJEE ACCOUNT
-      </Link>
-      <p className="font-ui text-[10px] leading-relaxed tracking-wide text-mitti/75 text-center mt-2">
-        No account is required to purchase. Sign in for saved addresses, looks, order history, returns and loyalty benefits.
-      </p>
     </div>
   );
 }

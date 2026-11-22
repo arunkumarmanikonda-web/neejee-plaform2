@@ -29,7 +29,7 @@ export async function generateMetadata(): Promise<Metadata> {
   const lookbooks = await loadLookbooks();
   const indexable = lookbooks.length > 0;
   return {
-    title: 'Lookbooks',
+    title: 'Style stories',
     description: 'NEEJEE visual edits and styling studies for published pieces.',
     alternates: { canonical: '/lookbook' },
     robots: {
@@ -49,7 +49,7 @@ export default async function LookbookLanding() {
 
       <section className="bg-kohl text-ivory py-20 px-6 text-center">
         <p className="label text-banarasi">VISUAL EDITS</p>
-        <h1 className="font-display text-5xl md:text-6xl mt-4">Lookbooks</h1>
+        <h1 className="font-display text-5xl md:text-6xl mt-4">Style stories</h1>
         <p className="font-italic italic text-ivory/80 text-lg mt-4 max-w-xl mx-auto">
           Styling studies and visual stories built around pieces that are ready to publish.
         </p>
@@ -58,7 +58,7 @@ export default async function LookbookLanding() {
       <main className="max-w-7xl mx-auto px-6 py-16">
         {lookbooks.length === 0 ? (
           <div className="py-20 text-center">
-            <p className="font-display text-2xl text-kohl">The first lookbook is being prepared.</p>
+            <p className="font-display text-2xl text-kohl">The first style story is being prepared.</p>
             <p className="font-italic italic text-mitti mt-2">Published edits will appear here when they are ready.</p>
           </div>
         ) : (
@@ -81,7 +81,7 @@ export default async function LookbookLanding() {
                     {l.excerpt}
                   </p>
                 )}
-                <p className="font-display text-madder mt-4">VIEW LOOKBOOK →</p>
+                <p className="font-display text-madder mt-4">Read the style story</p>
               </Link>
             ))}
           </div>

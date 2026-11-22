@@ -21,7 +21,7 @@ export function StudioSession({mode,piece,initialVariant,signedIn,configured,sty
   const router=useRouter();
   const variant=piece.variants.find(v=>v.id===initialVariant) || (piece.variants.length===1?piece.variants[0]:undefined);
   const fittingLink=(id?:string)=>styling ? lookUrl('/ai/mirror',styling,editorial?undefined:piece.slug,editorial?undefined:id) : studioHref(mode,piece.slug,id);
-  const bagUrl=fromBag==='sample'?'/edits/sarees?bag=open':'/cart';
+  const bagUrl=fromBag==='sample'?'/cart?bag=sample':'/cart';
   const bagQuery=fromBag?'&fromBag='+fromBag+(ownSlots.length?'&own='+ownSlots.join(','):''):'';
   const back=fittingLink(variant?.id)+bagQuery;
   const ownKey=lineKey(piece.id,variant?.id||'');

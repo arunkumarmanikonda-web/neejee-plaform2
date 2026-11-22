@@ -1,16 +1,14 @@
 'use client';
 import Link from 'next/link';
-import { Bookmark, Check, Minus, Plus, Scan, ShoppingBag, X } from 'lucide-react';
+import { Bookmark, Scan, ShoppingBag, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { formatINR } from '@/lib/money';
 import { studies, type Study } from '@/lib/shop-studies';
 import { defaultStyling, lookUrl, selectedAccessories } from '@/lib/stylebook';
-import { BagPairing } from './BagPairing';
-import { clearDressing,lineKey } from '@/lib/outfit-closet';
+import { useRouter } from 'next/navigation';
+import { changeSample, useSampleBag } from '@/lib/sample-bag';
 import './shop.css';
 
-type Bag = Record<string, number>;
-const bagKey = 'neejee.shop-preview.bag.v1';
 const savedKey = 'neejee.shop-studies.saved.v1';
 function restore<T>(key: string, fallback: T): T {
   try { return JSON.parse(localStorage.getItem(key) || 'null') ?? fallback; } catch { return fallback; }
@@ -18,18 +16,14 @@ function restore<T>(key: string, fallback: T): T {
 function persist(key: string, value: unknown) {
   try { localStorage.setItem(key, JSON.stringify(value)); } catch {}
 }
-function readBag(): Bag {
-  const data = restore<Bag>(bagKey, {});
-  return Object.fromEntries(studies.flatMap(s => Number.isInteger(data?.[s.id]) && data[s.id] > 0 ? [[s.id, Math.min(9, data[s.id])]] : []));
-}
 export function StudyShelf({ids, preview, email, home = false}: {ids: string[]; preview: boolean; email: string; home?: boolean}) {
   const all = ids.map(id => studies.find(s => s.id === id)).filter((s): s is Study => !!s);
   const [shade, setShade] = useState('');
   const [saved, setSaved] = useState<string[]>([]);
   const [onlySaved, setOnlySaved] = useState(false);
   const [sort, setSort] = useState('featured');
-  const [bag, setBag] = useState<Bag>({});
-  const [screen, setScreen] = useState<'piece'|'bag'|'done'>('piece');
+  const router = useRouter();
+  const bag = useSampleBag();
   const [picked, setPicked] = useState<Study>(all[0]);
   const [detail, setDetail] = useState(false);
   const dialog = useRef<HTMLDialogElement>(null);
@@ -37,13 +31,12 @@ export function StudyShelf({ids, preview, email, home = false}: {ids: string[]; 
     const sync = () => {
       const ids = restore<unknown>(savedKey, []);
       setSaved(Array.isArray(ids) ? ids.filter(i => typeof i === 'string') : []);
-      if (preview) setBag(readBag());
     };
     sync();
-    if(preview && new URLSearchParams(window.location.search).get('bag')==='open'){setScreen('bag');dialog.current?.showModal();}
+    if (preview && new URLSearchParams(window.location.search).get('bag') === 'open') router.replace('/cart?bag=sample');
     window.addEventListener('storage', sync);
     return () => window.removeEventListener('storage', sync);
-  }, [preview]);
+  }, [preview, router]);
   const shown = all.filter(s => (!shade || s.shade === shade) && (!onlySaved || saved.includes(s.id)));
   if (sort === 'low') shown.sort((a,b) => a.price - b.price);
   if (sort === 'high') shown.sort((a,b) => b.price - a.price);
@@ -51,25 +44,22 @@ export function StudyShelf({ids, preview, email, home = false}: {ids: string[]; 
   const colours = [...new Map(all.map(s => [s.shade, s.swatch])).entries()];
   const bagItems = studies.filter(s => bag[s.id] > 0);
   const count = bagItems.reduce((n,s) => n + bag[s.id], 0);
-  const total = bagItems.reduce((n,s) => n + bag[s.id]*s.price, 0);
   function save(id: string) {
     const next = saved.includes(id) ? saved.filter(x => x !== id) : [...saved,id];
     setSaved(next); persist(savedKey,next);
   }
-  function adjust(id: string, delta: number) {
-    const latest = readBag();
-    const n = Math.max(0, Math.min(9, (latest[id] || 0) + delta));
-    if (n) latest[id] = n; else {delete latest[id];clearDressing(lineKey('look-'+id,'study-'+id));}
-    setBag(latest); persist(bagKey,latest);
-  }
   function openPiece(s: Study, closeUp = false) {
-    setPicked(s); setDetail(closeUp); setScreen('piece'); dialog.current?.showModal();
+    setPicked(s); setDetail(closeUp); dialog.current?.showModal();
   }
-  function openBag() { setScreen('bag'); if (!dialog.current?.open) dialog.current?.showModal(); }
+  function buy(destination: string) {
+    changeSample(picked.id, 1);
+    dialog.current?.close();
+    router.push(destination);
+  }
   return <section className="nj-shelf" aria-label={preview ? 'Preview collection' : 'Collection studies'}>
     <div className="nj-shelf-head"><div><h2>{home ? 'On the counter' : 'Browse the collection'}</h2>
       <p>{preview ? 'Preview collection · Sample prices' : 'Styling studies · Enquire about a design'}</p></div>
-      {preview && <button className="nj-bag-link" onClick={openBag}><ShoppingBag size={16}/> Preview bag ({count})</button>}
+      {preview && <Link className="nj-bag-link" href="/cart?bag=sample"><ShoppingBag size={16}/> View bag ({count})</Link>}
     </div>
     {!home && <div className="nj-tools">
       <div className="nj-filters" role="group" aria-label="Filter by colour">
@@ -95,21 +85,16 @@ export function StudyShelf({ids, preview, email, home = false}: {ids: string[]; 
     {home && <Link className="nj-more" href="/edits/sarees">Shop the saree collection <span aria-hidden="true">→</span></Link>}
     <dialog ref={dialog} className="nj-dialog" aria-labelledby="nj-modal-title" onClick={e => {if(e.target === dialog.current) dialog.current.close();}}>
       <div className="nj-modal-content"><button className="nj-modal-close" aria-label="Close" autoFocus onClick={() => dialog.current?.close()}><X size={21}/></button>
-      {screen === 'piece' && picked && <div className="nj-piece">
+      {picked && <div className="nj-piece">
         <div className={'nj-piece-photo'+(detail?' nj-zoom':'')}><img src={picked.image} alt={detail ? 'Enlarged detail of '+picked.name : 'Full outfit, '+picked.name} style={{objectPosition:picked.focus,transformOrigin:picked.focus}}/><button aria-pressed={detail} onClick={() => setDetail(!detail)}><Scan size={15}/>{detail ? 'Show full look' : 'Look closer'}</button></div>
         <div className="nj-piece-copy"><p className="nj-overline"><i style={{background:picked.swatch}}/>{picked.shade} · {picked.group === 'sarees'?'Saree':'Suit set'}</p>
           <h2 id="nj-modal-title">{picked.name}</h2><p>{picked.detail}</p>
-          <h3>Wear it with</h3><p>{picked.pairing}</p>
-          {picked.group === 'sarees' && <><div className="nj-pairing">{selectedAccessories(defaultStyling(picked.id)).map(a => <figure key={a.id}><img src={a.image} alt=""/><figcaption>{a.name}</figcaption></figure>)}</div><Link className="nj-text-link" href={lookUrl('/looks', defaultStyling(picked.id))}>Change juttis & jewellery ↗</Link></>}
-          <div className="nj-buy">{preview ? <><strong>{formatINR(picked.price)}</strong><small>Sample price · AI styling study</small><button className="nj-primary" onClick={() => {adjust(picked.id,1);openBag();}}>Add to preview bag <ShoppingBag size={16}/></button></> : <><small>AI styling study · Enquiries welcome</small><a className="nj-primary" href={'mailto:'+email+'?subject='+encodeURIComponent('Enquiry about '+picked.name)}>Ask about this style ↗</a></>}</div>
+          <div className="nj-buy">{preview ? <><strong>{formatINR(picked.price)}</strong><small>Sample piece · No payment will be taken</small>
+            <div className="nj-buy-actions"><button className="nj-primary" onClick={() => buy('/checkout/sample')}>Buy now</button><button className="nj-secondary" onClick={() => buy('/cart?bag=sample')}><ShoppingBag size={16}/> Add to bag</button></div>
+          </> : <><small>Styling study · Enquiries welcome</small><a className="nj-primary" href={'mailto:'+email+'?subject='+encodeURIComponent('Enquiry about '+picked.name)}>Ask about this piece</a></>}</div>
+          <details className="nj-optional"><summary>Styling ideas</summary><p>{picked.pairing}</p>
+          {picked.group === 'sarees' && <><div className="nj-pairing">{selectedAccessories(defaultStyling(picked.id)).map(a => <figure key={a.id}><img src={a.image} alt=""/><figcaption>{a.name}</figcaption></figure>)}</div><Link className="nj-text-link" href={lookUrl('/looks', defaultStyling(picked.id))}>See more ways to wear it</Link></>}</details>
         </div></div>}
-      {screen === 'bag' && <div className="nj-bag"><p className="nj-overline">Storefront preview</p><h2 id="nj-modal-title">Your preview bag</h2><p>Sample pieces and prices. Styling is optional.</p>
-        {count>0&&<button className="nj-primary nj-sample-checkout" onClick={()=>{bagItems.forEach(s=>clearDressing(lineKey('look-'+s.id,'study-'+s.id)));persist(bagKey,{});setBag({});setScreen('done');}}>Finish preview · {formatINR(total)} <Check size={16}/></button>}
-        {bagItems.map(s => <div className="nj-bag-row" key={s.id}><img src={s.image} alt=""/><div><b>{s.name}</b><small>{formatINR(s.price)} each</small><div className="nj-qty"><button aria-label={'Decrease '+s.name+' quantity'} onClick={() => adjust(s.id,-1)}><Minus size={13}/></button>{bag[s.id]}<button aria-label={'Increase '+s.name+' quantity'} disabled={bag[s.id]>=9} onClick={() => adjust(s.id,1)}><Plus size={13}/></button></div></div><strong>{formatINR(bag[s.id]*s.price)}</strong>{s.group==='sarees'&&<BagPairing name={s.name} product={s.id} study/>}</div>)}
-        {count ? <><div className="nj-total"><b>Sample total</b><b>{formatINR(total)}</b></div><small>No payment is taken.</small></> : <p>Your preview bag is empty.</p>}
-        <button className="nj-text-link" onClick={() => dialog.current?.close()}>Continue browsing</button>
-      </div>}
-      {screen === 'done' && <div className="nj-bag"><Check/><h2 id="nj-modal-title">Preview complete</h2><p>Your sample shopping journey is complete. No order was placed or payment taken.</p><button className="nj-primary" onClick={() => dialog.current?.close()}>Back to the collection</button></div>}
       </div>
     </dialog>
   </section>;

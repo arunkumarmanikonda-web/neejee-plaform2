@@ -256,7 +256,7 @@ function CheckoutInner() {
   if (authChecking || recovering) {
     return (
       <>
-        <Header />
+        <Header shop/>
         <div className="max-w-2xl mx-auto py-32 px-6 text-center">
           <p className="font-italic italic text-mitti">
             {recovering ? 'Reopening your saved bag…' : 'Loading your bag…'}
@@ -270,7 +270,7 @@ function CheckoutInner() {
   if (recoverId && items.length === 0) {
     return (
       <>
-        <Header />
+        <Header shop/>
         <div className="max-w-2xl mx-auto py-20 px-6 text-center">
           <h1 className="font-display text-3xl text-kohl">This saved bag is no longer available.</h1>
           {error && <p className="mt-4 font-ui text-sm text-mitti">{error}</p>}
@@ -284,7 +284,7 @@ function CheckoutInner() {
   if (items.length === 0) {
     return (
       <>
-        <Header />
+        <Header shop/>
         <div className="max-w-2xl mx-auto py-20 px-6 text-center">
           <h1 className="font-display text-3xl text-kohl">Your bag is empty.</h1>
           <Link href="/" className="btn-primary mt-6 inline-block">SHOP THE EDIT</Link>
@@ -447,7 +447,7 @@ function CheckoutInner() {
 
   return (
     <>
-      <Header />
+      <Header shop/>
       <section className="max-w-6xl mx-auto px-6 lg:px-12 py-10">
         <HouseHeading title="Delivery and payment" stage="Checkout"/>
         <div className="madder-divider mt-4"></div>
@@ -647,7 +647,7 @@ function CheckoutInner() {
           </div>
 
           <aside className="lg:sticky lg:top-28 lg:self-start">
-            <div className="bg-beige p-6">
+            <div className="nj-order-summary p-6">
               <p className="label text-madder mb-4">ORDER ({items.length})</p>
 
               <div className="space-y-4 max-h-72 overflow-y-auto pr-2">
@@ -714,7 +714,7 @@ export default function CheckoutPage() {
     <Suspense
       fallback={
         <>
-          <Header />
+          <Header shop/>
           <div className="max-w-2xl mx-auto py-32 px-6 text-center">
             <p className="font-italic italic text-mitti">Loading checkout…</p>
           </div>

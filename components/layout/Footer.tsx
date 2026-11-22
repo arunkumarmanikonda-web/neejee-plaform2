@@ -76,10 +76,10 @@ export function Footer() {
             {houseNavigation.map(c => (
               <li key={c.slug}><Link href={editHref(c.slug)} className="hover:text-ivory">{c.name}</Link></li>
             ))}
-            <li><Link href="/looks" className="hover:text-ivory">The lookbook</Link></li>
-            <li><Link href="/counter" className="hover:text-ivory">The saree counter</Link></li>
-            <li className="pt-2 border-t border-mitti/20 mt-2"><Link href="/ai/mirror" className="hover:text-ivory text-madder">Aaina</Link></li>
-            <li><Link href="/ai/imagine" className="hover:text-ivory">Baithak</Link></li>
+            <li><Link href="/looks" className="hover:text-ivory">Saree styling ideas</Link></li>
+            <li><Link href="/counter" className="hover:text-ivory">Compare sarees</Link></li>
+            <li className="pt-2 border-t border-mitti/20 mt-2"><Link href="/ai/mirror" className="hover:text-ivory text-madder">Try on with Aaina</Link></li>
+            <li><Link href="/ai/imagine" className="hover:text-ivory">See décor in my room</Link></li>
             <li><Link href="/ai/gift" className="hover:text-ivory text-madder">Find a gift</Link></li>
           </ul>
         </div>

@@ -1,6 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  env: { NEXT_PUBLIC_NEEJEE_SAMPLE_SHOP: (process.env.VERCEL_ENV === 'preview' || process.env.NODE_ENV === 'development') ? '1' : '0' },
   images: {
     formats: ['image/avif', 'image/webp'],
     remotePatterns: [
