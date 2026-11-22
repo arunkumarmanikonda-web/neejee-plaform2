@@ -5,7 +5,7 @@ import { Footer } from '@/components/layout/Footer';
 import { ProductCard, type ProductCardData } from '@/components/product/ProductCard';
 import { editLead } from '@/lib/shop-edit-catalog';
 import { shopEdits } from '@/lib/shop-edits';
-import { HouseCampaign, ShopDepartments } from '@/components/home/HouseCampaign';
+import { HouseCampaign } from '@/components/home/HouseCampaign';
 import { StudyShelf } from '@/components/shop/StudyShelf';
 import { previewPricingEnabled } from '@/lib/shop-studies';
 import { readEdit } from '@/lib/shop-edit-catalog';
@@ -207,17 +207,17 @@ async function getHomeData() {
 export default async function HomePage() {
   const data = await getHomeData();
   const fashion = await readEdit(shopEdits[3],1).catch(() => null);
+  const moreFashion = fashion?.pieces.filter(p=>p.slug!==data.saree?.slug).slice(0,4) || [];
   const {email} = await getPublicContact();
   return (
     <>
       <Header shop/>
       <main className="house-front">
-        <HouseCampaign/>
-        <ShopDepartments/>
-        <div className="nj-market house-shelf" style={{paddingBottom:'1rem'}}>
-          {fashion?.pieces.length ? <section className="nj-shelf"><div className="nj-shelf-head"><h2>From the collection</h2><Link className="nj-text-link" href="/edits/clothing">Browse all</Link></div><div className="nj-grid">{fashion.pieces.slice(0,4).map(p=><ProductCard key={p.id} product={{...p,images:p.cover?[p.cover,...p.images.filter(i=>i!==p.cover)]:p.images}}/>)}</div></section> :
-            <StudyShelf home ids={['surkh','neel','haldi','wine-suit']} preview={previewPricingEnabled()} email={email}/>}
-        </div>
+        <HouseCampaign lead={data.saree} preview={previewPricingEnabled()} email={email}/>
+        {(!fashion?.pieces.length || moreFashion.length>0) && <div className="nj-market house-shelf" style={{paddingBottom:'1rem'}}>
+          {fashion?.pieces.length ? <section className="nj-shelf"><div className="nj-shelf-head"><h2>Sarees &amp; suit sets</h2><Link className="nj-text-link" href="/edits/clothing">Shop the collection</Link></div><div className="nj-grid">{moreFashion.map(p=><ProductCard key={p.id} product={{...p,images:p.cover?[p.cover,...p.images.filter(i=>i!==p.cover)]:p.images}}/>)}</div></section> :
+            <StudyShelf home ids={['haldi','wine-suit','sage','indigo-suit']} preview={previewPricingEnabled()} email={email}/>}
+        </div>}
         {(data.heroBanners.length>0) && <HeroCarousel banners={data.heroBanners} spotlight={data.spotlight}/>}
 
         {(data.founder.length > 0 || (data.spotlight && !data.heroBanners.length)) && (

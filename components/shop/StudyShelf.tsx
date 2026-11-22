@@ -92,9 +92,9 @@ export function StudyShelf({ids, preview, email, home = false}: {ids: string[]; 
     router.push(destination);
   }
   return <section className="nj-shelf" aria-label={preview ? 'Preview collection' : 'Collection studies'}>
-    <div className="nj-shelf-head"><div><h2>{home ? 'From the collection' : 'The collection'}</h2>
+    <div className="nj-shelf-head"><div><h2>{home ? 'Sarees & suit sets' : 'The collection'}</h2>
       <p>{preview ? 'Collection preview · Sample prices' : 'Collection preview · Enquiries welcome'}</p></div>
-      {preview && <Link className="nj-bag-link" href="/cart?bag=sample"><ShoppingBag size={16}/> View bag ({count})</Link>}
+      {home ? <Link className="nj-bag-link" href="/edits/clothing">Shop the collection</Link> : preview && <Link className="nj-bag-link" href="/cart?bag=sample"><ShoppingBag size={16}/> View bag ({count})</Link>}
     </div>
     {!home && <div className="loom-tools">
       <div className="loom-presentation" role="group" aria-label="Collection photographs">
@@ -133,7 +133,6 @@ export function StudyShelf({ids, preview, email, home = false}: {ids: string[]; 
     </div>
     {!shown.length && <p className="nj-no-results">No pieces match this selection. <button onClick={()=>{setOnlySaved(false);setShade('');setQuery('');}}>Clear filters</button></p>}
     {!home && hasSarees && <TextileGuide/>}
-    {home && <Link className="nj-more" href="/edits/sarees">Shop all sarees</Link>}
     <dialog ref={dialog} className="nj-dialog loom-dialog" aria-labelledby="nj-modal-title" onClick={e => {if(e.target === dialog.current) dialog.current.close();}}>
       <div className="nj-modal-content"><button className="nj-modal-close" aria-label="Close" autoFocus onClick={() => dialog.current?.close()}><X size={21}/></button>
       {picked && <div className="nj-piece loom-piece">
