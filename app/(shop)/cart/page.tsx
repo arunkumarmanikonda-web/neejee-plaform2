@@ -6,6 +6,7 @@ import Image from 'next/image';
 import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
 import { CompleteTheLook } from '@/components/product/CompleteTheLook';
+import { useClientReady } from '@/lib/use-client-ready';
 import { useCart } from '@/lib/cart-store';
 import { formatINR } from '@/lib/money';
 import { Plus, Minus, X, Gift, Truck, Tag } from 'lucide-react';
@@ -20,6 +21,7 @@ export default function CartPage() {
   const [couponMsg, setCouponMsg] = useState('');
   const [applyingCoupon, setApplyingCoupon] = useState(false);
 
+  const ready = useClientReady();
   const sub = itemsSubtotal();
   const wrap = giftWrapPaise();
   const couponApplied = couponCode && couponDiscount > 0;
@@ -49,6 +51,8 @@ export default function CartPage() {
       setApplyingCoupon(false);
     }
   };
+
+  if (!ready) return <><Header/><main className="max-w-3xl mx-auto px-6 py-20" aria-busy="true">Opening your bag…</main><Footer/></>;
 
   if (items.length === 0) {
     return (

@@ -5,6 +5,7 @@ import { Pitari } from '@/components/home/Pitari';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { Search, Heart, ShoppingBag, User, Menu, X, LogOut } from 'lucide-react';
+import { useClientReady } from '@/lib/use-client-ready';
 import { useCart } from '@/lib/cart-store';
 import { SearchBar } from '@/components/ui/SearchBar';
 import { AnnouncementBar } from '@/components/ui/AnnouncementBar';
@@ -22,6 +23,7 @@ export function Header() {
   const [me, setMe] = useState<Me | null>(null);
   const [mobileMains, setMobileMains] = useState<MobileMain[]>([]);
   const [mobileOpenMain, setMobileOpenMain] = useState<string | null>(null);
+  const ready = useClientReady();
   const count = useCart(s => s.itemCount());
 
   useEffect(() => {
@@ -129,7 +131,7 @@ export function Header() {
             )}
             <Link href="/cart" aria-label="Cart" className="relative hover:text-madder transition-colors">
               <ShoppingBag className="w-5 h-5" />
-              {count > 0 && (
+              {ready && count > 0 && (
                 <span className="absolute -top-2 -right-2 bg-madder text-ivory text-[10px] rounded-full w-4 h-4 flex items-center justify-center font-ui">{count}</span>
               )}
             </Link>
