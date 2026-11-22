@@ -1,4 +1,7 @@
-.nj-gallery{touch-action:pan-y;isolation:isolate}
+.nj-gallery{isolation:isolate}
+.nj-piece-gallery .nj-detail-rail,.nj-gallery .nj-photo-rail{position:absolute;inset:0;height:100%}
+.nj-gallery .nj-image-open:hover img{transform:none}
+.nj-gallery .loom-gallery-nav button[aria-disabled=true]{opacity:.36;cursor:default}
 .nj-gallery .nj-image-open img{height:100%;width:100%;object-fit:cover}
 .nj-gallery-nav{position:absolute;bottom:9px;left:50%;transform:translateX(-50%);display:flex;align-items:center;justify-content:space-between;gap:1px;width:max-content;max-width:calc(100% - 12px);padding:0 1px;background:#fff9edee;border:1px solid #a58966;color:#432b23;border-radius:23px;box-shadow:0 1px 5px #2c180d28;font:500 12px/1.25 var(--font-ui),Arial,sans-serif}
 .nj-gallery-nav button{display:grid;place-items:center;width:36px;height:36px;flex:none;border-radius:50%}.nj-gallery-nav button:hover{background:#eddcc4}.nj-gallery-nav span{white-space:nowrap}.nj-gallery-nav i{font-size:10px;color:#725647;font-style:normal;margin-left:2px}

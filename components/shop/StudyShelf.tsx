@@ -11,6 +11,7 @@ import { TileGallery, type PieceView } from '@/components/product/TileGallery';
 import { studyTextiles } from '@/lib/study-textiles';
 import { findSareeTerms, normalizeSareeText, sareeVocabulary } from '@/lib/saree-vocabulary';
 import { TextileGuide } from './TextileGuide';
+import { usePhotoRail } from '@/components/gallery/usePhotoRail';
 import './shop.css';
 import '@/components/product/merchandise.css';
 
@@ -25,6 +26,21 @@ function studyViews(s:Study):PieceView[] {
   return [{src:s.image,label:'Worn'}, {src:'/brand/study-views/'+s.id+'.webp', label:s.group==='sarees'?'Laid out':'The set'},
     {src:s.image,label:s.group==='sarees'?'Border crop':'Detail crop',zoom:2.7,focus:s.focus}];
 }
+function PiecePhotographs({ piece, initial }: { piece: Study; initial: number }) {
+  const views = studyViews(piece);
+  const rail = usePhotoRail(views.length, initial);
+  return <div className="nj-piece-photo nj-piece-gallery" role="group" aria-label={'Photographs of '+piece.name} onKeyDown={rail.onKeyDown}>
+    <div className="photo-rail nj-detail-rail" {...rail.props}>
+      {views.map((view,i)=><div data-slide="" key={view.label} aria-hidden={rail.active!==i}>
+        <img src={view.src} alt={piece.name+' · '+view.label} draggable={false}
+          style={{objectPosition:view.focus,transformOrigin:view.focus,transform:view.zoom?'scale('+view.zoom+')':undefined}}/>
+      </div>)}
+    </div>
+    <div className="nj-piece-views" role="group" aria-label="Product photographs">
+      {views.map((v,i)=><button key={v.label} aria-pressed={i===rail.active} onClick={()=>rail.go(i)}>{v.label}</button>)}
+    </div>
+  </div>;
+}
 export function StudyShelf({ids, preview, email, home = false}: {ids: string[]; preview: boolean; email: string; home?: boolean}) {
   const all = ids.map(id => studies.find(s => s.id === id)).filter((s): s is Study => !!s);
   const [shade, setShade] = useState('');
@@ -36,7 +52,7 @@ export function StudyShelf({ids, preview, email, home = false}: {ids: string[]; 
   const router = useRouter();
   const bag = useSampleBag();
   const [picked, setPicked] = useState<Study>(all[0]);
-  const [pieceView,setPieceView]=useState(0);
+  const [photoSession,setPhotoSession]=useState({ initial:0, version:0 });
   const dialog = useRef<HTMLDialogElement>(null);
   useEffect(() => {
     const sync = () => {
@@ -57,7 +73,6 @@ export function StudyShelf({ids, preview, email, home = false}: {ids: string[]; 
   });
   const hasSarees=all.some(s=>s.group==='sarees');
   const textile=studyTextiles[picked?.id];
-  const opened=picked ? studyViews(picked)[pieceView] : null;
   if (sort === 'low') shown.sort((a,b) => a.price - b.price);
   if (sort === 'high') shown.sort((a,b) => b.price - a.price);
   if (sort === 'name') shown.sort((a,b) => a.name.localeCompare(b.name));
@@ -69,7 +84,7 @@ export function StudyShelf({ids, preview, email, home = false}: {ids: string[]; 
     setSaved(next); persist(savedKey,next);
   }
   function openPiece(s: Study, view = 0) {
-    setPicked(s); setPieceView(view); dialog.current?.showModal();
+    setPicked(s); setPhotoSession(previous=>({initial:view,version:previous.version+1})); dialog.current?.showModal();
   }
   function buy(s:Study,destination: string) {
     changeSample(s.id, 1);
@@ -101,7 +116,7 @@ export function StudyShelf({ids, preview, email, home = false}: {ids: string[]; 
     </div>}
     <div className="nj-grid" aria-live="polite">
       {shown.map((s, index) => <article key={s.id} className="nj-tile loom-card">
-        <TileGallery key={showFabric ? 'fabric' : 'drape'} initialView={showFabric ? 2 : 0} name={s.name} eager={index<4} views={studyViews(s)} onOpen={i=>openPiece(s,i)}>
+        <TileGallery initialView={showFabric ? 2 : 0} name={s.name} eager={index<4} views={studyViews(s)} onOpen={i=>openPiece(s,i)}>
           <button className="nj-save" aria-label={(saved.includes(s.id) ? 'Unsave ' : 'Save ')+s.name} aria-pressed={saved.includes(s.id)} onClick={()=>save(s.id)}><Bookmark size={17} fill={saved.includes(s.id)?'currentColor':'none'}/></button>
         </TileGallery>
         <div className="loom-ticket">
@@ -122,8 +137,7 @@ export function StudyShelf({ids, preview, email, home = false}: {ids: string[]; 
     <dialog ref={dialog} className="nj-dialog loom-dialog" aria-labelledby="nj-modal-title" onClick={e => {if(e.target === dialog.current) dialog.current.close();}}>
       <div className="nj-modal-content"><button className="nj-modal-close" aria-label="Close" autoFocus onClick={() => dialog.current?.close()}><X size={21}/></button>
       {picked && <div className="nj-piece loom-piece">
-        <div className="nj-piece-photo nj-piece-gallery">{opened&&<img src={opened.src} alt={picked.name+' · '+opened.label} style={{objectPosition:opened.focus,transformOrigin:opened.focus,transform:opened.zoom?'scale('+opened.zoom+')':undefined}}/>}
-          <div className="nj-piece-views" role="group" aria-label="Product photographs">{studyViews(picked).map((v,i)=><button key={v.label} aria-pressed={i===pieceView} onClick={()=>setPieceView(i)}>{v.label}</button>)}</div></div>
+        <PiecePhotographs key={photoSession.version} piece={picked} initial={photoSession.initial}/>
         <div className="nj-piece-copy"><p className="loom-spec"><i style={{background:picked.swatch}}/>{picked.shade}<span aria-hidden="true">·</span>{textile?.motif || 'Three-piece suit'}</p>
           <h2 id="nj-modal-title">{picked.name}</h2><p>{picked.detail}</p>
 

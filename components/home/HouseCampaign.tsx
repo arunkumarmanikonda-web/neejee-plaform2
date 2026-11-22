@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useState } from 'react';
+import { usePhotoRail } from '@/components/gallery/usePhotoRail';
 import { lookUrl, defaultStyling } from '@/lib/stylebook';
 import styles from './HouseCampaign.module.css';
 
@@ -21,26 +21,30 @@ const edits = [
 ];
 
 export function HouseCampaign() {
-  const [active, setActive] = useState(0);
-  const edit = edits[active];
-  return <section className={styles.campaign} aria-label="Featured sarees" data-edit={edit.id}>
-    <picture className={styles.photograph}>
-      <source media="(max-width: 650px)" srcSet={edit.mobile}/>
-      <img src={edit.image} alt={edit.alt} width="1800" height="800" fetchPriority="high"/>
-    </picture>
-    <div className={styles.shade}/>
-    <div className={styles.content} aria-live="polite">
-      <p className={styles.label}>The saree edit</p>
-      <h1>{edit.name}<span lang="hi">{edit.hindi}</span></h1>
-      <p className={styles.line}>{edit.line}</p>
-      <div className={styles.links}>
-        <Link className={styles.primary} href="/edits/sarees">Shop sarees</Link>
-        <Link className={styles.secondary} href={lookUrl('/looks', defaultStyling(edit.id))}>Style this look</Link>
-      </div>
+  const rail = usePhotoRail(edits.length);
+  return <section className={styles.campaign} aria-label="Featured sarees" aria-roledescription="carousel" onKeyDown={rail.onKeyDown}>
+    <div className={'photo-rail '+styles.track} {...rail.props}>
+      {edits.map((edit, i) => <div className={styles.panel} data-slide="" data-edit={edit.id} key={edit.id} aria-hidden={rail.active!==i}>
+        <picture className={styles.photograph}>
+          <source media="(max-width: 650px)" srcSet={edit.mobile}/>
+          <img src={edit.image} alt={edit.alt} width="1800" height="800" draggable={false}
+            fetchPriority={i===0 ? 'high' : 'low'} decoding="async"/>
+        </picture>
+        <div className={styles.shade}/>
+        <div className={styles.content}>
+          <p className={styles.label}>The saree edit</p>
+          <h1>{edit.name}<span lang="hi">{edit.hindi}</span></h1>
+          <p className={styles.line}>{edit.line}</p>
+          <div className={styles.links}>
+            <Link className={styles.primary} tabIndex={rail.active===i ? 0 : -1} href="/edits/sarees">Shop sarees</Link>
+            <Link className={styles.secondary} tabIndex={rail.active===i ? 0 : -1} href={lookUrl('/looks', defaultStyling(edit.id))}>Style this look</Link>
+          </div>
+        </div>
+      </div>)}
     </div>
     <div className={styles.selector} role="group" aria-label="Choose a featured saree">
-      {edits.map((item, i) => <button type="button" key={item.id} aria-pressed={active === i}
-        onClick={() => setActive(i)}><i style={{ backgroundColor: item.colour }}/>{item.name}</button>)}
+      {edits.map((item, i) => <button type="button" key={item.id} aria-pressed={rail.active === i}
+        onClick={() => rail.go(i)}><i style={{ backgroundColor: item.colour }}/>{item.name}</button>)}
     </div>
   </section>;
 }
