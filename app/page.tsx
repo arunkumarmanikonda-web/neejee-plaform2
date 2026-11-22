@@ -4,8 +4,8 @@ import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
 import { ProductCard, type ProductCardData } from '@/components/product/ProductCard';
 import { editLead } from '@/lib/shop-edit-catalog';
-import { shopEdits,editHref } from '@/lib/shop-edits';
-import { FashionFront } from '@/components/home/FashionFront';
+import { shopEdits } from '@/lib/shop-edits';
+import { CraftHouse } from '@/components/home/CraftHouse';
 import { StudioDoors } from '@/components/home/StudioDoors';
 import { studioHref } from '@/lib/studio';
 import { HeroCarousel } from '@/components/home/HeroCarousel';
@@ -207,15 +207,7 @@ export default async function HomePage() {
       <Header />
 
       <main>
-        <FashionFront saree={data.saree} suit={data.suit}/>
-        <nav aria-label="Shop collections" className="border-y border-mitti/20 bg-ivory">
-          <div className="max-w-8xl mx-auto px-6 lg:px-12 py-4 flex flex-wrap items-center gap-x-7 gap-y-2 font-ui text-sm">
-            {shopEdits.map(edit=><Link key={edit.slug} href={editHref(edit.slug)} className="hover:underline underline-offset-4">{edit.name}</Link>)}
-            <Link className="text-madder underline underline-offset-4" href="/products">Shop all pieces</Link>
-            <Link href="/about" className="sm:ml-auto hover:underline underline-offset-4">Meet Neejee</Link>
-          </div>
-        </nav>
-        <StudioDoors roomPiece={data.spotlight?.roomHref ? data.spotlight.slug : undefined} wearable={data.saree?.mirror ? data.saree.slug : data.suit?.mirror ? data.suit.slug : undefined}/>
+        <CraftHouse/>
         {(data.spotlight||data.heroBanners.length>0) && <HeroCarousel banners={data.heroBanners} spotlight={data.spotlight}/>}
 
         {data.founder.length > 0 && (
@@ -232,8 +224,8 @@ export default async function HomePage() {
           </section>
         )}
 
-        {data.founderNoteBody && (
-          <section className="bg-beige py-16 md:py-24">
+        {data.founderNoteBody ? (
+          <section id="founder-letter" className="scroll-mt-24 bg-beige py-12 md:py-16">
             <div className="max-w-3xl mx-auto px-6">
               {data.founderNoteTitle && (
                 <h2 className="font-display text-3xl md:text-4xl text-kohl mb-10 text-center">{data.founderNoteTitle}</h2>
@@ -250,11 +242,11 @@ export default async function HomePage() {
                 return (
                   <>
                     <div className={`font-body text-kohl/80 text-[15px] md:text-base leading-[1.85] space-y-5 ${alignClass}`} style={{ textAlign: data.founderNoteAlign || 'center' }}>
-                      {paragraphs.slice(0, 2).map((p, i) => <p key={i}>{p}</p>)}
-                      {paragraphs.length > 2 && (
+                      {paragraphs.slice(0, 1).map((p, i) => <p key={i}>{p}</p>)}
+                      {paragraphs.length > 1 && (
                         <details>
                           <summary className="cursor-pointer text-madder underline underline-offset-4">Read the full founder’s letter</summary>
-                          <div className="space-y-5 mt-5">{paragraphs.slice(2).map((p, i) => <p key={i}>{p}</p>)}</div>
+                          <div className="space-y-5 mt-5">{paragraphs.slice(1).map((p, i) => <p key={i}>{p}</p>)}</div>
                         </details>
                       )}
                     </div>
@@ -268,7 +260,10 @@ export default async function HomePage() {
               })()}
             </div>
           </section>
-        )}
+        ) : <section id="founder-letter" className="max-w-3xl scroll-mt-24 mx-auto px-6 py-12"><h2 className="font-display text-3xl">A letter from Nidhi</h2><p className="mt-3">A love of Indian craft is how everything began.</p><Link href="/about" className="underline">Read the founder’s story</Link></section>}
+
+
+        <StudioDoors roomPiece={data.spotlight?.roomHref ? data.spotlight.slug : undefined} wearable={data.saree?.mirror ? data.saree.slug : data.suit?.mirror ? data.suit.slug : undefined}/>
 
         {data.newArrivals.length > 0 && (
           <section className="bg-beige py-20">

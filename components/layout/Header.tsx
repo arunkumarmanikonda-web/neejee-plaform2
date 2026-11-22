@@ -1,6 +1,6 @@
 'use client';
 import MegaMenuNav, { stockedDepartments } from './MegaMenuNav';
-import { shopEdits, editHref } from '@/lib/shop-edits';
+import { houseNavigation, editHref } from '@/lib/shop-edits';
 import { Pitari } from '@/components/home/Pitari';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
@@ -139,7 +139,7 @@ export function Header() {
         {open && (
           <div className="lg:hidden border-t border-beige bg-ivory max-h-[80vh] overflow-y-auto">
             <nav className="flex flex-col py-2 font-ui text-sm tracking-wide">
-              {shopEdits.map(e=><Link key={e.slug} href={editHref(e.slug)} onClick={()=>setOpen(false)} className="px-6 py-3 border-b border-beige font-medium">{e.name}</Link>)}
+              {houseNavigation.map(e=><Link key={e.slug} href={editHref(e.slug)} onClick={()=>setOpen(false)} className="px-6 py-3 border-b border-beige font-medium">{e.name}</Link>)}
               <Link href="/products" onClick={() => setOpen(false)} className="px-6 py-3 border-b border-beige">Shop all</Link>
               {mobileMains.map(main => {
                 const isOpen = mobileOpenMain === main.slug;
@@ -168,6 +168,7 @@ export function Header() {
                   </div>
                 );
               })}
+              <Link href="/about" onClick={()=>setOpen(false)} className="px-6 py-3">Nidhi’s story</Link>
               <Link href="/journal" onClick={() => setOpen(false)} className="px-6 py-3 border-b border-beige/60 hover:bg-beige hover:text-madder transition-colors">STORIES</Link>
               <Link href="/ai/imagine" onClick={()=>setOpen(false)} className="px-6 py-3">AI Imagine · See it at home</Link>
               <Link href="/ai/mirror" onClick={()=>setOpen(false)} className="px-6 py-3">AI Mirror · Try it on</Link>

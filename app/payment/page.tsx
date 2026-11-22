@@ -1,6 +1,7 @@
 'use client';
-import { Suspense, useEffect, useState } from 'react';
+import { Suspense, useEffect, useRef, useState } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
+import { HouseHeading } from '@/components/checkout/HouseHeading';
 import Link from 'next/link';
 import Script from 'next/script';
 import { Header } from '@/components/layout/Header';
@@ -34,6 +35,20 @@ function PaymentInner() {
   const snapshotId = sp?.get('snapshot');
   const orderNumber = sp?.get('order');
 
+  const opening = useRef(false);
+  const captured = useRef(false);
+  const checkoutMark = useRef('');
+  useEffect(()=>{
+    const controller = new AbortController();
+    fetch('/brand/journey-apple.png',{signal:controller.signal}).then(async response=>{
+      if (!response.ok) return;
+      const blob = await response.blob();
+      const reader = new FileReader();
+      reader.onload = ()=>{if (!controller.signal.aborted && typeof reader.result==='string') checkoutMark.current=reader.result;};
+      reader.readAsDataURL(blob);
+    }).catch(()=>{});
+    return ()=>controller.abort();
+  },[]);
   const [rzpReady, setRzpReady] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -62,39 +77,20 @@ function PaymentInner() {
   }, [snapshotId]);
 
   useEffect(() => {
-    if (snapshotId) {
-      fetch(`/api/checkout/snapshot/${snapshotId}`, { cache: 'no-store' })
-        .then(r => r.ok ? r.json() : null)
-        .then(d => {
-          if (d?.snapshot) {
-            setInfo({
-              total: d.snapshot.total,
-              email: d.snapshot.email,
-              phone: d.snapshot.phone,
-              name: d.snapshot.customerName,
-            });
-          }
-        })
-        .catch(() => {});
-      return;
-    }
-    if (orderNumber) {
-      fetch(`/api/orders/${orderNumber}`, { cache: 'no-store' })
-        .then(r => r.json())
-        .then(d => {
-          if (d?.order) {
-            setInfo({
-              total: d.order.total,
-              email: d.order.guestEmail || d.order.user?.email,
-              phone: d.order.user?.phone,
-              name: d.order.guestName || d.order.user?.name,
-            });
-          }
-        })
-        .catch(() => {});
-      return;
-    }
-    setError('No payment reference provided');
+    const controller = new AbortController();
+    setInfo(null);
+    setError('');
+    if (!snapshotId && !orderNumber) { setError('Open payment from your bag to see the amount due.'); return; }
+    const path = snapshotId ? '/api/checkout/snapshot/' + encodeURIComponent(snapshotId) : '/api/orders/' + encodeURIComponent(orderNumber!);
+    fetch(path,{cache:'no-store',signal:controller.signal}).then(async response=>{
+      if (!response.ok) throw Error('This checkout could not be opened. Return to your bag to review the pieces.');
+      const data = await response.json();
+      const row = snapshotId ? data.snapshot : data.order;
+      if (!row || !Number.isSafeInteger(row.total) || row.total<=0) throw Error('The amount due could not be confirmed.');
+      if (!snapshotId && row.paymentStatus==='PAID') throw Error('This order has already been paid.');
+      if (!controller.signal.aborted) setInfo({total:row.total});
+    }).catch(e=>{if (!controller.signal.aborted) setError(e.message);});
+    return ()=>controller.abort();
   }, [snapshotId, orderNumber]);
 
   const finalizePayment = async (verifyBody: VerifyBody, automaticAttempts = 2) => {
@@ -172,12 +168,13 @@ function PaymentInner() {
   };
 
   const startPayment = async () => {
-    if (paymentCaptured) return;
+    if (captured.current || opening.current || !info) return;
     if (!(window as any).Razorpay) {
       setError('Payment window is not ready. Please refresh this page.');
       return;
     }
 
+    opening.current = true;
     setLoading(true);
     setError('');
     setStatusMessage('');
@@ -191,6 +188,7 @@ function PaymentInner() {
       const data = await response.json().catch(() => ({}));
       if (!response.ok) {
         if (data?.code === 'INVENTORY_CHANGED') {
+          opening.current = false;
           setError(data.error || 'A selected piece is no longer available.');
           setLoading(false);
           return;
@@ -204,7 +202,8 @@ function PaymentInner() {
         currency: data.currency,
         order_id: data.razorpayOrderId,
         name: 'NEEJEE',
-        description: snapshotId ? 'Your trunk' : `Order ${data.orderNumber}`,
+        description: snapshotId ? 'Your Neejee order' : `Order ${data.orderNumber}`,
+        image: checkoutMark.current || window.location.origin + '/brand/journey-apple.png',
         prefill: {
           email: info?.email || '',
           contact: info?.phone || '',
@@ -212,6 +211,7 @@ function PaymentInner() {
         },
         theme: { color: '#8B2E2A' },
         handler: async (gatewayResponse: any) => {
+          captured.current = true;
           setPaymentCaptured(true);
           setLoading(true);
           const verifyBody: VerifyBody = {
@@ -225,9 +225,10 @@ function PaymentInner() {
         },
         modal: {
           ondismiss: () => {
-            if (paymentCaptured) return;
+            if (captured.current) return;
+            opening.current = false;
             setLoading(false);
-            setError('Payment was not completed. Your trunk is saved; you can continue when ready.');
+            setError('You closed the payment window. Your bag is saved.');
           },
         },
       };
@@ -235,6 +236,7 @@ function PaymentInner() {
       const rzp = new (window as any).Razorpay(options);
       rzp.open();
     } catch (e: any) {
+      opening.current = false;
       setError(e.message || 'Unable to open payment');
       setLoading(false);
     }
@@ -242,12 +244,10 @@ function PaymentInner() {
 
   return (
     <>
-      <Script src="https://checkout.razorpay.com/v1/checkout.js" onLoad={() => setRzpReady(true)} />
+      <Script src="https://checkout.razorpay.com/v1/checkout.js" onReady={() => setRzpReady(true)} onError={()=>setError("Payment services could not be reached. Refresh to try again.")} />
       <Header />
       <section className="max-w-2xl mx-auto px-6 py-20 text-center">
-        <p className="label text-madder">PAYMENT</p>
-        <h1 className="font-display text-4xl text-kohl mt-3">Complete your order</h1>
-        {snapshotId && <p className="font-italic italic text-mitti mt-3">Your trunk awaits.</p>}
+        <HouseHeading title="Review and pay" stage="Secure payment"/>
         {orderNumber && !snapshotId && <p className="font-italic italic text-mitti mt-3">{orderNumber}</p>}
         <div className="madder-divider mx-auto mt-6"></div>
 
@@ -255,7 +255,7 @@ function PaymentInner() {
           <div className="bg-beige p-8 mt-10 text-left">
             <p className="label text-madder">AMOUNT DUE</p>
             <p className="font-display text-4xl text-kohl mt-2">{formatINR(info.total)}</p>
-            <p className="font-italic italic text-mitti mt-2">Final amount as verified by NEEJEE checkout.</p>
+            <p className="font-italic italic text-mitti mt-2">Includes the delivery and discount choices from checkout.</p>
           </div>
         )}
 
@@ -278,8 +278,8 @@ function PaymentInner() {
         {error && <p className="mt-6 font-ui text-sm text-madder bg-madder/10 p-3">{error}</p>}
 
         {!paymentCaptured && terminalState === 'none' && (
-          <button onClick={startPayment} disabled={!rzpReady || loading} className="btn-primary mt-8 disabled:opacity-50">
-            {loading ? 'OPENING PAYMENT…' : rzpReady ? 'PAY NOW' : 'LOADING…'}
+          <button onClick={startPayment} disabled={!info || !rzpReady || loading} className="btn-primary mt-8 disabled:opacity-50">
+            {loading ? 'OPENING PAYMENT…' : info && rzpReady ? 'Pay '+formatINR(info.total) : error ? 'Payment unavailable' : 'Loading payment…'}
           </button>
         )}
 
@@ -301,8 +301,8 @@ function PaymentInner() {
           </div>
         )}
 
-        {!paymentCaptured && error && error.toLowerCase().includes('no longer available') && (
-          <Link href="/cart" className="btn-outline mt-4 inline-block">REVIEW YOUR TRUNK</Link>
+        {!paymentCaptured && error && (
+          <Link href="/cart" className="btn-outline mt-4 inline-block">RETURN TO BAG</Link>
         )}
 
         <div className="mt-8 flex items-center justify-center gap-2 text-mitti">
@@ -311,7 +311,7 @@ function PaymentInner() {
         </div>
 
         <p className="font-italic italic text-mitti text-sm mt-8 max-w-md mx-auto">
-          Payment is completed in Razorpay Checkout. NEEJEE receives the payment reference and verifies it server-side before confirming your order.
+          Your payment window opens with Razorpay. You’ll return here for your order confirmation.
         </p>
       </section>
       <Footer />

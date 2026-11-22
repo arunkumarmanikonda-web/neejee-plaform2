@@ -275,8 +275,8 @@ export function getRootMetadata(): Metadata {
       images: [seo.ogImageUrl],
     },
     icons: {
-      icon: [{ url: '/brand/neejee-mark.svg', type: 'image/svg+xml', sizes: 'any' }],
-      apple: [{ url: '/brand/apple-touch-icon.png', type: 'image/png', sizes: '180x180' }],
+      icon: [{ url: '/brand/neejee-shuttle.svg', type: 'image/svg+xml', sizes: 'any' }],
+      apple: [{ url: '/brand/journey-apple.png', type: 'image/png', sizes: '180x180' }],
     },
     manifest: '/manifest.json',
     appleWebApp: {

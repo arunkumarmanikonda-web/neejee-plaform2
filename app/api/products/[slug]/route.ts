@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { notesPageType, notesSlug, notesTemplate, readPieceFacts } from '@/lib/catalog/piece-notes';
 import { prisma } from '@/lib/prisma';
 import {
   buildProductReadModel,
@@ -154,6 +155,7 @@ export async function GET(
       now
     );
 
+    const notes = await prisma.cmsPage.findFirst({where:{slug:notesSlug(row.id),status:'PUBLISHED',pageType:notesPageType,template:notesTemplate},select:{sections:true}});
     const response = NextResponse.json({
       readModel: {
         version: ROUTE_READ_MODEL_VERSION,
@@ -161,7 +163,7 @@ export async function GET(
         generatedAt: now.toISOString(),
         stockVisibility: CATALOGUE_STOCK_VISIBILITY,
       },
-      product: mapPublicProductDetail(row as any, read),
+      product: { ...mapPublicProductDetail(row as any, read), pieceFacts: readPieceFacts(notes?.sections) },
     });
 
     response.headers.set('x-read-model-version', ROUTE_READ_MODEL_VERSION);

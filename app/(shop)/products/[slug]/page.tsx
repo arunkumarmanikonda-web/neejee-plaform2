@@ -13,6 +13,8 @@ import { WaitlistSignup } from '@/components/product/WaitlistSignup';
 import { ReviewsSection } from '@/components/product/ReviewsSection';
 import { BadgeRow } from '@/components/ui/Badge';
 import { track } from '@/lib/analytics';
+import { DetailViewer } from '@/components/product/DetailViewer';
+import { pieceFields, readPieceFacts, type PieceFacts } from '@/lib/catalog/piece-notes';
 import { ShareFind } from '@/components/product/ShareFind';
 import { studioHref } from '@/lib/studio';
 import { CompleteTheLook } from '@/components/product/CompleteTheLook';
@@ -85,7 +87,7 @@ function PDPInner() {
       name: product.name,
       sellingPrice: eff.price,
       mrp: product.mrp,
-      images: product.images,
+      images: galleryImages,
       inventory: stockLeft,
       variantId: activeVariant?.id,
       variantLabel: [activeVariant?.size, activeVariant?.color].filter(Boolean).join(' · ') || null,
@@ -163,6 +165,7 @@ function PDPInner() {
             ) : (
               <div className="w-full h-full flex items-center justify-center text-mitti italic">No image</div>
             )}
+            <DetailViewer photos={galleryImages} selected={activeImage} onSelect={setActiveImage} name={product.name}/>
             {eff.onSale && (
               <span className="absolute top-4 left-4 badge-founder">ON SALE · -{dp}%</span>
             )}
@@ -173,7 +176,7 @@ function PDPInner() {
           {galleryImages?.length > 1 && (
             <div className="grid grid-cols-5 gap-2 mt-2">
               {galleryImages.map((img: string, i: number) => (
-                <button key={i} onClick={() => setActiveImage(i)}
+                <button key={i} aria-pressed={activeImage===i} aria-label={`View photograph ${i+1}`} onClick={() => setActiveImage(i)}
                   className={`aspect-square overflow-hidden bg-beige ${activeImage === i ? 'ring-2 ring-madder' : ''}`}>
                   <Image src={img} alt={`View ${i + 1}`} width={150} height={150} className="w-full h-full object-cover" />
                 </button>
@@ -207,6 +210,8 @@ function PDPInner() {
           </div>
           <p className="font-ui text-xs text-mitti mt-1">Inclusive of all taxes</p>
 
+          {(product.material || product.region) && <p className="mt-3 text-sm text-mitti">{[product.material,product.region].filter(Boolean).join(' · ')}</p>}
+          {Object.keys(readPieceFacts(product.pieceFacts)).length>0 && <section className="mt-5 border-t border-mitti/30 pt-4"><h2 className="font-display text-xl">The piece, up close</h2><dl className="mt-2 grid gap-2 text-sm">{Object.entries(readPieceFacts(product.pieceFacts)).map(([key,value])=><div key={key}><dt className="font-semibold">{pieceFields[key as keyof PieceFacts]}</dt><dd>{value}</dd></div>)}</dl></section>}
           {(product.aiTryOnEligible || product.aiRoomEligible) && inStock && <div className="my-5 flex flex-wrap gap-3">
             {product.aiRoomEligible && <Link className="border border-mitti px-4 py-3 font-ui text-sm" href={studioHref('imagine',product.slug,activeVariant?.id)}>AI Imagine · See it in my room</Link>}
             {product.aiTryOnEligible && <Link className="border border-mitti px-4 py-3 font-ui text-sm" href={studioHref('mirror',product.slug,activeVariant?.id)}>AI Mirror · Try it on</Link>}
@@ -283,7 +288,7 @@ function PDPInner() {
               <div className="flex gap-3">
                 <button onClick={handleAdd} disabled={!inStock || added}
                   className="btn-primary flex-1 disabled:opacity-50 flex items-center justify-center gap-2">
-                  {added ? (<><Check className="w-4 h-4" /> ADDED TO TRUNK</>) : buyCtaLabel(product).toUpperCase()}
+                  {added ? (<><Check className="w-4 h-4" /> ADDED TO BAG</>) : buyCtaLabel(product).toUpperCase()}
                 </button>
                 <button onClick={handleBuyNow} disabled={!inStock} className="btn-outline flex-1 disabled:opacity-50">
                   {isPreorder(product) ? 'RESERVE NOW' : 'BUY NOW'}

@@ -2,6 +2,7 @@
 
 import { Suspense, useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { HouseHeading } from '@/components/checkout/HouseHeading';
 import Link from 'next/link';
 import Image from 'next/image';
 import { Header } from '@/components/layout/Header';
@@ -141,7 +142,7 @@ function CheckoutInner() {
         }
 
         if (!r.ok || !d?.cart) {
-          setError(d?.message || d?.error || 'This saved trunk is no longer available.');
+          setError(d?.message || d?.error || 'This saved bag is no longer available.');
           setRecovering(false);
           return;
         }
@@ -213,7 +214,7 @@ function CheckoutInner() {
       })
       .catch(() => {
         if (!active) return;
-        setError('Unable to load saved trunk.');
+        setError('Unable to load saved bag.');
         setRecovering(false);
       });
 
@@ -258,7 +259,7 @@ function CheckoutInner() {
         <Header />
         <div className="max-w-2xl mx-auto py-32 px-6 text-center">
           <p className="font-italic italic text-mitti">
-            {recovering ? 'Reopening your saved trunk…' : 'Personal moment…'}
+            {recovering ? 'Reopening your saved bag…' : 'Loading your bag…'}
           </p>
         </div>
         <Footer />
@@ -271,7 +272,7 @@ function CheckoutInner() {
       <>
         <Header />
         <div className="max-w-2xl mx-auto py-20 px-6 text-center">
-          <h1 className="font-display text-3xl text-kohl">This saved trunk is no longer available.</h1>
+          <h1 className="font-display text-3xl text-kohl">This saved bag is no longer available.</h1>
           {error && <p className="mt-4 font-ui text-sm text-mitti">{error}</p>}
           <Link href="/" className="btn-primary mt-6 inline-block">SHOP THE EDIT</Link>
         </div>
@@ -285,7 +286,7 @@ function CheckoutInner() {
       <>
         <Header />
         <div className="max-w-2xl mx-auto py-20 px-6 text-center">
-          <h1 className="font-display text-3xl text-kohl">Your trunk is empty.</h1>
+          <h1 className="font-display text-3xl text-kohl">Your bag is empty.</h1>
           <Link href="/" className="btn-primary mt-6 inline-block">SHOP THE EDIT</Link>
         </div>
         <Footer />
@@ -448,8 +449,7 @@ function CheckoutInner() {
     <>
       <Header />
       <section className="max-w-6xl mx-auto px-6 lg:px-12 py-10">
-        <p className="label text-madder">CHECKOUT</p>
-        <h1 className="font-display text-4xl text-kohl mt-2">Almost yours.</h1>
+        <HouseHeading title="Delivery and payment" stage="Checkout"/>
         <div className="madder-divider mt-4"></div>
 
         {!me && !recoverId && (
@@ -464,7 +464,7 @@ function CheckoutInner() {
 
         {recoverId && (
           <div className="mt-6 bg-beige p-4 border border-mitti/20">
-            <p className="font-display text-lg text-kohl">Your saved trunk is back.</p>
+            <p className="font-display text-lg text-kohl">Your saved bag is back.</p>
             <p className="font-ui text-sm text-mitti mt-1">We restored your saved items and details. Review and continue whenever you’re ready.</p>
           </div>
         )}
@@ -477,7 +477,7 @@ function CheckoutInner() {
               }`}>
                 {i < stepIdx ? <Check className="w-3 h-3" /> : i + 1}
               </div>
-              <span className={i === stepIdx ? 'text-kohl' : 'text-mitti'}>{s}</span>
+              <button type="button" disabled={i >= stepIdx} onClick={()=>setStep(s)} aria-current={i===stepIdx ? "step" : undefined} className={i === stepIdx ? 'text-kohl' : 'text-mitti'}>{s}</button>
               {i < STEPS.length - 1 && <span className="text-mitti">·</span>}
             </div>
           ))}

@@ -1,5 +1,6 @@
 'use client';
 import { useState, useEffect } from 'react';
+import { HouseHeading } from '@/components/checkout/HouseHeading';
 import Link from 'next/link';
 import Image from 'next/image';
 import { Header } from '@/components/layout/Header';
@@ -54,13 +55,13 @@ export default function CartPage() {
       <>
         <Header />
         <section className="max-w-3xl mx-auto px-6 py-24 text-center">
-          <p className="label text-madder">YOUR TRUNK</p>
+          <p className="label text-madder">YOUR BAG</p>
           <h1 className="font-display text-4xl text-kohl mt-3">Empty for now.</h1>
-          <p className="font-italic italic text-mitti mt-3">A trunk filled is a trunk loved. Start with the Founder&apos;s Edit.</p>
+          <p className="font-italic italic text-mitti mt-3">Explore the sarees, suits and objects in Nidhi’s edit.</p>
           <div className="madder-divider mx-auto mt-6"></div>
           <div className="mt-10 flex gap-3 justify-center">
             <Link href="/" className="btn-primary">SHOP THE EDIT</Link>
-            <Link href="/categories/women-sarees" className="btn-outline">EXPLORE SAREES</Link>
+            <Link href="/edits/sarees" className="btn-outline">EXPLORE SAREES</Link>
           </div>
         </section>
         <Footer />
@@ -72,8 +73,7 @@ export default function CartPage() {
     <>
       <Header />
       <section className="max-w-8xl mx-auto px-6 lg:px-12 py-10">
-        <p className="label text-madder">CART</p>
-        <h1 className="font-display text-4xl text-kohl mt-2">Your Trunk</h1>
+        <HouseHeading title="Your bag" stage="The pieces you chose"/>
         <p className="font-italic italic text-mitti mt-2">{items.length} piece{items.length > 1 ? 's' : ''} · {items.reduce((s, i) => s + i.quantity, 0)} item{items.reduce((s, i) => s + i.quantity, 0) > 1 ? 's' : ''}</p>
         <div className="madder-divider mt-4"></div>
 

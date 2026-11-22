@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { CurrencySwitcher } from '@/components/i18n/CurrencySwitcher';
 import { Instagram } from 'lucide-react';
-import { shopEdits, editHref } from '@/lib/shop-edits';
+import { houseNavigation, editHref } from '@/lib/shop-edits';
 import { NewsletterForm } from '@/components/ui/NewsletterForm';
 import { NeejeeLogo } from '@/components/brand/Logo';
 
@@ -58,7 +58,7 @@ export function Footer() {
           <NeejeeLogo size="lg" variant="ivory" showTagline />
           <div className="madder-divider mt-6"></div>
           <p className="font-body text-sm text-beige/80 mt-6 max-w-xs leading-relaxed">
-            Sarees, suits and a few pieces for the home. Personally chosen for Neejee.
+            Neejee means personal. The thread that runs through this house is Nidhi’s love of Indian cloth, objects and the hands that make them.
           </p>
           <p className="font-italic italic text-beige/70 mt-4 text-sm">Nidhi Chauhan, Founder</p>
 
@@ -73,7 +73,7 @@ export function Footer() {
           <div className="label text-madder mb-4">SHOP</div>
           <ul className="space-y-2 font-ui text-xs text-beige/80">
             <li><Link href="/products" className="hover:text-ivory">Shop all pieces</Link></li>
-            {shopEdits.map(c => (
+            {houseNavigation.map(c => (
               <li key={c.slug}><Link href={editHref(c.slug)} className="hover:text-ivory">{c.name}</Link></li>
             ))}
             <li className="pt-2 border-t border-mitti/20 mt-2"><Link href="/ai/mirror" className="hover:text-ivory text-madder">AI Mirror</Link></li>

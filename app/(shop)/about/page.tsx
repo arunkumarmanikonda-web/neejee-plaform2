@@ -26,7 +26,7 @@ type AboutSections = {
 
 const DEFAULT_CONTENT: AboutSections = {
   eyebrow: 'ABOUT',
-  title: 'Why we exist.',
+  title: 'A letter from Nidhi.',
   pullquote: 'The rarest things in India are rarely the hardest to make. They are simply the hardest to find.',
   attribution: 'Nidhi Chauhan, Founder',
   paragraphs: [
@@ -80,6 +80,9 @@ async function getAboutContent(): Promise<AboutSections> {
 
 export default async function AboutPage() {
   const content = await getAboutContent();
+  const letter = await prisma.cmsPage.findFirst({where:{slug:'home-founder-note',status:'PUBLISHED'},select:{sections:true}}).catch(()=>null);
+  const body = Array.isArray(letter?.sections) ? (letter.sections as any[]).find(s=>typeof s?.data?.body==='string')?.data?.body : '';
+  const paragraphs: string[] = body ? body.trim().split(/\n\s*\n/) : content.paragraphs;
   return (
     <>
       <Header />
@@ -93,18 +96,8 @@ export default async function AboutPage() {
         </section>
 
         <section className="max-w-3xl mx-auto px-6 py-10 font-display text-[17px] md:text-[18px] text-kohl/82 leading-[1.8] space-y-6">
-          {content.paragraphs.map((paragraph, index) => <p key={index}>{paragraph}</p>)}
-          {content.closingLine && <p className="font-display italic text-2xl text-mitti text-center pt-5">{content.closingLine}</p>}
-        </section>
-
-        <section className="max-w-6xl mx-auto px-6 py-16 grid md:grid-cols-3 gap-5">
-          {content.stats.map((stat) => (
-            <div key={stat.label} className="paper-panel text-center p-8">
-              <p className="editorial-kicker">{stat.label}</p>
-              <p className="font-display text-[36px] text-kohl mt-3">{stat.value}</p>
-              <p className="font-display italic text-mitti mt-3 text-[13px] leading-relaxed">{stat.note}</p>
-            </div>
-          ))}
+          {paragraphs.map((paragraph, index) => <p key={index}>{paragraph}</p>)}
+          {!body && content.closingLine && <p className="font-display italic text-2xl text-mitti text-center pt-5">{content.closingLine}</p>}
         </section>
 
         <section className="max-w-2xl mx-auto px-6 pb-20 pt-4 text-center">

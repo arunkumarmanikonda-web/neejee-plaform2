@@ -1,4 +1,5 @@
 'use client';
+import { PieceNotesEditor } from '@/components/admin/PieceNotesEditor';
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
@@ -745,6 +746,7 @@ export default function AdminProductEdit() {
                 </div>
               </div>
               <div>
+                <PieceNotesEditor id={product.id}/>
                 <Field label="Care Instructions" value={form.careInstructions} onChange={(v: string) => setForm((f: any) => ({...f, careInstructions: v}))} multiline rows={3} />
                 <div className="mt-1">
                   <AiCopyButton field="careInstructions" brief={{ name: form.name, craft: form.craft, region: form.region, artisanName: form.artisanName, material: form.material, technique: form.technique, occasion: form.occasion }} onApply={(d: any) => setForm((f: any) => ({ ...f, careInstructions: d.text }))} />
