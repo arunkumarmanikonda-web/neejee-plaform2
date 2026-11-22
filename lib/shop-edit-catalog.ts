@@ -2,6 +2,7 @@ import type { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { resolveMedia } from '@/lib/catalog/media-read';
 import { buildPricing } from '@/lib/catalog/pricing-read';
+import { findSareeTerms } from './saree-vocabulary';
 import { type Edit } from '@/lib/shop-edits';
 
 export function editProductWhere(edit:Edit):Prisma.ProductWhereInput {
@@ -18,15 +19,15 @@ export function editProductWhere(edit:Edit):Prisma.ProductWhereInput {
 }
 
 const pick = {
-  id:true,name:true,slug:true,material:true,region:true,craft:true,poeticLine:true,images:true,badges:true,
+  id:true,name:true,slug:true,material:true,technique:true,state:true,region:true,craft:true,poeticLine:true,images:true,badges:true,
   cataloguePreferredImage:true,catalogueImageApproved:true,mrp:true,sellingPrice:true,salePrice:true,saleStartsAt:true,saleEndsAt:true,aiTryOnEligible:true,
-  variants:{where:{inventory:{gt:0}},select:{id:true,images:true,inventory:true}}
+  variants:{where:{inventory:{gt:0}},select:{id:true,images:true,inventory:true,color:true}}
 } satisfies Prisma.ProductSelect;
 const order:Prisma.ProductOrderByWithRelationInput[]=[{cataloguePinHero:'desc'},{catalogueFeatured:'desc'},{createdAt:'desc'},{id:'asc'}];
 type Product=Prisma.ProductGetPayload<{select:typeof pick}>;
 function card(p:Product) {
   const m=resolveMedia(p);
-  return {id:p.id,name:p.name,slug:p.slug,material:p.material,region:p.region,craft:p.craft,poeticLine:p.poeticLine,badges:p.badges,
+  return {id:p.id,name:p.name,slug:p.slug,material:p.material,technique:p.technique,state:p.state,colours:[...new Set(p.variants.flatMap(v=>v.color?[v.color]:[]))],region:p.region,craft:p.craft,poeticLine:p.poeticLine,badges:p.badges,
     sellingPrice:p.sellingPrice,mrp:p.mrp,salePrice:p.salePrice,saleStartsAt:p.saleStartsAt,saleEndsAt:p.saleEndsAt,
     aiTryOnEligible:p.aiTryOnEligible,price:buildPricing(p).effectivePrice,images:m.approvedGallery,cover:m.approvedPrimaryImage};
 }
@@ -36,11 +37,19 @@ export async function editLead(edit:Edit) {
   const p=card(row);
   return {slug:p.slug,name:p.name,cover:p.cover,price:p.price,mirror:p.aiTryOnEligible};
 }
-export async function readEdit(edit:Edit,requestedPage:number,colour = '',sort = 'featured') {
+export async function readEdit(edit:Edit,requestedPage:number,colour = '',sort = 'featured',textile = '') {
   const base = editProductWhere(edit);
   const total = await prisma.product.count({where:base});
-  const where: Prisma.ProductWhereInput = colour ? {AND:[base,{variants:{some:{inventory:{gt:0},color:colour}}}]} : base;
-  const matches = colour && total ? await prisma.product.count({where}) : total;
+  const filters:Prisma.ProductWhereInput[]=[base];
+  if(colour) filters.push({variants:{some:{inventory:{gt:0},color:colour}}});
+  if(textile.trim()) {
+    const terms=findSareeTerms(textile).filter(t=>!['silk','cotton'].includes(t.id));
+    const words=[...new Set([textile.trim(), ...terms.flatMap(t=>[t.name,...t.aliases])])];
+    const fields=['name','craft','material','technique','region','state','cluster'] as const;
+    filters.push({OR:words.flatMap(word=>fields.map(field=>({[field]:{contains:word,mode:'insensitive'}})))});
+  }
+  const where:Prisma.ProductWhereInput={AND:filters};
+  const matches = filters.length>1 && total ? await prisma.product.count({where}) : total;
   const pages = Math.max(1, Math.ceil(matches/12));
   const page = Math.min(pages, Math.max(1, Number.isFinite(requestedPage) ? Math.floor(requestedPage) : 1));
   const ordered: Prisma.ProductOrderByWithRelationInput[] = sort === 'name' ? [{name:'asc'},{id:'asc'}] : sort === 'newest' ? [{createdAt:'desc'},{id:'asc'}] : order;

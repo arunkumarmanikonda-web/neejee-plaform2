@@ -1,3 +1,4 @@
+import { studyTextiles } from './study-textiles';
 import { editorialLooks } from './stylebook';
 
 export type Study = {
@@ -30,7 +31,8 @@ const suits: Row[] = [
 function makeStudy(group: Study['group'], row: Row): Study {
   const [id, name, shade, swatch, detail, pairing, focus, price] = row;
   const image = editorialLooks.find(look => look.id === id)?.image || '/brand/bazaar/' + id + '.webp';
-  return { id, name, shade, swatch, detail, pairing, focus, price, group, image };
+  const textile = studyTextiles[id];
+  return { id, name:textile?.name || name, shade, swatch, detail:textile?.description || detail, pairing, focus, price, group, image };
 }
 export const studies: Study[] = [
   ...sarees.map(row => makeStudy('sarees', row)),

@@ -12,3 +12,5 @@
 
 .frame[data-portrait=true]{background:#d8cab6}.frame[data-portrait=true]>img{object-fit:contain}
 @media(max-width:720px){.frame[data-portrait=true]{height:20rem}}
+
+.switch{border-bottom:0;gap:.55rem}.switch button{border:0;padding:.55rem .8rem;border-radius:3px}.switch button[aria-pressed=true]{background:#f4e2c5;color:#512c29}

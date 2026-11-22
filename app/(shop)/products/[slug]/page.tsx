@@ -94,7 +94,7 @@ function PDPInner() {
       id: product.id,
       slug: product.slug,
       name: product.name,
-      sellingPrice: eff.price,
+      sellingPrice: activeVariant?.sellingPrice ?? eff.price,
       mrp: product.mrp,
       images: galleryImages,
       inventory: stockLeft,
@@ -216,7 +216,7 @@ function PDPInner() {
           )}
 
           <div className="mt-6 flex items-baseline gap-3 flex-wrap">
-            <span className={`font-display text-3xl ${eff.onSale ? 'text-madder' : 'text-kohl'}`}>{formatINR(eff.price)}</span>
+            <span className={`font-display text-3xl ${eff.onSale ? 'text-madder' : 'text-kohl'}`}>{formatINR(activeVariant?.sellingPrice ?? eff.price)}</span>
             {eff.onSale && <span className="font-ui text-mitti line-through">{formatINR(product.sellingPrice)}</span>}
             {!eff.onSale && product.mrp > product.sellingPrice && (
               <span className="font-ui text-mitti line-through">{formatINR(product.mrp)}</span>
@@ -225,7 +225,10 @@ function PDPInner() {
           </div>
           <p className="font-ui text-xs text-mitti mt-1">Inclusive of all taxes</p>
 
-          {(product.material || product.region) && <p className="mt-3 text-sm text-mitti">{[product.material,product.region].filter(Boolean).join(' · ')}</p>}
+          <dl className="nj-product-facts">{[
+            ['Colour',activeVariant?.color],['Craft',product.craft],['Technique',product.technique],['Fabric',activeVariant?.material || product.material],['Origin',[product.cluster,product.region,product.state].filter((v,i,a)=>v && a.indexOf(v)===i).join(', ')],
+          ].filter(([,v])=>v).map(([k,v])=><div key={k}><dt>{k}</dt><dd>{v}</dd></div>)}</dl>
+          {product.description && <p className="nj-product-description">{product.description}</p>}
           {colors.length > 0 && (
             <div className="mt-8">
               <p className="label text-mitti mb-3">COLOR · {(activeVariant?.color || '').toUpperCase()}</p>

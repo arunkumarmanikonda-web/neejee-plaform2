@@ -6,6 +6,7 @@ import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
 import { formatINR, effectivePricePaise } from '@/lib/money';
 import { fulfilmentStatusLine, isSoldOut } from '@/lib/fulfilment';
+import { ProductCard } from '@/components/product/ProductCard';
 import { Loader2, Clock } from 'lucide-react';
 
 export const dynamic = 'force-dynamic';
@@ -193,35 +194,8 @@ export default function DropPage() {
             <h2 className="font-display text-3xl text-kohl mb-2">The pieces</h2>
             <p className="italic text-mitti mb-6">{products.length} piece{products.length === 1 ? '' : 's'} in this drop.</p>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {products.map(p => {
-                const soldOut = isSoldOut(p);
-                const status = fulfilmentStatusLine(p);
-                const priceInfo = effectivePricePaise(p.sellingPrice, p.salePrice, p.saleStartsAt, p.saleEndsAt);
-                const price = priceInfo.price;
-                return (
-                  <Link
-                    key={p.id}
-                    href={soldOut ? '#' : `/products/${p.slug}`}
-                    className={`block group ${soldOut ? 'cursor-default opacity-60' : ''}`}
-                  >
-                    <div className="relative aspect-[4/5] bg-beige/30 overflow-hidden">
-                      {p.images?.[0] && (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img src={p.images[0]} alt={p.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
-                      )}
-                      {soldOut && (
-                        <div className="absolute inset-0 flex items-center justify-center bg-kohl/60">
-                          <span className="font-display text-ivory text-xl tracking-widest">SOLD OUT</span>
-                        </div>
-                      )}
-                    </div>
-                    <p className="font-display text-kohl mt-3">{p.name}</p>
-                    {p.poeticLine && <p className="italic text-xs text-mitti mt-1">{p.poeticLine}</p>}
-                    <p className="text-sm text-kohl mt-2">{formatINR(price)}</p>
-                    {status && <p className="text-[10px] uppercase tracking-widest text-madder mt-1">{status}</p>}
-                  </Link>
-                );
-              })}
+              {products.map(p => <div key={p.id}><ProductCard product={{...p,inventory:isSoldOut(p)?0:undefined}}/>
+                {fulfilmentStatusLine(p)&&<p className="text-sm text-madder mt-2">{fulfilmentStatusLine(p)}</p>}</div>)}
             </div>
           </section>
         )}

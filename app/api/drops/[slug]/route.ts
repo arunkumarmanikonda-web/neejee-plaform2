@@ -15,12 +15,12 @@ export async function GET(_request: Request, { params }: { params: { slug: strin
   // Fetch the products in this drop (only active ones)
   const products = drop.productIds.length > 0
     ? await prisma.product.findMany({
-        where: { id: { in: drop.productIds }, status: 'ACTIVE' },
+        where: { id: { in: drop.productIds }, status: 'ACTIVE', takedownAt:null, catalogueExclude:false },
         select: {
           id: true,
           slug: true,
           name: true,
-          poeticLine: true,
+          poeticLine: true, material:true,region:true,craft:true,technique:true,state:true,
           images: true,
           mrp: true,
           sellingPrice: true,

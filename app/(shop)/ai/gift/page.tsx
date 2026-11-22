@@ -1,6 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { ProductCard } from '@/components/product/ProductCard';
 import { Sparkles, Loader2, Gift } from 'lucide-react';
 import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
@@ -147,22 +148,8 @@ export default function GiftConciergePage() {
           )}
 
           {picks.length > 0 && !loading && (
-            <div className="space-y-6">
-              {picks.map((p: any) => (
-                <Link key={p.productId} href={`/products/${p.slug}`} className="flex gap-5 group hover:bg-beige/30 p-3 -m-3 transition-colors">
-                  {p.image && (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={p.image} alt={p.name} className="w-28 h-36 object-cover border border-mitti/20 flex-shrink-0" />
-                  )}
-                  <div className="flex-1">
-                    <p className="font-display text-xl text-kohl group-hover:text-madder transition-colors">{p.name}</p>
-                    <p className="text-sm text-kohl/80 leading-relaxed mt-2">{p.why}</p>
-                    <p className="text-xs tracking-wider text-mitti mt-3">
-                      ₹{(p.pricePaise / 100).toLocaleString('en-IN')} · <span className="text-madder underline">View piece →</span>
-                    </p>
-                  </div>
-                </Link>
-              ))}
+            <div className="grid grid-cols-2 gap-4">
+              {picks.map((p:any)=><div key={p.productId}><ProductCard product={{id:p.productId,slug:p.slug,name:p.name,images:p.image?[p.image]:[],sellingPrice:p.pricePaise,mrp:p.pricePaise}}/><p className="text-sm mt-2">{p.why}</p></div>)}
             </div>
           )}
         </div>

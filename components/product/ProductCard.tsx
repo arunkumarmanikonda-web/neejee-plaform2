@@ -1,13 +1,15 @@
 'use client';
 import Link from 'next/link';
-import { Bookmark, Scan } from 'lucide-react';
-import { useState } from 'react';
+import { Bookmark } from 'lucide-react';
+import { TileGallery, catalogueViews } from './TileGallery';
+import { TileAdd } from './TileAdd';
 import { formatINR } from '@/lib/money';
 import { buildPricing } from '@/lib/catalog/pricing-read';
 import { useWishlist } from '@/lib/wishlist-store';
 import { BadgeChipRow } from '@/components/ui/Badge';
 import { studioHref } from '@/lib/studio';
 import '@/components/shop/shop.css';
+import './merchandise.css';
 
 export interface ProductCardData {
   id: string;
@@ -16,6 +18,9 @@ export interface ProductCardData {
   poeticLine?: string | null;
   craft?: string | null;
   material?: string | null;
+  technique?: string | null;
+  colours?: string[];
+  state?: string | null;
   region?: string | null;
   mrp: number;
   sellingPrice: number;
@@ -30,24 +35,20 @@ export interface ProductCardData {
 export function ProductCard({ product }: { product: ProductCardData }) {
   const { has, toggle } = useWishlist();
   const saved = has(product.id);
-  const [detail,setDetail] = useState(false);
   const info = buildPricing(product);
-  const cover = product.images[0];
-  const second = product.images.find(img => img && img !== cover);
+  const views = catalogueViews(product.images);
   const href = '/products/'+encodeURIComponent(product.slug);
-  const descriptor = [...new Set([product.material, product.craft, product.region].filter(Boolean))].join(' · ');
+  const descriptor = [...new Set([(product.colours||[]).slice(0,2).join(' / '),product.craft,product.technique, product.material, [product.region,product.state].filter(Boolean).join(', ')].filter(Boolean))].join(' · ');
   return <article className="nj-tile">
-    <div className="nj-ticket"><h3><Link href={href}>{product.name}</Link></h3><span><strong>{formatINR(info.effectivePrice)}</strong>{info.mrp>info.effectivePrice && <del>{formatINR(info.mrp)}</del>}</span></div>
-    <div className="nj-photo">
-      <Link className="nj-image-open" href={href} aria-label={'View '+product.name}>{cover ? <img src={detail && second ? second : cover} alt={product.name+(detail?' · close view':'')} style={detail && !second ? {transform:'scale(1.9)'} : undefined} loading="lazy"/> : <span>View piece</span>}</Link>
+    <TileGallery name={product.name} views={views} href={href}>
       <div className="nj-live-badges">{info.salePrice && <span className="nj-stock">On sale</span>}<BadgeChipRow badges={product.badges}/>
         {product.inventory === 0 ? <span className="nj-stock">Sold out</span> : product.inventory != null && product.inventory <= 3 && <span className="nj-stock">Only {product.inventory} left</span>}</div>
       <button className="nj-save" aria-pressed={saved} aria-label={(saved?'Remove from wishlist: ':'Add to wishlist: ')+product.name} onClick={() => toggle(product.id,product.slug)}><Bookmark size={17} fill={saved?'currentColor':'none'}/></button>
-      {cover && <button className="nj-detail-btn" aria-pressed={detail} onClick={() => setDetail(!detail)}><Scan size={14}/>{detail?'Main view':second?'Another view':'Look closer'}</button>}
-    </div>
+    </TileGallery>
+    <div className="nj-ticket"><h3><Link href={href}>{product.name}</Link></h3><span><strong>{formatINR(info.effectivePrice)}</strong>{info.mrp>info.effectivePrice && <del>{formatINR(info.mrp)}</del>}</span></div>
     <div className="nj-card-text">{descriptor && <p className="nj-overline">{descriptor}</p>}
       {product.poeticLine && <p className="nj-live-info line-clamp-1 mb-2">{product.poeticLine}</p>}
-      <div className="nj-card-bottom"><Link href={href}>View piece ↗</Link></div>
+      <div className="nj-tile-actions"><TileAdd slug={product.slug} name={product.name} soldOut={product.inventory===0}/><Link className="nj-piece-link" href={href}>Details</Link></div>
       {product.aiTryOnEligible && <Link className="nj-text-link mt-2" href={studioHref('mirror',product.slug)}>Try in Aaina ↗</Link>}
     </div>
   </article>;

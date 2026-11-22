@@ -128,3 +128,10 @@
 
 .line-clamp-1 { display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden; }
 .line-clamp-2 { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+
+/* Plain links, distinct controls and a visible keyboard focus throughout Neejee. */
+:where(a,button,summary,[role="link"],[role="button"]):not(del):not(s),
+:where(a,button,summary,[role="link"],[role="button"]):is(:hover,:focus,:active),
+:where(a,button,summary,[role="link"],[role="button"]) :where(span,strong,small,em,b),
+.underline,.hover\:underline:hover,.group:hover .group-hover\:underline { text-decoration-line:none !important; }
+:where(a,button,summary,input,select,[role="button"]):focus-visible{outline:2px solid #ad6a29;outline-offset:3px}

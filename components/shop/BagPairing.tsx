@@ -26,7 +26,11 @@ export function BagPairing(props:Source) {
     return ()=>controller.abort();
   },[open,data,props.product,props.variant,props.study]);
   return <div className="nj-dressing">
-    <button className="nj-style-trigger" type="button" aria-expanded={open} aria-label={'Style this saree: '+props.name} onClick={()=>setOpen(!open)}><img alt="" src="/brand/house/floral-sprig.svg"/>Style this saree <ChevronDown size={15} className={open?'turned':''}/></button>
+    <button className="nj-style-invitation" type="button" aria-expanded={open} aria-label={'Style this saree: '+props.name} onClick={()=>setOpen(!open)}>
+      <span className="nj-outfit-still" aria-hidden="true"><img src="/brand/pairing/wine-blouse.webp" alt=""/><img src="/brand/lookbook/jutti-gold.webp" alt=""/><img src="/brand/lookbook/jewel-jhumka.webp" alt=""/></span>
+      <span className="nj-invite-copy"><strong>Style this saree</strong><span>Pair a blouse, juttis or jewellery. Bring your own and try the look on with Aaina.</span></span>
+      <ChevronDown aria-hidden="true" size={19} className={open?'turned':''}/>
+    </button>
     {open && (data?<DressingBoard key={data.garment.id+data.garment.variant} data={data} sampleBag={!!props.study}/>:
       <p role="status" className="nj-style-status">{error||'Finding blouse, jutti and jewellery pairings…'}</p>)}
   </div>;

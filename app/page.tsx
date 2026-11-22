@@ -46,7 +46,7 @@ async function getHomeData() {
     const publicWhere = publicProductWhere();
 
     // Keep reads sequential for the intentionally small production serverless pool.
-    const media = { variants: { select: { id: true, inventory: true, images: true } } } as const;
+    const media = { variants: { select: { id: true, inventory: true, images: true, color:true } } } as const;
     const curated: Prisma.ProductWhereInput = { OR: [
       { cataloguePinHero: true }, { catalogueFeatured: true }, { catalogueEditorial: true },
       { badges: { hasSome: ["FOUNDER'S EDIT", 'FOUNDERS_EDIT'] } },
@@ -152,9 +152,10 @@ async function getHomeData() {
     type HomeProduct = (typeof arrivals)[number];
     const mapCard = (p: HomeProduct): ProductCardData => ({
       id: p.id, slug: p.slug, name: p.name, poeticLine: p.poeticLine,
+      technique:p.technique,state:p.state,colours:[...new Set(p.variants.flatMap(v=>v.color && v.inventory>0?[v.color]:[]))],
       material:p.material, craft: p.craft, region: p.region, mrp: p.mrp, sellingPrice: p.sellingPrice,
       salePrice: p.salePrice, saleStartsAt: p.saleStartsAt, saleEndsAt: p.saleEndsAt,
-      images: p.images.length ? p.images : p.variants.flatMap(v => v.images),
+      images: resolveMedia(p).gallery,
       badges: p.badges, aiTryOnEligible: p.aiTryOnEligible,
       inventory: p.catalogueStockVisibility === 'SHOW_ALL'
         ? p.variants.reduce((sum, v) => sum + v.inventory, 0)

@@ -23,8 +23,9 @@ type SeoFieldMeta = {
   placeholder?: string;
 };
 
-const OFFICIAL_PRIMARY_LOGO =
+const LEGACY_UPLOADED_LOGO =
   'https://xjqehwvxscoktfecbwse.supabase.co/storage/v1/object/public/neejee-media/legal-entity/1781352832764-ig1uzl-01_neejee_primary_logo.png';
+const OFFICIAL_SOCIAL_IMAGE = 'https://neejee.com/brand/identity/social-card.png';
 const LEGACY_RECONSTRUCTED_SOCIAL_IMAGE = 'https://neejee.com/brand/neejee-og-1200x630.png';
 const LEGACY_DEFAULT_SOCIAL_IMAGE_ID = 'photo-1610030469983-98e550d6193c';
 
@@ -99,7 +100,7 @@ export const SEO_FIELD_META: Record<SeoFieldKey, SeoFieldMeta> = {
   NEXT_PUBLIC_OG_IMAGE_URL: {
     label: 'Open Graph image URL',
     helper: 'Absolute image URL for default social preview artwork.',
-    defaultValue: OFFICIAL_PRIMARY_LOGO,
+    defaultValue: OFFICIAL_SOCIAL_IMAGE,
     placeholder: 'https://...',
   },
   NEXT_PUBLIC_TWITTER_TITLE: {
@@ -188,18 +189,19 @@ function normalizeAbsoluteUrl(value: string, fallback: string) {
 }
 
 function canonicalizeSocialImage(value: string) {
-  const normalized = normalizeAbsoluteUrl(value, OFFICIAL_PRIMARY_LOGO);
+  const normalized = normalizeAbsoluteUrl(value, OFFICIAL_SOCIAL_IMAGE);
   try {
     const url = new URL(normalized);
     if (
+      normalized === LEGACY_UPLOADED_LOGO ||
       normalized === LEGACY_RECONSTRUCTED_SOCIAL_IMAGE ||
       (url.hostname === 'neejee.com' && url.pathname === '/brand/neejee-og-1200x630.png') ||
       (url.hostname === 'images.unsplash.com' && url.pathname.includes(LEGACY_DEFAULT_SOCIAL_IMAGE_ID))
     ) {
-      return OFFICIAL_PRIMARY_LOGO;
+      return OFFICIAL_SOCIAL_IMAGE;
     }
   } catch {
-    return OFFICIAL_PRIMARY_LOGO;
+    return OFFICIAL_SOCIAL_IMAGE;
   }
   return normalized;
 }
@@ -262,8 +264,7 @@ export function getRootMetadata(): Metadata {
       images: [
         {
           url: seo.ogImageUrl,
-          width: 2048,
-          height: 1152,
+          ...(seo.ogImageUrl === OFFICIAL_SOCIAL_IMAGE ? { width: 1200, height: 630 } : {}),
           alt: `${seo.siteName} — FOUND. PERSONAL.`,
         },
       ],
@@ -275,8 +276,8 @@ export function getRootMetadata(): Metadata {
       images: [seo.ogImageUrl],
     },
     icons: {
-      icon: [{ url: '/brand/neejee-shuttle.svg', type: 'image/svg+xml', sizes: 'any' }],
-      apple: [{ url: '/brand/journey-apple.png', type: 'image/png', sizes: '180x180' }],
+      icon: [{ url: '/brand/identity/favicon.svg', type: 'image/svg+xml', sizes: 'any' }],
+      apple: [{ url: '/brand/identity/apple-touch-icon.png', type: 'image/png', sizes: '180x180' }],
     },
     manifest: '/manifest.json',
     appleWebApp: {

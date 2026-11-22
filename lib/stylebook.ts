@@ -1,3 +1,4 @@
+import { studyTextiles } from './study-textiles';
 export const editorialLooks = [
   {id:'sage',name:'A little pistachio',shade:'Pistachio',occasion:'A courtyard lunch',image:'/brand/lookbook/sage.webp',description:'A pale green drape with a sliver of gold. Pick up the border in your jhumkas, or go quieter with a single pearl.',shoe:'jutti-gold',jewel:'jewel-jhumka',colour:'#999e79'},
   {id:'rose',name:'Gulabi hour',shade:'Gulabi',occasion:'An afternoon wedding',image:'/brand/lookbook/rose.webp',description:'Let the pink have the room. An ivory jutti keeps the foot light, and small pearls leave a little breathing space at the neck.',shoe:'jutti-ivory',jewel:'jewel-pearl',colour:'#bc7f80'},
@@ -63,6 +64,6 @@ export function allAccessoriesPresent(s:Styling,stock:StyleOption[]) {
 
 export function getEditorialPiece(style:Styling) {
   const look=editorialLooks.find(item=>item.id===style.look)!;
-  return {id:'look-'+look.id,slug:'look-'+look.id,name:look.name,image:look.image,images:[look.image],material:null,craft:null,category:'Saree styling study',mrp:0,sellingPrice:0,
+  return {id:'look-'+look.id,slug:'look-'+look.id,name:studyTextiles[look.id]?.name || look.name,image:look.image,images:[look.image],material:null,craft:null,category:'Saree styling study',mrp:0,sellingPrice:0,
     variants:[{id:'study-'+look.id,size:null,color:look.shade,image:look.image,inStock:false}]};
 }
