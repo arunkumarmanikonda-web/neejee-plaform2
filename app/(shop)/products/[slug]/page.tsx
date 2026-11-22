@@ -20,6 +20,7 @@ import { defaultStyling, lookUrl } from '@/lib/stylebook';
 import { pickupLink } from '@/lib/counter';
 import { studioHref } from '@/lib/studio';
 import '@/components/shop/dressing.css';
+import '@/components/product/merchandise.css';
 import { CompleteTheLook } from '@/components/product/CompleteTheLook';
 
 export const dynamic = 'force-dynamic';

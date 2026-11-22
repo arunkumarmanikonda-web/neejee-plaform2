@@ -17,3 +17,25 @@
 @media(max-width:760px){.nj-market .nj-sign-home{grid-template-columns:.85fr 1.1fr}.nj-market .nj-sign-home .nj-sign-copy{padding:9px}.nj-market .nj-sign-home .nj-sign-label h1{font-size:clamp(22px,5.2vw,34px)}.nj-market .nj-tools{display:flex;flex-wrap:wrap;gap:8px;align-items:center}.nj-market .nj-filters{width:100%}.nj-textile-search{flex:1;font-size:12px;flex-wrap:wrap;gap:3px}.nj-textile-search input{width:min(45vw,200px);padding:6px;font-size:13px}.nj-tile-actions{gap:5px}.nj-tile-actions .nj-add-tile,.nj-tile-actions .nj-tile-purchase{flex:1 1 90px}.nj-tile-actions .nj-piece-link{flex:1;white-space:nowrap}.nj-place-note{font-size:12px}.nj-study-ticket h3{font-size:19px}.nj-market .nj-aisles a{padding:8px}.nj-card-price{font-size:15px}}
 .nj-catalogue-search{display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:14px}
 .nj-product-facts{display:flex;gap:8px 22px;flex-wrap:wrap;margin:15px 0}.nj-product-facts dt{font:500 12px var(--font-ui);color:#705442}.nj-product-facts dd{font:500 16px var(--font-ui);color:#402f27}.nj-product-description{font:15px/1.6 var(--font-ui);color:#564236;white-space:pre-line}
+
+.nj-grid .nj-tile {
+  display: flex;
+  flex-direction: column;
+}
+.nj-grid .nj-photo {
+  width: 100%;
+  flex: none;
+}
+.nj-grid .nj-tile .nj-card-text {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: flex-start;
+  border: 0;
+}
+.nj-grid .nj-study-ticket .nj-card-price {
+  margin-top: auto;
+}
+.nj-grid .nj-tile-actions {
+  width: 100%;
+}
