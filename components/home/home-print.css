@@ -28,7 +28,7 @@
   .neejee-home-print .folio-subtitle { font-size:8pt; color:#594a3e; margin-top:1mm }
   .folio-shelf { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:4mm; margin-top:4mm }
   .folio-card { min-width:0; break-inside:avoid }
-  .folio-product-image { width:100%; height:86mm; object-fit:cover; object-position:center 32% }
+  .folio-product-image { width:100%; height:97mm; object-fit:cover; object-position:center top }
   .folio-ticket { padding-top:3mm }
   .folio-card h3 { color:#422928; font:400 15pt/1.15 Georgia,serif; margin:1mm 0 }
   .folio-card h3 a { color:inherit; text-decoration:none }
