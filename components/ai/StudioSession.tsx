@@ -9,6 +9,7 @@ import { formatINR } from '@/lib/money';
 import { studioHref, type StudioMode } from '@/lib/studio';
 import type { StudioPiece } from '@/lib/studio-catalog';
 import { AiCommerceCompletion } from './AiCommerceCompletion';
+import { SampleFitting } from './SampleFitting';
 import { PhotoPair } from './PhotoPair';
 import { DeleteAiPreviewButton } from './DeleteAiPreviewButton';
 import styles from './Studio.module.css';
@@ -96,7 +97,7 @@ export function StudioSession({mode,piece,initialVariant,signedIn,configured,sty
         {piece.variants.length>1 && <label className={styles.field}>Colour or size
           <select value={initialVariant} disabled={!!status} onChange={e=>router.replace(fittingLink(e.target.value),{scroll:false})}>
             <option value="">Choose an option</option>{piece.variants.map((v,i)=><option key={v.id} value={v.id}>{[v.color,v.size].filter(Boolean).join(' / ') || 'Option '+(i+1)}</option>)}</select></label>}
-        {!configured ? <p className={styles.notice}>Photo rendering is temporarily unavailable. <Link href={editing||'/products/'+piece.slug}>{editorial?'Back to my look':'View the piece'}</Link></p> :
+        {!configured ? <p className={styles.notice}>{process.env.NEXT_PUBLIC_VERCEL_ENV==='preview'?'Personal photo rendering is off in this review.':'Personal photo rendering is temporarily unavailable.'} <Link href={editing||'/products/'+piece.slug}>{editorial?'Back to my look':'View the piece'}</Link></p> :
           !signedIn ? <><p className={styles.note}>Sign in to add your photo. We’ll keep this piece selected.</p>
             <Link className={styles.primary} href={'/login?next='+encodeURIComponent(back)}>Sign in to add a photo</Link></> :
             <><label className={styles.field}>{file?'Change your photo':'Choose a photo'}<input disabled={!!status} type="file" accept="image/jpeg,image/png,image/webp" onChange={e=>selectPhoto(e.target.files?.[0])}/></label>
@@ -107,6 +108,7 @@ export function StudioSession({mode,piece,initialVariant,signedIn,configured,sty
               {status && <p role="status" className={styles.note}>{status}</p>}
               {error && <p role="alert" className={styles.notice}>{error}</p>}</>}
       </>}
+      {mirror && !configured && <SampleFitting/>}
       <PhotoPair productImage={variant?.image || piece.image} name={piece.name} wearable={mirror}/>
     </section>
   </div>;

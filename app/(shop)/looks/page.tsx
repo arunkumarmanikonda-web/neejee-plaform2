@@ -2,6 +2,8 @@ import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
 import { Lookbook } from '@/components/looks/Lookbook';
 import { defaultStyling, readStyling } from '@/lib/stylebook';
+import { aiMirrorConfigured } from '@/lib/ai';
+import { storageConfigured } from '@/lib/storage';
 import { getStyleAccessories } from '@/lib/style-accessories';
 import { getCounterStock } from '@/lib/counter-shop';
 
@@ -13,5 +15,5 @@ export default async function Page({searchParams:q}:{searchParams:Record<string,
   const product=typeof q.product==='string'?q.product.slice(0,180):'';
   const items=await getCounterStock(variant?['v-'+variant]:[]).catch(()=>[]);
   const accessories=await getStyleAccessories([selected.shoe,selected.jewel]).catch(()=>[]);
-  return <><Header/><main><Lookbook accessories={accessories} key={JSON.stringify([selected,product,variant])} initial={selected} items={items} product={product} variant={variant} standalone/></main><Footer/></>;
+  return <><Header/><main><Lookbook personalMirror={aiMirrorConfigured()&&storageConfigured()} accessories={accessories} key={JSON.stringify([selected,product,variant])} initial={selected} items={items} product={product} variant={variant} standalone/></main><Footer/></>;
 }

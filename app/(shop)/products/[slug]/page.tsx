@@ -180,6 +180,12 @@ function PDPInner() {
               <span className="absolute top-20 right-4 bg-madder/85 text-ivory text-[10px] px-3 py-1 font-ui tracking-widest">✦ AR TRY-ON</span>
             )}
           </div>
+          {product.video && (/^https?:\/\//.test(product.video) || /^\/(?!\/)/.test(product.video)) && <details className="mt-3 border-y border-mitti/20 py-3">
+            <summary className="cursor-pointer font-ui text-sm">{product.aiTryOnEligible?'Watch the drape':'Watch the piece in motion'}</summary>
+            {/youtu\.be|youtube\.com|vimeo\.com/i.test(product.video)
+              ? <a className="inline-block underline my-2" href={product.video}>Open the original film</a>
+              : <video className="mt-3 max-h-96 w-full bg-ivory" controls playsInline preload="none" src={product.video} aria-label={'Film of '+product.name}/>}
+          </details>}
           {galleryImages?.length > 1 && (
             <div className="grid grid-cols-5 gap-2 mt-2">
               {galleryImages.map((img: string, i: number) => (

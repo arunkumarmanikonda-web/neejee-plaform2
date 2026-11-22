@@ -7,6 +7,8 @@ import { editLead } from '@/lib/shop-edit-catalog';
 import { shopEdits } from '@/lib/shop-edits';
 import { Lookbook } from '@/components/looks/Lookbook';
 import { defaultStyling } from '@/lib/stylebook';
+import { aiMirrorConfigured } from '@/lib/ai';
+import { storageConfigured } from '@/lib/storage';
 import { getStyleAccessories } from '@/lib/style-accessories';
 import { getCounterStock } from '@/lib/counter-shop';
 import { CraftHouse } from '@/components/home/CraftHouse';
@@ -213,7 +215,7 @@ export default async function HomePage() {
       <Header />
 
       <main>
-        <Lookbook accessories={accessories} initial={defaultStyling()} items={wearables}/>
+        <Lookbook personalMirror={aiMirrorConfigured()&&storageConfigured()} accessories={accessories} initial={defaultStyling()} items={wearables}/>
         {(data.spotlight||data.heroBanners.length>0) && <HeroCarousel banners={data.heroBanners} spotlight={data.spotlight}/>}
 
         {data.founder.length > 0 && (
