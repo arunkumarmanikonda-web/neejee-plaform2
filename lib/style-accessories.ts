@@ -2,31 +2,49 @@ import { prisma } from '@/lib/prisma';
 import { buildPricing } from '@/lib/catalog/pricing-read';
 import { formatINR } from '@/lib/money';
 import type { Prisma } from '@prisma/client';
-import { isAccessorySku, type StyleOption } from '@/lib/stylebook';
+import { isAccessorySku, slots, type Slot, type StyleOption } from '@/lib/stylebook';
 
-const categories=(terms:string[]):Prisma.CategoryWhereInput=>({active:true,hidden:false,OR:terms.flatMap(t=>[
-  {slug:{contains:t,mode:'insensitive' as const}},{path:{contains:t,mode:'insensitive' as const}},
+const category = (terms:string[]):Prisma.CategoryWhereInput => ({active:true,hidden:false,OR:terms.flatMap(term=>[
+  {slug:{contains:term,mode:'insensitive' as const}},{path:{contains:term,mode:'insensitive' as const}},
 ])});
-const jewellery=categories(['jewel','jhumk','earring','pendant','necklace','bangle']);
-const footwear=categories(['jutti','jooti','mojari']);
-const shoeNames:Prisma.ProductWhereInput={category:categories(['footwear','shoes']),OR:['jutti','jooti','mojari'].map(word=>({name:{contains:word,mode:'insensitive'}}))};
-const select={id:true,images:true,color:true,size:true,product:{select:{id:true,slug:true,name:true,images:true,cataloguePreferredImage:true,category:{select:{slug:true,path:true}},
-  mrp:true,sellingPrice:true,salePrice:true,saleStartsAt:true,saleEndsAt:true,variants:{select:{color:true},where:{inventory:{gt:0}}}}}} satisfies Prisma.VariantSelect;
+const jewellery = ['jewel','jhumk','earring','pendant','necklace','bangle','choker','bracelet','anklet'];
+const shoes = ['jutti','juti','jooti','mojari'];
+const slotWhere:Record<Slot,Prisma.ProductWhereInput> = {
+  blouse:{OR:[{category:category(['blouse','choli'])},{category:category(['women-apparel','women/apparel','tops']),name:{contains:'blouse',mode:'insensitive'}}]},
+  jewel:{category:category(jewellery)},
+  shoe:{OR:[{category:category(shoes)},{category:category(['footwear','shoes']),OR:shoes.map(word=>({name:{contains:word,mode:'insensitive'}}))}]},
+};
+const merch:Prisma.ProductWhereInput = {status:'ACTIVE',takedownAt:null,catalogueExclude:false,catalogueImageApproved:true,sellingPrice:{gt:0},
+  catalogueStockVisibility:{in:['IN_STOCK_ONLY','SHOW_ALL','HIDE_STOCK']}};
+const select = {id:true,images:true,color:true,colorHex:true,material:true,size:true,sellingPrice:true,product:{select:{
+  id:true,slug:true,name:true,craft:true,region:true,occasion:true,material:true,technique:true,poeticLine:true,images:true,cataloguePreferredImage:true,
+  category:{select:{slug:true,path:true}},mrp:true,sellingPrice:true,salePrice:true,saleStartsAt:true,saleEndsAt:true,
+  variants:{select:{color:true},where:{inventory:{gt:0}}},
+}}} satisfies Prisma.VariantSelect;
+type Row = Prisma.VariantGetPayload<{select:typeof select}>;
+function option(v:Row):StyleOption[] {
+  const p=v.product;
+  const image=v.images.find(Boolean)||(new Set(p.variants.map(x=>x.color)).size<=1?(p.cataloguePreferredImage||p.images.find(Boolean)):undefined);
+  const price=v.sellingPrice??buildPricing(p).effectivePrice;
+  if(!image||price<=0) return [];
+  const path=[p.category.path,p.category.slug].join(' ').toLowerCase();
+  const slot:Slot=jewellery.some(word=>path.includes(word))?'jewel':/blouse|choli/i.test(path+' '+p.name)?'blouse':'shoe';
+  return [{id:'sku-'+v.id,slot,productId:p.id,slug:p.slug,image,name:p.name,colour:v.color,hex:v.colorHex,size:v.size,material:v.material||p.material,
+    craft:p.craft,technique:p.technique,region:p.region,occasion:p.occasion,description:p.poeticLine,pricePaise:price,price:formatINR(price),
+    href:'/products/'+encodeURIComponent(p.slug)+'?variant='+encodeURIComponent(v.id)}];
+}
 export async function getStyleAccessories(requested:string[]=[],pinsOnly=false):Promise<StyleOption[]> {
   const ids=requested.filter(isAccessorySku).map(id=>id.slice(4));
-  if(pinsOnly && !ids.length)return [];
-  const where:Prisma.VariantWhereInput={inventory:{gt:0},product:{status:'ACTIVE',takedownAt:null,catalogueExclude:false,catalogueImageApproved:true,sellingPrice:{gt:0},catalogueStockVisibility:{in:['IN_STOCK_ONLY','SHOW_ALL','HIDE_STOCK']},OR:[{category:jewellery},{category:footwear},shoeNames]}};
-  const pins=ids.length?await prisma.variant.findMany({where:{...where,id:{in:ids}},select}):[];
-  const shelf=pinsOnly?[]:await prisma.variant.findMany({where,select,take:36,orderBy:[{product:{catalogueFeatured:'desc'}},{product:{createdAt:'desc'}},{id:'asc'}]});
-  const seen=new Set<string>();
-  return [...pins,...shelf].flatMap(v=>{
-    const p=v.product;
-    const image=v.images.find(Boolean)||(new Set(p.variants.map(x=>x.color)).size<=1?(p.cataloguePreferredImage||p.images.find(Boolean)):undefined);
-    if(!image||seen.has(v.id))return [];
-    seen.add(v.id);
-    const category=[p.category.slug,p.category.path].join(' ').toLowerCase();
-    const slot=/jewel|jhumk|earring|pendant|necklace|bangle/.test(category)?'jewel' as const:'shoe' as const;
-    return [{id:'sku-'+v.id,name:[p.name,v.color,v.size].filter(Boolean).join(' · '),slot,image,productId:p.id,
-      href:'/products/'+encodeURIComponent(p.slug)+'?variant='+encodeURIComponent(v.id),price:formatINR(buildPricing(p).effectivePrice)}];
-  });
+  const common = {inventory:{gt:0},product:{...merch,OR:Object.values(slotWhere)}};
+  const pins = ids.length ? await prisma.variant.findMany({where:{...common,id:{in:ids}},select}) : [];
+  const rows = [...pins];
+  if(!pinsOnly) {
+    for(const slot of slots) {
+      // Retrieve across styles first. A long size run must not crowd out other designs.
+      const products=await prisma.product.findMany({where:{AND:[merch,slotWhere[slot],{variants:{some:{inventory:{gt:0}}}}]},select:{id:true},
+        orderBy:[{catalogueFeatured:'desc'},{createdAt:'desc'},{id:'asc'}],take:60});
+      if(products.length) rows.push(...await prisma.variant.findMany({where:{...common,productId:{in:products.map(p=>p.id)}},select,orderBy:{id:'asc'}}));
+    }
+  }
+  return [...new Map(rows.flatMap(option).map(v=>[v.id,v])).values()];
 }

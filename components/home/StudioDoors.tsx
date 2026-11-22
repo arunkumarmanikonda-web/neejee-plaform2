@@ -10,10 +10,10 @@ export function StudioDoors({roomPiece,wearable,landing=false}: {roomPiece?:stri
     <div className={landing?styles.doors:styles.compactDoors}>
       <Link className={styles.door} href={studioHref('mirror',wearable)}>
         {landing && <img src="/brand/studio-mirror.webp" width="960" height="600" alt="Close detail of a wine-red sari and its woven gold border" loading="lazy"/>}
-        <div><p>For your wardrobe</p><h3>AI Mirror</h3><span>Try a piece from the fitting rail on your own photo.</span><strong>Explore Mirror</strong></div></Link>
+        <div><p>For your wardrobe</p><h3>Aaina</h3><span>Try a piece from the fitting rail on your own photo.</span><strong>Visit Aaina</strong></div></Link>
       <Link className={styles.door} href={studioHref('imagine',roomPiece)}>
         {landing && <img src="/brand/studio-imagine.webp" width="960" height="600" alt="A wooden writing chest and striped mat in a traditional Chettinad study" loading="lazy"/>}
-        <div><p>For your home</p><h3>AI Imagine</h3><span>See a piece in a photo of your own room.</span><strong>Explore Imagine</strong></div></Link>
+        <div><p>For your home</p><h3>Baithak</h3><span>See a piece in a photo of your own room.</span><strong>Visit Baithak</strong></div></Link>
     </div>
     {landing && <details className={styles.credits}><summary>Photograph credits</summary>
       <p>Chettinad study by <a href="https://commons.wikimedia.org/wiki/File:Chettinadu_study_Room.jpeg">Ravindraboopathi</a> · <a href="https://creativecommons.org/licenses/by-sa/3.0/">CC BY-SA 3.0</a> · cropped.</p>

@@ -16,16 +16,26 @@ export const jewels = [
   {id:'jewel-pearl',name:'Pearl studs'},
   {id:'jewel-silver',name:'Silver pendant'},
 ] as const;
-export type StyleOption = {id:string;name:string;slot:'shoe'|'jewel';image:string;href?:string;price?:string;productId?:string};
+export const slots = ['blouse','shoe','jewel'] as const;
+export type Slot = typeof slots[number];
+export const slotNames: Record<Slot,string> = {blouse:'Blouse',shoe:'Jutti',jewel:'Jewellery'};
+export const blouses = [
+  {id:'blouse-wine',name:'Wine scoop-neck blouse',image:'/brand/pairing/wine-blouse.webp'},
+  {id:'blouse-ivory',name:'Ivory square-neck blouse',image:'/brand/pairing/ivory-blouse.webp'},
+  {id:'blouse-teal',name:'Peacock blouse with gold piping',image:'/brand/pairing/teal-blouse.webp'},
+];
+export type StyleFacts = {colour?:string|null;hex?:string|null;material?:string|null;technique?:string|null;craft?:string|null;region?:string|null;occasion?:string|null;description?:string|null};
+export type StyleOption = StyleFacts & {id:string;name:string;slot:Slot;image:string;href?:string;price?:string;productId?:string;slug?:string;size?:string|null;pricePaise?:number;reason?:string};
 export const isAccessorySku=(id:unknown):id is string=>typeof id==='string' && /^sku-[a-zA-Z0-9_-]{1,100}$/.test(id);
-export type Styling = {look:string;shoe:string;jewel:string};
+export type Styling = {look:string;shoe:string;jewel:string;blouse?:string};
 export function readStyling(value:unknown): Styling | null {
   if(!value || typeof value!=='object') return null;
-  const {look,shoe,jewel}=value as Partial<Styling>;
+  const {look,shoe,jewel,blouse}=value as Partial<Styling>;
   if(!editorialLooks.some(item=>item.id===look)) return null;
   if(shoe!=='none'&&!isAccessorySku(shoe)&&!shoes.some(item=>item.id===shoe)) return null;
   if(jewel!=='none'&&!isAccessorySku(jewel)&&!jewels.some(item=>item.id===jewel)) return null;
-  return {look:look!,shoe:shoe!,jewel:jewel!};
+  if(blouse!==undefined && blouse!=='none' && !isAccessorySku(blouse) && !blouses.some(b=>b.id===blouse)) return null;
+  return {look:look!,shoe:shoe!,jewel:jewel!,...(blouse?{blouse}:{})};
 }
 export function defaultStyling(id?:string):Styling {
   const look=editorialLooks.find(item=>item.id===id)||editorialLooks[0];
@@ -39,15 +49,16 @@ export function lookUrl(route:'/looks'|'/ai/mirror',selection:Styling,product?:s
 }
 export const accessoryImage=(id:string)=>'/brand/lookbook/'+id+'.webp';
 export const editorialOptions:StyleOption[]=[
+  ...blouses.map(item=>({...item,slot:'blouse' as const})),
   ...shoes.map(item=>({...item,slot:'shoe' as const,image:accessoryImage(item.id)})),
   ...jewels.map(item=>({...item,slot:'jewel' as const,image:accessoryImage(item.id)})),
 ];
 export function selectedAccessories(s:Styling,stock:StyleOption[]=[]){
   const options=[...editorialOptions,...stock];
-  return (['shoe','jewel'] as const).map(slot=>options.find(item=>item.id===s[slot]&&item.slot===slot)).filter((item):item is StyleOption=>!!item);
+  return slots.map(slot=>options.find(item=>item.id===s[slot]&&item.slot===slot)).filter((item):item is StyleOption=>!!item);
 }
 export function allAccessoriesPresent(s:Styling,stock:StyleOption[]) {
-  return selectedAccessories(s,stock).length===[s.shoe,s.jewel].filter(id=>id!=='none').length;
+  return selectedAccessories(s,stock).length===slots.filter(slot=>s[slot] && s[slot]!=='none').length;
 }
 
 export function getEditorialPiece(style:Styling) {

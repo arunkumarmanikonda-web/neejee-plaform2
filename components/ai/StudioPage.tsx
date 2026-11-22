@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { getStyleAccessories } from '@/lib/style-accessories';
 import { allAccessoriesPresent, getEditorialPiece, readStyling } from '@/lib/stylebook';
+import { homeSlots } from '@/lib/outfit-closet';
 import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
 import { storageConfigured } from '@/lib/storage';
@@ -12,27 +13,27 @@ import { StudioSession } from './StudioSession';
 import { formatINR } from '@/lib/money';
 import styles from './Studio.module.css';
 
-export type StudioQuery = {product?:string;variant?:string;page?:string;look?:string;shoe?:string;jewel?:string};
+export type StudioQuery = {product?:string;variant?:string;page?:string;look?:string;shoe?:string;jewel?:string;blouse?:string;own?:string;fromBag?:string};
 export async function StudioPage({mode,query}:{mode:StudioMode;query:StudioQuery}) {
   const mirror=mode==='mirror';
-  const name=mirror?'AI Mirror':'AI Imagine';
+  const name=mirror?'Aaina':'Baithak';
   const page=Number.parseInt(query.page||'1',10);
   const shelf=await studioShelf(mode,Number.isFinite(page)?page:1);
   const selectedKey=typeof query.product==='string'?query.product.slice(0,200):'';
   const styling=mirror ? readStyling(query) : null;
   const study=styling && !selectedKey ? getEditorialPiece(styling) : null;
   const selected=study || (selectedKey ? shelf.pieces.find(p=>p.id===selectedKey||p.slug===selectedKey) || await findStudioPiece(mode,selectedKey) : null);
-  const accessories=styling?await getStyleAccessories([styling.shoe,styling.jewel],true):[];
+  const accessories=styling?await getStyleAccessories([styling.shoe,styling.jewel,styling.blouse||'none'],true):[];
   const unavailable=!!(styling && !allAccessoriesPresent(styling,accessories)) || !!(selectedKey && query.variant && selected && !selected.variants.some(v=>v.id===query.variant));
   const session=selected ? await getSession() : null;
   const variant=selected?.variants.find(v=>v.id===query.variant) || null;
-  return <><Header/><main className={styles.page}>
+  return <><Header shop/><main className={styles.page}>
     <nav className={styles.nav} aria-label="Photo studios"><Link href="/">Neejee</Link><span>/</span>
-      <Link href="/ai/mirror" aria-current={mirror?'page':undefined}>AI Mirror</Link>
-      <Link href="/ai/imagine" aria-current={mirror?undefined:'page'}>AI Imagine</Link></nav>
-    <div className={styles.heading}><div><p className={styles.eyebrow}>{mirror?'The fitting room':'Your room'}</p><h1>{name}</h1></div>
+      <Link href="/ai/mirror" aria-current={mirror?'page':undefined}>Aaina</Link>
+      <Link href="/ai/imagine" aria-current={mirror?undefined:'page'}>Baithak</Link></nav>
+    <div className={styles.heading}><div><p className={styles.eyebrow}>{mirror?'आईना · Your fitting room':'बैठक · Your room'}</p><h1>{name}</h1></div>
       <p>{mirror?'Choose something you’d like to wear. Use a photo of yourself to see the look.':'Start with a piece you like. See how it sits beside your bed, on your shelf, or in that corner by the window.'}</p></div>
-    {unavailable ? <p className={styles.notice}>A selected piece is no longer available. <Link href="/looks">Choose a new pairing</Link></p> : selected ? <StudioSession accessories={accessories} key={JSON.stringify([selected.id,variant?.id,styling])} styling={styling} editorial={!!study} mode={mode} piece={selected} initialVariant={variant?.id||''} signedIn={!!session} configured={aiMirrorConfigured() && storageConfigured()}/> :
+    {unavailable ? <p className={styles.notice}>A selected piece is no longer available. <Link href="/looks">Choose a new pairing</Link></p> : selected ? <StudioSession accessories={accessories} key={JSON.stringify([selected.id,variant?.id,styling])} styling={styling} editorial={!!study} fromBag={query.fromBag==='sample'?'sample':query.fromBag==='shop'?'shop':undefined} ownSlots={homeSlots(query.own)} mode={mode} piece={selected} initialVariant={variant?.id||''} signedIn={!!session} configured={aiMirrorConfigured() && storageConfigured()}/> :
       <section aria-label="Choose a piece" className={styles.shelf}>
         {mirror && <div className={styles.lookInvite}><img src="/brand/lookbook/sage.webp" alt="Pistachio saree with gold jhumkas and juttis"/><div><h2>Try a complete look</h2><p>Pick a saree, jutti and jewellery, then bring your own photo to the fitting room.</p><Link className={styles.primary} href="/looks">Open the lookbook</Link></div></div>}
         {selectedKey && <p role="status">That piece is currently unavailable for this preview.</p>}

@@ -48,7 +48,7 @@ export function ProductCard({ product }: { product: ProductCardData }) {
     <div className="nj-card-text">{descriptor && <p className="nj-overline">{descriptor}</p>}
       {product.poeticLine && <p className="nj-live-info line-clamp-1 mb-2">{product.poeticLine}</p>}
       <div className="nj-card-bottom"><Link href={href}>View piece ↗</Link></div>
-      {product.aiTryOnEligible && <Link className="nj-text-link mt-2" href={studioHref('mirror',product.slug)}>Try in AI Mirror ↗</Link>}
+      {product.aiTryOnEligible && <Link className="nj-text-link mt-2" href={studioHref('mirror',product.slug)}>Try in Aaina ↗</Link>}
     </div>
   </article>;
 }

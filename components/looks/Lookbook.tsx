@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
 import { Bookmark, Check, Maximize2, Play, Sparkles, X } from 'lucide-react';
-import { allAccessoriesPresent, defaultStyling, editorialLooks, editorialOptions, lookUrl, type StyleOption, type Styling } from '@/lib/stylebook';
+import { allAccessoriesPresent, defaultStyling, editorialLooks, editorialOptions, lookUrl, type Slot,type StyleOption, type Styling } from '@/lib/stylebook';
 import type { CounterCloth } from '@/lib/counter';
 import styles from './Lookbook.module.css';
 
@@ -14,13 +14,13 @@ const savedKey='neejee.saved-look.v1';
 export function Lookbook({initial,personalMirror,items=[],accessories=[],product,variant,standalone=false}:Props) {
   const [choice,setChoice]=useState(initial);
   const defaults=defaultStyling(initial.look);
-  const custom=useRef({shoe:initial.shoe!==defaults.shoe,jewel:initial.jewel!==defaults.jewel});
+  const custom=useRef({blouse:!!initial.blouse&&initial.blouse!=='none',shoe:initial.shoe!==defaults.shoe,jewel:initial.jewel!==defaults.jewel});
   const [selectedId,setSelectedId]=useState(()=>items.find(item=>variant?item.id==='v-'+variant:item.slug===product)?.id||((product||variant)?'missing':''));
   const [view,setView]=useState<View>('full');
   const [focus,setFocus]=useState(58);
   const [saved,setSaved]=useState('');
   const [restore,setRestore]=useState('');
-  const [picking,setPicking]=useState<'shoe'|'jewel'>('shoe');
+  const [picking,setPicking]=useState<Slot>('shoe');
   const [lightbox,setLightbox]=useState(false);
   const dialog=useRef<HTMLDialogElement>(null);
   const tray=useRef<HTMLElement>(null);
@@ -33,6 +33,7 @@ export function Lookbook({initial,personalMirror,items=[],accessories=[],product
   const film=garment?suppliedFilm:(look.id==='sage'?'/brand/lookbook/sage-drape.mp4':undefined);
   const options=[...accessories,...editorialOptions];
   const shoe=options.find(item=>item.id===choice.shoe && item.slot==='shoe');
+  const blouse=options.find(item=>item.id===choice.blouse && item.slot==='blouse');
   const jewel=options.find(item=>item.id===choice.jewel && item.slot==='jewel');
   const allPresent=allAccessoriesPresent(choice,accessories);
   const address=lookUrl('/looks',choice,garment?.slug,garment?.id.slice(2));
@@ -43,7 +44,7 @@ export function Lookbook({initial,personalMirror,items=[],accessories=[],product
   useEffect(()=>{if(lightbox)dialog.current?.showModal();else dialog.current?.close();},[lightbox]);
   function changeLook(id:string) {
     const next=defaultStyling(id);
-    setChoice(current=>({...next,shoe:custom.current.shoe?current.shoe:next.shoe,jewel:custom.current.jewel?current.jewel:next.jewel}));
+    setChoice(current=>({...next,...(custom.current.blouse?{blouse:current.blouse}:{}),shoe:custom.current.shoe?current.shoe:next.shoe,jewel:custom.current.jewel?current.jewel:next.jewel}));
     setSelectedId('');setView('full');setFocus(58);setSaved('');
   }
   function changeAccessory(id:string) {
@@ -51,10 +52,10 @@ export function Lookbook({initial,personalMirror,items=[],accessories=[],product
     setChoice(current=>({...current,[picking]:id}));setSaved('');
   }
   function useSuggestedPair() {
-    custom.current={shoe:false,jewel:false};
+    custom.current={blouse:false,shoe:false,jewel:false};
     setChoice(defaultStyling(choice.look));setSaved('');
   }
-  function seeTray(slot?:'shoe'|'jewel') {
+  function seeTray(slot?:Slot) {
     if(slot)setPicking(slot);
     tray.current?.scrollIntoView({behavior:'instant',block:'start'});
     tray.current?.focus({preventScroll:true});
@@ -84,30 +85,30 @@ export function Lookbook({initial,personalMirror,items=[],accessories=[],product
         <p className={styles.occasion}>{garment?garment.description:look.occasion}</p>
         <p className={styles.description}>{garment?'Choose a jutti and a piece of jewellery to wear with it. Open the photograph to take a closer look at the finish.':look.description}</p>
         <div className={styles.pairStrip} aria-label="Your selected pairing">
-          {([{slot:'shoe',item:shoe,label:'Jutti'},{slot:'jewel',item:jewel,label:'Jewellery'}] as const).map(({slot,item,label})=><button key={slot} onClick={()=>seeTray(slot)} aria-label={'Change '+label.toLowerCase()}>{item?<img src={item.image} alt=""/>:<span className={styles.emptyAccessory}>+</span>}<span>{item?.name||'Choose '+label.toLowerCase()}</span></button>)}
+          {([{slot:'blouse',item:blouse,label:'Blouse'},{slot:'shoe',item:shoe,label:'Jutti'},{slot:'jewel',item:jewel,label:'Jewellery'}] as const).map(({slot,item,label})=><button key={slot} onClick={()=>seeTray(slot)} aria-label={'Change '+label.toLowerCase()}>{item?<img src={item.image} alt=""/>:<span className={styles.emptyAccessory}>+</span>}<span>{item?.name||'Choose '+label.toLowerCase()}</span></button>)}
         </div>
-        <div className={styles.ctas}><button className={styles.primary} onClick={()=>seeTray()}>Style this look</button>{allPresent&&(!garment||garment.mirrorHref)&&<Link className={styles.mirror} href={mirror}><Sparkles size={16}/> {personalMirror?'See it on me':'Explore AI Mirror'}</Link>}</div>
+        <div className={styles.ctas}><button className={styles.primary} onClick={()=>seeTray()}>Style this look</button>{allPresent&&(!garment||garment.mirrorHref)&&<Link className={styles.mirror} href={mirror}><Sparkles size={16}/> {personalMirror?'See it on me':'Explore Aaina'}</Link>}</div>
         <p className={styles.credit}>{garment?<Link href={garment.href}>Shop this piece · {garment.price}</Link>:'Editorial styling study · AI imagery'}</p>
       </div>
     </div>
-    <nav className={styles.quick} aria-label="Browse the shop"><Link href="/edits/sarees">Sarees</Link><Link href="/edits/suits">Suit sets</Link><Link href="/counter">Match my blouse</Link><Link href="/edits/home">For the home</Link></nav>
+    <nav className={styles.quick} aria-label="Browse the shop"><Link href="/edits/sarees">Sarees</Link><Link href="/edits/suits">Suit sets</Link><Link href="/counter">Compare sarees</Link><Link href="/edits/home">For the home</Link></nav>
     <section className={styles.tray} ref={tray} tabIndex={-1} id="styling-tray" aria-labelledby="tray-heading">
       <div className={styles.trayHead}><div><p className={styles.kicker}>Your styling tray</p><h2 id="tray-heading">The finishing touches.</h2></div>
         {restore&&<Link href={restore} className={styles.savedLink}>Open my saved look</Link>}</div>
       {items.length>0&&<label className={styles.stock}>Style a piece from the shop <select value={garment?.id||''} onChange={e=>{setSelectedId(e.target.value);setView('full');setSaved('');}}><option value="">Editorial saree · {look.shade}</option>{items.map(g=><option key={g.id} value={g.id}>{g.name} · {g.description}</option>)}</select></label>}
       <div className={styles.trayLayout}><div>
-        <div className={styles.tabs} role="group" aria-label="Choose accessory type"><button aria-pressed={picking==='shoe'} onClick={()=>setPicking('shoe')}>Juttis</button><button aria-pressed={picking==='jewel'} onClick={()=>setPicking('jewel')}>Jewellery</button></div>
+        <div className={styles.tabs} role="group" aria-label="Choose accessory type"><button aria-pressed={picking==='blouse'} onClick={()=>setPicking('blouse')}>Blouses</button><button aria-pressed={picking==='shoe'} onClick={()=>setPicking('shoe')}>Juttis</button><button aria-pressed={picking==='jewel'} onClick={()=>setPicking('jewel')}>Jewellery</button></div>
         <div className={styles.options}>{options.filter(item=>item.slot===picking).map(item=><button key={item.id} onClick={()=>changeAccessory(item.id)} aria-pressed={choice[picking]===item.id}><span><img src={item.image} alt="" loading="lazy"/>{choice[picking]===item.id&&<b><Check size={15}/></b>}</span>{item.name}{item.price&&<small className={styles.optionPrice}>{item.price}</small>}</button>)}</div>
-        <button className={styles.skip} aria-pressed={choice[picking]==='none'} onClick={()=>changeAccessory('none')}>Leave out {picking==='shoe'?'the juttis':'the jewellery'}</button>
-        {(custom.current.shoe||custom.current.jewel)&&<button className={styles.reset} onClick={useSuggestedPair}>Restore suggested pairing</button>}
+        <button className={styles.skip} aria-pressed={choice[picking]==='none'} onClick={()=>changeAccessory('none')}>Leave out {picking==='blouse'?'the blouse':picking==='shoe'?'the juttis':'the jewellery'}</button>
+        {(custom.current.blouse||custom.current.shoe||custom.current.jewel)&&<button className={styles.reset} onClick={useSuggestedPair}>Restore suggested pairing</button>}
       </div><aside className={styles.summary}><div className={styles.composition} aria-label="Your outfit laid out together">
           <img className={styles.garmentThumb} src={image} alt={name} loading="lazy"/>
           {[shoe,jewel].map((item,i)=>item?<img key={item.id} src={item.image} alt={item.name} loading="lazy"/>:<span key={i}>{i?'No jewellery selected':'No jutti selected'}</span>)}
-        </div><h3>Your look</h3><p>{[name,shoe?.name,jewel?.name].filter(Boolean).join(' · ')}</p>
-        <p className={styles.subtle}>{personalMirror?'Your Mirror preview uses your selected pieces.':'Save your selections or explore a sample fitting in AI Mirror.'} Priced accessories are available in the shop.</p>
+        </div><h3>Your look</h3><p>{[name,blouse?.name,shoe?.name,jewel?.name].filter(Boolean).join(' · ')}</p>
+        <p className={styles.subtle}>{personalMirror?'Your Aaina preview uses your selected pieces.':'Save your selections or explore a sample fitting in Aaina.'} Priced accessories are available in the shop.</p>
         {!allPresent&&<p role="status">One of your saved accessories has sold or moved. Choose another to try the look.</p>}
-        {[shoe,jewel].map(item=>item?.href&&<Link className={styles.savedLink} key={item.id} href={item.href}>{item.name} · {item.price}</Link>)}
-        <div className={styles.ctas}>{allPresent&&(!garment||garment.mirrorHref)&&<Link className={styles.primary} href={mirror}>{personalMirror?'Try my look in AI Mirror':'See a sample fitting'}</Link>}
+        {[blouse,shoe,jewel].map(item=>item?.href&&<Link className={styles.savedLink} key={item.id} href={item.href}>{item.name} · {item.price}</Link>)}
+        <div className={styles.ctas}>{allPresent&&(!garment||garment.mirrorHref)&&<Link className={styles.primary} href={mirror}>{personalMirror?'Try my look in Aaina':'See a sample fitting'}</Link>}
           <button onClick={save} className={styles.save}><Bookmark size={16}/> Save look</button></div>
         {saved&&<p role="status">{saved} <Link href={address}>Open look link</Link></p>}
         {garment&&<Link className={styles.savedLink} href={garment.href}>View this piece · {garment.price}</Link>}

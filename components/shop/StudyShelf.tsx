@@ -5,6 +5,8 @@ import { useEffect, useRef, useState } from 'react';
 import { formatINR } from '@/lib/money';
 import { studies, type Study } from '@/lib/shop-studies';
 import { defaultStyling, lookUrl, selectedAccessories } from '@/lib/stylebook';
+import { BagPairing } from './BagPairing';
+import { clearDressing,lineKey } from '@/lib/outfit-closet';
 import './shop.css';
 
 type Bag = Record<string, number>;
@@ -38,6 +40,7 @@ export function StudyShelf({ids, preview, email, home = false}: {ids: string[]; 
       if (preview) setBag(readBag());
     };
     sync();
+    if(preview && new URLSearchParams(window.location.search).get('bag')==='open'){setScreen('bag');dialog.current?.showModal();}
     window.addEventListener('storage', sync);
     return () => window.removeEventListener('storage', sync);
   }, [preview]);
@@ -56,7 +59,7 @@ export function StudyShelf({ids, preview, email, home = false}: {ids: string[]; 
   function adjust(id: string, delta: number) {
     const latest = readBag();
     const n = Math.max(0, Math.min(9, (latest[id] || 0) + delta));
-    if (n) latest[id] = n; else delete latest[id];
+    if (n) latest[id] = n; else {delete latest[id];clearDressing(lineKey('look-'+id,'study-'+id));}
     setBag(latest); persist(bagKey,latest);
   }
   function openPiece(s: Study, closeUp = false) {
@@ -100,9 +103,10 @@ export function StudyShelf({ids, preview, email, home = false}: {ids: string[]; 
           {picked.group === 'sarees' && <><div className="nj-pairing">{selectedAccessories(defaultStyling(picked.id)).map(a => <figure key={a.id}><img src={a.image} alt=""/><figcaption>{a.name}</figcaption></figure>)}</div><Link className="nj-text-link" href={lookUrl('/looks', defaultStyling(picked.id))}>Change juttis & jewellery ↗</Link></>}
           <div className="nj-buy">{preview ? <><strong>{formatINR(picked.price)}</strong><small>Sample price · AI styling study</small><button className="nj-primary" onClick={() => {adjust(picked.id,1);openBag();}}>Add to preview bag <ShoppingBag size={16}/></button></> : <><small>AI styling study · Enquiries welcome</small><a className="nj-primary" href={'mailto:'+email+'?subject='+encodeURIComponent('Enquiry about '+picked.name)}>Ask about this style ↗</a></>}</div>
         </div></div>}
-      {screen === 'bag' && <div className="nj-bag"><p className="nj-overline">Storefront preview</p><h2 id="nj-modal-title">Your preview bag</h2><p>This bag lets you try the shop with sample prices.</p>
-        {bagItems.map(s => <div className="nj-bag-row" key={s.id}><img src={s.image} alt=""/><div><b>{s.name}</b><small>{formatINR(s.price)} each</small><div className="nj-qty"><button aria-label={'Decrease '+s.name+' quantity'} onClick={() => adjust(s.id,-1)}><Minus size={13}/></button>{bag[s.id]}<button aria-label={'Increase '+s.name+' quantity'} disabled={bag[s.id]>=9} onClick={() => adjust(s.id,1)}><Plus size={13}/></button></div></div><strong>{formatINR(bag[s.id]*s.price)}</strong></div>)}
-        {count ? <><div className="nj-total"><b>Sample total</b><b>{formatINR(total)}</b></div><button className="nj-primary" onClick={() => {persist(bagKey,{});setBag({});setScreen('done');}}>Finish preview <Check size={16}/></button><small>No payment is taken.</small></> : <p>Your preview bag is empty.</p>}
+      {screen === 'bag' && <div className="nj-bag"><p className="nj-overline">Storefront preview</p><h2 id="nj-modal-title">Your preview bag</h2><p>Sample pieces and prices. Styling is optional.</p>
+        {count>0&&<button className="nj-primary nj-sample-checkout" onClick={()=>{bagItems.forEach(s=>clearDressing(lineKey('look-'+s.id,'study-'+s.id)));persist(bagKey,{});setBag({});setScreen('done');}}>Finish preview · {formatINR(total)} <Check size={16}/></button>}
+        {bagItems.map(s => <div className="nj-bag-row" key={s.id}><img src={s.image} alt=""/><div><b>{s.name}</b><small>{formatINR(s.price)} each</small><div className="nj-qty"><button aria-label={'Decrease '+s.name+' quantity'} onClick={() => adjust(s.id,-1)}><Minus size={13}/></button>{bag[s.id]}<button aria-label={'Increase '+s.name+' quantity'} disabled={bag[s.id]>=9} onClick={() => adjust(s.id,1)}><Plus size={13}/></button></div></div><strong>{formatINR(bag[s.id]*s.price)}</strong>{s.group==='sarees'&&<BagPairing name={s.name} product={s.id} study/>}</div>)}
+        {count ? <><div className="nj-total"><b>Sample total</b><b>{formatINR(total)}</b></div><small>No payment is taken.</small></> : <p>Your preview bag is empty.</p>}
         <button className="nj-text-link" onClick={() => dialog.current?.close()}>Continue browsing</button>
       </div>}
       {screen === 'done' && <div className="nj-bag"><Check/><h2 id="nj-modal-title">Preview complete</h2><p>Your sample shopping journey is complete. No order was placed or payment taken.</p><button className="nj-primary" onClick={() => dialog.current?.close()}>Back to the collection</button></div>}

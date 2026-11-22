@@ -1,0 +1,51 @@
+/* Cotton-paper shop tickets and the two marks from Neejee's original motif boards. */
+.nj-market .nj-shop-sign{background:#f3e6cc;border:1px solid #c5ac88;min-height:147px}
+.nj-market .nj-shop-sign:after{height:12px;background:#f5ead5 url('/brand/house/blockprint-edge.svg') center / auto 15px repeat-x;border-top:1px solid #b3926555}
+.nj-sign-copy{position:relative;isolation:isolate;padding-right:35px;color:#4c2924;background:radial-gradient(ellipse at 0 0,#fff7e7,transparent 70%)}
+.nj-market .nj-sign-copy>span{color:#8b2e2a}.nj-market .nj-sign-copy p{color:#614736}
+.nj-shop-sprig{position:absolute;z-index:-1;right:0;bottom:-10px;width:76px;height:76px;opacity:.28;transform:rotate(-17deg)}
+.nj-sign-copy h1{position:relative;color:#522923}
+.nj-shelf-head h2:before{content:"";display:inline-block;width:.82em;height:.82em;background:url('/brand/house/floral-sprig.svg') center / contain no-repeat;margin-right:.32em}
+.nj-ticket{border-top:2px double #b19b78;background:linear-gradient(110deg,#f3ead8,transparent 90%);padding-inline:5px}
+.nj-shop-header{border-top:4px solid #6c2825!important}
+.nj-house-heading{background:#f4e8d3 url('/brand/house/blockprint-edge.svg') center bottom / auto 15px repeat-x!important;padding-bottom:1.65rem}
+.nj-dressing{grid-column:1 / -1;min-width:0;font:14px/1.48 var(--font-ui),Arial,sans-serif;color:#342b25}
+.nj-style-trigger,.nj-dress-mirror,.nj-options-title label,.nj-add-pair,.nj-remove-slot{display:inline-flex;align-items:center;gap:7px;justify-content:center}
+.nj-style-trigger{background:#f9f0df;border:1px solid #baa385;border-radius:3px;color:#6c3029;padding:6px 12px;font-weight:500;min-height:40px}
+.nj-style-trigger img{width:22px!important;height:22px!important;object-fit:contain!important}
+.nj-style-trigger svg{transition:transform .16s}.nj-style-trigger .turned{transform:rotate(180deg)}
+.nj-style-status{color:#6c4632;font:14px/1.5 var(--font-ui),sans-serif;margin:8px 0}
+.nj-dress-board{border:1px solid #b99c78;margin-top:8px;padding:16px clamp(12px,2vw,22px) 18px;border-radius:4px;background:#fbf4e7;position:relative;isolation:isolate;text-align:left}
+.nj-dress-board:before{content:"";display:block;height:9px;margin:-16px 0 11px;background:url('/brand/house/blockprint-edge.svg') center / auto 12px repeat-x}
+.nj-dress-heading,.nj-options-title{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.nj-dress-heading>div{display:flex;align-items:baseline;gap:8px}.nj-dress-heading span{font:500 15px/1.3 Georgia,serif;color:#8b2e2a}
+.nj-dress-heading h3,.nj-options-title h4{font:500 clamp(22px,2vw,30px)/1.2 var(--font-display),Georgia,serif;letter-spacing:-.036em;margin:0}
+.nj-dress-mirror{font:500 13px/1.3 var(--font-ui),sans-serif;background:#6f302d;color:#fff7e9;padding:9px 11px;border-radius:2px;text-align:center}
+.nj-outfit-tray{display:grid;grid-template-columns:1.16fr repeat(3,1fr);gap:8px;margin:12px 0 14px;align-items:stretch}
+.nj-outfit-tray figure,.nj-outfit-tray button{margin:0;min-width:0;border:1px solid #d1c0a6;background:#fffaf1;border-radius:3px;text-align:center;padding:4px;display:flex;flex-direction:column;align-items:stretch;justify-content:flex-start}
+.nj-outfit-tray button[aria-pressed=true]{outline:2px solid #813933;outline-offset:-1px}.nj-outfit-tray .nj-anchor{background:#f3e7d1}
+.nj-tray-image,.nj-outfit-tray .nj-anchor>img{display:grid;place-items:center;width:100%!important;height:clamp(80px,10vw,125px)!important}
+.nj-tray-image img{width:100%;height:100%;min-height:0;object-fit:contain}.nj-outfit-tray .nj-anchor>img{object-fit:cover;object-position:center 36%}
+.nj-outfit-tray figcaption,.nj-outfit-tray b{font:500 13px/1.25 var(--font-ui),Arial,sans-serif;margin:5px 1px 0}
+.nj-outfit-tray small,.nj-bag .nj-outfit-tray small{font:11px/1.4 var(--font-ui),Arial,sans-serif;color:#705b48}
+.nj-options-title{border-top:1px solid #d6c5ae;padding-top:12px}.nj-options-title h4{font-size:22px}.nj-options-title label{position:relative;cursor:pointer;color:#722d28;border:1px solid #ba9e7b;padding:6px 10px;font-size:13px;background:#fffaf1}
+.nj-options-title label:focus-within{outline:2px solid #7b3831}.nj-options-title input{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer}
+.nj-options{display:flex;gap:8px;overflow:auto;align-items:stretch;padding:9px 2px 3px}
+.nj-options button{flex:1 0 80px;max-width:143px;min-width:0;padding:4px;border:1px solid #ccb89c;background:#fffaf2;border-radius:2px;text-align:left}
+.nj-options button[aria-pressed=true]{border-color:#883d34;box-shadow:0 0 0 1px #883d34}
+.nj-options img{width:100%;height:65px;object-fit:contain}.nj-options span,.nj-options strong{display:block;font:500 12px/1.35 var(--font-ui),Arial,sans-serif;margin:4px}.nj-options strong{color:#75342a}
+.nj-match-note{margin:9px 0 0;font-size:14px;color:#544238}.nj-match-note p{margin:.15rem 0 .5rem}.nj-match-note select{margin:0 8px;padding:4px;border:1px solid #ad967b}
+.nj-match-note button{color:#772f28;text-decoration:underline;text-underline-offset:3px;font-size:13px;min-height:34px}.nj-match-note .nj-add-pair{background:#7b342c;color:white;padding:5px 9px;text-decoration:none;margin-right:8px}.nj-add-pair:disabled{opacity:.55}
+.nj-bag .nj-sample-checkout{width:100%;position:sticky;top:0;z-index:3}
+.nj-mobile-checkout{display:none}
+@media(max-width:640px){
+.nj-market .nj-shop-sign{min-height:121px}.nj-shop-sprig{width:43px;height:43px;right:0;bottom:-2px;opacity:.32}.nj-sign-copy{padding-right:7px;padding-bottom:19px}
+.nj-dress-board{padding:12px 8px}.nj-dress-board:before{margin:-12px 0 9px}.nj-outfit-tray{gap:4px}.nj-outfit-tray button,.nj-outfit-tray figure{padding:2px}.nj-tray-image,.nj-outfit-tray .nj-anchor>img{height:65px!important}
+.nj-outfit-tray figcaption,.nj-outfit-tray b{font-size:11px}.nj-outfit-tray small,.nj-bag .nj-outfit-tray small{font-size:10px}
+.nj-dress-heading h3{font-size:23px}.nj-dress-heading span{display:none}.nj-dress-mirror{font-size:12px;padding:8px}
+.nj-mobile-checkout{display:block;position:sticky;top:64px;z-index:12;background:#7c322e;color:#fff8ed;text-align:center;font:500 15px var(--font-ui),sans-serif;padding:11px;margin:8px 0}
+.nj-dressing .nj-options img{height:52px}.nj-options button{max-width:115px;flex-basis:70px}
+}
+@media print{.nj-dressing,.nj-mobile-checkout{display:none}}
+
+.nj-own-swatches{margin:10px 0}.nj-own-swatches>span{font-size:12px}.nj-own-swatches>div{display:flex;gap:7px;margin:6px 0}.nj-own-swatches button{border:2px solid #fffaf1;width:26px;min-height:26px;box-shadow:0 0 0 1px #ae997c;border-radius:50%}.nj-own-swatches button[aria-pressed=true]{box-shadow:0 0 0 2px #6e2c27}

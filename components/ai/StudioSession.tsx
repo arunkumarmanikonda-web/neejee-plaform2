@@ -3,7 +3,8 @@
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { lookUrl, selectedAccessories, type StyleOption, type Styling } from '@/lib/stylebook';
+import { lookUrl, selectedAccessories, slotNames,type Slot,type StyleOption, type Styling } from '@/lib/stylebook';
+import { lineKey,readDressing } from '@/lib/outfit-closet';
 import { uploadAiImage } from '@/lib/client-upload';
 import { formatINR } from '@/lib/money';
 import { studioHref, type StudioMode } from '@/lib/studio';
@@ -14,13 +15,24 @@ import { PhotoPair } from './PhotoPair';
 import { DeleteAiPreviewButton } from './DeleteAiPreviewButton';
 import styles from './Studio.module.css';
 
-type Props={mode:StudioMode;piece:StudioPiece;initialVariant:string;signedIn:boolean;configured:boolean;styling?:Styling|null;accessories?:StyleOption[];editorial?:boolean};
-export function StudioSession({mode,piece,initialVariant,signedIn,configured,styling,accessories=[],editorial=false}:Props) {
+type Props={mode:StudioMode;piece:StudioPiece;initialVariant:string;signedIn:boolean;configured:boolean;styling?:Styling|null;accessories?:StyleOption[];editorial?:boolean;fromBag?:'sample'|'shop';ownSlots?:Slot[]};
+export function StudioSession({mode,piece,initialVariant,signedIn,configured,styling,accessories=[],editorial=false,fromBag,ownSlots=[]}:Props) {
   const mirror=mode==='mirror';
   const router=useRouter();
   const variant=piece.variants.find(v=>v.id===initialVariant) || (piece.variants.length===1?piece.variants[0]:undefined);
   const fittingLink=(id?:string)=>styling ? lookUrl('/ai/mirror',styling,editorial?undefined:piece.slug,editorial?undefined:id) : studioHref(mode,piece.slug,id);
-  const back=fittingLink(variant?.id);
+  const bagUrl=fromBag==='sample'?'/edits/sarees?bag=open':'/cart';
+  const bagQuery=fromBag?'&fromBag='+fromBag+(ownSlots.length?'&own='+ownSlots.join(','):''):'';
+  const back=fittingLink(variant?.id)+bagQuery;
+  const ownKey=lineKey(piece.id,variant?.id||'');
+  const [personal,setPersonal]=useState<Partial<Record<Slot,string>>>({});
+  const slotList=ownSlots.join(',');
+  useEffect(()=>{
+    const stored=readDressing(ownKey);
+    setPersonal(Object.fromEntries(ownSlots.filter(slot=>stored.choices[slot]==='mine' && stored.photos[slot]).map(slot=>[slot,stored.photos[slot]])));
+  },[ownKey,slotList]);
+  const missing=ownSlots.some(slot=>!personal[slot]);
+
   const editing=styling?lookUrl('/looks',styling,editorial?undefined:piece.slug,editorial?undefined:variant?.id):'';
   const [file,setFile]=useState<File|null>(null);
   const [photo,setPhoto]=useState('');
@@ -44,7 +56,7 @@ export function StudioSession({mode,piece,initialVariant,signedIn,configured,sty
     cachedPhoto.current='';setError('');setFile(next);setConsent(false);
   }
   async function generate() {
-    if (!file || !variant || !consent || pending.current || !signedIn || !configured) return;
+    if (!file || !variant || !consent || pending.current || !signedIn || !configured || missing) return;
     pending.current=true;
     const abort=new AbortController();
     controller.current=abort;
@@ -55,7 +67,7 @@ export function StudioSession({mode,piece,initialVariant,signedIn,configured,sty
       if (abort.signal.aborted) return;
       setStatus(mirror?'Preparing your fitting…':'Placing the piece in your room…');
       const res=await fetch(mirror?'/api/ai/mirror':'/api/ai/space',{method:'POST',headers:{'Content-Type':'application/json'},signal:abort.signal,
-        body:JSON.stringify({productId:piece.id,variantId:variant.id,consent:true,...(styling?{styling}:{}),...(mirror?{personImageUrl:source}:{roomImageUrl:source})})});
+        body:JSON.stringify({productId:piece.id,variantId:variant.id,consent:true,...(styling?{styling,ownPhotos:personal}:{}),...(mirror?{personImageUrl:source}:{roomImageUrl:source})})});
       const job=await res.json();
       if (!res.ok || job.configured===false) throw Error(job.error || 'The studio is unavailable right now.');
       setPreviewId(job.previewId||'');
@@ -81,7 +93,8 @@ export function StudioSession({mode,piece,initialVariant,signedIn,configured,sty
       <img src={variant?.image || piece.image} alt={piece.name}/>
       <div><p className={styles.eyebrow}>Your selection</p><h2>{piece.name}</h2><p>{editorial?'Editorial styling study':formatINR(piece.sellingPrice)}</p>
         {styling&&<div className={styles.selectedAcc}>{selectedAccessories(styling,accessories).map(a=><figure key={a.id}><img src={a.image} alt=""/><figcaption>{a.name}</figcaption></figure>)}</div>}
-        <Link href={editing||studioHref(mode)}>{styling?'Change my styling':'Choose another piece'}</Link></div></aside>
+        {ownSlots.length>0&&<div className={styles.selectedAcc}>{ownSlots.map(slot=>personal[slot]?<figure key={slot}><img src={personal[slot]} alt={'Your own '+slotNames[slot]}/><figcaption>Your {slotNames[slot].toLowerCase()}</figcaption></figure>:null)}</div>}
+        {fromBag?<Link href={bagUrl}>Back to my bag</Link>:<Link href={editing||studioHref(mode)}>{styling?'Change my styling':'Choose another piece'}</Link>}</div></aside>
     <section className={styles.workspaceBody}>
       {result ? <><h2>{mirror?'Your fitting':'Your room preview'}</h2>
         <div className={styles.compare} aria-label="Compare photographs">
@@ -94,22 +107,23 @@ export function StudioSession({mode,piece,initialVariant,signedIn,configured,sty
       </> : <>
         <h2>{mirror?'Try it on your photo':'See it in your room'}</h2>
         <p>{mirror?'Use a full-length, front-facing photo with your feet in frame to see the shoes.':'A daylight photo works best. Include the surface or corner where you would put the piece.'}</p>
-        {piece.variants.length>1 && <label className={styles.field}>Colour or size
+        {!fromBag && piece.variants.length>1 && <label className={styles.field}>Colour or size
           <select value={initialVariant} disabled={!!status} onChange={e=>router.replace(fittingLink(e.target.value),{scroll:false})}>
             <option value="">Choose an option</option>{piece.variants.map((v,i)=><option key={v.id} value={v.id}>{[v.color,v.size].filter(Boolean).join(' / ') || 'Option '+(i+1)}</option>)}</select></label>}
-        {!configured ? <p className={styles.notice}>{process.env.NEXT_PUBLIC_VERCEL_ENV==='preview'?'Personal photo rendering is off in this review.':'Personal photo rendering is temporarily unavailable.'} <Link href={editing||'/products/'+piece.slug}>{editorial?'Back to my look':'View the piece'}</Link></p> :
+        {missing && <p className={styles.notice}>Re-select your personal item photo in this tab. <Link href={bagUrl}>Return to my bag</Link></p>}
+        {!configured ? <p className={styles.notice}>{process.env.NEXT_PUBLIC_VERCEL_ENV==='preview'?'Personal photo rendering is off in this review.':'Personal photo rendering is temporarily unavailable.'} <Link href={fromBag?bagUrl:editing||'/products/'+piece.slug}>{fromBag?'Back to my bag':editorial?'Back to my look':'View the piece'}</Link></p> :
           !signedIn ? <><p className={styles.note}>Sign in to add your photo. We’ll keep this piece selected.</p>
             <Link className={styles.primary} href={'/login?next='+encodeURIComponent(back)}>Sign in to add a photo</Link></> :
             <><label className={styles.field}>{file?'Change your photo':'Choose a photo'}<input disabled={!!status} type="file" accept="image/jpeg,image/png,image/webp" onChange={e=>selectPhoto(e.target.files?.[0])}/></label>
               {photo && <img className={styles.inputPhoto} src={photo} alt={mirror?'Your fitting photo':'Your room photo'}/>}
               <p className={styles.note}>JPG, PNG or WebP, up to 15 MB. Your photo uploads when you request the preview.</p>
-              {file && <label className={styles.consent}><input type="checkbox" disabled={!!status} checked={consent} onChange={e=>setConsent(e.target.checked)}/>I agree to have my photo processed to create this preview.</label>}
-              <button className={styles.primary} onClick={generate} disabled={!file||!variant||!consent||!!status}>Create my preview</button>
+              {file && <label className={styles.consent}><input type="checkbox" disabled={!!status} checked={consent} onChange={e=>setConsent(e.target.checked)}/>I agree to send my photo{ownSlots.length?' and the personal item photos shown here':''} for AI processing to create this fitting.</label>}
+              <button className={styles.primary} onClick={generate} disabled={!file||!variant||!consent||!!status||missing}>Create my preview</button>
               {status && <p role="status" className={styles.note}>{status}</p>}
               {error && <p role="alert" className={styles.notice}>{error}</p>}</>}
       </>}
-      {mirror && !configured && <SampleFitting/>}
-      <PhotoPair productImage={variant?.image || piece.image} name={piece.name} wearable={mirror}/>
+      {mirror && !configured && !fromBag && <SampleFitting/>}
+      {!fromBag && <PhotoPair productImage={variant?.image || piece.image} name={piece.name} wearable={mirror}/>}
     </section>
   </div>;
 }

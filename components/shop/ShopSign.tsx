@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import type { EditSlug } from '@/lib/shop-edits';
 import './shop.css';
+import './dressing.css';
 
 const signs = {
   entrance: ['निजी', 'The Neejee shop', 'Sarees, suit sets and objects for home.'],
@@ -15,7 +16,7 @@ export function ShopSign({department}: {department: EditSlug | 'entrance'}) {
   const [hindi, title, subtitle] = signs[department];
   const domestic = department === 'home' || department === 'furniture';
   return <header className={'nj-shop-sign' + (domestic ? ' nj-home-sign' : '')}>
-    <div className="nj-sign-copy"><span lang="hi">{hindi}</span><h1>{title}</h1><p>{subtitle}</p></div>
+    <div className="nj-sign-copy"><img className="nj-shop-sprig" src="/brand/house/floral-sprig.svg" alt=""/><span lang="hi">{hindi}</span><h1>{title}</h1><p>{subtitle}</p></div>
     <div className="nj-sign-image"><img src={domestic ? '/brand/studio-imagine.webp' : '/brand/bazaar/counter-banner.webp'} alt={domestic ? 'A wooden chest in an Indian interior' : 'Folded textiles with red, plum and turmeric borders spread across a shop counter'} width="1800" height="666" fetchPriority="high"/></div>
   </header>;
 }

@@ -17,7 +17,7 @@ const nextConfig = {
     ],
     minimumCacheTTL: 60 * 60 * 24,
   },
-  experimental: { outputFileTracingIncludes: { '/api/ai/mirror': ['./public/brand/lookbook/*.webp','./public/brand/bazaar/surkh.webp','./public/brand/bazaar/neel.webp','./public/brand/bazaar/haldi.webp'] }, optimizePackageImports: ['lucide-react'] },
+  experimental: { outputFileTracingIncludes: { '/api/ai/mirror': ['./public/brand/lookbook/*.webp','./public/brand/bazaar/surkh.webp','./public/brand/bazaar/neel.webp','./public/brand/bazaar/haldi.webp','./public/brand/pairing/*.webp'] }, optimizePackageImports: ['lucide-react'] },
   poweredByHeader: false,
   compress: true,
 

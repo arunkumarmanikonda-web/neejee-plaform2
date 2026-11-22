@@ -24,7 +24,7 @@ function PieceNote({cloth,slot,guest,pick,onPick}:{cloth:CounterCloth;slot:strin
   return <div className={styles.pieceNote}>
     <div className={styles.pieceLabel}><span>{slot} · {cloth.kind==='archive'?'Archive study':'In the shop'}</span>{pick===cloth.id&&<strong>Your guest’s pick</strong>}</div>
     <h2>{cloth.name}</h2><p>{cloth.description}</p>
-    {cloth.kind==='archive'?<a href={cloth.href} className={styles.noteLink}>View museum record · {cloth.credit}</a>:<div className={styles.pieceLinks}><Link className={styles.noteLink} href={cloth.href}>Shop this piece · {cloth.price}</Link>{cloth.mirrorHref&&<Link className={styles.noteLink} href={cloth.mirrorHref}>Try in AI Mirror</Link>}</div>}
+    {cloth.kind==='archive'?<a href={cloth.href} className={styles.noteLink}>View museum record · {cloth.credit}</a>:<div className={styles.pieceLinks}><Link className={styles.noteLink} href={cloth.href}>Shop this piece · {cloth.price}</Link>{cloth.mirrorHref&&<Link className={styles.noteLink} href={cloth.mirrorHref}>Try in Aaina</Link>}</div>}
     {guest&&<button className={styles.vote} aria-label={'Pick '+cloth.name} onClick={onPick}>I’d pick this one</button>}
   </div>;
 }

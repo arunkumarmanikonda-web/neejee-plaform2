@@ -226,11 +226,11 @@ function PDPInner() {
           {(product.material || product.region) && <p className="mt-3 text-sm text-mitti">{[product.material,product.region].filter(Boolean).join(' · ')}</p>}
           {Object.keys(readPieceFacts(product.pieceFacts)).length>0 && <section className="mt-5 border-t border-mitti/30 pt-4"><h2 className="font-display text-xl">Before you choose</h2><dl className="mt-2 grid gap-2 text-sm">{Object.entries(readPieceFacts(product.pieceFacts)).map(([key,value])=><div key={key}><dt className="font-semibold">{pieceFields[key as keyof PieceFacts]}</dt><dd>{value}</dd></div>)}</dl></section>}
           {(product.aiTryOnEligible || product.aiRoomEligible) && inStock && <div className="my-5 flex flex-wrap gap-3">
-            {product.aiRoomEligible && <Link className="border border-mitti px-4 py-3 font-ui text-sm" href={studioHref('imagine',product.slug,activeVariant?.id)}>AI Imagine · See it in my room</Link>}
-            {product.aiTryOnEligible && <Link className="border border-mitti px-4 py-3 font-ui text-sm" href={studioHref('mirror',product.slug,activeVariant?.id)}>AI Mirror · Try it on</Link>}
+            {product.aiRoomEligible && <Link className="border border-mitti px-4 py-3 font-ui text-sm" href={studioHref('imagine',product.slug,activeVariant?.id)}>Baithak · See it in my room</Link>}
+            {product.aiTryOnEligible && <Link className="border border-mitti px-4 py-3 font-ui text-sm" href={studioHref('mirror',product.slug,activeVariant?.id)}>Aaina · Try it on</Link>}
             {product.aiTryOnEligible && activeVariant?.inStock && <Link className="border border-mitti px-4 py-3 font-ui text-sm" href={lookUrl('/looks',defaultStyling(),product.slug,activeVariant.id)}>Style with juttis &amp; jewellery</Link>}
           </div>}
-          {activeVariant?.inStock && (/^(women\/(sarees|apparel|suits)|men\/apparel)(\/|$)/.test(product.category?.path||'')) && <Link className="my-3 inline-block text-madder underline underline-offset-4" href={pickupLink(activeVariant.id)}>Lay this beside my blouse colour</Link>}
+          {activeVariant?.inStock && (/^(women\/(sarees|apparel|suits)|men\/apparel)(\/|$)/.test(product.category?.path||'')) && <Link className="my-3 inline-block text-madder underline underline-offset-4" href={pickupLink(activeVariant.id)}>Compare this saree</Link>}
           {colors.length > 0 && (
             <div className="mt-8">
               <p className="label text-mitti mb-3">COLOR · {(activeVariant?.color || '').toUpperCase()}</p>

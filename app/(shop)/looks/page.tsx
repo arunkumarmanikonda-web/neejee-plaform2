@@ -14,6 +14,6 @@ export default async function Page({searchParams:q}:{searchParams:Record<string,
   const variant=typeof q.variant==='string'?q.variant.slice(0,100):'';
   const product=typeof q.product==='string'?q.product.slice(0,180):'';
   const items=await getCounterStock(variant?['v-'+variant]:[]).catch(()=>[]);
-  const accessories=await getStyleAccessories([selected.shoe,selected.jewel]).catch(()=>[]);
+  const accessories=await getStyleAccessories([selected.shoe,selected.jewel,selected.blouse||'none']).catch(()=>[]);
   return <><Header/><main><Lookbook personalMirror={aiMirrorConfigured()&&storageConfigured()} accessories={accessories} key={JSON.stringify([selected,product,variant])} initial={selected} items={items} product={product} variant={variant} standalone/></main><Footer/></>;
 }

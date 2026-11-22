@@ -1,6 +1,6 @@
 import { getStyleAccessories } from '@/lib/style-accessories';
 import { allAccessoriesPresent, getEditorialPiece, readStyling, selectedAccessories } from '@/lib/stylebook';
-import { buildStyledInput } from './styled-fitting';
+import { buildStyledInput, readOwnPhotos } from './styled-fitting';
 import { submitStudioTask } from '@/lib/ai';
 import { signStudioJob } from './studio-job';
 import { NextResponse } from 'next/server';
@@ -26,6 +26,9 @@ export async function submitStudio(request:Request,mode:StudioMode) {
   if(!valid || !proof.ok)return NextResponse.json({error:'Choose your photo again. Its upload link is no longer valid.'},{status:400});
   const styling = mirror && data.styling ? readStyling(data.styling) : null;
   if (data.styling && !styling) return NextResponse.json({error:'Please choose the look and accessories again.'},{status:400});
+  const own=readOwnPhotos(data.ownPhotos);
+  if(!own || (Object.keys(own).length && (!styling || Object.keys(own).some(k=>styling[k as keyof typeof own] && styling[k as keyof typeof own]!=='none'))))
+    return NextResponse.json({error:'Choose the personal styling photos again.'},{status:400});
   const study = styling && data.productId==='look-'+styling.look ? getEditorialPiece(styling) : null;
   const piece=study || await findStudioPiece(mode,data.productId);
   if(!piece)return NextResponse.json({error:'This piece is currently unavailable for that preview.'},{status:404});
@@ -34,13 +37,13 @@ export async function submitStudio(request:Request,mode:StudioMode) {
   if(!aiMirrorConfigured() || !storageConfigured())return NextResponse.json({error:'Photo rendering is temporarily unavailable.'},{status:503});
   const canonicalSource=new URL(url.pathname+url.search,request.url).href;
   try {
-    const accessories=styling ? await getStyleAccessories([styling.shoe,styling.jewel],true) : [];
+    const accessories=styling ? await getStyleAccessories([styling.shoe,styling.jewel,styling.blouse||'none'],true) : [];
     if(styling && !allAccessoriesPresent(styling,accessories)) return NextResponse.json({error:'A chosen accessory is no longer available. Please choose a new pairing.'},{status:404});
     const reference=new URL(option.image||piece.image,request.url).href;
     const input=await privateStudioReadUrl(proof.path);
-    const styled = styling && (study || selectedAccessories(styling,accessories).length);
+    const styled = styling && (study || selectedAccessories(styling,accessories).length || Object.keys(own).length);
     const submit=styled && styling
-      ? await submitStudioTask('fal-ai/nano-banana-2/edit',await buildStyledInput(input,study?study.image:reference,styling,accessories,request.url))
+      ? await submitStudioTask('fal-ai/nano-banana-2/edit',await buildStyledInput(input,study?study.image:reference,styling,accessories,request.url,own))
       : mirror?await falSubmitTryOn(input,reference):
       await submitRoomPlacement(input,reference,[piece.craft,piece.material,piece.name,option.color].filter(Boolean).join(' '));
     if(!submit.ok || !submit.requestId || !submit.endpoint)return NextResponse.json({error:'The studio could not start the preview. Please try again.'},{status:502});

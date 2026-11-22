@@ -5,7 +5,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
-import { CompleteTheLook } from '@/components/product/CompleteTheLook';
+import { BagPairing, useBagSarees } from '@/components/shop/BagPairing';
 import { useClientReady } from '@/lib/use-client-ready';
 import { useCart } from '@/lib/cart-store';
 import { formatINR } from '@/lib/money';
@@ -22,6 +22,7 @@ export default function CartPage() {
   const [applyingCoupon, setApplyingCoupon] = useState(false);
 
   const ready = useClientReady();
+  const sarees=useBagSarees(ready?items.map(i=>i.productId):[]);
   const sub = itemsSubtotal();
   const wrap = giftWrapPaise();
   const couponApplied = couponCode && couponDiscount > 0;
@@ -52,12 +53,12 @@ export default function CartPage() {
     }
   };
 
-  if (!ready) return <><Header/><main className="max-w-3xl mx-auto px-6 py-20" aria-busy="true">Opening your bag…</main><Footer/></>;
+  if (!ready) return <><Header shop/><main className="max-w-3xl mx-auto px-6 py-20" aria-busy="true">Opening your bag…</main><Footer/></>;
 
   if (items.length === 0) {
     return (
       <>
-        <Header />
+        <Header shop/>
         <section className="max-w-3xl mx-auto px-6 py-24 text-center">
           <p className="label text-madder">YOUR BAG</p>
           <h1 className="font-display text-4xl text-kohl mt-3">Empty for now.</h1>
@@ -75,10 +76,11 @@ export default function CartPage() {
 
   return (
     <>
-      <Header />
+      <Header shop/>
       <section className="max-w-8xl mx-auto px-6 lg:px-12 py-10">
         <HouseHeading title="Your bag" stage="The pieces you chose"/>
         <p className="font-italic italic text-mitti mt-2">{items.length} piece{items.length > 1 ? 's' : ''} · {items.reduce((s, i) => s + i.quantity, 0)} item{items.reduce((s, i) => s + i.quantity, 0) > 1 ? 's' : ''}</p>
+        <Link href="/checkout" className="nj-mobile-checkout">Checkout · {formatINR(grand)}</Link>
         <div className="madder-divider mt-4"></div>
 
         <div className="grid lg:grid-cols-[1fr_400px] gap-10 mt-10">
@@ -128,6 +130,7 @@ export default function CartPage() {
                     </div>
                   </div>
                   <p className="font-display text-lg text-kohl text-right">{formatINR(item.product.sellingPrice * item.quantity)}</p>
+                  {sarees.includes(item.productId)&&<BagPairing name={item.product.name} product={item.productId} variant={item.variantId}/>}
                 </div>
               ))}
             </div>
@@ -209,7 +212,7 @@ export default function CartPage() {
         </div>
       </section>
 
-      {items.length > 0 && <CompleteTheLook productId={items[0].productId} limit={4} />}
+
 
       <Footer />
     </>
@@ -227,26 +230,23 @@ function Row({ label, value, color, small }: any) {
 
 function CheckoutCTA() {
   const [me, setMe] = useState<{ email: string } | null>(null);
-  const [checked, setChecked] = useState(false);
+
 
   useEffect(() => {
     fetch('/api/me', { credentials: 'include', cache: 'no-store' })
       .then(r => r.ok ? r.json() : null)
       .then(d => {
         if (d?.email) setMe(d);
-        setChecked(true);
+
       })
-      .catch(() => setChecked(true));
+      .catch(() => {});
   }, []);
 
-  if (!checked) {
-    return <div className="btn-primary w-full mt-6 block text-center opacity-50 cursor-wait">···</div>;
-  }
 
   if (me) {
     return (
       <Link href="/checkout" className="btn-primary w-full mt-6 block text-center">
-        PROCEED TO CHECKOUT →
+        PROCEED TO CHECKOUT
       </Link>
     );
   }
@@ -254,7 +254,7 @@ function CheckoutCTA() {
   return (
     <div className="mt-6 space-y-3">
       <Link href="/checkout" className="btn-primary w-full block text-center">
-        CONTINUE AS GUEST →
+        PROCEED TO CHECKOUT
       </Link>
       <Link href="/login?next=%2Fcheckout" className="btn-outline w-full block text-center">
         SIGN IN FOR YOUR NEEJEE ACCOUNT
