@@ -5,12 +5,11 @@ import { Footer } from '@/components/layout/Footer';
 import { ProductCard, type ProductCardData } from '@/components/product/ProductCard';
 import { editLead } from '@/lib/shop-edit-catalog';
 import { shopEdits } from '@/lib/shop-edits';
-import { ShopSign, StoreAisles } from '@/components/shop/ShopSign';
+import { HouseCampaign, ShopDepartments } from '@/components/home/HouseCampaign';
 import { StudyShelf } from '@/components/shop/StudyShelf';
 import { previewPricingEnabled } from '@/lib/shop-studies';
 import { readEdit } from '@/lib/shop-edit-catalog';
 import { getPublicContact } from '@/lib/public-contact';
-import { CraftHouse } from '@/components/home/CraftHouse';
 import { StudioDoors } from '@/components/home/StudioDoors';
 import { studioHref } from '@/lib/studio';
 import { HeroCarousel } from '@/components/home/HeroCarousel';
@@ -181,7 +180,7 @@ async function getHomeData() {
     const founder = edit.filter(p => p.id !== (spotlight && lead?.id)).slice(0, 4).map(mapCard);
     const shown = new Set([spotlight && lead?.id, ...founder.map(p => p.id)]);
     return {
-      spotlight, founder, saree, suit,
+      spotlight, spotlightCard: spotlight && lead ? mapCard(lead) : null, founder, saree, suit,
       newArrivals: arrivals.filter(p => !shown.has(p.id)).slice(0, 4).map(mapCard),
       heroBanners: heroBanner,
       founderNoteTitle,
@@ -192,7 +191,7 @@ async function getHomeData() {
   } catch (e: any) {
     console.warn('[home] DB query failed:', e.message);
     return {
-      spotlight: null,
+      spotlight: null, spotlightCard: null,
       founder: [],
       newArrivals: [],
       saree:null, suit:null,
@@ -212,15 +211,16 @@ export default async function HomePage() {
   return (
     <>
       <Header shop/>
-      <main>
-        <div className="nj-market" style={{paddingBottom:'1rem'}}>
-          <ShopSign department="entrance"/><StoreAisles active="entrance"/>
-          {fashion?.pieces.length ? <section className="nj-shelf"><div className="nj-shelf-head"><h2>On the counter</h2><Link className="nj-text-link" href="/edits/clothing">Browse all ↗</Link></div><div className="nj-grid">{fashion.pieces.slice(0,4).map(p=><ProductCard key={p.id} product={{...p,images:p.cover?[p.cover,...p.images.filter(i=>i!==p.cover)]:p.images}}/>)}</div></section> :
+      <main className="house-front">
+        <HouseCampaign/>
+        <ShopDepartments/>
+        <div className="nj-market house-shelf" style={{paddingBottom:'1rem'}}>
+          {fashion?.pieces.length ? <section className="nj-shelf"><div className="nj-shelf-head"><h2>From the collection</h2><Link className="nj-text-link" href="/edits/clothing">Browse all</Link></div><div className="nj-grid">{fashion.pieces.slice(0,4).map(p=><ProductCard key={p.id} product={{...p,images:p.cover?[p.cover,...p.images.filter(i=>i!==p.cover)]:p.images}}/>)}</div></section> :
             <StudyShelf home ids={['surkh','neel','haldi','wine-suit']} preview={previewPricingEnabled()} email={email}/>}
         </div>
-        {(data.spotlight||data.heroBanners.length>0) && <HeroCarousel banners={data.heroBanners} spotlight={data.spotlight}/>}
+        {(data.heroBanners.length>0) && <HeroCarousel banners={data.heroBanners} spotlight={data.spotlight}/>}
 
-        {data.founder.length > 0 && (
+        {(data.founder.length > 0 || (data.spotlight && !data.heroBanners.length)) && (
           <section className="max-w-8xl mx-auto px-6 lg:px-12 py-20">
             <div className="flex items-baseline justify-between mb-10">
               <div>
@@ -229,12 +229,16 @@ export default async function HomePage() {
               <Link href="/products" className="font-ui text-xs tracking-widest text-madder hover:underline">SHOP ALL PIECES</Link>
             </div>
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 lg:gap-8">
+              {data.spotlight && !data.heroBanners.length && data.spotlightCard && <ProductCard product={data.spotlightCard}/>}
               {data.founder.slice(0, 4).map((p) => <ProductCard key={p.id} product={p} />)}
             </div>
           </section>
         )}
 
-        <CraftHouse/>
+        <StudioDoors roomPiece={data.spotlight?.roomHref ? data.spotlight.slug : undefined} wearable={data.saree?.mirror ? data.saree.slug : data.suit?.mirror ? data.suit.slug : undefined}/>
+        <div className="house-letter">
+          <figure><img src="/brand/journey-loom.webp" loading="lazy" alt="Coloured bobbins at a handloom in Varanasi"/><figcaption>Varanasi, 2011 · <a href="https://commons.wikimedia.org/wiki/File:Silk_Looms,_Varanasi.jpg">Dan Ruth</a> · <a href="https://creativecommons.org/licenses/by/2.0/">CC BY 2.0</a> · cropped</figcaption></figure>
+          <div>
         {data.founderNoteBody ? (
           <section id="founder-letter" className="scroll-mt-24 bg-beige py-12 md:py-16">
             <div className="max-w-3xl mx-auto px-6">
@@ -271,10 +275,10 @@ export default async function HomePage() {
               })()}
             </div>
           </section>
-        ) : <section id="founder-letter" className="max-w-3xl scroll-mt-24 mx-auto px-6 py-12"><h2 className="font-display text-3xl">A letter from Nidhi</h2><p className="mt-3">A love of Indian craft is how everything began.</p><Link href="/about" className="underline">Read the founder’s story</Link></section>}
+        ) : <section id="founder-letter" className="max-w-3xl scroll-mt-24 mx-auto px-6 py-12"><h2 className="font-display text-3xl">A letter from Nidhi</h2><p className="mt-3">In her letter, Nidhi remembers Ramji bhai and the fourteen days he spent weaving a saree in Banaras.</p><Link href="/about" className="underline">Read the founder’s story</Link></section>}
 
 
-        <StudioDoors roomPiece={data.spotlight?.roomHref ? data.spotlight.slug : undefined} wearable={data.saree?.mirror ? data.saree.slug : data.suit?.mirror ? data.suit.slug : undefined}/>
+        </div></div>
 
         {data.newArrivals.length > 0 && (
           <section className="bg-beige py-20">

@@ -2,7 +2,7 @@
 // Cache strategy: network-first for HTML/API, cache-first for static assets.
 
 // Bump whenever brand/app-shell assets must be invalidated for existing installs.
-const CACHE_VERSION = 'neejee-v2';
+const CACHE_VERSION = 'neejee-bindi-v3';
 const STATIC_CACHE = `${CACHE_VERSION}-static`;
 const RUNTIME_CACHE = `${CACHE_VERSION}-runtime`;
 const OFFICIAL_LOGO =
@@ -25,7 +25,7 @@ self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((keys) => {
       return Promise.all(
-        keys.filter((k) => !k.startsWith(CACHE_VERSION)).map((k) => caches.delete(k))
+        keys.filter((k) => k.startsWith('neejee-') && !k.startsWith(CACHE_VERSION)).map((k) => caches.delete(k))
       );
     })
   );

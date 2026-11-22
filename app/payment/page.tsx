@@ -40,7 +40,7 @@ function PaymentInner() {
   const checkoutMark = useRef('');
   useEffect(()=>{
     const controller = new AbortController();
-    fetch('/brand/identity/apple-touch-icon.png',{signal:controller.signal}).then(async response=>{
+    fetch('/brand/identity/apple-touch-icon.png?v=bindi',{signal:controller.signal}).then(async response=>{
       if (!response.ok) return;
       const blob = await response.blob();
       const reader = new FileReader();
@@ -203,7 +203,7 @@ function PaymentInner() {
         order_id: data.razorpayOrderId,
         name: 'NEEJEE',
         description: snapshotId ? 'Your Neejee order' : `Order ${data.orderNumber}`,
-        image: checkoutMark.current || window.location.origin + '/brand/identity/apple-touch-icon.png',
+        image: checkoutMark.current || window.location.origin + '/brand/identity/apple-touch-icon.png?v=bindi',
         prefill: {
           email: info?.email || '',
           contact: info?.phone || '',

@@ -11,3 +11,12 @@
 
 .compactDoors{display:grid;grid-template-columns:1fr 1fr;gap:1.2rem}.compactDoors .door{display:block;border-top:1px solid #bbaa91;background:transparent}.compactDoors .door>div{padding:1.05rem 0}.compactDoors .door h3{font-size:2.3rem}
 @media(max-width:660px){.compactDoors{grid-template-columns:1fr;gap:.3rem}}
+.fitting{background:#282c33;color:#fff9f1;display:grid;grid-template-columns:1fr 1fr;align-items:stretch;margin:clamp(1rem,3vw,3rem) 5%}
+.composition{display:grid;grid-template-columns:2fr .88fr;min-height:19rem;max-height:30rem;gap:3px;overflow:hidden}
+.composition img{height:100%;width:100%;object-fit:cover;display:block}.cloth{min-height:0}.accessories{display:grid;grid-template-rows:1fr 1fr;min-height:0;gap:3px}.accessories img{min-height:0;object-position:center}
+.fittingCopy{padding:clamp(1.5rem,4vw,4.2rem);align-self:center}.fittingCopy>span{font:500 .77rem/1.35 var(--font-ui),sans-serif;letter-spacing:.16em;text-transform:uppercase;color:#e7cfc6}
+.fittingCopy h2{font:400 clamp(3.5rem,6vw,7rem)/1 var(--font-body),serif;letter-spacing:-.055em;margin:.45rem 0 .55rem}
+.fittingCopy p{font:400 1rem/1.6 var(--font-ui),sans-serif;max-width:30rem;color:#f3eae4}
+.fittingCopy a{display:inline-flex;align-items:center;min-height:44px;padding:.6rem 1.3rem;margin:1.2rem .8rem 0 0;background:#fffaf0;color:#30262b;font:500 .88rem var(--font-ui),sans-serif}
+.fittingCopy .roomLink{background:transparent;color:#eee2da;padding-inline:0}
+@media(max-width:670px){.fitting{grid-template-columns:1fr;margin:0 4.5% 2rem}.composition{height:13rem;min-height:0}.fittingCopy{padding:1.4rem 1.2rem 1.7rem}.fittingCopy h2{font-size:4rem}}

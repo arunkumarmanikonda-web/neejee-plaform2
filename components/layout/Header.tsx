@@ -71,19 +71,20 @@ export function Header({ shop = false }: { shop?: boolean } = {}) {
   return (
     <>
       {!shop && <AnnouncementBar />}
-      <header className={"sticky top-0 z-40 bg-ivory border-b border-beige" + (shop ? " nj-shop-header" : "")}>
-        <div className="max-w-8xl mx-auto px-6 lg:px-12 h-20 flex items-center justify-between">
+      <header className={"sticky top-0 z-40 bg-ivory border-b border-beige neejee-masthead" + (shop ? " nj-shop-header" : "")}>
+        <div className="house-masthead-inner">
           <button onClick={() => setOpen(!open)} className="lg:hidden" aria-label="Menu" aria-expanded={open}>
             {open ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
           </button>
 
-          <Link href="/" aria-label="NEEJEE Home, Found. Personal." className="flex items-center">
+          <Link href="/" aria-label="NEEJEE Home, Found. Personal." className="house-signature">
             <NeejeeLogo size="md" showTagline />
           </Link>
 
           <MegaMenuNav />
 
-          <div className="flex items-center gap-3 sm:gap-4">
+          <div className="house-services">
+            <Link className="house-aaina" href="/ai/mirror">Aaina <span>try-on</span></Link>
             <Pitari />
             <button onClick={() => setSearchOpen(true)} aria-label="Search" className="hover:text-madder transition-colors">
               <Search className="w-5 h-5" />

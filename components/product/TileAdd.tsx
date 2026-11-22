@@ -3,7 +3,7 @@
 import { useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { ShoppingBag } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import { useCart } from '@/lib/cart-store';
 import { buildPricing } from '@/lib/catalog/pricing-read';
 import { isSoldOut, type FulfilmentProduct } from '@/lib/fulfilment';
@@ -99,7 +99,7 @@ export function TileAdd({ slug, name, soldOut = false }: { slug: string; name: s
   }
 
   if (detailsRequired) {
-    return <Link className="nj-add-tile" href={'/products/' + encodeURIComponent(slug)}>See purchase options</Link>;
+    return <Link className="loom-add" href={'/products/' + encodeURIComponent(slug)}>See purchase options</Link>;
   }
   return <div className="nj-tile-purchase">
     {piece && <label className="nj-tile-options">Choose an option
@@ -110,9 +110,9 @@ export function TileAdd({ slug, name, soldOut = false }: { slug: string; name: s
         </option>)}
       </select>
     </label>}
-    <button type="button" className="nj-add-tile" disabled={busy || soldOut || (!!piece && !choice)}
+    <button type="button" className="loom-add" disabled={busy || soldOut || (!!piece && !choice)}
       aria-label={'Add ' + name + ' to bag'} onClick={choose}>
-      <ShoppingBag size={15}/>{soldOut ? 'Sold out' : busy ? 'Checking…' : 'Add to bag'}
+      <Plus size={15}/>{soldOut ? 'Sold out' : busy ? 'Checking…' : 'Add to bag'}
     </button>
     {message && <p role="status" className="nj-tile-message">{message}</p>}
   </div>;

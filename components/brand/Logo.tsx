@@ -8,21 +8,22 @@ type Props = {
   showTagline?: boolean;
 };
 
-const SIZE_MAP = { sm: 94, md: 172, lg: 190, xl: 260 };
-const COMPACT_ASPECT = 390 / 91;
-const FULL_ASPECT = 390 / 100;
+const SIZE_MAP = { sm: 94, md: 192, lg: 190, xl: 260 };
+const COMPACT_ASPECT = 688 / 114;
+const FULL_ASPECT = 688 / 163;
 
-/** Original Neejee lettering and folded-selvedge mark. */
+/** Neejee’s bindi wordmark. */
 export function NeejeeLogo({ className = '', size = 'md', variant = 'default', showTagline = false }: Props) {
   const width = SIZE_MAP[size];
   const aspect = showTagline ? FULL_ASPECT : COMPACT_ASPECT;
   const height = Math.round(width / aspect);
-  const src = '/brand/identity/' + (showTagline ? 'lockup' : 'compact') + (variant === 'ivory' ? '-reverse' : '') + '.svg';
+  const src = '/brand/identity/' + (showTagline ? 'lockup' : 'compact') + (variant === 'ivory' ? '-reverse' : '') + '.svg?v=bindi';
 
   return (
     <Image
       className={className}
       src={src}
+      unoptimized
       alt={showTagline ? `NEEJEE. ${NEEJEE_TAGLINE}` : 'NEEJEE'}
       width={width}
       height={height}

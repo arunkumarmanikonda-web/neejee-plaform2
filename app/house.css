@@ -1,0 +1,128 @@
+:root {
+  --house-paper: #fdfbf7;
+  --house-ink: #292125;
+  --house-muted: #655c5d;
+  --house-red: #943332;
+  --house-hairline: #ded8d1;
+}
+.neejee-masthead,.neejee-masthead.nj-shop-header {
+  background: var(--house-paper); color: var(--house-ink);
+  border: 0!important; border-bottom: 1px solid var(--house-hairline)!important;
+}
+.house-masthead-inner {
+  display: grid; grid-template-columns: 1fr auto 1fr; align-items: center;
+  max-width: 1800px; min-height: 84px; padding: 10px 4.3%; margin: auto;
+}
+.house-signature { grid-column: 2; grid-row: 1; display: flex; align-items: center; justify-content: center; }
+.house-shop-nav { grid-column: 1; grid-row: 1; justify-self: start; gap: clamp(.9rem,1.7vw,2rem); font-size: .9rem; }
+.house-shop-nav details>summary{list-style:none}.house-shop-nav summary::-webkit-details-marker{display:none}
+.house-shop-nav summary:after{content:'⌄';margin-left:5px}
+.house-shop-nav details>div{left:0;right:auto}
+.house-services { grid-column: 3; grid-row: 1; justify-self: end; display: flex; align-items: center; gap: clamp(.55rem,1.1vw,1.3rem); }
+.house-services a,.house-services>button{display:inline-flex;align-items:center;justify-content:center;min-height:40px}
+.house-services svg{stroke-width:1.45}
+.house-services .house-aaina { font: 500 1.15rem var(--font-body),Georgia,serif; display:flex;gap:.3rem;margin-right:.25rem; }
+.house-aaina span{font:400 .77rem var(--font-ui),sans-serif}
+.house-masthead-inner>button{grid-column:1;grid-row:1;justify-self:start;min-height:44px;min-width:40px}
+.house-front,.house-collection,.house-detail,.house-cart { background: var(--house-paper); color:var(--house-ink) }
+.house-front .nj-market.house-shelf,.house-collection .nj-market.house-shelf{max-width:1740px;padding:clamp(2rem,3.6vw,4.3rem) 5% clamp(3rem,5vw,6rem)}
+.house-shelf .nj-shelf{padding:0}.house-shelf .nj-shelf-head{margin:0 0 1.2rem;align-items:center}
+.house-shelf .nj-shelf-head h2{font:500 clamp(2.4rem,3.6vw,4.2rem)/1.02 var(--font-body),Georgia,serif;letter-spacing:-.055em;color:var(--house-ink)}
+.house-shelf .nj-shelf-head h2:before{display:none}
+.house-shelf .nj-shelf-head p{font:400 .84rem/1.45 var(--font-ui),Arial,sans-serif;color:var(--house-muted);margin-top:.35rem}
+.house-shelf .nj-bag-link{color:var(--house-ink);font-size:.86rem}
+.house-shelf .nj-grid{gap:clamp(1.8rem,3.7vw,4.8rem) clamp(1rem,2.1vw,2.5rem)}
+.loom-tools{position:relative;display:flex;align-items:center;gap:1rem;flex-wrap:wrap;margin:.75rem 0 1.4rem;font:400 .9rem/1.4 var(--font-ui),Arial,sans-serif}
+.loom-presentation{display:flex;align-items:center;background:#f0ece6;padding:3px;max-width:100%;border-radius:32px}
+.loom-presentation button{min-height:38px;padding:.4rem 1rem;border-radius:22px;color:#62595b}
+.loom-presentation [aria-pressed=true]{background:#fffefa;box-shadow:0 1px 5px #2118221e;color:#292125}
+.loom-filter{margin-left:auto;position:relative}.loom-filter summary{display:flex;align-items:center;gap:.45rem;list-style:none;min-height:42px;cursor:pointer}
+.loom-filter summary::-webkit-details-marker{display:none}
+.loom-filter[open] summary svg{transform:rotate(180deg)}
+.loom-filter-panel{position:absolute;z-index:5;top:100%;right:0;width:min(26rem,85vw);padding:1rem;background:#fffdf8;box-shadow:0 12px 35px #17111626;border:1px solid var(--house-hairline)}
+.loom-filter-panel .nj-filters{display:flex;flex-wrap:wrap;overflow:visible;width:auto;gap:.35rem}
+.loom-filter-panel .nj-filters button{min-height:38px;font-size:.85rem}
+.loom-filter-panel .nj-textile-search{display:grid;margin-top:1rem;color:var(--house-ink);gap:.4rem}
+.loom-filter-panel .nj-textile-search input{width:100%;background:#fffdfa;border:1px solid #bdb3b1}
+.loom-sort{display:flex;gap:.35rem;align-items:center;color:var(--house-muted)}
+.loom-sort select{color:var(--house-ink);padding:.5rem .3rem;background:transparent;max-width:10rem}
+.loom-card.nj-tile{color:var(--house-ink)}
+.loom-card.nj-tile .nj-photo{border:0;border-radius:0;background:#e4ded6;aspect-ratio:3/4}
+.loom-card .nj-image-open{background:transparent}.loom-card .nj-image-open img{object-position:50% 33%}
+.loom-card .nj-save{top:.55rem;right:.55rem;min-width:38px;height:38px;border:0;color:#2d2224;background:#fffdf4df}
+.loom-card .nj-save[aria-pressed=true]{color:var(--house-red)}
+.loom-gallery-nav{position:absolute;bottom:0;left:0;right:0;display:flex;align-items:center;justify-content:space-between;color:white;background:linear-gradient(0deg,#171215a8,transparent);padding:.72rem .4rem .18rem;pointer-events:none;font:500 .78rem/1.35 var(--font-ui),Arial,sans-serif}
+.loom-gallery-nav span{text-shadow:0 1px 5px #141015}.loom-gallery-nav i{font-style:normal;opacity:.8;margin-left:.3rem}
+.loom-gallery-nav button{min-width:40px;height:40px;display:grid;place-items:center;pointer-events:auto}
+.loom-gallery-nav button:hover{background:#30202766;border-radius:50%}
+.loom-ticket{display:flex;flex-direction:column;flex:1;padding:.8rem 0 0}
+.loom-ticket-title{display:flex;align-items:baseline;justify-content:space-between;gap:1rem}
+.loom-card .loom-ticket-title h3{font:500 clamp(1.65rem,2vw,2.4rem)/1.08 var(--font-body),Georgia,serif;letter-spacing:-.04em;color:var(--house-ink);margin:0}
+.loom-ticket-title strong{white-space:nowrap;font:500 .94rem var(--font-ui),Arial,sans-serif;color:var(--house-ink)}
+.loom-ticket-title del{display:block;color:var(--house-muted);font:400 .78rem var(--font-ui);text-align:right}
+.loom-spec{display:flex;gap:.4rem;align-items:center;flex-wrap:wrap;color:var(--house-muted);font:400 .88rem/1.48 var(--font-ui),Arial,sans-serif;margin:.35rem 0 0}
+.loom-spec i{width:.65rem;height:.65rem;border-radius:50%;box-shadow:inset 0 0 0 1px #0002;flex:none}.loom-spec span{color:#8c7e79}
+.loom-actions{display:flex;align-items:center;gap:1rem;flex-wrap:wrap;margin-top:auto;padding-top:.8rem}
+.loom-add,.loom-detail{display:inline-flex;gap:.4rem;align-items:center;justify-content:center;min-height:42px;font:500 .88rem/1.2 var(--font-ui),Arial,sans-serif}
+.loom-add{background:#30272b;color:#fffaf2;padding:.65rem 1.15rem;border:0;border-radius:0}
+.loom-add:hover{background:#64343b}.loom-add:disabled{background:#786f70}.loom-detail{color:var(--house-muted);padding:0 .3rem}
+.loom-detail:hover{color:var(--house-red)}
+.house-shelf .nj-more,.house-shelf .nj-text-link {color:var(--house-ink)}
+.house-shelf .nj-more{margin-top:1.5rem;padding:.65rem 1.25rem;border:1px solid #857878;font-size:.9rem}
+.house-shelf .nj-guide{border:0;border-block:1px solid var(--house-hairline);background:transparent;padding:1.1rem .2rem;margin:2.2rem 0 0}
+.house-shelf .nj-guide summary{font:500 1.45rem var(--font-body),Georgia,serif;color:var(--house-ink)}
+.nj-dialog.loom-dialog{width:min(950px,96vw);background:#fffcf6;border-radius:0}
+.loom-dialog .loom-piece{grid-template-columns:1fr 1fr}.loom-dialog .nj-piece-photo{min-height:34rem;background:#e8e1d9}
+.loom-dialog .nj-piece-copy{background:#fffaf2;padding:3.2rem clamp(1.3rem,3vw,3rem) 2.2rem;border:0}
+.loom-dialog .nj-piece-copy:before,.loom-dialog .nj-piece-copy:after{display:none}
+.loom-dialog .nj-piece-copy h2{font:500 clamp(3rem,5vw,5rem)/1.02 var(--font-body),Georgia,serif;letter-spacing:-.055em;margin:.7rem 0}
+.loom-dialog .nj-piece-copy>p:not(.loom-spec){font:400 1.05rem/1.65 var(--font-ui),Arial,sans-serif;color:#52474a}
+.loom-dialog .nj-buy{margin:1.35rem 0;border-color:var(--house-hairline)}
+.loom-dialog .nj-primary,.house-cart .nj-primary{background:#31272b;border:1px solid #31272b}
+.loom-dialog .nj-secondary{color:#31272b;border:1px solid #998b8c;background:transparent}
+.loom-facts{margin:1.1rem 0;font:400 .93rem/1.6 var(--font-ui),Arial,sans-serif;color:#574c50}
+.loom-facts summary,.loom-dialog .nj-optional summary{cursor:pointer;font:500 1.13rem var(--font-body),Georgia,serif;color:var(--house-ink);padding:.28rem 0}
+.loom-facts p{padding-top:.6rem}.loom-facts small{display:block;font-size:.8rem;margin-top:.7rem}
+.house-letter{display:grid;grid-template-columns:1fr 1fr;gap:5%;align-items:center;padding:clamp(2.7rem,5vw,6rem) 6%;background:#f3eee7}
+.house-letter>figure{margin:0;min-width:0}.house-letter figure>img{width:100%;aspect-ratio:1.7;object-fit:cover}
+.house-letter figcaption{margin-top:.5rem;font:400 .77rem/1.45 var(--font-ui),Arial,sans-serif;color:#665b55}
+.house-letter #founder-letter,.house-letter #founder-letter>div{background:transparent;padding:0;margin:0;max-width:44rem}
+.house-letter #founder-letter h2{text-align:left;font:500 clamp(2.4rem,4vw,4rem)/1.07 var(--font-body),Georgia,serif;letter-spacing:-.05em;margin-bottom:1rem}
+.house-letter #founder-letter p{font:400 1.04rem/1.7 var(--font-ui),Arial,sans-serif}
+.house-cart{min-height:65vh}.house-cart .nj-order-grid{gap:2rem}
+.house-cart .nj-order-summary{background:#f1ece7;border:0}.house-cart .nj-order-paper{background:#fffdf8;border:1px solid var(--house-hairline)}
+.house-cart .nj-order-summary:after{display:none}
+.house-check-heading{margin:1rem 0;padding:.6rem 0 1rem}
+.house-check-heading h1{font:500 clamp(3.5rem,6vw,6rem)/1 var(--font-body),Georgia,serif;letter-spacing:-.06em;color:var(--house-ink)}
+.house-check-heading span{font:500 .77rem/1.5 var(--font-ui),Arial,sans-serif;letter-spacing:.13em;text-transform:uppercase;color:#715859}
+.house-detail h1{font:500 clamp(2.7rem,4vw,4.5rem)/1.05 var(--font-body),Georgia,serif;letter-spacing:-.045em}
+@media(max-width:1023px){
+ .house-masthead-inner{min-height:70px;padding-inline:3%}.house-shop-nav{display:none}.house-services{gap:.52rem}
+}
+@media(max-width:700px){
+ .house-masthead-inner{grid-template-columns:minmax(45px,1fr) auto minmax(95px,1fr);min-height:62px;padding:7px 3%}
+ .house-services .house-aaina,.house-services>a.hidden{display:none}.house-signature img{max-width:128px!important}
+ .house-services{gap:.38rem}.house-services>button,.house-services>a{min-height:38px}
+ .house-front .nj-market.house-shelf,.house-collection .nj-market.house-shelf{padding:1.5rem 4.5% 2.3rem}
+ .house-shelf .nj-grid{gap:1.65rem .85rem}.house-shelf .nj-shelf-head h2{font-size:2.15rem}
+ .loom-tools{column-gap:.9rem;row-gap:.4rem;margin-bottom:1rem}
+ .loom-presentation button{font-size:.78rem;min-height:36px;padding:.4rem .65rem}
+ .loom-filter{margin:0}.loom-filter-panel{right:auto;left:0;max-width:calc(100vw - 40px)}
+ .loom-tools:has(.loom-filter[open]) .loom-filter{position:static}.loom-tools:has(.loom-filter[open]) .loom-filter-panel{top:100%}
+ .loom-sort{font-size:.78rem}.loom-sort select{max-width:6.2rem}
+ .loom-card .loom-ticket-title h3{font-size:1.45rem}.loom-ticket-title{gap:.25rem;flex-wrap:wrap}
+ .loom-ticket-title strong{font-size:.84rem}.loom-spec{font-size:.78rem;gap:.25rem}
+ .loom-ticket{padding-top:.55rem}.loom-card .nj-save{top:.35rem;right:.35rem;width:33px;min-width:33px;height:33px}
+ .loom-actions{gap:.48rem;padding-top:.55rem}.loom-add,.loom-detail{min-height:40px;font-size:.79rem}
+ .loom-add{padding:.55rem .64rem}.loom-detail{padding:0}
+ .loom-gallery-nav{padding:.7rem .1rem 0}.loom-gallery-nav button{min-width:34px;height:36px}
+ .loom-dialog .loom-piece{grid-template-columns:1fr}.loom-dialog .nj-piece-photo{height:min(57vh,26rem);min-height:0}
+ .loom-dialog .nj-piece-photo img{object-position:center 26%}.loom-dialog .nj-piece-copy{padding:1.3rem 1.2rem 1.7rem}
+ .house-letter{grid-template-columns:1fr;gap:1.4rem}
+}
+@media(max-width:390px){.house-services{gap:.12rem}.house-signature img{max-width:112px!important}.loom-sort{margin-left:0}}
+
+.house-detail .nj-product-detail>section:nth-child(2){border-top:0}
+.house-product-byline{color:#65464c;font:500 1rem/1.5 var(--font-ui),Arial,sans-serif;margin-top:.65rem}
+.house-product-facts{margin:1.25rem 0 0;font:500 .93rem/1.6 var(--font-ui),Arial,sans-serif}
+.house-product-facts summary{cursor:pointer;padding:.45rem 0}

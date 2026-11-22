@@ -152,6 +152,7 @@ function PDPInner() {
   const sizes = Array.from(new Set(variants.map((v: any) => v.size).filter(Boolean)));
   const colors = Array.from(new Set(variants.map((v: any) => v.color).filter(Boolean)));
 
+  const byline = [...new Set([activeVariant?.color, product.craft || product.technique, product.region || product.state].filter(Boolean))].join(' · ');
   const galleryImages: string[] =
     Array.isArray(activeVariant?.images) && activeVariant.images.length > 0
       ? activeVariant.images
@@ -160,7 +161,7 @@ function PDPInner() {
   return (
     <>
       <Header shop/>
-
+      <main className="house-detail">
       <nav className="max-w-8xl mx-auto px-6 lg:px-12 pt-6 font-ui text-xs tracking-widest text-mitti">
         <Link href="/" className="hover:text-madder">HOME</Link> ·
         {product.category && <> <Link href={`/categories/${product.category.path || product.category.slug}`} className="hover:text-madder"> {product.category.name.toUpperCase()}</Link> · </>}
@@ -186,7 +187,7 @@ function PDPInner() {
           {product.video && (/^https?:\/\//.test(product.video) || /^\/(?!\/)/.test(product.video)) && <details className="mt-3 border-y border-mitti/20 py-3">
             <summary className="cursor-pointer font-ui text-sm">{product.aiTryOnEligible?'Watch the drape':'Watch the piece in motion'}</summary>
             {/youtu\.be|youtube\.com|vimeo\.com/i.test(product.video)
-              ? <a className="inline-block underline my-2" href={product.video}>Open the original film</a>
+              ? <a className="inline-block my-2" href={product.video}>Open the original film</a>
               : <video className="mt-3 max-h-96 w-full bg-ivory" controls playsInline preload="none" src={product.video} aria-label={'Film of '+product.name}/>}
           </details>}
           {galleryImages?.length > 1 && (
@@ -206,6 +207,7 @@ function PDPInner() {
             <BadgeRow badges={product.badges} size="md" className="mb-4" />
           )}
           <h1 className="font-display text-4xl lg:text-5xl text-kohl mt-4">{product.name}</h1>
+          {byline && <p className="house-product-byline">{byline}</p>}
           {product.poeticLine && (
             <p className="font-italic italic text-mitti text-lg mt-2">{product.poeticLine}</p>
           )}
@@ -226,10 +228,12 @@ function PDPInner() {
           </div>
           <p className="font-ui text-xs text-mitti mt-1">Inclusive of all taxes</p>
 
+          <details className="house-product-facts"><summary>Material &amp; origin</summary>
           <dl className="nj-product-facts">{[
             ['Colour',activeVariant?.color],['Craft',product.craft],['Technique',product.technique],['Fabric',activeVariant?.material || product.material],['Origin',[product.cluster,product.region,product.state].filter((v,i,a)=>v && a.indexOf(v)===i).join(', ')],
           ].filter(([,v])=>v).map(([k,v])=><div key={k}><dt>{k}</dt><dd>{v}</dd></div>)}</dl>
-          {product.description && <p className="nj-product-description">{product.description}</p>}
+          {product.description && product.story && <p className="nj-product-description">{product.description}</p>}
+          </details>
           {colors.length > 0 && (
             <div className="mt-8">
               <p className="label text-mitti mb-3">COLOR · {(activeVariant?.color || '').toUpperCase()}</p>
@@ -379,6 +383,7 @@ function PDPInner() {
         <ReviewsSection productSlug={product.slug} />
       </section>
 
+      </main>
       <Footer />
     </>
   );

@@ -42,7 +42,7 @@ export function SampleShopping({checkout = false, liveCount = 0}: {checkout?: bo
     window.scrollTo(0, 0);
   }
   const toShop = <Link className="nj-text-link" href="/edits/sarees">Continue shopping</Link>;
-  return <><Header shop/><main className="nj-order-page">
+  return <><Header shop/><main className="nj-order-page house-cart">
     <HouseHeading title={receipt !== null ? 'Checkout complete' : checkout ? 'Delivery and payment' : 'Your bag'} stage={receipt !== null ? 'Confirmation' : checkout ? 'Checkout' : 'Shopping bag'}/>
     {!ready ? <p role="status">Opening your bag…</p> : receipt !== null ? <section className="nj-order-paper nj-finished" aria-live="polite">
       <Check size={28}/><h2>Thank you for trying Neejee.</h2><p>Sample total <strong>{formatINR(receipt)}</strong>. No payment was taken or order placed.</p>{toShop}
@@ -60,7 +60,7 @@ export function SampleShopping({checkout = false, liveCount = 0}: {checkout?: bo
           <><h2>Review payment</h2><p>This is a sample checkout. No payment details are needed.</p><div className="nj-total"><span>Total</span><strong>{formatINR(total)}</strong></div>
           <button className="nj-primary" onClick={complete}>Complete sample order</button><button className="nj-text-link nj-back" onClick={()=>setStep('delivery')}>Change delivery</button></>}</>
           : <><h2>Your pieces</h2>{pieces.map(s=><div className="nj-bag-row" key={s.id}>
-            <img src={s.image} alt={s.name}/><div><b>{s.name}</b><small>{s.shade} · {s.group==='sarees'?'Design study':'Suit set'}</small>
+            <img src={s.image} alt={s.name}/><div><b>{s.name}</b><small>{s.shade} · {s.group==='sarees'?'Saree':'Suit set'}</small>
             <div className="nj-qty"><button aria-label={'Decrease '+s.name+' quantity'} onClick={()=>changeSample(s.id,-1)}><Minus size={14}/></button>{bag[s.id]}<button disabled={bag[s.id]>=9} aria-label={'Increase '+s.name+' quantity'} onClick={()=>changeSample(s.id,1)}><Plus size={14}/></button></div></div>
             <strong>{formatINR(s.price*bag[s.id])}</strong>{s.group==='sarees'&&<BagPairing study product={s.id} name={s.name}/>}</div>)}
             {toShop}{liveCount>0&&<p><Link href="/cart" className="nj-text-link">View your shop items ({liveCount})</Link></p>}</>}

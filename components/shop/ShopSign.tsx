@@ -1,29 +1,18 @@
-import Link from 'next/link';
 import type { EditSlug } from '@/lib/shop-edits';
-import './shop.css';
-import './dressing.css';
+import styles from './CollectionCover.module.css';
 
-const signs = {
-  entrance: ['निजी', 'The Neejee shop', 'Sarees, suit sets and objects for home.'],
-  sarees: ['साड़ियाँ', 'The saree shop', 'Explore by colour, weave and region.'],
-  suits: ['सूट', 'The suit shop', 'Kurta, trousers, dupatta. See them together.'],
-  clothing: ['पहनावा', 'Sarees & suit sets', 'See the whole look, down to the jutti.'],
-  home: ['घर', 'The home collection', 'Brass, pottery and objects for everyday rituals.'],
-  furniture: ['फ़र्नीचर', 'Furniture', 'Explore pieces for the home.'],
+const covers = {
+  sarees: { title: 'Sarees', hindi: 'साड़ियाँ', note: 'Browse by colour, craft and region.', image: '/brand/campaign/indigo-detail.webp', alt: 'Ivory dots and fine stripes in the folds of an indigo saree' },
+  suits: { title: 'Suit sets', hindi: 'सूट', note: 'Kurtas, trousers and dupattas, worn together.', image: '/brand/study-views/wine-suit.webp', alt: 'Wine and ivory floral kurta, trousers and dupatta' },
+  clothing: { title: 'Sarees & suits', hindi: 'पहनावा', note: 'Explore the collection.', image: '/brand/campaign/vermilion.webp', alt: 'Vermilion checks with a wine and gold border' },
+  home: { title: 'Home & objects', hindi: 'घर', note: 'Brass, pottery and pieces for the table.', image: '/brand/house/home-objects.webp', alt: 'Brass urli, marigolds and a blue pottery jar on wood' },
+  furniture: { title: 'Furniture', hindi: 'घर', note: 'Wood, colour and carved detail.', image: '/brand/journey-furniture.webp', alt: 'A decorated wooden bed with turned legs' },
 } as const;
 
-export function ShopSign({department}: {department: EditSlug | 'entrance'}) {
-  const [hindi, title, subtitle] = signs[department];
-  const domestic = department === 'home' || department === 'furniture';
-  return <header className={'nj-shop-sign nj-sign-'+department + (domestic ? ' nj-home-sign' : '')}>
-    <div className="nj-sign-copy"><div className="nj-sign-label"><img className="nj-shop-sprig" src="/brand/house/floral-sprig.svg" alt=""/><span lang="hi">{hindi}</span><h1>{title}</h1><p>{subtitle}</p></div></div>
-    <div className="nj-sign-image"><img src={department==='furniture' ? '/brand/journey-furniture.webp' : domestic ? '/brand/house/home-objects.webp' : department === 'suits' ? '/brand/bazaar/wine-suit.webp' : '/brand/bazaar/counter-banner.webp'} alt={department==='furniture' ? 'A painted wooden bed with turned legs' : domestic ? 'A brass urli with marigolds, blue floral pottery and printed cotton on a wooden cabinet' : department === 'suits' ? 'A wine kurta and cream dupatta worn together' : 'Folded textiles with red, plum and turmeric borders spread across a shop counter'} width="1800" height="666" fetchPriority="high"/></div>
+export function ShopSign({ department }: { department: EditSlug }) {
+  const c = covers[department];
+  return <header className={styles.cover} data-department={department}>
+    <img src={c.image} alt={c.alt} fetchPriority="high"/>
+    <div className={styles.copy}><span lang="hi">{c.hindi}</span><h1>{c.title}</h1><p>{c.note}</p></div>
   </header>;
-}
-export function StoreAisles({active}:{active:string}) {
-  const links = [['sarees','Sarees'],['suits','Suit sets'],['home','Home & objects']];
-  return <nav aria-label="Shop departments" className="nj-aisles">
-    {links.map(([id,label]) => <Link key={id} href={'/edits/'+id} aria-current={active===id?'page':undefined}>{label}</Link>)}
-    <Link href="/looks" className="nj-looklink">Styling ideas</Link>
-  </nav>;
 }

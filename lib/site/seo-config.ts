@@ -25,7 +25,7 @@ type SeoFieldMeta = {
 
 const LEGACY_UPLOADED_LOGO =
   'https://xjqehwvxscoktfecbwse.supabase.co/storage/v1/object/public/neejee-media/legal-entity/1781352832764-ig1uzl-01_neejee_primary_logo.png';
-const OFFICIAL_SOCIAL_IMAGE = 'https://neejee.com/brand/identity/social-card.png';
+const OFFICIAL_SOCIAL_IMAGE = 'https://neejee.com/brand/identity/social-card.png?v=bindi';
 const LEGACY_RECONSTRUCTED_SOCIAL_IMAGE = 'https://neejee.com/brand/neejee-og-1200x630.png';
 const LEGACY_DEFAULT_SOCIAL_IMAGE_ID = 'photo-1610030469983-98e550d6193c';
 
@@ -276,8 +276,8 @@ export function getRootMetadata(): Metadata {
       images: [seo.ogImageUrl],
     },
     icons: {
-      icon: [{ url: '/brand/identity/favicon.svg', type: 'image/svg+xml', sizes: 'any' }],
-      apple: [{ url: '/brand/identity/apple-touch-icon.png', type: 'image/png', sizes: '180x180' }],
+      icon: [{ url: '/brand/identity/favicon.svg?v=bindi', type: 'image/svg+xml', sizes: 'any' }],
+      apple: [{ url: '/brand/identity/apple-touch-icon.png?v=bindi', type: 'image/png', sizes: '180x180' }],
     },
     manifest: '/manifest.json',
     appleWebApp: {

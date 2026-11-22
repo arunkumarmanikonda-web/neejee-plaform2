@@ -1,6 +1,6 @@
 'use client';
 import Link from 'next/link';
-import { Bookmark, ShoppingBag, X } from 'lucide-react';
+import { Bookmark, ChevronDown, Plus, ShoppingBag, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { formatINR } from '@/lib/money';
 import { studies, type Study } from '@/lib/shop-studies';
@@ -28,6 +28,7 @@ function studyViews(s:Study):PieceView[] {
 export function StudyShelf({ids, preview, email, home = false}: {ids: string[]; preview: boolean; email: string; home?: boolean}) {
   const all = ids.map(id => studies.find(s => s.id === id)).filter((s): s is Study => !!s);
   const [shade, setShade] = useState('');
+  const [showFabric, setShowFabric] = useState(false);
   const [query,setQuery]=useState('');
   const [saved, setSaved] = useState<string[]>([]);
   const [onlySaved, setOnlySaved] = useState(false);
@@ -76,49 +77,62 @@ export function StudyShelf({ids, preview, email, home = false}: {ids: string[]; 
     router.push(destination);
   }
   return <section className="nj-shelf" aria-label={preview ? 'Preview collection' : 'Collection studies'}>
-    <div className="nj-shelf-head"><div><h2>{home ? 'On the counter' : 'Browse the collection'}</h2>
-      <p>{preview ? 'Preview collection · Sample prices' : 'Styling studies · Enquire about a design'}</p></div>
+    <div className="nj-shelf-head"><div><h2>{home ? 'From the collection' : 'The collection'}</h2>
+      <p>{preview ? 'Collection preview · Sample prices' : 'Collection preview · Enquiries welcome'}</p></div>
       {preview && <Link className="nj-bag-link" href="/cart?bag=sample"><ShoppingBag size={16}/> View bag ({count})</Link>}
     </div>
-    {!home && <div className="nj-tools">
-      <div className="nj-filters" role="group" aria-label="Filter by colour">
-        <button aria-pressed={shade === '' && !onlySaved} onClick={() => {setShade('');setOnlySaved(false);setQuery('');}}>All</button>
-        {colours.map(([name,hex]) => <button key={name} aria-pressed={shade === name} onClick={() => {setShade(shade === name ? '' : name);setOnlySaved(false);}}><i style={{background:hex}}/>{name}</button>)}
-        <button aria-pressed={onlySaved} onClick={() => {setOnlySaved(!onlySaved);setShade('');}}><Bookmark size={13}/>Saved</button>
+    {!home && <div className="loom-tools">
+      <div className="loom-presentation" role="group" aria-label="Collection photographs">
+        <button type="button" aria-pressed={!showFabric} onClick={()=>setShowFabric(false)}>On the model</button>
+        <button type="button" aria-pressed={showFabric} onClick={()=>setShowFabric(true)}>Fabric close-up</button>
       </div>
-      {hasSarees && <label className="nj-textile-search">Textile or region<input type="search" list="nj-traditions" value={query} onChange={e=>setQuery(e.target.value)} placeholder="e.g. Bandhani or Gujarat"/><datalist id="nj-traditions">{sareeVocabulary.map(t=><option key={t.id} value={t.name}/>)}</datalist></label>}
-      <label className="nj-sort">Sort <select aria-label="Sort collection" value={sort} onChange={e => setSort(e.target.value)}><option value="featured">Featured</option>{preview && <><option value="low">Price: low to high</option><option value="high">Price: high to low</option></>}<option value="name">Name: A to Z</option></select></label>
+      <details className="loom-filter">
+        <summary>Filters{(shade || query || onlySaved) ? ' · Active' : ''}<ChevronDown size={15}/></summary>
+        <div className="loom-filter-panel">
+          <div className="nj-filters" role="group" aria-label="Filter by colour">
+            <button aria-pressed={!shade && !onlySaved} onClick={()=>{setShade('');setOnlySaved(false);setQuery('');}}>All colours</button>
+            {colours.map(([name,hex])=><button key={name} aria-pressed={shade === name} onClick={()=>{setShade(shade===name?'':name);setOnlySaved(false);}}><i style={{background:hex}}/>{name}</button>)}
+            <button aria-pressed={onlySaved} onClick={()=>{setOnlySaved(!onlySaved);setShade('');}}><Bookmark size={14}/> Saved</button>
+          </div>
+          {hasSarees && <label className="nj-textile-search">Textile or region<input type="search" list="nj-traditions" value={query} onChange={e=>setQuery(e.target.value)} placeholder="Bandhani, Gujarat…"/><datalist id="nj-traditions">{sareeVocabulary.map(t=><option key={t.id} value={t.name}/>)}</datalist></label>}
+        </div>
+      </details>
+      <label className="loom-sort">Sort <select aria-label="Sort collection" value={sort} onChange={e=>setSort(e.target.value)}><option value="featured">Featured</option>{preview && <><option value="low">Price, low to high</option><option value="high">Price, high to low</option></>}<option value="name">Name, A to Z</option></select></label>
     </div>}
     <div className="nj-grid" aria-live="polite">
-      {shown.map((s, index) => <article key={s.id} className="nj-tile">
-        <TileGallery name={s.name} eager={index<4} views={studyViews(s)} onOpen={i=>openPiece(s,i)}>
+      {shown.map((s, index) => <article key={s.id} className="nj-tile loom-card">
+        <TileGallery key={showFabric ? 'fabric' : 'drape'} initialView={showFabric ? 2 : 0} name={s.name} eager={index<4} views={studyViews(s)} onOpen={i=>openPiece(s,i)}>
           <button className="nj-save" aria-label={(saved.includes(s.id) ? 'Unsave ' : 'Save ')+s.name} aria-pressed={saved.includes(s.id)} onClick={()=>save(s.id)}><Bookmark size={17} fill={saved.includes(s.id)?'currentColor':'none'}/></button>
         </TileGallery>
-        <div className="nj-card-text nj-study-ticket">
-          <div className="nj-piece-colour"><i style={{background:s.swatch}}/>{s.shade} <span>· {s.group==='sarees'?'Design study':'Suit set'}</span></div>
-          <h3><button onClick={()=>openPiece(s)}>{s.name}</button></h3>
-          <p className="nj-place-note">{studyTextiles[s.id] ? 'Inspired by '+studyTextiles[s.id].region : s.detail}</p>
-          {preview && <strong className="nj-card-price">{formatINR(s.price)}</strong>}
-          <div className="nj-tile-actions">{preview ? <button type="button" className="nj-add-tile" aria-label={'Add '+s.name+' to bag'} onClick={()=>buy(s,'/cart?bag=sample')}><ShoppingBag size={15}/> Add to bag</button> :
-            <a className="nj-add-tile" href={'mailto:'+email+'?subject='+encodeURIComponent('Enquiry about '+s.name)}>Enquire</a>}
-            <button className="nj-piece-link" onClick={()=>openPiece(s)}>View piece</button></div>
+        <div className="loom-ticket">
+          <div className="loom-ticket-title"><h3><button onClick={()=>openPiece(s)}>{s.name}</button></h3>
+            {preview && <strong>{formatINR(s.price)}</strong>}</div>
+          <p className="loom-spec"><i style={{background:s.swatch}}/>{s.shade}<span aria-hidden="true">·</span>{studyTextiles[s.id]?.motif || 'Three-piece suit'}</p>
+          <div className="loom-actions">
+            {preview ? <button type="button" className="loom-add" aria-label={'Add '+s.name+' to bag'} onClick={()=>buy(s,'/cart?bag=sample')}><Plus size={15}/> Add to bag</button> :
+              <a className="loom-add" href={'mailto:'+email+'?subject='+encodeURIComponent('Enquiry about '+s.name)}>Enquire</a>}
+            <button type="button" className="loom-detail" onClick={()=>openPiece(s)}>Details</button>
+          </div>
         </div>
       </article>)}
     </div>
     {!shown.length && <p className="nj-no-results">No pieces match this selection. <button onClick={()=>{setOnlySaved(false);setShade('');setQuery('');}}>Clear filters</button></p>}
     {!home && hasSarees && <TextileGuide/>}
-    {home && <Link className="nj-more" href="/edits/sarees">Shop the saree collection <span aria-hidden="true">→</span></Link>}
-    <dialog ref={dialog} className="nj-dialog" aria-labelledby="nj-modal-title" onClick={e => {if(e.target === dialog.current) dialog.current.close();}}>
+    {home && <Link className="nj-more" href="/edits/sarees">Shop all sarees</Link>}
+    <dialog ref={dialog} className="nj-dialog loom-dialog" aria-labelledby="nj-modal-title" onClick={e => {if(e.target === dialog.current) dialog.current.close();}}>
       <div className="nj-modal-content"><button className="nj-modal-close" aria-label="Close" autoFocus onClick={() => dialog.current?.close()}><X size={21}/></button>
-      {picked && <div className="nj-piece">
+      {picked && <div className="nj-piece loom-piece">
         <div className="nj-piece-photo nj-piece-gallery">{opened&&<img src={opened.src} alt={picked.name+' · '+opened.label} style={{objectPosition:opened.focus,transformOrigin:opened.focus,transform:opened.zoom?'scale('+opened.zoom+')':undefined}}/>}
           <div className="nj-piece-views" role="group" aria-label="Product photographs">{studyViews(picked).map((v,i)=><button key={v.label} aria-pressed={i===pieceView} onClick={()=>setPieceView(i)}>{v.label}</button>)}</div></div>
-        <div className="nj-piece-copy"><p className="nj-overline"><i style={{background:picked.swatch}}/>{picked.shade} · {textile?'Design study':'Suit set'}</p>
+        <div className="nj-piece-copy"><p className="loom-spec"><i style={{background:picked.swatch}}/>{picked.shade}<span aria-hidden="true">·</span>{textile?.motif || 'Three-piece suit'}</p>
           <h2 id="nj-modal-title">{picked.name}</h2><p>{picked.detail}</p>
-          {textile&&<dl className="nj-fabric-notes">{[['Design reference',textile.region],['Border',textile.border],['Pallu',textile.pallu]].map(([k,v])=><div key={k}><dt>{k}</dt><dd>{v}</dd></div>)}</dl>}
+
           <div className="nj-buy">{preview ? <><strong>{formatINR(picked.price)}</strong><small>Sample piece · No payment will be taken</small>
             <div className="nj-buy-actions"><button className="nj-primary" onClick={() => buy(picked,'/checkout/sample')}>Buy now</button><button className="nj-secondary" onClick={() => buy(picked,'/cart?bag=sample')}><ShoppingBag size={16}/> Add to bag</button></div>
           </> : <><small>Styling study · Enquiries welcome</small><a className="nj-primary" href={'mailto:'+email+'?subject='+encodeURIComponent('Enquiry about '+picked.name)}>Ask about this piece</a></>}</div>
+          {textile && <details className="loom-facts"><summary>Textile &amp; origin notes</summary>
+            <p>{textile.reference}</p><dl className="nj-fabric-notes">{[['Border',textile.border],['Pallu',textile.pallu]].map(([label,value])=><div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}</dl>
+            <small>Editorial sample. Weave, fibre and place of manufacture are unverified.</small></details>}
           <details className="nj-optional"><summary>Styling ideas</summary><p>{picked.pairing}</p>
           {picked.group === 'sarees' && <><div className="nj-pairing">{selectedAccessories(defaultStyling(picked.id)).map(a => <figure key={a.id}><img src={a.image} alt=""/><figcaption>{a.name}</figcaption></figure>)}</div><Link className="nj-text-link" href={lookUrl('/looks', defaultStyling(picked.id))}>See more ways to wear it</Link></>}</details>
         </div></div>}

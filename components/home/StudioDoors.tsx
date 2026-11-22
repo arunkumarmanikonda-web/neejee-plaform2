@@ -3,7 +3,14 @@ import { studioHref } from '@/lib/studio';
 import styles from './StudioDoors.module.css';
 
 export function StudioDoors({roomPiece,wearable,landing=false}: {roomPiece?:string;wearable?:string;landing?:boolean}) {
-  const Heading=landing?'h1':'h2';
+  if (!landing) return <section className={styles.fitting} aria-label="Aaina fitting room">
+    <div className={styles.composition}><img className={styles.cloth} src="/brand/study-views/neel.webp" alt="Indigo saree laid out to see its border" loading="lazy"/>
+      <div className={styles.accessories}><img src="/brand/pairing/ivory-blouse.webp" alt="Ivory blouse" loading="lazy"/><img src="/brand/lookbook/jutti-gold.webp" alt="Gold juttis" loading="lazy"/></div></div>
+    <div className={styles.fittingCopy}><span>Your fitting room</span><h2>Aaina</h2><p>See the saree with your own blouse. Add a pair of juttis, choose your jewellery, then try the look on your photo.</p>
+      <Link href={studioHref('mirror',wearable)}>Open Aaina</Link>
+      <Link className={styles.roomLink} href={studioHref('imagine',roomPiece)}>See a home piece in my room</Link></div>
+  </section>;
+  const Heading='h1';
   return <section aria-labelledby="studio-title" className={styles.section}>
     <div className={styles.intro}><div><p>Neejee photo studios</p><Heading id="studio-title">Picture it in your life.</Heading></div>
       <Link href="/ai/gift">Choosing for someone else? Find a gift</Link></div>

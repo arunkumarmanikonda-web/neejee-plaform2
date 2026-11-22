@@ -10,14 +10,13 @@ export type PieceView = { src: string; label: string; focus?: string; zoom?: num
 export function catalogueViews(images: string[]): PieceView[] {
   const photos = [...new Set(images.filter(Boolean))];
   const views = photos.map((src,i) => ({ src, label: i ? 'Photo ' + (i+1) : 'Full view' }));
-  if (photos.length === 1) return [...views, {src:photos[0],label:'Detail crop',focus:'center',zoom:1.85}];
-  return views;
+  return photos.length ? [...views, {src:photos[0],label:'Detail crop',focus:'50% 62%',zoom:2.3}] : views;
 }
 
-export function TileGallery({name, views, href, onOpen, children, eager = false}: {
-  name:string; views:PieceView[]; href?:string; onOpen?:(index:number)=>void; children?:ReactNode; eager?:boolean;
+export function TileGallery({name, views, href, onOpen, children, eager = false, initialView = 0}: {
+  name:string; views:PieceView[]; href?:string; onOpen?:(index:number)=>void; children?:ReactNode; eager?:boolean; initialView?:number;
 }) {
-  const [index,setIndex] = useState(0);
+  const [index,setIndex] = useState(initialView);
   const start = useRef<{x:number;y:number} | null>(null);
   const swiped = useRef(false);
   const pos = Math.min(index, Math.max(views.length-1,0));
@@ -35,7 +34,7 @@ export function TileGallery({name, views, href, onOpen, children, eager = false}
     {href ? <Link className="nj-image-open" href={href} aria-label={'View '+name}>{photo}</Link>
       : <button className="nj-image-open" onClick={()=>onOpen?.(pos)} aria-label={'View '+name}>{photo}</button>}
     {children}
-    {views.length>1 && <div className="nj-gallery-nav">
+    {views.length>1 && <div className="loom-gallery-nav">
       <button type="button" aria-label={'Previous photo of '+name} onClick={()=>move(-1)}><ChevronLeft size={17}/></button>
       <span aria-live="polite" aria-atomic="true">{view.label} <i>{pos+1}/{views.length}</i></span>
       <button type="button" aria-label={'Next photo of '+name} onClick={()=>move(1)}><ChevronRight size={17}/></button>
