@@ -17,6 +17,7 @@ export interface ProductCardData {
   id: string;
   slug: string;
   name: string;
+  shortName?: string | null;
   poeticLine?: string | null;
   craft?: string | null;
   material?: string | null;
@@ -41,8 +42,10 @@ export function ProductCard({ product, closeUp = false }: { product: ProductCard
   const views = catalogueViews(product.images);
   const href = '/products/'+encodeURIComponent(product.slug);
   const location = [...new Set([product.region, product.state].filter(Boolean))].join(', ');
-  const descriptor = [...new Set([(product.colours || []).slice(0,2).join(' / '), product.craft || product.technique, product.material].filter(Boolean))].join(' · ');
   const story = product.poeticLine?.trim();
+  const alias = product.shortName?.trim();
+  const label = alias && !product.name.toLowerCase().includes(alias.toLowerCase()) ? alias : location;
+  const descriptor = [...new Set([(product.colours || []).slice(0,2).join(' / '), product.craft || product.technique, product.material, label!==location ? location : ''].filter(Boolean))].join(' · ');
   return <article className="nj-tile loom-card">
     <TileGallery initialView={closeUp ? Math.max(0, views.length-1) : 0} name={product.name} views={views} href={href}>
       <div className="nj-live-badges">{info.salePrice && <span className="nj-stock">On sale</span>}<BadgeChipRow badges={product.badges}/>
@@ -51,7 +54,7 @@ export function ProductCard({ product, closeUp = false }: { product: ProductCard
     </TileGallery>
     <div className="loom-ticket">
       <div className={ticket.label}>
-        {location && <span>{location}</span>}
+        {label && <span>{label}</span>}
         <div className={ticket.livePrice}><strong>{formatINR(info.effectivePrice)}</strong>{info.mrp>info.effectivePrice && <del>{formatINR(info.mrp)}</del>}</div>
       </div>
       <h3 className={ticket.name}><Link href={href}>{product.name}</Link></h3>

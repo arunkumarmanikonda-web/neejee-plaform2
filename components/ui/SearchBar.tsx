@@ -1,11 +1,21 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { Search, X } from 'lucide-react';
 import { formatPrice } from '@/lib/utils';
 
 export function SearchBar({ onClose }: { onClose: () => void }) {
+  const dialog = useRef<HTMLDialogElement>(null);
+  useEffect(() => {
+    const el = dialog.current;
+    el?.showModal();
+    return () => el?.close();
+  }, []);
+  function dismiss() {
+    dialog.current?.close();
+    onClose();
+  }
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<any[]>([]);
   const [suggestions, setSuggestions] = useState<string[]>([]);
@@ -22,8 +32,8 @@ export function SearchBar({ onClose }: { onClose: () => void }) {
   }, [query]);
 
   return (
-    <div className="fixed inset-0 bg-kohl/80 z-50 flex items-start justify-center pt-32" onClick={onClose}>
-      <div className="bg-ivory w-full max-w-2xl mx-6 p-8 max-h-[80vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+    <dialog ref={dialog} aria-label="Search the shop" className="fixed inset-0 w-full h-full max-w-none max-h-none m-0 bg-transparent px-4 pt-24 sm:pt-32 backdrop:bg-kohl/80" onCancel={e=>{e.preventDefault();dismiss();}} onClick={e=>{if(e.target===e.currentTarget)dismiss();}}>
+      <div className="bg-ivory w-full max-w-2xl mx-auto p-5 sm:p-8 max-h-[75dvh] overflow-y-auto">
         <div className="flex items-center gap-4 border-b border-mitti/20 pb-4">
           <Search className="w-5 h-5 text-mitti" />
           <input
@@ -31,9 +41,10 @@ export function SearchBar({ onClose }: { onClose: () => void }) {
             value={query}
             onChange={e => setQuery(e.target.value)}
             placeholder="Search by craft, region, weaver..."
-            className="flex-1 font-display text-2xl bg-transparent outline-none text-kohl placeholder-mitti/60"
+            aria-label="Search products by name, craft or region"
+            className="min-w-0 flex-1 font-display text-2xl bg-transparent outline-none text-kohl placeholder-mitti/60"
           />
-          <button onClick={onClose}><X className="w-5 h-5 text-mitti" /></button>
+          <button type="button" onClick={dismiss} aria-label="Close search" className="grid min-h-11 min-w-11 place-items-center"><X className="w-5 h-5 text-mitti" /></button>
         </div>
 
         {query.length < 2 && (
@@ -51,7 +62,7 @@ export function SearchBar({ onClose }: { onClose: () => void }) {
           <div className="mt-6 space-y-3">
             <p className="label text-mitti">{results.length} FOUND</p>
             {results.map((p: any) => (
-              <Link key={p.id} href={`/products/${p.slug}`} onClick={onClose} className="flex gap-4 p-3 hover:bg-beige transition-colors">
+              <Link key={p.id} href={`/products/${p.slug}`} onClick={dismiss} className="flex gap-4 p-3 hover:bg-beige transition-colors">
                 <div className="w-16 h-20 bg-beige relative flex-shrink-0">
                   {p.images[0] && <Image src={p.images[0]} alt="" fill className="object-cover" />}
                 </div>
@@ -69,6 +80,6 @@ export function SearchBar({ onClose }: { onClose: () => void }) {
           <p className="font-italic italic text-mitti text-center mt-8">No results — but we are searching India for it.</p>
         )}
       </div>
-    </div>
+    </dialog>
   );
 }

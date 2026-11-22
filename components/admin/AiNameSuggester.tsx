@@ -89,7 +89,7 @@ export default function AiNameSuggester({ brief, onApply, variant = 'inline' }: 
         setError(data.error || 'Failed to fetch names');
         return;
       }
-      if (data.configured === false) {
+      if (data.configured === false && !data.source) {
         setError('OpenAI not configured. Add OPENAI_API_KEY in Vercel env vars.');
         return;
       }
@@ -121,7 +121,7 @@ export default function AiNameSuggester({ brief, onApply, variant = 'inline' }: 
     >
       <Sparkles className="w-4 h-4 group-hover:rotate-12 transition-transform" />
       Let AI name this product
-      <span className="text-[10px] opacity-75 normal-case tracking-normal">· SEO + trend + memorable</span>
+      <span className="text-[10px] opacity-75 normal-case tracking-normal">· from your product details</span>
     </button>
   ) : (
     <button
@@ -151,7 +151,7 @@ export default function AiNameSuggester({ brief, onApply, variant = 'inline' }: 
                   <h2 className="font-display text-2xl text-kohl">AI Product Names</h2>
                 </div>
                 <p className="text-xs text-mitti">
-                  7 names balanced across heritage, sensory, SEO-friendly, and on-trend angles.
+                  A shop title based on the details recorded for this piece.
                   {brief.craft && <> Rooted in <strong>{brief.craft}</strong></>}
                   {brief.region && <> from <strong>{brief.region}</strong></>}.
                 </p>
@@ -172,7 +172,7 @@ export default function AiNameSuggester({ brief, onApply, variant = 'inline' }: 
               {loading && (
                 <div className="flex items-center justify-center gap-2 py-12 text-sm text-mitti">
                   <Loader2 className="w-5 h-5 animate-spin" />
-                  Generating 7 name proposals across all angles…
+                  Drafting the merchandise title…
                 </div>
               )}
               {error && (
@@ -184,7 +184,7 @@ export default function AiNameSuggester({ brief, onApply, variant = 'inline' }: 
                 </div>
               )}
               {!loading && !error && names.map((n, i) => {
-                const meta = ANGLE_META[n.angle || ''] || ANGLE_META.SENSORY;
+                const meta = ANGLE_META[n.angle || ''] || {label:'Shop title',icon:Sparkles,color:'bg-mitti/10 text-mitti'};
                 const Icon = meta.icon;
                 const seo = typeof n.seoScore === 'number' ? Math.max(0, Math.min(100, n.seoScore)) : null;
                 return (

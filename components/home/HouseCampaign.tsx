@@ -50,8 +50,8 @@ type Lead = Awaited<ReturnType<typeof editLead>>;
 function featuredStock(piece: NonNullable<Lead>): Feature {
   const photos = [...new Set([piece.cover, ...piece.images].filter((src):src is string=>Boolean(src)))].slice(0, 3);
   return {
-    id:piece.slug, name:piece.name, shade:piece.colour || '', price:piece.price,
-    description:piece.poeticLine?.trim() || [...new Set([piece.colour, piece.craft, piece.material, piece.region].filter(Boolean))].join(' · '),
+    id:piece.slug, name:piece.name, alias:piece.shortName && !piece.name.toLowerCase().includes(piece.shortName.toLowerCase()) ? piece.shortName : undefined, shade:piece.colour || '', price:piece.price,
+    description:piece.description?.trim() || piece.poeticLine?.trim() || [...new Set([piece.colour, piece.craft, piece.material, piece.region].filter(Boolean))].join(' · '),
     photos:photos.map((src, i)=>({src,label:i===0 ? 'Main view' : 'View '+(i+1),alt:piece.name+', view '+(i+1)})),
     productUrl:'/products/'+encodeURIComponent(piece.slug),
     styling:piece.mirror ? studioHref('mirror',piece.slug) : undefined,
@@ -97,7 +97,7 @@ export function HouseCampaign({ lead, preview, email }: { lead: Lead; preview: b
       </div>
       <div className={styles.paper}>
         <div className={styles.copy}>
-          <p className={styles.kicker}>{piece.alias && <><span lang="hi">{piece.hindi}</span><span>{piece.alias}</span><i aria-hidden="true">/</i></>}The saree edit</p>
+          <p className={styles.kicker}>{piece.alias && <>{piece.hindi && <span lang="hi">{piece.hindi}</span>}<span>{piece.alias}</span><i aria-hidden="true">/</i></>}The saree edit</p>
           <h1 aria-live="polite" aria-atomic="true" className={styles.title} data-catalogue={!!stock}>{piece.name}</h1>
           {piece.description && <p className={styles.line}>{piece.description}</p>}
           {(stock || canSample) && <p className={styles.price}>{formatINR(piece.price)}{canSample && <small>Preview price</small>}</p>}

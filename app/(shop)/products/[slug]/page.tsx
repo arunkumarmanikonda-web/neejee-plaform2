@@ -136,7 +136,7 @@ function PDPInner() {
   };
 
   const TABS = [
-    { id: 'craft', label: 'CRAFT STORY', body: product.story || product.description },
+    { id: 'craft', label: 'CRAFT STORY', body: product.story || product.craftNote },
     { id: 'artisan', label: 'ARTISAN', body: product.artisanName
       ? `${[product.artisanName,product.region].filter(Boolean).join(' · ')}${product.cluster ? ', ' + product.cluster : ''}. ${product.craftNote || ''}`
       : (product.craftNote || product.seller?.businessName || 'Ask our team about the maker of this piece.')
@@ -206,11 +206,14 @@ function PDPInner() {
           {product.badges && product.badges.length > 0 && (
             <BadgeRow badges={product.badges} size="md" className="mb-4" />
           )}
+          {product.shortName && !product.name.toLowerCase().includes(product.shortName.toLowerCase()) && <p className="label text-madder">{product.shortName}</p>}
           <h1 className="font-display text-4xl lg:text-5xl text-kohl mt-4">{product.name}</h1>
           {byline && <p className="house-product-byline">{byline}</p>}
           {product.poeticLine && (
             <p className="font-italic italic text-mitti text-lg mt-2">{product.poeticLine}</p>
           )}
+
+          {product.description && product.description!==product.poeticLine && <p className="nj-product-description mt-3">{product.description}</p>}
 
           {fulfilmentStatusLine(product) && (
             <p className="font-display text-lg text-madder mt-3 tracking-wide">
@@ -230,9 +233,8 @@ function PDPInner() {
 
           <details className="house-product-facts"><summary>Material &amp; origin</summary>
           <dl className="nj-product-facts">{[
-            ['Colour',activeVariant?.color],['Craft',product.craft],['Technique',product.technique],['Fabric',activeVariant?.material || product.material],['Origin',[product.cluster,product.region,product.state].filter((v,i,a)=>v && a.indexOf(v)===i).join(', ')],
+            ['Colour',activeVariant?.color || product.pieceFacts?.colour],['Craft',product.craft],['Technique',product.technique],['Fabric',activeVariant?.material || product.material],['Origin',[product.cluster,product.region,product.state].filter((v,i,a)=>v && a.indexOf(v)===i).join(', ')],
           ].filter(([,v])=>v).map(([k,v])=><div key={k}><dt>{k}</dt><dd>{v}</dd></div>)}</dl>
-          {product.description && product.story && <p className="nj-product-description">{product.description}</p>}
           </details>
           {colors.length > 0 && (
             <div className="mt-8">
@@ -359,7 +361,7 @@ function PDPInner() {
           )}
 
           <div className="mt-10 border-t border-mitti/15">
-            {TABS.map(t => (
+            {TABS.filter(t=>t.body).map(t => (
               <div key={t.id} className="border-b border-mitti/15">
                 <button onClick={() => setOpenTab(openTab === t.id ? '' : t.id)}
                   className="w-full flex items-center justify-between py-4 text-left">

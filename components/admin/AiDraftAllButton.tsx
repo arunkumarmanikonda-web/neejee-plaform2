@@ -35,11 +35,16 @@ type Brief = {
   artisanName?: string;
   // Seed context:
   categoryName?: string;
+  categoryPath?: string;
+  productId?: string;
+  keepTitle?: boolean;
+  pieceFacts?: Record<string,string>;
 };
 
 type DraftResult = {
   ok: boolean;
   configured?: boolean;
+  source?: 'ai' | 'facts';
   draft?: Partial<Brief>;
   filled?: string[];
   skipped?: string[];
@@ -94,10 +99,6 @@ export default function AiDraftAllButton({ form, onApply, className }: Props) {
         alert(data.error || 'AI draft failed. Check Vercel logs.');
         return;
       }
-      if (data.configured === false) {
-        alert(data.message || 'OpenAI not configured.');
-        return;
-      }
       if (data.draft) {
         onApply(data.draft);
       }
@@ -127,7 +128,7 @@ export default function AiDraftAllButton({ form, onApply, className }: Props) {
           className="btn-primary inline-flex items-center gap-2 disabled:opacity-50"
         >
           {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-          {loading ? 'DRAFTING\u2026' : 'DRAFT WITH AI'}
+          {loading ? 'DRAFTING\u2026' : 'DRAFT SHOP COPY'}
         </button>
       </div>
 
@@ -162,7 +163,7 @@ export default function AiDraftAllButton({ form, onApply, className }: Props) {
       {lastResult && lastResult.ok && (
         <div className="text-[11px] bg-emerald-50 border border-emerald-200 px-3 py-2 rounded inline-flex items-center gap-2 text-emerald-800">
           <CheckCircle2 className="w-3 h-3" />
-          Filled {lastResult.filled?.length || 0} field(s)
+          {lastResult.source==='facts' ? 'Drafted from recorded details' : 'AI draft from recorded details'} · {lastResult.filled?.length || 0} fields filled
           {lastResult.skipped && lastResult.skipped.length > 0 && (
             <span className="text-emerald-700/70">\u00b7 skipped {lastResult.skipped.length}</span>
           )}

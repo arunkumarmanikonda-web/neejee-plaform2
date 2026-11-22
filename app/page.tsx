@@ -151,7 +151,7 @@ async function getHomeData() {
 
     type HomeProduct = (typeof arrivals)[number];
     const mapCard = (p: HomeProduct): ProductCardData => ({
-      id: p.id, slug: p.slug, name: p.name, poeticLine: p.poeticLine,
+      id:p.id,slug:p.slug,name:p.name,shortName:p.shortName,poeticLine:p.poeticLine,
       technique:p.technique,state:p.state,colours:[...new Set(p.variants.flatMap(v=>v.color && v.inventory>0?[v.color]:[]))],
       material:p.material, craft:p.craft, region:p.region, mrp:p.mrp, sellingPrice: p.sellingPrice,
       salePrice: p.salePrice, saleStartsAt: p.saleStartsAt, saleEndsAt: p.saleEndsAt,

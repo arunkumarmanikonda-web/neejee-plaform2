@@ -65,11 +65,12 @@ export default function AiFieldRedraft({ field, brief, onApply, buttonLabel }: P
         alert(data.error || 'Redraft failed');
         return;
       }
-      if (data.configured === false) {
+      if (data.configured === false && !data.source) {
         alert('OpenAI not configured.');
         return;
       }
-      const text = data.text || data.seoTitle || JSON.stringify(data.json || '');
+      const text = data.text || data.seoTitle || (data.json ? JSON.stringify(data.json) : '');
+      if (!text) { alert(data.message || 'Add confirmed product details before drafting this field.'); return; }
       if (text) {
         onApply(text);
         setOpen(false);

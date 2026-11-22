@@ -3,7 +3,7 @@
 import { usePathname } from 'next/navigation';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import { X, Send, MessageCircle } from 'lucide-react';
+import { X, Send } from 'lucide-react';
 import { pitariTopics, type PitariReply } from '@/lib/pitari';
 import styles from './Pitari.module.css';
 
@@ -52,7 +52,7 @@ export function Pitari() {
   useEffect(()=>{if(dialog.current?.open) end.current?.scrollIntoView({block:'nearest'});},[turns,pending]);
   return <>
     <button type="button" className={styles.launch} title="Ask Sakhi" aria-label="Ask Sakhi, shopping help" aria-haspopup="dialog" onClick={()=>{if(activeProduct)piece.current=activeProduct; dialog.current?.showModal();}}>
-      <MessageCircle size={19} aria-hidden="true"/>
+      Ask Sakhi
     </button>
     <dialog ref={dialog} className={styles.dialog} aria-labelledby="pitari-heading" onClick={e=>{if(e.target===dialog.current) dialog.current.close();}}>
       <div className={styles.panel}>

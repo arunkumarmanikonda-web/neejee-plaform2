@@ -1,4 +1,9 @@
 export const pieceFields = {
+  colour: 'Colour',
+  motif: 'Motif or pattern',
+  border: 'Border',
+  pallu: 'Pallu',
+  designReference: 'Design reference',
   contents: 'What comes with this piece',
   cloth: 'Saree length and width',
   blouse: 'Blouse piece',
@@ -37,5 +42,10 @@ export function requestedPieceField(question: string): keyof PieceFacts | undefi
   if (/sheer|opaque|opacity|lining|see.through/i.test(question)) return 'opacity';
   if (/weave|loom|बुनाई/i.test(question)) return 'weave';
   if (/differ|vary|variation/i.test(question)) return 'variation';
+  if (/pallu|पल्लू/i.test(question)) return 'pallu';
+  if (/border|किनारी/i.test(question)) return 'border';
+  if (/motif|pattern/i.test(question)) return 'motif';
+  if (/colou?r|रंग/i.test(question)) return 'colour';
+  if (/design reference|inspir/i.test(question)) return 'designReference';
   return undefined;
 }

@@ -318,6 +318,8 @@ export default function AdminProductEdit() {
         <div className="flex gap-3 flex-wrap">
           <AiDraftAllButton
             form={{
+              productId: product.id,
+              categoryPath: categories.find(c=>c.id===form.categoryId)?.path || product?.category?.path,
               name: form.name,
               shortName: form.shortName,
               poeticLine: form.poeticLine,
@@ -336,7 +338,7 @@ export default function AdminProductEdit() {
               state: form.state,
               cluster: form.cluster,
               artisanName: form.artisanName,
-              categoryName: product?.category?.name,
+              categoryName: categories.find(c=>c.id===form.categoryId)?.name || product?.category?.name,
             }}
             onApply={(draft: any) => {
               setForm((f: any) => ({ ...f, ...draft }));
@@ -372,7 +374,7 @@ export default function AdminProductEdit() {
             <div className="bg-beige p-6">
               <p className="label text-madder mb-4">BASIC INFORMATION</p>
               <Field label="Product Name" value={form.name} onChange={(v: string) => setForm((f: any) => ({...f, name: v}))} required />
-              <Field label="Short Name" value={form.shortName} onChange={(v: string) => setForm((f: any) => ({...f, shortName: v}))} help="Used in carousels and small cards" />
+              <Field label="Short name for the piece" value={form.shortName} onChange={(v: string) => setForm((f: any) => ({...f, shortName: v}))} help="Optional personal name, such as Neel" />
               <Field label="URL Slug" value={form.slug} onChange={(v: string) => setForm((f: any) => ({...f, slug: v}))} help="Becomes /products/<slug>" mono />
               <div>
                 <label className="label text-mitti">CATEGORY <span className="text-madder">*</span></label>
@@ -410,11 +412,11 @@ export default function AdminProductEdit() {
                 </p>
               </div>
               <div>
-                <Field label="Poetic Line" value={form.poeticLine} onChange={(v: string) => setForm((f: any) => ({...f, poeticLine: v}))} help="The one-liner that appears under the title" />
+                <Field label="Card caption" value={form.poeticLine} onChange={(v: string) => setForm((f: any) => ({...f, poeticLine: v}))} help="One defining detail shoppers see below the product title" />
                 <div className="mt-1">
                   <AiCopyButton
                     field="poeticLine"
-                    brief={{ name: form.name, craft: form.craft, region: form.region, artisanName: form.artisanName, material: form.material, technique: form.technique, occasion: form.occasion }}
+                    brief={{ productId:product.id, categoryName:product.category?.name, categoryPath:product.category?.path, name: form.name, craft: form.craft, region: form.region, artisanName: form.artisanName, material: form.material, technique: form.technique, occasion: form.occasion }}
                     onApply={(d: any) => setForm((f: any) => ({ ...f, poeticLine: d.text }))}
                   />
                 </div>
@@ -424,7 +426,7 @@ export default function AdminProductEdit() {
                 <div className="mt-1">
                   <AiCopyButton
                     field="description"
-                    brief={{ name: form.name, craft: form.craft, region: form.region, artisanName: form.artisanName, material: form.material, technique: form.technique, occasion: form.occasion }}
+                    brief={{ productId:product.id, categoryName:product.category?.name, categoryPath:product.category?.path, name: form.name, craft: form.craft, region: form.region, artisanName: form.artisanName, material: form.material, technique: form.technique, occasion: form.occasion }}
                     onApply={(d: any) => setForm((f: any) => ({ ...f, description: d.text }))}
                   />
                 </div>

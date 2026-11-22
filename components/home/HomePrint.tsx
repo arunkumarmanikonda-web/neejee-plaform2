@@ -21,7 +21,7 @@ type PrintPiece = {
 function cataloguePiece(piece: ProductCardData): PrintPiece {
   const facts = [piece.colours?.join(' / '), piece.craft || piece.technique, piece.material, piece.region || piece.state];
   return {
-    name: piece.name, caption: [...new Set(facts.filter(Boolean))].join(' · ') || piece.poeticLine || '',
+    name:piece.name, alias:piece.shortName || undefined, caption:piece.poeticLine || [...new Set(facts.filter(Boolean))].join(' · '),
     price: formatINR(buildPricing(piece).effectivePrice), image: piece.images[0],
     href: '/products/' + encodeURIComponent(piece.slug),
   };
@@ -73,8 +73,8 @@ export function HomePrint({lead,fashion,curated,arrivals,founderNote,preview}:Pr
   const neel = studies.find(piece=>piece.id === 'neel')!;
   const stock = lead?.cover ? lead : null;
   const hero = stock ? {
-    title:stock.name, alias:'', image:stock.cover!, price:formatINR(stock.price), detail:'',
-    description:stock.poeticLine?.trim() || [...new Set([stock.colour,stock.craft,stock.material,stock.region].filter(Boolean))].join(' · '),
+    title:stock.name, alias:stock.shortName || '', image:stock.cover!, price:formatINR(stock.price), detail:'',
+    description:stock.description?.trim() || stock.poeticLine?.trim() || [...new Set([stock.colour,stock.craft,stock.material,stock.region].filter(Boolean))].join(' · '),
   } : {
     title:neel.name, alias:neel.alias, image:'/brand/campaign/neel-courtyard.webp',
     price:preview ? formatINR(neel.price) : '', description:neel.detail, detail:studyTextiles.neel.reference,

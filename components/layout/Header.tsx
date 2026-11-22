@@ -3,8 +3,11 @@ import MegaMenuNav, { stockedDepartments } from './MegaMenuNav';
 import { houseNavigation, editHref } from '@/lib/shop-edits';
 import { Pitari } from '@/components/home/Pitari';
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
-import { Search, Heart, ShoppingBag, User, Menu, X, LogOut } from 'lucide-react';
+import Image from 'next/image';
+import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
+import styles from './ShopUtilities.module.css';
+import { useEffect, useRef, useState } from 'react';
+import { ChevronDown, Search, ShoppingBag, Menu, X } from 'lucide-react';
 import { useClientReady } from '@/lib/use-client-ready';
 import { useSampleBag } from '@/lib/sample-bag';
 import { useCart } from '@/lib/cart-store';
@@ -20,7 +23,9 @@ type MobileMain = { slug: string; name: string; subs: any[] };
 export function Header({ shop = false }: { shop?: boolean } = {}) {
   const [open, setOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
-  const [accountMenu, setAccountMenu] = useState(false);
+  const menuTrigger = useRef<HTMLButtonElement>(null);
+  const header = useRef<HTMLElement>(null);
+  const searchTrigger = useRef<HTMLButtonElement>(null);
   const [me, setMe] = useState<Me | null>(null);
   const [mobileMains, setMobileMains] = useState<MobileMain[]>([]);
   const [mobileOpenMain, setMobileOpenMain] = useState<string | null>(null);
@@ -61,20 +66,50 @@ export function Header({ shop = false }: { shop?: boolean } = {}) {
   const logout = async () => {
     await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' });
     setMe(null);
-    setAccountMenu(false);
     location.reload();
   };
+
+  useEffect(() => {
+    if (!open) return;
+    function escape(event: KeyboardEvent) {
+      if (event.key === 'Escape') {
+        setOpen(false);
+        menuTrigger.current?.focus();
+      }
+    }
+    function outside(event: PointerEvent) {
+      if (event.target instanceof Node && !header.current?.contains(event.target)) setOpen(false);
+    }
+    window.addEventListener('keydown', escape);
+    document.addEventListener('pointerdown', outside);
+    return () => {
+      window.removeEventListener('keydown', escape);
+      document.removeEventListener('pointerdown', outside);
+    };
+  }, [open]);
+
+  function openSearch() {
+    setOpen(false);
+    setSearchOpen(true);
+  }
 
   const firstName = me?.name?.split(' ')[0] || '';
   const isAdmin = me && ['ADMIN', 'SUPER_ADMIN', 'CONTENT_EDITOR', 'QC_TEAM'].includes(me.role || '');
 
+  const savedHref = me ? '/account?tab=wishlist' : '/login?next=%2Faccount%3Ftab%3Dwishlist';
+  const accountLinks = me
+    ? isAdmin ? [['Admin dashboard', '/admin']] : [['My account', '/account'], ['Orders', '/account?tab=orders'], ['Addresses', '/account?tab=addresses']]
+    : [['Sign in', '/login'], ['Create an account', '/signup']];
+
   return (
     <>
       {!shop && <AnnouncementBar />}
-      <header className={"sticky top-0 z-40 bg-ivory border-b border-beige neejee-masthead" + (shop ? " nj-shop-header" : "")}>
-        <div className="house-masthead-inner">
-          <button onClick={() => setOpen(!open)} className="lg:hidden" aria-label="Menu" aria-expanded={open}>
-            {open ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+      <header ref={header} className={styles.masthead + " sticky top-0 z-40 bg-ivory border-b border-beige neejee-masthead" + (shop ? " nj-shop-header" : "")}>
+        <div className={styles.inner + " house-masthead-inner"}>
+          <button ref={menuTrigger} type="button" onClick={() => setOpen(!open)} className={styles.menu}
+            aria-label={open ? "Close shop menu" : "Open shop menu"} aria-controls="neejee-shop-menu" aria-expanded={open}>
+            {open ? <X size={20} aria-hidden="true"/> : <Menu size={20} aria-hidden="true"/>}
+            <span>Shop</span>
           </button>
 
           <Link href="/" aria-label="NEEJEE Home, Found. Personal." className="house-signature">
@@ -83,68 +118,60 @@ export function Header({ shop = false }: { shop?: boolean } = {}) {
 
           <MegaMenuNav />
 
-          <div className="house-services">
-            <Link className="house-aaina" href="/ai/mirror">Aaina <span>try-on</span></Link>
-            <Pitari />
-            <button onClick={() => setSearchOpen(true)} aria-label="Search" className="hover:text-madder transition-colors">
-              <Search className="w-5 h-5" />
-            </button>
-
-            {me ? (
-              <div className="hidden sm:block relative">
-                <button onClick={() => setAccountMenu(!accountMenu)} className="flex items-center gap-1.5 hover:text-madder transition-colors" aria-label="Account menu">
-                  <User className="w-5 h-5" />
-                  <span className="text-xs tracking-wider hidden md:inline">{firstName ? firstName.toUpperCase() : 'ACCOUNT'}</span>
-                </button>
-                {accountMenu && (
-                  <>
-                    <div className="fixed inset-0 z-30" onClick={() => setAccountMenu(false)} />
-                    <div className="absolute right-0 top-full mt-2 w-56 bg-ivory border border-mitti/20 shadow-lg z-40">
-                      <div className="px-4 py-3 border-b border-mitti/10">
-                        <p className="text-xs tracking-wider text-mitti">SIGNED IN AS</p>
-                        <p className="text-sm text-kohl mt-1 truncate">{me.email}</p>
-                        {isAdmin && <p className="text-[10px] tracking-wider text-madder mt-1">{me.role?.replace(/_/g, ' ')}</p>}
-                      </div>
-                      <Link href={isAdmin ? '/admin' : '/account'} className="block px-4 py-2.5 text-sm hover:bg-beige text-kohl" onClick={() => setAccountMenu(false)}>
-                        {isAdmin ? 'Admin dashboard' : 'My account'}
-                      </Link>
-                      {!isAdmin && (
-                        <>
-                          <Link href="/account?tab=orders" className="block px-4 py-2.5 text-sm hover:bg-beige text-kohl" onClick={() => setAccountMenu(false)}>My orders</Link>
-                          <Link href="/account?tab=wishlist" className="block px-4 py-2.5 text-sm hover:bg-beige text-kohl" onClick={() => setAccountMenu(false)}>Wishlist</Link>
-                          <Link href="/account?tab=addresses" className="block px-4 py-2.5 text-sm hover:bg-beige text-kohl" onClick={() => setAccountMenu(false)}>Addresses</Link>
-                        </>
-                      )}
-                      <button onClick={logout} className="w-full text-left px-4 py-2.5 text-sm hover:bg-madder/5 text-madder border-t border-mitti/10 flex items-center gap-2">
-                        <LogOut className="w-3.5 h-3.5" /> Sign out
-                      </button>
-                    </div>
-                  </>
-                )}
-              </div>
-            ) : (
-              <Link href="/login" aria-label="Sign in" className="hidden sm:block hover:text-madder transition-colors">
-                <User className="w-5 h-5" />
-              </Link>
-            )}
-
-            {!isAdmin && (
-              <Link href={me ? '/account?tab=wishlist' : '/login?next=%2Faccount%3Ftab%3Dwishlist'} aria-label="Wishlist" className="hidden sm:block hover:text-madder transition-colors">
-                <Heart className="w-5 h-5" />
-              </Link>
-            )}
-            <Link href="/cart" aria-label="Shopping bag" className="relative hover:text-madder transition-colors">
-              <ShoppingBag className="w-5 h-5" />
-              {ready && count > 0 && (
-                <span className="absolute -top-2 -right-2 bg-madder text-ivory text-[10px] rounded-full w-4 h-4 flex items-center justify-center font-ui">{count}</span>
-              )}
+          <div className={styles.utilities}>
+            <Link className={styles.aaina} href="/ai/mirror" aria-label="Try on a saree with Aaina">
+              <span className={styles.handMirror} aria-hidden="true">
+                <span className={styles.glass}>
+                  <Image src="/brand/bazaar/neel.webp" width={72} height={108} sizes="54px" alt=""/>
+                </span>
+              </span>
+              <span className={styles.aainaCopy}><strong>Aaina</strong><span>Try on a saree</span></span>
             </Link>
+
+            <div className={styles.shopping}>
+              <button ref={searchTrigger} type="button" className={styles.search} onClick={openSearch}
+                aria-label="Search the shop" aria-haspopup="dialog">
+                <Search size={18} aria-hidden="true"/><span>Search</span>
+              </button>
+              <Link href="/cart" className={styles.bag} aria-label={'Shopping bag' + (ready && count ? ', ' + count + (count===1 ? ' item' : ' items') : '')}>
+                <ShoppingBag size={18} aria-hidden="true"/><span>Bag</span>
+                {ready && count>0 && <b className={styles.count} aria-hidden="true">{count>99 ? '99+' : count}</b>}
+              </Link>
+            </div>
+
+            <div className={styles.personal}>
+              <Pitari/>
+              {!isAdmin && <Link href={savedHref}>Saved</Link>}
+              <DropdownMenu.Root modal={false}>
+                <DropdownMenu.Trigger className={styles.account} aria-label="Account options">
+                  Account <ChevronDown size={12} aria-hidden="true"/>
+                </DropdownMenu.Trigger>
+                <DropdownMenu.Portal>
+                  <DropdownMenu.Content className={styles.accountPanel} align="end" sideOffset={5} collisionPadding={12}>
+                    {me && <DropdownMenu.Label className={styles.signedIn}>Signed in as {me.email}</DropdownMenu.Label>}
+                    {accountLinks.map(([label, href]) => <DropdownMenu.Item asChild key={href}>
+                      <Link className={styles.accountItem} href={href}>{label}</Link>
+                    </DropdownMenu.Item>)}
+                    {me && <DropdownMenu.Item className={styles.accountItem} onSelect={() => void logout()}>Sign out</DropdownMenu.Item>}
+                  </DropdownMenu.Content>
+                </DropdownMenu.Portal>
+              </DropdownMenu.Root>
+            </div>
           </div>
         </div>
 
         {open && (
-          <div className="lg:hidden border-t border-beige bg-ivory max-h-[80vh] overflow-y-auto">
-            <nav className="flex flex-col py-2 font-ui text-sm tracking-wide">
+          <div id="neejee-shop-menu" className={styles.drawer + " lg:hidden border-t border-beige bg-ivory max-h-[80vh] overflow-y-auto"}>
+            <nav aria-label="Shop menu" className="flex flex-col py-2 font-ui text-sm tracking-wide">
+              <div className={styles.drawerTools}>
+                <button type="button" aria-haspopup="dialog" onClick={()=>{
+                  setOpen(false);
+                  menuTrigger.current?.focus();
+                  window.dispatchEvent(new CustomEvent('neejee:ask-pitari'));
+                }}>Ask Sakhi</button>
+                {!isAdmin && <Link href={savedHref} onClick={()=>setOpen(false)}>Saved pieces</Link>}
+                <Link href={me ? (isAdmin ? '/admin' : '/account') : '/login'} onClick={()=>setOpen(false)}>{me ? (isAdmin ? 'Admin' : 'Account') : 'Sign in'}</Link>
+              </div>
               {houseNavigation.map(e=><Link key={e.slug} href={editHref(e.slug)} onClick={()=>setOpen(false)} className="px-6 py-3 border-b border-beige font-medium">{e.name}</Link>)}
               <Link href="/products" onClick={() => setOpen(false)} className="px-6 py-3 border-b border-beige">Shop all</Link>
               {mobileMains.map(main => {
@@ -185,12 +212,11 @@ export function Header({ shop = false }: { shop?: boolean } = {}) {
                 {me ? (
                   <>
                     <p className="px-6 py-2 text-xs tracking-wider text-mitti">SIGNED IN · {firstName?.toUpperCase()}</p>
-                    <Link href={isAdmin ? '/admin' : '/account'} className="px-6 py-3 block hover:bg-beige" onClick={() => setOpen(false)}>{isAdmin ? 'Admin dashboard' : 'My account'}</Link>
+                    {!isAdmin && accountLinks.slice(1).map(([label,href])=><Link key={href} href={href} className="px-6 py-3 block hover:bg-beige" onClick={() => setOpen(false)}>{label}</Link>)}
                     <button onClick={logout} className="px-6 py-3 block text-left text-madder w-full">Sign out</button>
                   </>
                 ) : (
                   <>
-                    <Link href="/login" className="px-6 py-3 block hover:bg-beige" onClick={() => setOpen(false)}>SIGN IN</Link>
                     <Link href="/signup" className="px-6 py-3 block hover:bg-beige" onClick={() => setOpen(false)}>CREATE ACCOUNT</Link>
                   </>
                 )}
@@ -199,7 +225,7 @@ export function Header({ shop = false }: { shop?: boolean } = {}) {
           </div>
         )}
 
-        {searchOpen && <SearchBar onClose={() => setSearchOpen(false)} />}
+        {searchOpen && <SearchBar onClose={() => { setSearchOpen(false); searchTrigger.current?.focus(); }} />}
       </header>
     </>
   );

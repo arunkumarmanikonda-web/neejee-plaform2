@@ -1,3 +1,4 @@
+import { authorNewProduct, saveCreationFacts } from '@/lib/catalog/narrative-service';
 // Seller's own products list + create
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
@@ -46,7 +47,8 @@ export async function POST(request: Request) {
   if (!ctx.ok) return NextResponse.json({ error: ctx.error }, { status: ctx.status });
   if (!ctx.seller) return NextResponse.json({ error: 'No seller record' }, { status: 404 });
 
-  const agreementGate = await getSellerAgreementUploadGate(ctx.seller.id);
+  const seller=ctx.seller;
+  const agreementGate = await getSellerAgreementUploadGate(seller.id);
   if (agreementGate.blocked) {
     return NextResponse.json(
       { error: agreementGate.message, code: agreementGate.code, agreementGate },
@@ -67,7 +69,6 @@ export async function POST(request: Request) {
       material,
       technique,
       occasion,
-      description,
       images = [],
     } = body;
 
@@ -78,7 +79,8 @@ export async function POST(request: Request) {
       );
     }
 
-    const baseSlug = slugify(name);
+    const {draft}=await authorNewProduct(body);
+    const baseSlug = slugify(draft.name);
     let slug = baseSlug;
     for (let n = 2; n < 30; n++) {
       const clash = await prisma.product.findUnique({ where: { slug } });
@@ -88,29 +90,32 @@ export async function POST(request: Request) {
 
     const finalSku =
       sku ||
-      `NEE-${(ctx.seller.slug || 'STUDIO').toUpperCase().slice(0, 6)}-${Date.now()
+      `NEE-${(seller.slug || 'STUDIO').toUpperCase().slice(0, 6)}-${Date.now()
         .toString()
         .slice(-6)}`;
 
-    const product = await prisma.product.create({
-      data: {
-        slug,
-        sku: finalSku,
-        name,
-        sellerId: ctx.seller.id,
-        categoryId,
-        craft: craft || ctx.seller.craft || undefined,
-        region: region || ctx.seller.region || undefined,
-        material,
-        technique,
-        occasion,
-        description,
-        mrp: parseInt(mrp),
-        sellingPrice: parseInt(sellingPrice),
-        images: Array.isArray(images) ? images : [],
-        status: 'PENDING_QC',
-        artisanName: ctx.seller.contactName,
-      },
+    const product = await prisma.$transaction(async tx=>{
+      const item=await tx.product.create({
+        data: {
+          slug,
+          sku: finalSku,
+          ...draft,
+          sellerId: seller.id,
+          categoryId,
+          craft: craft || undefined,
+          region: region || undefined,
+          material,
+          technique,
+          occasion,
+          mrp: parseInt(mrp),
+          sellingPrice: parseInt(sellingPrice),
+          images: Array.isArray(images) ? images : [],
+          status: 'PENDING_QC',
+          artisanName: typeof body.artisanName==='string' ? body.artisanName.trim() || undefined : undefined,
+        },
+      });
+      await saveCreationFacts(tx,item.id,body.pieceFacts);
+      return item;
     });
 
     return NextResponse.json({ success: true, product });

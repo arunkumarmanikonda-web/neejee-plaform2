@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { ArrowLeft, Loader2 } from 'lucide-react';
 import { PriceInput } from '@/components/admin/PriceInput';
 import { ImageUploader } from '@/components/admin/ImageUploader';
+import { currentPieceFacts, ProductNarrativePanel } from '@/components/admin/ProductNarrativePanel';
 import CategoryPicker, { CategoryPickerValue } from '@/components/admin/CategoryPicker';
 
 export const dynamic = 'force-dynamic';
@@ -16,6 +17,10 @@ export default function SellerNewProduct() {
   const [images, setImages] = useState<string[]>([]);
   const [form, setForm] = useState({
     name: '',
+    shortName: '',
+    poeticLine: '',
+    keepTitle: false,
+    pieceFacts: {} as Record<string,string>,
     categoryId: '',
     craft: '',
     region: '',
@@ -33,6 +38,10 @@ export default function SellerNewProduct() {
     fetch('/api/categories').then(r => r.json()).then(d => setCats(d.categories || []));
   }, []);
 
+  const selectedCategory = cats.find(c=>c.id===form.categoryId);
+  const categoryName = categoryPick?.label.split(' / ').pop() || selectedCategory?.name || '';
+  const categoryPath = categoryPick?.path || categoryPick?.label || selectedCategory?.path || '';
+
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
@@ -43,7 +52,7 @@ export default function SellerNewProduct() {
       const res = await fetch('/api/seller/products', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...form, images }),
+        body: JSON.stringify({ ...form, images, categoryName, categoryPath, pieceFacts:currentPieceFacts(form.pieceFacts, categoryName, categoryPath, form.name) }),
       });
       const j = await res.json();
       if (!res.ok) throw new Error(j.error || 'Failed to submit');
@@ -66,10 +75,10 @@ export default function SellerNewProduct() {
 
       <form onSubmit={submit} className="mt-8 grid lg:grid-cols-[1fr_380px] gap-8">
         {/* Main */}
-        <div className="space-y-6">
+        <div className="min-w-0 space-y-6">
           <section className="bg-beige p-6 space-y-3">
             <p className="label text-madder mb-2">BASIC</p>
-            <Field label="Name" value={form.name} onChange={v => setForm({ ...form, name: v })} required />
+            <Field label="Working name or shop title" value={form.name} onChange={v => setForm({ ...form, name: v })} required />
             <div>
               <label className="label text-mitti">CATEGORY</label>
               <div className="mt-1">
@@ -93,18 +102,17 @@ export default function SellerNewProduct() {
                 )}
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-3">
-              <Field label="Craft" value={form.craft} onChange={v => setForm({ ...form, craft: v })} placeholder="e.g. Banarasi" />
-              <Field label="Region" value={form.region} onChange={v => setForm({ ...form, region: v })} placeholder="e.g. Varanasi" />
+            <div className="grid sm:grid-cols-2 gap-3">
+              <Field label="Confirmed craft" value={form.craft} onChange={v => setForm({ ...form, craft: v })} placeholder="e.g. Banarasi" />
+              <Field label="Origin (where made)" value={form.region} onChange={v => setForm({ ...form, region: v })} placeholder="e.g. Varanasi" />
               <Field label="Material" value={form.material} onChange={v => setForm({ ...form, material: v })} />
               <Field label="Technique" value={form.technique} onChange={v => setForm({ ...form, technique: v })} />
               <Field label="Occasion" value={form.occasion} onChange={v => setForm({ ...form, occasion: v })} />
             </div>
-            <div>
-              <label className="label text-mitti">DESCRIPTION</label>
-              <textarea value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} rows={4} className="w-full p-3 bg-ivory border border-mitti/20 font-ui text-sm mt-1" placeholder="Tactile, specific, factual…" />
-            </div>
           </section>
+
+          <ProductNarrativePanel form={form} categoryName={categoryName} categoryPath={categoryPath}
+            image={images[0]} onChange={patch=>setForm(previous=>({...previous,...patch}))}/>
 
           <section className="bg-beige p-6">
             <p className="label text-madder mb-3">PHOTOGRAPHS</p>

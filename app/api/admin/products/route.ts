@@ -1,3 +1,4 @@
+import { authorNewProduct, saveCreationFacts } from '@/lib/catalog/narrative-service';
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getSession, requireRole } from '@/lib/auth';
@@ -411,6 +412,8 @@ export async function POST(request: Request) {
       );
     }
 
+    const {draft} = await authorNewProduct(body);
+    Object.assign(body,draft);
     let slug = await buildUniqueSlug(String(body.name), body.slug);
     let sku = await buildSku(body);
     const userSuppliedSku = !!normalizeText(body.sku);
@@ -421,7 +424,11 @@ export async function POST(request: Request) {
     for (let attempt = 0; attempt < 3; attempt++) {
       try {
         const data: any = buildCreateData(body, slug, sku);
-        createdProduct = await prisma.product.create({ data });
+        createdProduct = await prisma.$transaction(async tx=>{
+          const item=await tx.product.create({data});
+          await saveCreationFacts(tx,item.id,body.pieceFacts);
+          return item;
+        });
         break;
       } catch (error: any) {
         lastError = error;

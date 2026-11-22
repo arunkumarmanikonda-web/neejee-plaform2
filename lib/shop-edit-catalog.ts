@@ -19,7 +19,7 @@ export function editProductWhere(edit:Edit):Prisma.ProductWhereInput {
 }
 
 const pick = {
-  id:true,name:true,slug:true,material:true,technique:true,state:true,region:true,craft:true,poeticLine:true,images:true,badges:true,
+  id:true,name:true,shortName:true,description:true,slug:true,material:true,technique:true,state:true,region:true,craft:true,poeticLine:true,images:true,badges:true,
   cataloguePreferredImage:true,catalogueImageApproved:true,mrp:true,sellingPrice:true,salePrice:true,saleStartsAt:true,saleEndsAt:true,aiTryOnEligible:true,
   variants:{where:{inventory:{gt:0}},select:{id:true,images:true,inventory:true,color:true}}
 } satisfies Prisma.ProductSelect;
@@ -27,7 +27,7 @@ const order:Prisma.ProductOrderByWithRelationInput[]=[{cataloguePinHero:'desc'},
 type Product=Prisma.ProductGetPayload<{select:typeof pick}>;
 function card(p:Product) {
   const m=resolveMedia(p);
-  return {id:p.id,name:p.name,slug:p.slug,material:p.material,technique:p.technique,state:p.state,colours:[...new Set(p.variants.flatMap(v=>v.color?[v.color]:[]))],region:p.region,craft:p.craft,poeticLine:p.poeticLine,badges:p.badges,
+  return {id:p.id,name:p.name,shortName:p.shortName,slug:p.slug,material:p.material,technique:p.technique,state:p.state,colours:[...new Set(p.variants.flatMap(v=>v.color?[v.color]:[]))],region:p.region,craft:p.craft,poeticLine:p.poeticLine,badges:p.badges,
     sellingPrice:p.sellingPrice,mrp:p.mrp,salePrice:p.salePrice,saleStartsAt:p.saleStartsAt,saleEndsAt:p.saleEndsAt,
     aiTryOnEligible:p.aiTryOnEligible,price:buildPricing(p).effectivePrice,images:m.approvedGallery,cover:m.approvedPrimaryImage};
 }
@@ -36,7 +36,7 @@ export async function editLead(edit:Edit) {
   if(!row) return null;
   const p=card(row);
   return {slug:p.slug,name:p.name,cover:p.cover,price:p.price,mirror:p.aiTryOnEligible,
-    images:p.images,poeticLine:row.poeticLine,colour:p.colours[0],craft:p.craft || p.technique,material:p.material,region:p.region || p.state};
+    images:p.images,shortName:row.shortName,description:row.description,poeticLine:row.poeticLine,colour:p.colours[0],craft:p.craft || p.technique,material:p.material,region:p.region || p.state};
 }
 export async function readEdit(edit:Edit,requestedPage:number,colour = '',sort = 'featured',textile = '') {
   const base = editProductWhere(edit);
