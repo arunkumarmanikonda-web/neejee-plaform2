@@ -1,4 +1,3 @@
-import Image from 'next/image';
 import { NEEJEE_TAGLINE } from '@/lib/brand';
 
 type Props = {
@@ -17,18 +16,21 @@ export function NeejeeLogo({ className = '', size = 'md', variant = 'default', s
   const width = SIZE_MAP[size];
   const aspect = showTagline ? FULL_ASPECT : COMPACT_ASPECT;
   const height = Math.round(width / aspect);
-  const src = '/brand/identity/' + (showTagline ? 'lockup' : 'compact') + (variant === 'ivory' ? '-reverse' : '') + '.svg?v=bindi';
+  const file = '/brand/identity/' + (showTagline ? 'lockup' : 'compact') + (variant === 'ivory' ? '-reverse' : '') + '.svg?v=bindi';
+
+  // The primary signature travels with the page, including saved and printed pages.
+  const src = showTagline && variant === 'default' ? process.env.NEEJEE_SIGNATURE_SRC || file : file;
 
   return (
-    <Image
+    <img
       className={className}
       src={src}
-      unoptimized
       alt={showTagline ? `NEEJEE. ${NEEJEE_TAGLINE}` : 'NEEJEE'}
       width={width}
       height={height}
       draggable={false}
-      priority={size === 'lg' || size === 'xl'}
+      loading="eager"
+      decoding="sync"
       style={{
         display: 'block',
         width,

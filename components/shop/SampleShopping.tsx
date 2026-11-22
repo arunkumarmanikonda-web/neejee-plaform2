@@ -60,7 +60,7 @@ export function SampleShopping({checkout = false, liveCount = 0}: {checkout?: bo
           <><h2>Review payment</h2><p>This is a sample checkout. No payment details are needed.</p><div className="nj-total"><span>Total</span><strong>{formatINR(total)}</strong></div>
           <button className="nj-primary" onClick={complete}>Complete sample order</button><button className="nj-text-link nj-back" onClick={()=>setStep('delivery')}>Change delivery</button></>}</>
           : <><h2>Your pieces</h2>{pieces.map(s=><div className="nj-bag-row" key={s.id}>
-            <img src={s.image} alt={s.name}/><div><b>{s.name}</b><small>{s.shade} · {s.group==='sarees'?'Saree':'Suit set'}</small>
+            <img src={s.image} alt={s.name}/><div><b>{s.name}</b><small>{s.alias}</small>
             <div className="nj-qty"><button aria-label={'Decrease '+s.name+' quantity'} onClick={()=>changeSample(s.id,-1)}><Minus size={14}/></button>{bag[s.id]}<button disabled={bag[s.id]>=9} aria-label={'Increase '+s.name+' quantity'} onClick={()=>changeSample(s.id,1)}><Plus size={14}/></button></div></div>
             <strong>{formatINR(s.price*bag[s.id])}</strong>{s.group==='sarees'&&<BagPairing study product={s.id} name={s.name}/>}</div>)}
             {toShop}{liveCount>0&&<p><Link href="/cart" className="nj-text-link">View your shop items ({liveCount})</Link></p>}</>}

@@ -78,7 +78,7 @@ export function Header({ shop = false }: { shop?: boolean } = {}) {
           </button>
 
           <Link href="/" aria-label="NEEJEE Home, Found. Personal." className="house-signature">
-            <NeejeeLogo size="md" showTagline />
+            <NeejeeLogo size="xl" showTagline />
           </Link>
 
           <MegaMenuNav />

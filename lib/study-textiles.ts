@@ -1,10 +1,11 @@
 export interface StudyTextile {
+  alias: string;
   name: string;
-  motif: string;
+  caption: string;
   description: string;
   border: string;
   pallu: string;
-  /** The source of the motif, distinct from a catalogue SKU's verified place of manufacture. */
+  /** Where the design reference comes from. The sample has no documented maker or workshop. */
   region: string;
   reference: string;
   traditionIds: readonly string[];
@@ -13,47 +14,58 @@ export interface StudyTextile {
 
 export const studyTextiles: Readonly<Record<string, StudyTextile>> = {
   surkh: {
-    name: 'Surkh', motif: 'Gharchola checks',
-    description: 'Fine gold checks run through the vermilion pleats. Open the pallu and the small squares give way to broad rows of flowers.',
-    border: 'A gold floral band between two narrow wine stripes.',
-    pallu: 'Floral bands on wine, with a deeper plum edge.',
+    alias: 'Surkh',
+    name: 'Vermilion saree with gold checks',
+    caption: 'Gujarati gharchola-style checks meet a wine floral pallu.',
+    description: 'The small checks stay crisp across the front pleats. Open the pallu over your shoulder and a much larger pattern appears, with rows of gold flowers against wine.',
+    border: 'A floral band edged in wine.', pallu: 'Wide bands of gold flowers with a deep plum hem.',
     region: 'Gujarat and Varanasi, Uttar Pradesh',
-    reference: 'The checks recall a Gujarati gharchola. The floral pallu draws on the brocades of Banaras.',
+    reference: 'The red-and-gold grid takes its cue from Gujarati gharchola. The floral pallu is a separate reference to Banarasi brocade.',
     traditionIds: ['gharchola', 'banarasi'], searchNames: ['Surkh Gold Check','Surkh Gharchola-inspired check saree','red','vermilion','gold grid','floral pallu','Banaras'],
   },
   neel: {
-    name: 'Neel', motif: 'Bandhani dot motif',
-    description: 'Ivory dots form rows of diamonds across deep indigo. Along the edge, the same dots draw a fine stripe.',
-    border: 'Narrow rows of ivory dots.', pallu: 'Larger diamonds above a striped hem.',
-    region: 'Gujarat and Rajasthan', reference: 'The dotted diamonds recall Bandhani patterns from Gujarat and Rajasthan.',
+    alias: 'Neel',
+    name: 'Indigo saree with Bandhani diamonds',
+    caption: 'Ivory dotted diamonds and a finely striped pallu.',
+    description: 'Ivory dots gather into diamonds across the pleats. Open the pallu over one shoulder and the diamonds give way to fine ivory stripes.',
+    border: 'Parallel rows of ivory dots.', pallu: 'Dotted diamonds ending in fine ivory stripes.',
+    region: 'Gujarat and Rajasthan', reference: 'The dotted pattern is drawn from the Bandhani tradition of Gujarat and Rajasthan.',
     traditionIds: ['bandhani'], searchNames: ['Neel Diamond','Neel Bandhani-inspired diamond saree','indigo','navy','blue','ivory diamond','bandhej'],
   },
   haldi: {
-    name: 'Haldi', motif: 'Temple border',
-    description: 'A maroon temple border runs from shoulder to hem. Against the turmeric yellow, each point is visible even when the cloth falls into pleats.',
-    border: 'Maroon temple points with a narrow outer stripe.', pallu: 'Turmeric yellow with fine bands across the end.',
-    region: 'Kanchipuram, Tamil Nadu', reference: 'The temple-border motif draws on sarees from Kanchipuram, Tamil Nadu.',
+    alias: 'Haldi',
+    name: 'Turmeric saree with a maroon temple border',
+    caption: 'Kanchipuram-style temple points fan out with the pleats.',
+    description: 'Deep maroon temple points run along the turmeric-yellow edge. Over the shoulder they form a single row. Gathered at the hem, they fan out with the pleats.',
+    border: 'Maroon temple points framed by narrow red and gold-toned stripes.', pallu: 'A turmeric-yellow end with fine crosswise bands.',
+    region: 'Kanchipuram, Tamil Nadu', reference: 'The sawtooth temple border is a design reference to Kanchipuram sarees from Tamil Nadu.',
     traditionIds: ['kanchipuram'], searchNames: ['Haldi Kinari','Haldi Kanchipuram-inspired temple-border saree','turmeric','mustard','yellow','maroon triangle','Kanjeevaram','Kanjivaram'],
   },
   sage: {
-    name: 'Pista', motif: 'Slim gold border',
-    description: 'A single gold line traces the shoulder and reappears at each pistachio pleat. The pallu is pale enough to show the layers beneath.',
-    border: 'A slender gold-toned band.', pallu: 'Pale green layers with a narrow edge.',
-    region: 'Chanderi, Madhya Pradesh', reference: 'The narrow border and translucent layers draw on Chanderi sarees from Madhya Pradesh.',
+    alias: 'Pista',
+    name: 'Pistachio saree with a slim gold border',
+    caption: 'A translucent pallu with a Chanderi-style edge.',
+    description: 'The pale green deepens where the pleats overlap. A slim gold-toned band catches the light along the shoulder and follows the pallu all the way to its edge.',
+    border: 'A slim, warm gold-toned band.', pallu: 'Translucent pale green with a fine gold-toned edge.',
+    region: 'Chanderi, Madhya Pradesh', reference: 'The translucent body and narrow border take their cue from Chanderi sarees of Madhya Pradesh.',
     traditionIds: ['chanderi'], searchNames: ['Pista Gold Edge','Pista Chanderi-inspired saree','sage green','pistachio','pale green','A little pistachio'],
   },
   rose: {
-    name: 'Gulabi', motif: 'Sheer drape',
-    description: 'Sheer rose layers fall over an ivory blouse. A fine gold edge catches the light at the hem.',
-    border: 'A pale gold-toned line.', pallu: 'An open pink end with fine parallel bands.',
-    region: 'Chanderi, Madhya Pradesh', reference: 'The sheer effect recalls organza. The slim border takes its cue from Chanderi sarees.',
+    alias: 'Gulabi',
+    name: 'Sheer rose-pink saree',
+    caption: 'A pale gold-toned edge runs through the pink folds.',
+    description: 'Worn over ivory, the shoulder takes on a pale pink tint. Lower down, the overlapping folds turn a deeper rose. A fine gold-toned edge traces the fall of the pallu.',
+    border: 'A narrow gold-toned band.', pallu: 'A sheer rose end with a pale edging.',
+    region: 'Chanderi, Madhya Pradesh', reference: 'The sheer effect recalls organza. The slender border is a reference to Chanderi sarees from Madhya Pradesh.',
     traditionIds: ['organza','chanderi'], searchNames: ['Gulabi hour','Gulabi organza-look saree','rose pink','sheer pink','organza look'],
   },
   indigo: {
-    name: 'Saanjh', motif: 'Maheshwari stripe motif',
-    description: 'Copper-coloured stripes outline an ink-blue drape. The pallu shows the widest stripe when it hangs open.',
-    border: 'Slim copper-toned stripes.', pallu: 'A broad copper band above a dark hem.',
-    region: 'Maheshwar, Madhya Pradesh', reference: 'The linear edging is a reference to Maheshwari sarees from Maheshwar.',
+    alias: 'Saanjh',
+    name: 'Ink-blue saree with a copper border',
+    caption: 'A Maheshwari-style stripe frames the plain blue pallu.',
+    description: 'A single copper-toned border cuts across the dark blue pleats. On the open pallu a second, finer line of blue finishes the edge.',
+    border: 'A warm copper-toned stripe.', pallu: 'A plain ink-blue end with copper and dark blue edging.',
+    region: 'Maheshwar, Madhya Pradesh', reference: 'The striped border takes its cue from Maheshwari sarees of Maheshwar, Madhya Pradesh.',
     traditionIds: ['maheshwari'], searchNames: ['Saanjh Blue','Neeli Maheshwari-inspired saree','midnight blue','navy','indigo','copper border','Blue after dark'],
   },
 };

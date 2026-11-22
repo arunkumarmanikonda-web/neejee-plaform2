@@ -13,6 +13,7 @@ import { findSareeTerms, normalizeSareeText, sareeVocabulary } from '@/lib/saree
 import { TextileGuide } from './TextileGuide';
 import { usePhotoRail } from '@/components/gallery/usePhotoRail';
 import './shop.css';
+import styles from './PieceTicket.module.css';
 import '@/components/product/merchandise.css';
 
 const savedKey = 'neejee.shop-studies.saved.v1';
@@ -23,7 +24,7 @@ function persist(key: string, value: unknown) {
   try { localStorage.setItem(key, JSON.stringify(value)); } catch {}
 }
 function studyViews(s:Study):PieceView[] {
-  return [{src:s.image,label:'Worn'}, {src:'/brand/study-views/'+s.id+'.webp', label:s.group==='sarees'?'Laid out':'The set'},
+  return [{src:s.image,label:'Worn'}, {src:'/brand/study-views/'+s.id+'.webp', label:s.group==='sarees'?'Cloth detail':'The set'},
     {src:s.image,label:s.group==='sarees'?'Border detail':'Detail',zoom:2.7,focus:s.focus}];
 }
 function PiecePhotographs({ piece, initial }: { piece: Study; initial: number }) {
@@ -67,7 +68,7 @@ export function StudyShelf({ids, preview, email, home = false}: {ids: string[]; 
   const terms=findSareeTerms(query);
   const shown = all.filter(s => {
     const t=studyTextiles[s.id];
-    const text=normalizeSareeText([s.name,s.shade,t?.region,...(t?.searchNames||[])].join(' '));
+    const text=normalizeSareeText([s.alias,s.name,s.caption,s.shade,t?.region,...(t?.searchNames||[])].join(' '));
     return (!shade || s.shade===shade) && (!onlySaved || saved.includes(s.id)) &&
       (!query.trim() || text.includes(normalizeSareeText(query)) || terms.some(term=>t?.traditionIds.includes(term.id)));
   });
@@ -92,7 +93,7 @@ export function StudyShelf({ids, preview, email, home = false}: {ids: string[]; 
     router.push(destination);
   }
   return <section className="nj-shelf" aria-label={preview ? 'Preview collection' : 'Collection studies'}>
-    <div className="nj-shelf-head"><div><h2>{home ? 'Sarees & suit sets' : 'The collection'}</h2>
+    <div className="nj-shelf-head"><div><h2>{home ? <>Sarees <em>&amp; suit sets</em></> : 'The collection'}</h2>
       <p>{preview ? 'Collection preview · Sample prices' : 'Collection preview · Enquiries welcome'}</p></div>
       {home ? <Link className="nj-bag-link" href="/edits/clothing">Shop the collection</Link> : preview && <Link className="nj-bag-link" href="/cart?bag=sample"><ShoppingBag size={16}/> View bag ({count})</Link>}
     </div>
@@ -120,9 +121,12 @@ export function StudyShelf({ids, preview, email, home = false}: {ids: string[]; 
           <button className="nj-save" aria-label={(saved.includes(s.id) ? 'Unsave ' : 'Save ')+s.name} aria-pressed={saved.includes(s.id)} onClick={()=>save(s.id)}><Bookmark size={17} fill={saved.includes(s.id)?'currentColor':'none'}/></button>
         </TileGallery>
         <div className="loom-ticket">
-          <div className="loom-ticket-title"><h3><button onClick={()=>openPiece(s)}>{s.name}</button></h3>
-            {preview && <strong>{formatINR(s.price)}</strong>}</div>
-          <p className="loom-spec"><i style={{background:s.swatch}}/>{s.shade}<span aria-hidden="true">·</span>{studyTextiles[s.id]?.motif || 'Three-piece suit'}</p>
+          <div className={styles.label}>
+            <span><i aria-hidden="true" style={{background:s.swatch}}/>{s.alias}</span>
+            {preview && <strong>{formatINR(s.price)}</strong>}
+          </div>
+          <h3 className={styles.name}><button onClick={()=>openPiece(s)}>{s.name}</button></h3>
+          <p className={styles.caption}>{s.caption}</p>
           <div className="loom-actions">
             {preview ? <button type="button" className="loom-add" aria-label={'Add '+s.name+' to bag'} onClick={()=>buy(s,'/cart?bag=sample')}><Plus size={15}/> Add to bag</button> :
               <a className="loom-add" href={'mailto:'+email+'?subject='+encodeURIComponent('Enquiry about '+s.name)}>Enquire</a>}
@@ -137,15 +141,15 @@ export function StudyShelf({ids, preview, email, home = false}: {ids: string[]; 
       <div className="nj-modal-content"><button className="nj-modal-close" aria-label="Close" autoFocus onClick={() => dialog.current?.close()}><X size={21}/></button>
       {picked && <div className="nj-piece loom-piece">
         {photoSession.version>0 && <PiecePhotographs key={photoSession.version} piece={picked} initial={photoSession.initial}/>}
-        <div className="nj-piece-copy"><p className="loom-spec"><i style={{background:picked.swatch}}/>{picked.shade}<span aria-hidden="true">·</span>{textile?.motif || 'Three-piece suit'}</p>
+        <div className="nj-piece-copy"><p className="loom-spec"><i aria-hidden="true" style={{background:picked.swatch}}/>{picked.alias}</p>
           <h2 id="nj-modal-title">{picked.name}</h2><p>{picked.detail}</p>
 
-          <div className="nj-buy">{preview ? <><strong>{formatINR(picked.price)}</strong><small>Sample piece · No payment will be taken</small>
+          <div className="nj-buy">{preview ? <><strong>{formatINR(picked.price)}</strong><small>Preview price · Sample checkout</small>
             <div className="nj-buy-actions"><button className="nj-primary" onClick={() => buy(picked,'/checkout/sample')}>Buy now</button><button className="nj-secondary" onClick={() => buy(picked,'/cart?bag=sample')}><ShoppingBag size={16}/> Add to bag</button></div>
-          </> : <><small>Styling study · Enquiries welcome</small><a className="nj-primary" href={'mailto:'+email+'?subject='+encodeURIComponent('Enquiry about '+picked.name)}>Ask about this piece</a></>}</div>
-          {textile && <details className="loom-facts"><summary>Textile &amp; origin notes</summary>
+          </> : <><small>Collection preview</small><a className="nj-primary" href={'mailto:'+email+'?subject='+encodeURIComponent('Enquiry about '+picked.name)}>Ask about this piece</a></>}</div>
+          {textile && <details className="loom-facts"><summary>Pattern &amp; textile details</summary>
             <p>{textile.reference}</p><dl className="nj-fabric-notes">{[['Border',textile.border],['Pallu',textile.pallu]].map(([label,value])=><div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}</dl>
-            <small>Editorial sample. Weave, fibre and place of manufacture are unverified.</small></details>}
+            <small>Regional references describe the pattern on this preview piece.</small></details>}
           <details className="nj-optional"><summary>Styling ideas</summary><p>{picked.pairing}</p>
           {picked.group === 'sarees' && <><div className="nj-pairing">{selectedAccessories(defaultStyling(picked.id)).map(a => <figure key={a.id}><img src={a.image} alt=""/><figcaption>{a.name}</figcaption></figure>)}</div><Link className="nj-text-link" href={lookUrl('/looks', defaultStyling(picked.id))}>See more ways to wear it</Link></>}</details>
         </div></div>}

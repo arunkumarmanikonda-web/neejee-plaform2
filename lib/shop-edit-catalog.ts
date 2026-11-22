@@ -36,7 +36,7 @@ export async function editLead(edit:Edit) {
   if(!row) return null;
   const p=card(row);
   return {slug:p.slug,name:p.name,cover:p.cover,price:p.price,mirror:p.aiTryOnEligible,
-    images:p.images,colour:p.colours[0],craft:p.craft || p.technique,material:p.material,region:p.region || p.state};
+    images:p.images,poeticLine:row.poeticLine,colour:p.colours[0],craft:p.craft || p.technique,material:p.material,region:p.region || p.state};
 }
 export async function readEdit(edit:Edit,requestedPage:number,colour = '',sort = 'featured',textile = '') {
   const base = editProductWhere(edit);

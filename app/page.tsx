@@ -5,6 +5,7 @@ import { Footer } from '@/components/layout/Footer';
 import { ProductCard, type ProductCardData } from '@/components/product/ProductCard';
 import { editLead } from '@/lib/shop-edit-catalog';
 import { shopEdits } from '@/lib/shop-edits';
+import { HomePrint, homeStudyIds } from '@/components/home/HomePrint';
 import { HouseCampaign } from '@/components/home/HouseCampaign';
 import { StudyShelf } from '@/components/shop/StudyShelf';
 import { previewPricingEnabled } from '@/lib/shop-studies';
@@ -152,7 +153,7 @@ async function getHomeData() {
     const mapCard = (p: HomeProduct): ProductCardData => ({
       id: p.id, slug: p.slug, name: p.name, poeticLine: p.poeticLine,
       technique:p.technique,state:p.state,colours:[...new Set(p.variants.flatMap(v=>v.color && v.inventory>0?[v.color]:[]))],
-      material:p.material, craft: p.craft, region: p.region, mrp: p.mrp, sellingPrice: p.sellingPrice,
+      material:p.material, craft:p.craft, region:p.region, mrp:p.mrp, sellingPrice: p.sellingPrice,
       salePrice: p.salePrice, saleStartsAt: p.saleStartsAt, saleEndsAt: p.saleEndsAt,
       images: resolveMedia(p).gallery,
       badges: p.badges, aiTryOnEligible: p.aiTryOnEligible,
@@ -163,7 +164,7 @@ async function getHomeData() {
 
     const picture = lead && resolveMedia(lead).approvedPrimaryImage;
     const spotlight = lead && picture ? {
-      title: lead.shortName?.trim() || lead.name,
+      title: lead.name,
       name: lead.name,
       image: picture,
       gallery: [...new Set([picture,...resolveMedia(lead).approvedGallery])].slice(0,6),
@@ -172,7 +173,7 @@ async function getHomeData() {
       mirrorHref: lead.aiTryOnEligible ? studioHref('mirror',lead.slug) : null,
       slug: lead.slug,
       subtitle: lead.poeticLine,
-      origin: [lead.craft, lead.region].filter(Boolean).join(' · '),
+      origin: [lead.region, lead.state].filter((v,i,values)=>v && values.indexOf(v)===i).join(', '),
       price: formatINR(buildPricing(lead).effectivePrice),
       href: `/products/${encodeURIComponent(lead.slug)}`,
       curated: edit.some(p => p.id === lead.id),
@@ -215,8 +216,8 @@ export default async function HomePage() {
       <main className="house-front">
         <HouseCampaign lead={data.saree} preview={previewPricingEnabled()} email={email}/>
         {(!fashion?.pieces.length || moreFashion.length>0) && <div className="nj-market house-shelf" style={{paddingBottom:'1rem'}}>
-          {fashion?.pieces.length ? <section className="nj-shelf"><div className="nj-shelf-head"><h2>Sarees &amp; suit sets</h2><Link className="nj-text-link" href="/edits/clothing">Shop the collection</Link></div><div className="nj-grid">{moreFashion.map(p=><ProductCard key={p.id} product={{...p,images:p.cover?[p.cover,...p.images.filter(i=>i!==p.cover)]:p.images}}/>)}</div></section> :
-            <StudyShelf home ids={['haldi','wine-suit','sage','indigo-suit']} preview={previewPricingEnabled()} email={email}/>}
+          {fashion?.pieces.length ? <section className="nj-shelf"><div className="nj-shelf-head"><h2>Sarees <em>&amp; suit sets</em></h2><Link className="nj-text-link" href="/edits/clothing">Shop the collection</Link></div><div className="nj-grid">{moreFashion.map(p=><ProductCard key={p.id} product={{...p,images:p.cover?[p.cover,...p.images.filter(i=>i!==p.cover)]:p.images}}/>)}</div></section> :
+            <StudyShelf home ids={homeStudyIds} preview={previewPricingEnabled()} email={email}/>}
         </div>}
         {(data.heroBanners.length>0) && <HeroCarousel banners={data.heroBanners} spotlight={data.spotlight}/>}
 
@@ -226,7 +227,7 @@ export default async function HomePage() {
               <div>
                 <h2 className="font-display text-4xl lg:text-5xl text-kohl mt-2">Founder&apos;s Edit</h2>
               </div>
-              <Link href="/products" className="font-ui text-xs tracking-widest text-madder hover:underline">SHOP ALL PIECES</Link>
+              <Link href="/products" className="font-ui text-xs tracking-widest text-madder">SHOP ALL PIECES</Link>
             </div>
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 lg:gap-8">
               {data.spotlight && !data.heroBanners.length && data.spotlightCard && <ProductCard product={data.spotlightCard}/>}
@@ -275,7 +276,7 @@ export default async function HomePage() {
               })()}
             </div>
           </section>
-        ) : <section id="founder-letter" className="max-w-3xl scroll-mt-24 mx-auto px-6 py-12"><h2 className="font-display text-3xl">A letter from Nidhi</h2><p className="mt-3">In her letter, Nidhi remembers Ramji bhai and the fourteen days he spent weaving a saree in Banaras.</p><Link href="/about" className="underline">Read the founder’s story</Link></section>}
+        ) : <section id="founder-letter" className="max-w-3xl scroll-mt-24 mx-auto px-6 py-12"><h2 className="font-display text-3xl">A letter from Nidhi</h2><p className="mt-3">In her letter, Nidhi remembers Ramji bhai and the fourteen days he spent weaving a saree in Banaras.</p><Link href="/about" className="nj-text-link">Read the founder’s story</Link></section>}
 
 
         </div></div>
@@ -287,7 +288,7 @@ export default async function HomePage() {
                 <div>
                     <h2 className="font-display text-4xl text-kohl mt-2">Just arrived</h2>
                 </div>
-                <Link href="/products?sort=newest" className="font-ui text-xs tracking-widest text-madder hover:underline">SHOP ALL PIECES</Link>
+                <Link href="/products?sort=newest" className="font-ui text-xs tracking-widest text-madder">SHOP ALL PIECES</Link>
               </div>
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 lg:gap-8">
                 {data.newArrivals.slice(0, 4).map((p) => <ProductCard key={p.id} product={p} />)}
@@ -326,10 +327,13 @@ export default async function HomePage() {
         )}
 
         <nav aria-label="Delivery and returns" className="max-w-8xl mx-auto px-6 lg:px-12 py-6 border-b border-mitti/20 flex flex-wrap gap-x-8 gap-y-3 font-ui text-sm">
-          <Link className="underline underline-offset-4" href="/help/shipping">Shipping and delivery</Link>
-          <Link className="underline underline-offset-4" href="/help/returns">Returns by product</Link>
-          <Link className="underline underline-offset-4" href="/help/track">Track your order</Link>
+          <Link className="nj-text-link" href="/help/shipping">Shipping and delivery</Link>
+          <Link className="nj-text-link" href="/help/returns">Returns by product</Link>
+          <Link className="nj-text-link" href="/help/track">Track your order</Link>
         </nav>
+        <HomePrint lead={data.saree} fashion={fashion?.pieces.length ? moreFashion : null}
+          curated={data.spotlightCard ? [data.spotlightCard, ...data.founder] : data.founder}
+          arrivals={data.newArrivals} founderNote={data.founderNoteBody} preview={previewPricingEnabled()}/>
       </main>
       <Footer />
     </>

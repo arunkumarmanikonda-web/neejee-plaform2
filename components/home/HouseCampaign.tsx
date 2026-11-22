@@ -17,6 +17,8 @@ type Photograph = { src: string; label: string; alt: string };
 type Feature = {
   id: string;
   name: string;
+  alias?: string;
+  hindi?: string;
   shade: string;
   description: string;
   price: number;
@@ -37,8 +39,8 @@ const photographs = {
 };
 const editorial = (['neel','surkh'] as const).map((id):Feature => {
   const saree = studies.find(piece => piece.id===id)!;
-  return { id, name:saree.name, shade:saree.shade, price:saree.price,
-    description:id==='neel' ? 'An indigo saree with an ivory Bandhani motif and striped pallu.' : 'A vermilion saree with a Gharchola check and a wine-coloured floral border.',
+  return { id, name:saree.name, alias:saree.alias, hindi:id==='neel' ? 'नील' : 'सुर्ख़', shade:saree.shade, price:saree.price,
+    description:saree.detail,
     photos:photographs[id], styling:lookUrl('/ai/mirror',defaultStyling(id)),
   };
 });
@@ -49,7 +51,7 @@ function featuredStock(piece: NonNullable<Lead>): Feature {
   const photos = [...new Set([piece.cover, ...piece.images].filter((src):src is string=>Boolean(src)))].slice(0, 3);
   return {
     id:piece.slug, name:piece.name, shade:piece.colour || '', price:piece.price,
-    description:[...new Set([piece.colour, piece.craft, piece.material, piece.region].filter(Boolean))].join(' · '),
+    description:piece.poeticLine?.trim() || [...new Set([piece.colour, piece.craft, piece.material, piece.region].filter(Boolean))].join(' · '),
     photos:photos.map((src, i)=>({src,label:i===0 ? 'Main view' : 'View '+(i+1),alt:piece.name+', view '+(i+1)})),
     productUrl:'/products/'+encodeURIComponent(piece.slug),
     styling:piece.mirror ? studioHref('mirror',piece.slug) : undefined,
@@ -88,14 +90,14 @@ export function HouseCampaign({ lead, preview, email }: { lead: Lead; preview: b
     router.push('/cart?bag=sample');
   }
 
-  return <section className={styles.campaign} aria-label="Featured saree">
+  return <section className={styles.campaign} data-colour={stock ? 'stock' : piece.id} aria-label="Featured saree">
     <div className={styles.spread}>
       <div className={styles.gallery}>
         {(stock ? [stock] : editorial).map((feature, index)=><FeatureGallery key={feature.id} piece={feature} visible={feature.id===piece.id} priority={index===0}/>)}
       </div>
       <div className={styles.paper}>
         <div className={styles.copy}>
-          <p className={styles.kicker}>The saree edit</p>
+          <p className={styles.kicker}>{piece.alias && <><span lang="hi">{piece.hindi}</span><span>{piece.alias}</span><i aria-hidden="true">/</i></>}The saree edit</p>
           <h1 aria-live="polite" aria-atomic="true" className={styles.title} data-catalogue={!!stock}>{piece.name}</h1>
           {piece.description && <p className={styles.line}>{piece.description}</p>}
           {(stock || canSample) && <p className={styles.price}>{formatINR(piece.price)}{canSample && <small>Preview price</small>}</p>}
@@ -106,9 +108,9 @@ export function HouseCampaign({ lead, preview, email }: { lead: Lead; preview: b
             {piece.styling && <Link className={styles.secondary} href={piece.styling}>Try on with Aaina</Link>}
           </div>
         </div>
-        {!stock && <button className={styles.other} type="button" onClick={()=>setSelected(1-selected)} aria-label={'See '+alternate.name+', the '+alternate.shade.toLowerCase()+' saree'}>
+        {!stock && <button className={styles.other} type="button" onClick={()=>setSelected(1-selected)} aria-label={'See '+alternate.name}>
           <img src={alternate.photos[1].src} alt="" width={70} height={65} draggable={false}/>
-          <span><small>Also in this edit</small><strong>View {alternate.name}<i> · {alternate.shade}</i></strong></span>
+          <span><small>Also in this edit</small><strong>{alternate.alias}<i> · {alternate.shade}</i></strong></span>
         </button>}
       </div>
     </div>

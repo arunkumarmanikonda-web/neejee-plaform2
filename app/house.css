@@ -101,7 +101,7 @@
 }
 @media(max-width:700px){
  .house-masthead-inner{grid-template-columns:minmax(45px,1fr) auto minmax(95px,1fr);min-height:62px;padding:7px 3%}
- .house-services .house-aaina,.house-services>a.hidden{display:none}.house-signature img{max-width:128px!important}
+ .house-services .house-aaina,.house-services>a.hidden{display:none}.house-signature img{max-width:100%!important}
  .house-services{gap:.38rem}.house-services>button,.house-services>a{min-height:38px}
  .house-front .nj-market.house-shelf,.house-collection .nj-market.house-shelf{padding:1.5rem 4.5% 2.3rem}
  .house-shelf .nj-grid{gap:1.65rem .85rem}.house-shelf .nj-shelf-head h2{font-size:2.15rem}
@@ -120,9 +120,48 @@
  .loom-dialog .nj-piece-photo img{object-position:center 26%}.loom-dialog .nj-piece-copy{padding:1.3rem 1.2rem 1.7rem}
  .house-letter{grid-template-columns:1fr;gap:1.4rem}
 }
-@media(max-width:390px){.house-services{gap:.12rem}.house-signature img{max-width:112px!important}.loom-sort{margin-left:0}}
+@media(max-width:390px){.house-services{gap:.12rem}.house-signature img{max-width:100%!important}.loom-sort{margin-left:0}}
 
 .house-detail .nj-product-detail>section:nth-child(2){border-top:0}
 .house-product-byline{color:#65464c;font:500 1rem/1.5 var(--font-ui),Arial,sans-serif;margin-top:.65rem}
 .house-product-facts{margin:1.25rem 0 0;font:500 .93rem/1.6 var(--font-ui),Arial,sans-serif}
 .house-product-facts summary{cursor:pointer;padding:.45rem 0}
+
+/* A single warm-paper masthead, edged with a narrow strip of printed cotton. */
+@media screen {
+  .neejee-masthead.nj-shop-header,.neejee-masthead {background:#fbf5e9;border-bottom:1px solid #d4c1aa!important}
+  .neejee-masthead:before {
+    content:'';display:block;height:7px;
+    background:#70312c url('/brand/house/madder-bel.webp') center 43% / 240px auto repeat-x;
+    border-bottom:1px solid #b59771;
+  }
+  .neejee-masthead .house-masthead-inner {min-height:94px;max-width:1740px;height:auto;padding:13px 4.2% 10px}
+  .neejee-masthead .house-signature {width:clamp(205px,18.4vw,282px);max-width:100%}
+  .neejee-masthead .house-signature img {width:100%!important;max-width:100%!important;height:auto}
+  .house-shop-nav {font:500 clamp(1rem,1.26vw,1.4rem)/1.2 var(--font-body),Georgia,serif;gap:clamp(.8rem,1.35vw,1.7rem);color:#432d2f}
+  .house-shop-nav>a,.house-shop-nav summary {padding:.6rem 0;white-space:nowrap}
+  .house-shop-nav :is(a,summary):hover,.house-services>a:hover,.house-services>button:hover {color:#8d2839}
+  .house-shop-nav details>div {font:500 .92rem/1.45 var(--font-ui),Arial,sans-serif}
+  .house-services .house-aaina {color:#782d3d}
+  .house-shelf .nj-shelf-head {align-items:center;gap:.7rem 1.1rem;margin-bottom:clamp(1.35rem,2.2vw,2.2rem)}
+  .house-shelf .nj-shelf-head h2,.house-letter #founder-letter h2,.house-front>section>div>div h2.font-display {color:#662a39}
+  .house-shelf .nj-shelf-head h2 {font-size:clamp(2.6rem,4.25vw,5.1rem);letter-spacing:-.045em;line-height:1.04}
+  .house-shelf .nj-shelf-head h2 em {font-weight:400}
+  .house-shelf .nj-shelf-head :is(.nj-bag-link,.nj-text-link){font:550 .84rem/1.4 var(--font-ui),Arial,sans-serif;background:#f3e7dc;color:#68303a;padding:.65rem .9rem;border:0}
+  .house-shelf .nj-shelf-head :is(.nj-bag-link,.nj-text-link):hover{background:#ebd9cd}
+  .house-check-heading h1,.house-detail h1,.loom-dialog .nj-piece-copy h2 {color:#592637}
+  .house-front a,.house-collection a,.house-detail a,.house-cart a,.neejee-masthead a,.neejee-masthead + main a {text-decoration:none!important}
+  .house-front a:focus-visible,.house-collection a:focus-visible,.neejee-masthead :is(a,button,summary):focus-visible {outline:2px solid #a84d3e;outline-offset:4px}
+}
+@media screen and (max-width:1023px) {
+  .neejee-masthead .house-masthead-inner{min-height:76px;padding:9px 3%}
+  .neejee-masthead .house-signature{width:clamp(178px,25vw,226px)}
+}
+@media screen and (max-width:700px) {
+  .neejee-masthead:before{height:5px}
+  .neejee-masthead .house-masthead-inner{min-height:66px;padding:7px 3%;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr)}
+  .neejee-masthead .house-signature{width:clamp(124px,42vw,172px)}
+  .house-services{gap:0}.house-services>a,.house-services>button{min-width:27px}
+  .house-shelf .nj-shelf-head h2{font-size:clamp(2.05rem,7.8vw,3.1rem)}
+  .house-shelf .nj-shelf-head :is(.nj-bag-link,.nj-text-link){font-size:.77rem;padding:.55rem .65rem}
+}

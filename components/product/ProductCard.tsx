@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { Bookmark } from 'lucide-react';
 import { TileGallery, catalogueViews } from './TileGallery';
 import { TileAdd } from './TileAdd';
+import ticket from '@/components/shop/PieceTicket.module.css';
 import { formatINR } from '@/lib/money';
 import { buildPricing } from '@/lib/catalog/pricing-read';
 import { useWishlist } from '@/lib/wishlist-store';
@@ -40,7 +41,8 @@ export function ProductCard({ product, closeUp = false }: { product: ProductCard
   const views = catalogueViews(product.images);
   const href = '/products/'+encodeURIComponent(product.slug);
   const location = [...new Set([product.region, product.state].filter(Boolean))].join(', ');
-  const descriptor = [...new Set([(product.colours || []).slice(0,2).join(' / '), product.craft || product.technique, product.material, location].filter(Boolean))].join(' · ');
+  const descriptor = [...new Set([(product.colours || []).slice(0,2).join(' / '), product.craft || product.technique, product.material].filter(Boolean))].join(' · ');
+  const story = product.poeticLine?.trim();
   return <article className="nj-tile loom-card">
     <TileGallery initialView={closeUp ? Math.max(0, views.length-1) : 0} name={product.name} views={views} href={href}>
       <div className="nj-live-badges">{info.salePrice && <span className="nj-stock">On sale</span>}<BadgeChipRow badges={product.badges}/>
@@ -48,9 +50,13 @@ export function ProductCard({ product, closeUp = false }: { product: ProductCard
       <button className="nj-save" aria-pressed={saved} aria-label={(saved?'Remove from wishlist: ':'Add to wishlist: ')+product.name} onClick={() => toggle(product.id,product.slug)}><Bookmark size={17} fill={saved?'currentColor':'none'}/></button>
     </TileGallery>
     <div className="loom-ticket">
-      <div className="loom-ticket-title"><h3><Link href={href}>{product.name}</Link></h3>
-        <span><strong>{formatINR(info.effectivePrice)}</strong>{info.mrp>info.effectivePrice && <del>{formatINR(info.mrp)}</del>}</span></div>
-      {descriptor && <p className="loom-spec">{descriptor}</p>}
+      <div className={ticket.label}>
+        {location && <span>{location}</span>}
+        <div className={ticket.livePrice}><strong>{formatINR(info.effectivePrice)}</strong>{info.mrp>info.effectivePrice && <del>{formatINR(info.mrp)}</del>}</div>
+      </div>
+      <h3 className={ticket.name}><Link href={href}>{product.name}</Link></h3>
+      {story && <p className={ticket.caption}>{story}</p>}
+      {descriptor && descriptor!==story && <p className="loom-spec">{descriptor}</p>}
       <div className="loom-actions"><TileAdd slug={product.slug} name={product.name} soldOut={product.inventory===0}/>
         <Link className="loom-detail" href={href}>Details</Link>
         {product.aiTryOnEligible && <Link className="loom-detail" href={studioHref('mirror',product.slug)}>Aaina</Link>}

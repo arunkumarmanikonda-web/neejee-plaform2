@@ -1,11 +1,11 @@
 import { studyTextiles } from './study-textiles';
 export const editorialLooks = [
-  {id:'sage',name:'A little pistachio',shade:'Pistachio',occasion:'A courtyard lunch',image:'/brand/lookbook/sage.webp',description:'A pale green drape with a sliver of gold. Pick up the border in your jhumkas, or go quieter with a single pearl.',shoe:'jutti-gold',jewel:'jewel-jhumka',colour:'#999e79'},
-  {id:'rose',name:'Gulabi hour',shade:'Gulabi',occasion:'An afternoon wedding',image:'/brand/lookbook/rose.webp',description:'Let the pink have the room. An ivory jutti keeps the foot light, and small pearls leave a little breathing space at the neck.',shoe:'jutti-ivory',jewel:'jewel-pearl',colour:'#bc7f80'},
-  {id:'indigo',name:'Blue after dark',shade:'Indigo',occasion:'Dinner after dusk',image:'/brand/lookbook/indigo.webp',description:'Inky blue brings silver into focus. Try a pendant against the dark drape and tan leather at the hem.',shoe:'jutti-tan',jewel:'jewel-silver',colour:'#47546c'},
-  {id:'surkh',name:'Surkh Gold Check',shade:'Vermilion',occasion:'An evening celebration',image:'/brand/bazaar/surkh.webp',description:'The gold grid leaves room for a pair of jhumkas. Try antique gold at the hem.',shoe:'jutti-gold',jewel:'jewel-jhumka',colour:'#a4382a'},
-  {id:'neel',name:'Neel Diamond',shade:'Neel',occasion:'Lunch with friends',image:'/brand/bazaar/neel.webp',description:'Ivory diamonds on indigo pick up a silver pendant. Tan juttis soften the pairing.',shoe:'jutti-tan',jewel:'jewel-silver',colour:'#344d6a'},
-  {id:'haldi',name:'Haldi Kinari',shade:'Turmeric',occasion:'A daytime celebration',image:'/brand/bazaar/haldi.webp',description:'Give the maroon temple border room. Try an ivory jutti and a pair of pearl studs.',shoe:'jutti-ivory',jewel:'jewel-pearl',colour:'#bf8b25'},
+  {id:'sage',name:studyTextiles.sage.name,shade:'Pistachio',occasion:'A courtyard lunch',image:'/brand/lookbook/sage.webp',description:'A pale green drape with a sliver of gold. Pick up the border in your jhumkas, or go quieter with a single pearl.',shoe:'jutti-gold',jewel:'jewel-jhumka',colour:'#999e79'},
+  {id:'rose',name:studyTextiles.rose.name,shade:'Gulabi',occasion:'An afternoon wedding',image:'/brand/lookbook/rose.webp',description:'Let the pink have the room. An ivory jutti keeps the foot light, and small pearls leave a little breathing space at the neck.',shoe:'jutti-ivory',jewel:'jewel-pearl',colour:'#bc7f80'},
+  {id:'indigo',name:studyTextiles.indigo.name,shade:'Indigo',occasion:'Dinner after dusk',image:'/brand/lookbook/indigo.webp',description:'Inky blue brings silver into focus. Try a pendant against the dark drape and tan leather at the hem.',shoe:'jutti-tan',jewel:'jewel-silver',colour:'#47546c'},
+  {id:'surkh',name:studyTextiles.surkh.name,shade:'Vermilion',occasion:'An evening celebration',image:'/brand/bazaar/surkh.webp',description:'The gold grid leaves room for a pair of jhumkas. Try antique gold at the hem.',shoe:'jutti-gold',jewel:'jewel-jhumka',colour:'#a4382a'},
+  {id:'neel',name:studyTextiles.neel.name,shade:'Neel',occasion:'Lunch with friends',image:'/brand/bazaar/neel.webp',description:'Ivory diamonds on indigo pick up a silver pendant. Tan juttis soften the pairing.',shoe:'jutti-tan',jewel:'jewel-silver',colour:'#344d6a'},
+  {id:'haldi',name:studyTextiles.haldi.name,shade:'Turmeric',occasion:'A daytime celebration',image:'/brand/bazaar/haldi.webp',description:'Give the maroon temple border room. Try an ivory jutti and a pair of pearl studs.',shoe:'jutti-ivory',jewel:'jewel-pearl',colour:'#bf8b25'},
 ] as const;
 export const shoes = [
   {id:'jutti-gold',name:'Antique gold jutti'},
@@ -64,6 +64,6 @@ export function allAccessoriesPresent(s:Styling,stock:StyleOption[]) {
 
 export function getEditorialPiece(style:Styling) {
   const look=editorialLooks.find(item=>item.id===style.look)!;
-  return {id:'look-'+look.id,slug:'look-'+look.id,name:studyTextiles[look.id]?.name || look.name,image:look.image,images:[look.image],material:null,craft:null,category:'Saree styling study',mrp:0,sellingPrice:0,
+  return {id:'look-'+look.id,slug:'look-'+look.id,name:look.name,image:look.image,images:[look.image],material:null,craft:null,category:'Saree styling study',mrp:0,sellingPrice:0,
     variants:[{id:'study-'+look.id,size:null,color:look.shade,image:look.image,inStock:false}]};
 }

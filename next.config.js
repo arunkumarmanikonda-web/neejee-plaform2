@@ -1,7 +1,11 @@
+const { readFileSync } = require('node:fs');
+const { join } = require('node:path');
+const signature = readFileSync(join(__dirname, 'public/brand/identity/lockup.svg')).toString('base64');
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
-  env: { NEXT_PUBLIC_NEEJEE_SAMPLE_SHOP: (process.env.VERCEL_ENV === 'preview' || process.env.NODE_ENV === 'development') ? '1' : '0' },
+  env: { NEEJEE_SIGNATURE_SRC: 'data:image/svg+xml;base64,' + signature, NEXT_PUBLIC_NEEJEE_SAMPLE_SHOP: (process.env.VERCEL_ENV === 'preview' || process.env.NODE_ENV === 'development') ? '1' : '0' },
   images: {
     formats: ['image/avif', 'image/webp'],
     remotePatterns: [

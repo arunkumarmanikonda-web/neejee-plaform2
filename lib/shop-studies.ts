@@ -3,10 +3,12 @@ import { editorialLooks } from './stylebook';
 
 export type Study = {
   id: string;
+  alias: string;
   name: string;
   shade: string;
   swatch: string;
   image: string;
+  caption: string;
   detail: string;
   pairing: string;
   focus: string;
@@ -14,29 +16,39 @@ export type Study = {
   price: number;
 };
 
-type Row = [string, string, string, string, string, string, string, number];
-const sarees: Row[] = [
-  ['surkh', 'Surkh Gold Check', 'Vermilion', '#a4382a', 'A fine gold grid opens into a broad, wine-coloured floral pallu.', 'Antique-gold juttis and small jhumkas echo the checks.', '64% 62%', 680000],
-  ['neel', 'Neel Diamond', 'Indigo', '#344d6a', 'Ivory dotted diamonds sit inside bands of indigo and fine stripes.', 'Try tan juttis and a silver pendant against the indigo.', '68% 59%', 420000],
-  ['haldi', 'Haldi Kinari', 'Turmeric', '#bf8b25', 'Deep maroon triangles follow the edge of a turmeric-yellow drape.', 'Ivory juttis leave the maroon border in focus.', '66% 55%', 560000],
-  ['sage', 'Pista Gold Edge', 'Pistachio', '#919b72', 'A narrow gold edge traces the pale pistachio drape.', 'Bring the fine gold edge into a pair of jhumkas.', '56% 51%', 480000],
-  ['rose', 'Gulabi', 'Rose', '#b76f7f', 'Soft rose folds frame the blouse and fall into a long pallu.', 'Try pearl studs and an ivory floral jutti.', '54% 52%', 520000],
-  ['indigo', 'Saanjh Blue', 'Indigo', '#344d6a', 'An inky blue drape with a contrasting edge.', 'Pair it with a silver pendant and tan leather juttis.', '54% 52%', 590000],
+type SareeRow = Pick<Study, 'id' | 'shade' | 'swatch' | 'pairing' | 'focus' | 'price'>;
+const sarees: SareeRow[] = [
+  {id:'surkh', shade:'Vermilion', swatch:'#a4382a', pairing:'Pick up the gold checks with a small jhumka. A wine blouse brings out the deepest colour in the pallu.', focus:'64% 62%', price:680000},
+  {id:'neel', shade:'Indigo', swatch:'#344d6a', pairing:'An ivory blouse picks up the dots. Try silver at the ear and tan juttis below the striped hem.', focus:'68% 59%', price:420000},
+  {id:'haldi', shade:'Turmeric', swatch:'#bf8b25', pairing:'Wear a maroon blouse to carry the temple border up to the shoulder. An ivory jutti leaves the yellow in focus.', focus:'66% 55%', price:560000},
+  {id:'sage', shade:'Pistachio', swatch:'#919b72', pairing:'Try small gold jhumkas with the fine border, or an ivory blouse and pearl studs for a softer pairing.', focus:'56% 51%', price:480000},
+  {id:'rose', shade:'Rose', swatch:'#b76f7f', pairing:'An ivory blouse shows through the sheer shoulder. Pearl studs and an ivory floral jutti pick up that pale note.', focus:'54% 52%', price:520000},
+  {id:'indigo', shade:'Indigo', swatch:'#344d6a', pairing:'Tan leather juttis pick up the warmth of the copper-toned border. A silver pendant stands out against the deep blue.', focus:'54% 52%', price:590000},
 ];
-const suits: Row[] = [
-  ['wine-suit', 'Gul Booti Suit', 'Wine', '#893e50', 'Ivory sprigs scatter across a wine kurta, shown with tapered ivory trousers and a cream dupatta.', 'Tan flats pick up the warm ground. Try a small pearl at the ear.', '52% 39%', 390000],
-  ['indigo-suit', 'Neel Lakeer Suit', 'Indigo', '#344d6a', 'Fine pale stripes run down the long kurta and dupatta, over wide indigo palazzos.', 'Try a silver pendant at the split neckline and simple tan flats.', '52% 40%', 440000],
+const suits: Study[] = [
+  {
+    id:'wine-suit', alias:'Gul Booti', name:'Wine floral kurta set', shade:'Wine', swatch:'#893e50',
+    image:'/brand/bazaar/wine-suit.webp', group:'suits', focus:'52% 39%', price:390000,
+    caption:'Ivory trousers and a cream tasselled dupatta.',
+    detail:'Small ivory sprigs run in neat rows down the wine kurta. The straight hem sits over tapered ivory trousers. The cream dupatta picks up the flowers and finishes in small tassels.',
+    pairing:'Ivory juttis draw the trousers and dupatta together. Leave the patterned neckline open and try a pearl stud.',
+  },
+  {
+    id:'indigo-suit', alias:'Neel Lakeer', name:'Indigo striped kurta & palazzo set', shade:'Indigo', swatch:'#344d6a',
+    image:'/brand/bazaar/indigo-suit.webp', group:'suits', focus:'52% 40%', price:440000,
+    caption:'Wide-leg palazzos and a matching tasselled dupatta.',
+    detail:'Fine pale stripes run from the split neckline to the hem of the indigo kurta. The wide-leg palazzos carry the same stripe. A matching dupatta finishes in short dark tassels.',
+    pairing:'A short silver pendant sits neatly at the split neckline. Pair with plain tan juttis beneath the wide trouser hems.',
+  },
 ];
 
-function makeStudy(group: Study['group'], row: Row): Study {
-  const [id, name, shade, swatch, detail, pairing, focus, price] = row;
-  const image = editorialLooks.find(look => look.id === id)?.image || '/brand/bazaar/' + id + '.webp';
-  const textile = studyTextiles[id];
-  return { id, name:textile?.name || name, shade, swatch, detail:textile?.description || detail, pairing, focus, price, group, image };
-}
 export const studies: Study[] = [
-  ...sarees.map(row => makeStudy('sarees', row)),
-  ...suits.map(row => makeStudy('suits', row)),
+  ...sarees.map((row): Study => {
+    const textile = studyTextiles[row.id];
+    const image = editorialLooks.find(look => look.id === row.id)!.image;
+    return { ...row, group:'sarees', alias:textile.alias, name:textile.name, caption:textile.caption, detail:textile.description, image };
+  }),
+  ...suits,
 ];
 export function previewPricingEnabled() {
   return process.env.VERCEL_ENV === 'preview' || process.env.NODE_ENV === 'development';

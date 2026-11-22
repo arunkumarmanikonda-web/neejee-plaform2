@@ -1,0 +1,48 @@
+.label {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: .5rem;
+  color: var(--house-ink, #3c302e);
+}
+.label span {
+  display: inline-flex;
+  align-items: center;
+  gap: .5em;
+  color: #785046;
+  font: 600 .69rem/1.4 var(--font-ui), sans-serif;
+  letter-spacing: .11em;
+  text-transform: uppercase;
+}
+.label i {
+  height: .66em;
+  width: .66em;
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 1px #0002;
+}
+.label strong {
+  white-space: nowrap;
+  font: 500 .91rem/1.4 var(--font-ui), sans-serif;
+}
+:global(.loom-card) h3.name {
+  margin: .35rem 0 .24rem;
+  color: var(--house-ink, #3c302e);
+  font: 500 clamp(1.4rem, 1.8vw, 2rem)/1.08 var(--font-body), Georgia, serif;
+  letter-spacing: -.025em;
+  text-wrap: pretty;
+}
+.name button { display: block; color: inherit; text-align: left; }
+.caption {
+  margin: 0;
+  color: #655653;
+  font: 400 .87rem/1.4 var(--font-ui), sans-serif;
+}
+@media (max-width: 600px) {
+  .label span { font-size: .61rem; }
+  .label strong { font-size: .78rem; }
+  :global(.loom-card) h3.name { font-size: clamp(1.12rem, 5vw, 1.42rem); }
+  .caption { font-size: .75rem; }
+}
+
+.livePrice {display:flex;align-items:baseline;flex-wrap:wrap;gap:.4rem;margin-left:auto}
+.livePrice del {color:#756a64;font:.76rem var(--font-ui),sans-serif}
