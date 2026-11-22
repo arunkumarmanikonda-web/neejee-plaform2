@@ -8,7 +8,7 @@ import styles from './HouseCampaign.module.css';
 const edits = [
   {
     id: 'surkh', name: 'Surkh', hindi: 'सुर्ख', colour: '#9c352f',
-    line: 'Fine gold checks on vermilion. A wine border at the wrist.',
+    line: 'Vermilion with fine gold checks and a deep wine pallu.',
     image: '/brand/campaign/vermilion.webp', mobile: '/brand/campaign/vermilion-mobile.webp',
     alt: 'The Surkh saree in afternoon light, its red checks edged with wine and gold.',
   },

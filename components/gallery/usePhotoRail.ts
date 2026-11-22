@@ -6,6 +6,7 @@ import './photo-rail.css';
 /** Touch and trackpad use native scrolling. The controls target the same snap points. */
 export function usePhotoRail(count: number, requested = 0) {
   const track = useRef<HTMLDivElement>(null);
+  const keyboardFocus = useRef<number | null>(null);
   const positioned = useRef(false);
   const target = useRef<number | null>(null);
   const drag = useRef<{ x: number; left: number; moved: boolean } | null>(null);
@@ -32,6 +33,13 @@ export function usePhotoRail(count: number, requested = 0) {
       go(requested);
     }
   }, [requested, count, go]);
+  useEffect(() => {
+    if (keyboardFocus.current === null) return;
+    const item = track.current?.children[active];
+    const action = item?.querySelectorAll<HTMLElement>('a[href],button')[keyboardFocus.current];
+    if (action) action.focus({ preventScroll:true });
+    keyboardFocus.current = null;
+  }, [active]);
   const step = (amount: number) => go((target.current ?? active) + amount);
   function sync() {
     const el = track.current;
@@ -42,6 +50,7 @@ export function usePhotoRail(count: number, requested = 0) {
   }
   function start(event: PointerEvent<HTMLDivElement>) {
     target.current = null;
+    keyboardFocus.current = null;
     suppressClick.current = false;
     if (event.pointerType === 'mouse' && event.button === 0 && count > 1) {
       drag.current = { x: event.clientX, left: event.currentTarget.scrollLeft, moved: false };
@@ -78,6 +87,10 @@ export function usePhotoRail(count: number, requested = 0) {
     if (event.altKey || event.ctrlKey || event.metaKey || count < 2) return;
     if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
     event.preventDefault();
+    const focused = event.target as HTMLElement;
+    const slide = focused.closest('[data-slide]');
+    const index = slide ? [...slide.querySelectorAll('a[href],button')].indexOf(focused) : -1;
+    keyboardFocus.current = index >= 0 ? index : null;
     step(event.key === 'ArrowLeft' ? -1 : 1);
   }
   return { active, go, step, onKeyDown, props: {

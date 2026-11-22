@@ -30,7 +30,7 @@
  .shade{background:linear-gradient(0deg,#1c1214eb 0%,#201318ba 16%,#23181922 54%,transparent 68%)}
  .content{width:90%;margin:0 5% 1.6rem;padding:0}.content h1{font-size:4.8rem;margin:.25rem 0 .4rem}
  .label{font-size:.73rem}.line{font-size:1.15rem;max-width:19rem}.links{margin-top:1rem}.links a{min-height:43px;padding:.6rem 1.2rem}
- .selector{inset:.8rem .8rem auto auto;bottom:auto}.selector button{min-height:33px}
+ .selector{inset:.8rem auto auto .8rem}.selector button{min-height:33px}
  .rooms{gap:.7rem;padding:1.1rem 4.5% 1.3rem}.rooms a{display:block}.roomImage{width:100%;aspect-ratio:1.65}.roomName{display:block;font-size:clamp(1.02rem,4.3vw,1.48rem);margin-top:.4rem}
 }
 @media(prefers-reduced-motion:reduce){.roomImage img{transition:none}}

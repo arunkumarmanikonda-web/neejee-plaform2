@@ -24,7 +24,7 @@ function persist(key: string, value: unknown) {
 }
 function studyViews(s:Study):PieceView[] {
   return [{src:s.image,label:'Worn'}, {src:'/brand/study-views/'+s.id+'.webp', label:s.group==='sarees'?'Laid out':'The set'},
-    {src:s.image,label:s.group==='sarees'?'Border crop':'Detail crop',zoom:2.7,focus:s.focus}];
+    {src:s.image,label:s.group==='sarees'?'Border detail':'Detail',zoom:2.7,focus:s.focus}];
 }
 function PiecePhotographs({ piece, initial }: { piece: Study; initial: number }) {
   const views = studyViews(piece);
@@ -137,7 +137,7 @@ export function StudyShelf({ids, preview, email, home = false}: {ids: string[]; 
     <dialog ref={dialog} className="nj-dialog loom-dialog" aria-labelledby="nj-modal-title" onClick={e => {if(e.target === dialog.current) dialog.current.close();}}>
       <div className="nj-modal-content"><button className="nj-modal-close" aria-label="Close" autoFocus onClick={() => dialog.current?.close()}><X size={21}/></button>
       {picked && <div className="nj-piece loom-piece">
-        <PiecePhotographs key={photoSession.version} piece={picked} initial={photoSession.initial}/>
+        {photoSession.version>0 && <PiecePhotographs key={photoSession.version} piece={picked} initial={photoSession.initial}/>}
         <div className="nj-piece-copy"><p className="loom-spec"><i style={{background:picked.swatch}}/>{picked.shade}<span aria-hidden="true">·</span>{textile?.motif || 'Three-piece suit'}</p>
           <h2 id="nj-modal-title">{picked.name}</h2><p>{picked.detail}</p>
 
