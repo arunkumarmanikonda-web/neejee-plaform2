@@ -16,6 +16,7 @@ import { track } from '@/lib/analytics';
 import { DetailViewer } from '@/components/product/DetailViewer';
 import { pieceFields, readPieceFacts, type PieceFacts } from '@/lib/catalog/piece-notes';
 import { ShareFind } from '@/components/product/ShareFind';
+import { defaultStyling, lookUrl } from '@/lib/stylebook';
 import { pickupLink } from '@/lib/counter';
 import { studioHref } from '@/lib/studio';
 import { CompleteTheLook } from '@/components/product/CompleteTheLook';
@@ -221,6 +222,7 @@ function PDPInner() {
           {(product.aiTryOnEligible || product.aiRoomEligible) && inStock && <div className="my-5 flex flex-wrap gap-3">
             {product.aiRoomEligible && <Link className="border border-mitti px-4 py-3 font-ui text-sm" href={studioHref('imagine',product.slug,activeVariant?.id)}>AI Imagine · See it in my room</Link>}
             {product.aiTryOnEligible && <Link className="border border-mitti px-4 py-3 font-ui text-sm" href={studioHref('mirror',product.slug,activeVariant?.id)}>AI Mirror · Try it on</Link>}
+            {product.aiTryOnEligible && activeVariant?.inStock && <Link className="border border-mitti px-4 py-3 font-ui text-sm" href={lookUrl('/looks',defaultStyling(),product.slug,activeVariant.id)}>Style with juttis &amp; jewellery</Link>}
           </div>}
           {activeVariant?.inStock && (/^(women\/(sarees|apparel|suits)|men\/apparel)(\/|$)/.test(product.category?.path||'')) && <Link className="my-3 inline-block text-madder underline underline-offset-4" href={pickupLink(activeVariant.id)}>Lay this beside my blouse colour</Link>}
           {colors.length > 0 && (

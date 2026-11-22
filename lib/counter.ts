@@ -12,6 +12,8 @@ export type CounterCloth = {
   href: string;
   credit?: string;
   price?: string;
+  slug?: string;
+  video?: string;
   mirrorHref?: string;
 };
 

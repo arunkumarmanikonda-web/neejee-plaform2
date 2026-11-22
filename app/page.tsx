@@ -5,7 +5,10 @@ import { Footer } from '@/components/layout/Footer';
 import { ProductCard, type ProductCardData } from '@/components/product/ProductCard';
 import { editLead } from '@/lib/shop-edit-catalog';
 import { shopEdits } from '@/lib/shop-edits';
-import { CounterInvite } from '@/components/counter/CounterInvite';
+import { Lookbook } from '@/components/looks/Lookbook';
+import { defaultStyling } from '@/lib/stylebook';
+import { getStyleAccessories } from '@/lib/style-accessories';
+import { getCounterStock } from '@/lib/counter-shop';
 import { CraftHouse } from '@/components/home/CraftHouse';
 import { StudioDoors } from '@/components/home/StudioDoors';
 import { studioHref } from '@/lib/studio';
@@ -202,13 +205,15 @@ async function getHomeData() {
 
 export default async function HomePage() {
   const data = await getHomeData();
+  const wearables = await getCounterStock([]).catch(()=>[]);
 
+  const accessories=await getStyleAccessories().catch(()=>[]);
   return (
     <>
       <Header />
 
       <main>
-        <CounterInvite/>
+        <Lookbook accessories={accessories} initial={defaultStyling()} items={wearables}/>
         {(data.spotlight||data.heroBanners.length>0) && <HeroCarousel banners={data.heroBanners} spotlight={data.spotlight}/>}
 
         {data.founder.length > 0 && (

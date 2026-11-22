@@ -8,7 +8,7 @@ import type { Prisma } from '@prisma/client';
 
 const select = {
   id:true,color:true,colorHex:true,size:true,images:true,
-  product:{select:{slug:true,name:true,material:true,region:true,images:true,cataloguePreferredImage:true,aiTryOnEligible:true,
+  product:{select:{slug:true,name:true,video:true,material:true,region:true,images:true,cataloguePreferredImage:true,aiTryOnEligible:true,
     sellingPrice:true,mrp:true,salePrice:true,saleStartsAt:true,saleEndsAt:true}},
 } satisfies Prisma.VariantSelect;
 type Row=Prisma.VariantGetPayload<{select:typeof select}>;
@@ -19,7 +19,7 @@ function mapCloth(variant:Row): CounterCloth | null {
   const image=hasOwn || p.cataloguePreferredImage || p.images.find(Boolean);
   if (!image) return null;
   const tone=hasOwn?safeHex(variant.colorHex):'';
-  return {id:'v-'+variant.id,kind:'shop',name:p.name,image,alt:p.name+(hasOwn&&variant.color?' in '+variant.color:''),
+  return {id:'v-'+variant.id,kind:'shop',name:p.name,slug:p.slug,video:p.video||undefined,image,alt:p.name+(hasOwn&&variant.color?' in '+variant.color:''),
     palette:tone?[tone]:[],price:formatINR(buildPricing(p).effectivePrice),
     description:[variant.color,variant.size,p.material,p.region].filter(Boolean).join(' · '),...productLinks(p.slug,variant.id,p.aiTryOnEligible)};
 }

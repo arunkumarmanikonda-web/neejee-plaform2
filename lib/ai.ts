@@ -151,7 +151,7 @@ export async function submitRoomPlacement(room:string,piece:string,description:s
   });
 }
 
-async function submitStudioTask(endpoint:string,input:Record<string,unknown>): Promise<{ ok: boolean; requestId?: string; endpoint?: string; statusUrl?: string; responseUrl?: string; error?: string }> {
+export async function submitStudioTask(endpoint:string,input:Record<string,unknown>): Promise<{ ok: boolean; requestId?: string; endpoint?: string; statusUrl?: string; responseUrl?: string; error?: string }> {
   const key=process.env.FAL_KEY;
   if(!key)return {ok:false,error:'Image provider unavailable'};
   try {

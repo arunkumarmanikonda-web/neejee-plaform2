@@ -3,6 +3,9 @@ export const pieceFields = {
   cloth: 'Saree length and width',
   blouse: 'Blouse piece',
   weave: 'Loom and weave',
+  handfeel: 'How it feels against the skin',
+  drape: 'Weight and fall',
+  opacity: 'Sheerness and lining',
   fit: 'Fit and garment measurements',
   dimensions: 'Object dimensions',
   finish: 'Material and finish',
@@ -29,6 +32,9 @@ export function requestedPieceField(question: string): keyof PieceFacts | undefi
   if (/saree.*(long|wide|length|width)|sari.*length|length.*(sari|saree)/i.test(question)) return 'cloth';
   if (/height|depth|object dimensions|lamp.*(tall|wide)|how tall|चौड़ाई/i.test(question)) return 'dimensions';
   if (/fit|garment measurements|kurta.*long|bust|sleeve/i.test(question)) return 'fit';
+  if (/soft|scratchy|texture|handfeel|against.*skin/i.test(question)) return 'handfeel';
+  if (/drape|drapes|fall|weight|heavy|lightweight/i.test(question)) return 'drape';
+  if (/sheer|opaque|opacity|lining|see.through/i.test(question)) return 'opacity';
   if (/weave|loom|बुनाई/i.test(question)) return 'weave';
   if (/differ|vary|variation/i.test(question)) return 'variation';
   return undefined;

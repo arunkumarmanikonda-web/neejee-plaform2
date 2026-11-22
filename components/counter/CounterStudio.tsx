@@ -73,7 +73,7 @@ export function CounterStudio({items,link,photoStart,stockError,contactEmail}:{c
   }
   const sorted=rankedCloths(items,state.colour,contrast);
   return <main className={styles.studio}>
-    <div className={styles.counterTop}><Link href="/">Neejee</Link><span>/</span><span>The saree counter</span><Link href="/edits/clothing">Shop clothing</Link></div>
+    <div className={styles.counterTop}><Link href="/">Neejee</Link><span>/</span><span>The saree counter</span><Link href="/edits/clothing">Shop sarees &amp; suits</Link></div>
     <header className={styles.studioHeader}><div><p className={styles.eyebrow}><span lang="hi">साथ बैठें</span> {guest?'An invitation':received?'A reply from your guest':'The saree counter'}</p>
       <h1>{guest?'Which one feels like me?':received?'Look what they chose.':'Lay them together.'}</h1></div>
       <p>{guest?'Someone has set two pieces aside for your eye. Draw the cloth across, then send your favourite back.':received?'Your guest’s choice is marked below. Unfold both pieces again, or follow the one you love.':'Start with a blouse, a bangle, or a colour you love. Pull the edge to see which cloth belongs beside it.'}</p>

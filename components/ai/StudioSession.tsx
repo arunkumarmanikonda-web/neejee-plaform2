@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { lookUrl, selectedAccessories, type StyleOption, type Styling } from '@/lib/stylebook';
 import { uploadAiImage } from '@/lib/client-upload';
 import { formatINR } from '@/lib/money';
 import { studioHref, type StudioMode } from '@/lib/studio';
@@ -12,12 +13,14 @@ import { PhotoPair } from './PhotoPair';
 import { DeleteAiPreviewButton } from './DeleteAiPreviewButton';
 import styles from './Studio.module.css';
 
-type Props={mode:StudioMode;piece:StudioPiece;initialVariant:string;signedIn:boolean;configured:boolean};
-export function StudioSession({mode,piece,initialVariant,signedIn,configured}:Props) {
+type Props={mode:StudioMode;piece:StudioPiece;initialVariant:string;signedIn:boolean;configured:boolean;styling?:Styling|null;accessories?:StyleOption[];editorial?:boolean};
+export function StudioSession({mode,piece,initialVariant,signedIn,configured,styling,accessories=[],editorial=false}:Props) {
   const mirror=mode==='mirror';
   const router=useRouter();
   const variant=piece.variants.find(v=>v.id===initialVariant) || (piece.variants.length===1?piece.variants[0]:undefined);
-  const back=studioHref(mode,piece.slug,variant?.id);
+  const fittingLink=(id?:string)=>styling ? lookUrl('/ai/mirror',styling,editorial?undefined:piece.slug,editorial?undefined:id) : studioHref(mode,piece.slug,id);
+  const back=fittingLink(variant?.id);
+  const editing=styling?lookUrl('/looks',styling,editorial?undefined:piece.slug,editorial?undefined:variant?.id):'';
   const [file,setFile]=useState<File|null>(null);
   const [photo,setPhoto]=useState('');
   const [consent,setConsent]=useState(false);
@@ -51,7 +54,7 @@ export function StudioSession({mode,piece,initialVariant,signedIn,configured}:Pr
       if (abort.signal.aborted) return;
       setStatus(mirror?'Preparing your fitting…':'Placing the piece in your room…');
       const res=await fetch(mirror?'/api/ai/mirror':'/api/ai/space',{method:'POST',headers:{'Content-Type':'application/json'},signal:abort.signal,
-        body:JSON.stringify({productId:piece.id,variantId:variant.id,consent:true,...(mirror?{personImageUrl:source}:{roomImageUrl:source})})});
+        body:JSON.stringify({productId:piece.id,variantId:variant.id,consent:true,...(styling?{styling}:{}),...(mirror?{personImageUrl:source}:{roomImageUrl:source})})});
       const job=await res.json();
       if (!res.ok || job.configured===false) throw Error(job.error || 'The studio is unavailable right now.');
       setPreviewId(job.previewId||'');
@@ -75,8 +78,9 @@ export function StudioSession({mode,piece,initialVariant,signedIn,configured}:Pr
   return <div className={styles.workspace}>
     <aside className={styles.piece}>
       <img src={variant?.image || piece.image} alt={piece.name}/>
-      <div><p className={styles.eyebrow}>Your selection</p><h2>{piece.name}</h2><p>{formatINR(piece.sellingPrice)}</p>
-        <Link href={studioHref(mode)}>Choose another piece</Link></div></aside>
+      <div><p className={styles.eyebrow}>Your selection</p><h2>{piece.name}</h2><p>{editorial?'Editorial styling study':formatINR(piece.sellingPrice)}</p>
+        {styling&&<div className={styles.selectedAcc}>{selectedAccessories(styling,accessories).map(a=><figure key={a.id}><img src={a.image} alt=""/><figcaption>{a.name}</figcaption></figure>)}</div>}
+        <Link href={editing||studioHref(mode)}>{styling?'Change my styling':'Choose another piece'}</Link></div></aside>
     <section className={styles.workspaceBody}>
       {result ? <><h2>{mirror?'Your fitting':'Your room preview'}</h2>
         <div className={styles.compare} aria-label="Compare photographs">
@@ -85,14 +89,14 @@ export function StudioSession({mode,piece,initialVariant,signedIn,configured}:Pr
         <img className={styles.result} src={showOriginal?photo:result} alt={showOriginal?'Your original photograph':'Your generated preview with '+piece.name}/>
         <p className={styles.note}>{mirror?'The preview shows styling. Check garment measurements before ordering.':'Perspective, scale and colour are approximate. Check the product dimensions before ordering.'}</p>
         <DeleteAiPreviewButton previewId={previewId} onDeleted={()=>{setFile(null);setConsent(false);setResult('');setShowOriginal(false);setPreviewId('');cachedPhoto.current='';}}/>
-        <AiCommerceCompletion mode={mirror?'mirror':'space'} sourceProduct={piece} sourceVariantId={variant?.id}/>
+        {!editorial&&<AiCommerceCompletion mode={mirror?'mirror':'space'} sourceProduct={piece} sourceVariantId={variant?.id}/>}
       </> : <>
         <h2>{mirror?'Try it on your photo':'See it in your room'}</h2>
-        <p>{mirror?'A clear, front-facing photo works best.':'A daylight photo works best. Include the surface or corner where you would put the piece.'}</p>
+        <p>{mirror?'Use a full-length, front-facing photo with your feet in frame to see the shoes.':'A daylight photo works best. Include the surface or corner where you would put the piece.'}</p>
         {piece.variants.length>1 && <label className={styles.field}>Colour or size
-          <select value={initialVariant} disabled={!!status} onChange={e=>router.replace(studioHref(mode,piece.slug,e.target.value),{scroll:false})}>
+          <select value={initialVariant} disabled={!!status} onChange={e=>router.replace(fittingLink(e.target.value),{scroll:false})}>
             <option value="">Choose an option</option>{piece.variants.map((v,i)=><option key={v.id} value={v.id}>{[v.color,v.size].filter(Boolean).join(' / ') || 'Option '+(i+1)}</option>)}</select></label>}
-        {!configured ? <p className={styles.notice}>Photo rendering is temporarily unavailable. <Link href={'/products/'+piece.slug}>View the piece</Link></p> :
+        {!configured ? <p className={styles.notice}>Photo rendering is temporarily unavailable. <Link href={editing||'/products/'+piece.slug}>{editorial?'Back to my look':'View the piece'}</Link></p> :
           !signedIn ? <><p className={styles.note}>Sign in to add your photo. We’ll keep this piece selected.</p>
             <Link className={styles.primary} href={'/login?next='+encodeURIComponent(back)}>Sign in to add a photo</Link></> :
             <><label className={styles.field}>{file?'Change your photo':'Choose a photo'}<input disabled={!!status} type="file" accept="image/jpeg,image/png,image/webp" onChange={e=>selectPhoto(e.target.files?.[0])}/></label>

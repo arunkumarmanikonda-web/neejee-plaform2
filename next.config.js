@@ -17,7 +17,7 @@ const nextConfig = {
     ],
     minimumCacheTTL: 60 * 60 * 24,
   },
-  experimental: { optimizePackageImports: ['lucide-react'] },
+  experimental: { outputFileTracingIncludes: { '/api/ai/mirror': ['./public/brand/lookbook/*.webp'] }, optimizePackageImports: ['lucide-react'] },
   poweredByHeader: false,
   compress: true,
 
