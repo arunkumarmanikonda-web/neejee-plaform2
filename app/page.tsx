@@ -5,6 +5,7 @@ import { Footer } from '@/components/layout/Footer';
 import { ProductCard, type ProductCardData } from '@/components/product/ProductCard';
 import { editLead } from '@/lib/shop-edit-catalog';
 import { shopEdits } from '@/lib/shop-edits';
+import { CounterInvite } from '@/components/counter/CounterInvite';
 import { CraftHouse } from '@/components/home/CraftHouse';
 import { StudioDoors } from '@/components/home/StudioDoors';
 import { studioHref } from '@/lib/studio';
@@ -207,7 +208,7 @@ export default async function HomePage() {
       <Header />
 
       <main>
-        <CraftHouse/>
+        <CounterInvite/>
         {(data.spotlight||data.heroBanners.length>0) && <HeroCarousel banners={data.heroBanners} spotlight={data.spotlight}/>}
 
         {data.founder.length > 0 && (
@@ -224,6 +225,7 @@ export default async function HomePage() {
           </section>
         )}
 
+        <CraftHouse/>
         {data.founderNoteBody ? (
           <section id="founder-letter" className="scroll-mt-24 bg-beige py-12 md:py-16">
             <div className="max-w-3xl mx-auto px-6">

@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useState, Suspense } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import Image from 'next/image';
 import Link from 'next/link';
 import { Header } from '@/components/layout/Header';
@@ -16,6 +16,7 @@ import { track } from '@/lib/analytics';
 import { DetailViewer } from '@/components/product/DetailViewer';
 import { pieceFields, readPieceFacts, type PieceFacts } from '@/lib/catalog/piece-notes';
 import { ShareFind } from '@/components/product/ShareFind';
+import { pickupLink } from '@/lib/counter';
 import { studioHref } from '@/lib/studio';
 import { CompleteTheLook } from '@/components/product/CompleteTheLook';
 
@@ -25,6 +26,7 @@ function PDPInner() {
   const params = useParams();
   const router = useRouter();
   const slug = params?.slug as string;
+  const requestedVariant=useSearchParams().get('variant');
   const { addItem } = useCart();
 
   const [product, setProduct] = useState<any>(null);
@@ -41,19 +43,23 @@ function PDPInner() {
 
   useEffect(() => {
     if (!slug) return;
+    const controller=new AbortController();
     setLoading(true); setError('');
-    fetch(`/api/products/${slug}`)
+    fetch(`/api/products/${slug}`,{signal:controller.signal})
       .then(r => r.json())
       .then(d => {
+        if (controller.signal.aborted) return;
         if (d.error) { setError(d.error); return; }
         setProduct(d.product);
         const firstInStock = d.product.variants?.find((v: any) => v.inStock) || d.product.variants?.[0];
-        setActiveVariant(firstInStock);
+        setActiveVariant(d.product.variants?.find((v:any)=>v.id===requestedVariant) || firstInStock);
+        setActiveImage(0);setQty(1);
         track({ type: 'PRODUCT_VIEW', productId: d.product.id, value: d.product.sellingPrice });
       })
-      .catch(e => setError(e.message))
-      .finally(() => setLoading(false));
-  }, [slug]);
+      .catch(e => {if(!controller.signal.aborted)setError(e.message);})
+      .finally(() => {if(!controller.signal.aborted)setLoading(false);});
+    return ()=>controller.abort();
+  }, [slug,requestedVariant]);
 
   useEffect(() => {
     if (!product?.id) return;
@@ -216,6 +222,7 @@ function PDPInner() {
             {product.aiRoomEligible && <Link className="border border-mitti px-4 py-3 font-ui text-sm" href={studioHref('imagine',product.slug,activeVariant?.id)}>AI Imagine · See it in my room</Link>}
             {product.aiTryOnEligible && <Link className="border border-mitti px-4 py-3 font-ui text-sm" href={studioHref('mirror',product.slug,activeVariant?.id)}>AI Mirror · Try it on</Link>}
           </div>}
+          {activeVariant?.inStock && (/^(women\/(sarees|apparel|suits)|men\/apparel)(\/|$)/.test(product.category?.path||'')) && <Link className="my-3 inline-block text-madder underline underline-offset-4" href={pickupLink(activeVariant.id)}>Lay this beside my blouse colour</Link>}
           {colors.length > 0 && (
             <div className="mt-8">
               <p className="label text-mitti mb-3">COLOR · {(activeVariant?.color || '').toUpperCase()}</p>

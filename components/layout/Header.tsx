@@ -170,6 +170,7 @@ export function Header() {
                   </div>
                 );
               })}
+              <Link href="/counter" onClick={()=>setOpen(false)} className="px-6 py-3">The saree counter</Link>
               <Link href="/about" onClick={()=>setOpen(false)} className="px-6 py-3">Nidhi’s story</Link>
               <Link href="/journal" onClick={() => setOpen(false)} className="px-6 py-3 border-b border-beige/60 hover:bg-beige hover:text-madder transition-colors">STORIES</Link>
               <Link href="/ai/imagine" onClick={()=>setOpen(false)} className="px-6 py-3">AI Imagine · See it at home</Link>
