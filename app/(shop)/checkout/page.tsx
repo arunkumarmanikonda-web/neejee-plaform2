@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useState, useEffect } from 'react';
+import { Suspense, useId, useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { HouseHeading } from '@/components/checkout/HouseHeading';
 import Link from 'next/link';
@@ -728,10 +728,12 @@ export default function CheckoutPage() {
 }
 
 function Input({ label, value, onChange, type = 'text', placeholder, inputMode, mono }: any) {
+  const inputId=useId();
   return (
     <div className="mb-3">
-      <label className="label text-mitti block mb-1">{label}</label>
+      <label htmlFor={inputId} className="label text-mitti block mb-1">{label}</label>
       <input
+        id={inputId}
         type={type}
         value={value}
         onChange={(e) => onChange(e.target.value)}

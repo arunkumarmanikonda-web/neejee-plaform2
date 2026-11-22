@@ -22,3 +22,14 @@ export function readPieceFacts(input: unknown): PieceFacts {
   }
   return result;
 }
+
+export function requestedPieceField(question: string): keyof PieceFacts | undefined {
+  if (/blouse|ब्लाउज|ब्लाउज़/i.test(question)) return 'blouse';
+  if (/what comes|what.*included|include|set contain|साथ|saath/i.test(question)) return 'contents';
+  if (/saree.*(long|wide|length|width)|sari.*length|length.*(sari|saree)/i.test(question)) return 'cloth';
+  if (/height|depth|object dimensions|lamp.*(tall|wide)|how tall|चौड़ाई/i.test(question)) return 'dimensions';
+  if (/fit|garment measurements|kurta.*long|bust|sleeve/i.test(question)) return 'fit';
+  if (/weave|loom|बुनाई/i.test(question)) return 'weave';
+  if (/differ|vary|variation/i.test(question)) return 'variation';
+  return undefined;
+}

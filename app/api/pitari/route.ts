@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import type { Prisma } from '@prisma/client';
 import { buildPricing } from '@/lib/catalog/pricing-read';
+import { notesPageType, notesSlug, notesTemplate, pieceFields, readPieceFacts, requestedPieceField } from '@/lib/catalog/piece-notes';
 import { formatINR } from '@/lib/money';
 import { parsePitari, serviceReplies, type PitariReply } from '@/lib/pitari';
 
@@ -18,6 +19,17 @@ export async function POST(req: Request) {
   if (typeof body?.message !== 'string' || !body.message.trim() || body.message.length > 320) return reply({text:'Ask a question of up to 320 characters.',links:[]},400);
   const question=body.message.trim().toLowerCase();
   if (/help me choose a (saree|sari)|saree guide/.test(question)) return reply({text:'Start with a fabric you already enjoy wearing. In the saree edit, open The blouse to see what to check before ordering.',links:[{label:'Choosing your saree',href:'/edits/sarees'},{label:'Visit the fitting room',href:'/ai/mirror'}]});
+  const field = requestedPieceField(question);
+  if (field && typeof body.piece==='string' && /^[\w-]{1,160}$/.test(body.piece)) {
+    try {
+      const piece = await prisma.product.findFirst({where:{slug:body.piece,status:'ACTIVE',takedownAt:null,catalogueExclude:false},select:{id:true,name:true,slug:true}});
+      if (!piece) return reply({text:'That piece is unavailable. The team can help you find it.',links:serviceReplies.contact.links});
+      const notes=await prisma.cmsPage.findFirst({where:{slug:notesSlug(piece.id),status:'PUBLISHED',pageType:notesPageType,template:notesTemplate},select:{sections:true}});
+      const answer=readPieceFacts(notes?.sections)[field];
+      const link={label:piece.name,href:'/products/'+piece.slug};
+      return reply({text:answer ? pieceFields[field]+' · '+answer : 'I don’t have that detail confirmed for '+piece.name+'. The team can check it for you.',links:answer?[link]:[link,...serviceReplies.contact.links],piece:piece.slug});
+    } catch {return reply({text:'I couldn’t check the piece notes just now. The team can help.',links:serviceReplies.contact.links},503);}
+  }
   if (/what comes in a suit|included in (this |the |a )?(suit|set)|blouse piece|measurements/.test(question)) {
     const links=typeof body.piece==='string' && /^[\w-]{1,160}$/.test(body.piece)?[{label:'View the selected piece',href:'/products/'+body.piece}]:[];
     return reply({text:'A suit may include a kurta, bottoms and a dupatta. A saree may include separate blouse fabric. The contents and measurements depend on the piece. Our team can confirm exactly what comes with your selection.',links:[...links,{label:'Choosing your suit',href:'/edits/suits'},...serviceReplies.contact.links]});

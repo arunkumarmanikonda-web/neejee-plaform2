@@ -211,7 +211,7 @@ function PDPInner() {
           <p className="font-ui text-xs text-mitti mt-1">Inclusive of all taxes</p>
 
           {(product.material || product.region) && <p className="mt-3 text-sm text-mitti">{[product.material,product.region].filter(Boolean).join(' · ')}</p>}
-          {Object.keys(readPieceFacts(product.pieceFacts)).length>0 && <section className="mt-5 border-t border-mitti/30 pt-4"><h2 className="font-display text-xl">The piece, up close</h2><dl className="mt-2 grid gap-2 text-sm">{Object.entries(readPieceFacts(product.pieceFacts)).map(([key,value])=><div key={key}><dt className="font-semibold">{pieceFields[key as keyof PieceFacts]}</dt><dd>{value}</dd></div>)}</dl></section>}
+          {Object.keys(readPieceFacts(product.pieceFacts)).length>0 && <section className="mt-5 border-t border-mitti/30 pt-4"><h2 className="font-display text-xl">Before you choose</h2><dl className="mt-2 grid gap-2 text-sm">{Object.entries(readPieceFacts(product.pieceFacts)).map(([key,value])=><div key={key}><dt className="font-semibold">{pieceFields[key as keyof PieceFacts]}</dt><dd>{value}</dd></div>)}</dl></section>}
           {(product.aiTryOnEligible || product.aiRoomEligible) && inStock && <div className="my-5 flex flex-wrap gap-3">
             {product.aiRoomEligible && <Link className="border border-mitti px-4 py-3 font-ui text-sm" href={studioHref('imagine',product.slug,activeVariant?.id)}>AI Imagine · See it in my room</Link>}
             {product.aiTryOnEligible && <Link className="border border-mitti px-4 py-3 font-ui text-sm" href={studioHref('mirror',product.slug,activeVariant?.id)}>AI Mirror · Try it on</Link>}
@@ -316,7 +316,7 @@ function PDPInner() {
               <dt>Delivery</dt><dd><Link className="underline" href="/help/shipping">Shipping and delivery</Link></dd>
               <dt>Returns</dt><dd>{product.returnPolicy || (product.returnEligible?'Eligible under the returns policy.':'This piece is marked ineligible for return.')} <Link className="underline" href="/help/returns">Read policy</Link></dd>
             </dl>
-            <button className="mt-4 text-madder underline underline-offset-4" onClick={()=>window.dispatchEvent(new CustomEvent('neejee:ask-pitari',{detail:'Where is it from?'}))}>Ask about this piece</button>
+            <button className="mt-4 text-madder underline underline-offset-4" onClick={()=>window.dispatchEvent(new CustomEvent('neejee:ask-pitari',{detail:'Where is it from?'}))}>Ask Sakhi about this piece</button>
             <ShareFind href={'/products/'+product.slug} name={product.name}/>
           </section>
 

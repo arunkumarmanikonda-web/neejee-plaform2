@@ -51,22 +51,22 @@ export function Pitari() {
   },[ask,activeProduct]);
   useEffect(()=>{if(dialog.current?.open) end.current?.scrollIntoView({block:'nearest'});},[turns,pending]);
   return <>
-    <button type="button" className={styles.launch} aria-label="Shopping help" aria-haspopup="dialog" onClick={()=>{if(activeProduct)piece.current=activeProduct; dialog.current?.showModal();}}>
+    <button type="button" className={styles.launch} title="Ask Sakhi" aria-label="Ask Sakhi, shopping help" aria-haspopup="dialog" onClick={()=>{if(activeProduct)piece.current=activeProduct; dialog.current?.showModal();}}>
       <MessageCircle size={19} aria-hidden="true"/>
     </button>
     <dialog ref={dialog} className={styles.dialog} aria-labelledby="pitari-heading" onClick={e=>{if(e.target===dialog.current) dialog.current.close();}}>
       <div className={styles.panel}>
         <header>
-          <div><h2 id="pitari-heading">Shopping help</h2></div>
+          <div><h2 id="pitari-heading">Ask Sakhi</h2></div>
           <button autoFocus aria-label="Close shopping help" onClick={()=>dialog.current?.close()}><X size={22}/></button></header>
         <div className={styles.history} role="log" aria-live="polite" aria-relevant="additions text">
-          <p className={styles.welcome}>What would you like to know? Ask about a piece, a price or a delivery.</p>
+          <p className={styles.welcome}>Looking for something in particular? Ask me about a piece, what comes with it, or when it can reach you.</p>
           {turns.map((t,i)=><div className={styles.turn} key={i}><b>{t.question}</b><p>{t.answer.text}</p>
             {t.answer.links.map(link=><Link key={link.href} href={link.href} onClick={()=>dialog.current?.close()}>{link.label}</Link>)}</div>)}
           {pending && <div className={styles.turn}><b>{pending}</b><p>Checking the shop…</p></div>}<div ref={end}/>
         </div>
         <Link href="/help/contact" className="px-4 py-2 underline font-ui text-sm">Contact the Neejee team</Link>
-        <div className={styles.prompts}>{pitariTopics.map(q=><button key={q} disabled={!!pending} onClick={()=>void ask(q)}>{q}</button>)}</div>
+        <div className={styles.prompts}>{(activeProduct ? ["What comes with this piece?", "Where is it from?", "How do I care for it?"] : pitariTopics).map(q=><button key={q} disabled={!!pending} onClick={()=>void ask(q)}>{q}</button>)}</div>
         <form onSubmit={e=>{e.preventDefault();void ask(input);}}>
           <input aria-label="Your shopping question" placeholder="Ask about a piece…" maxLength={320} value={input} onChange={e=>setInput(e.target.value)}/>
           <button type="submit" disabled={!!pending || !input.trim()} aria-label="Send question"><Send size={19}/></button>
