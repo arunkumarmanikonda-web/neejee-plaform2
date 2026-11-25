@@ -97,12 +97,12 @@ export function StudyShelf({ids, preview, email, home = false}: {ids: string[]; 
       <p>{preview ? 'Collection preview · Sample prices' : 'Collection preview · Enquiries welcome'}</p></div>
       {home ? <Link className="nj-bag-link" href="/edits/clothing">Shop the collection</Link> : preview && <Link className="nj-bag-link" href="/cart?bag=sample"><ShoppingBag size={16}/> View bag ({count})</Link>}
     </div>
-    {!home && <div className="loom-tools">
+    <div className="loom-tools">
       <div className="loom-presentation" role="group" aria-label="Collection photographs">
         <button type="button" aria-pressed={!showFabric} onClick={()=>setShowFabric(false)}>On the model</button>
         <button type="button" aria-pressed={showFabric} onClick={()=>setShowFabric(true)}>Fabric close-up</button>
       </div>
-      <details className="loom-filter">
+      {!home && <><details className="loom-filter">
         <summary>Filters{(shade || query || onlySaved) ? ' · Active' : ''}<ChevronDown size={15}/></summary>
         <div className="loom-filter-panel">
           <div className="nj-filters" role="group" aria-label="Filter by colour">
@@ -113,8 +113,8 @@ export function StudyShelf({ids, preview, email, home = false}: {ids: string[]; 
           {hasSarees && <label className="nj-textile-search">Textile or region<input type="search" list="nj-traditions" value={query} onChange={e=>setQuery(e.target.value)} placeholder="Bandhani, Gujarat…"/><datalist id="nj-traditions">{sareeVocabulary.map(t=><option key={t.id} value={t.name}/>)}</datalist></label>}
         </div>
       </details>
-      <label className="loom-sort">Sort <select aria-label="Sort collection" value={sort} onChange={e=>setSort(e.target.value)}><option value="featured">Featured</option>{preview && <><option value="low">Price, low to high</option><option value="high">Price, high to low</option></>}<option value="name">Name, A to Z</option></select></label>
-    </div>}
+      <label className="loom-sort">Sort <select aria-label="Sort collection" value={sort} onChange={e=>setSort(e.target.value)}><option value="featured">Featured</option>{preview && <><option value="low">Price, low to high</option><option value="high">Price, high to low</option></>}<option value="name">Name, A to Z</option></select></label></>}
+    </div>
     <div className="nj-grid" aria-live="polite">
       {shown.map((s, index) => <article key={s.id} className="nj-tile loom-card">
         <TileGallery initialView={showFabric ? 2 : 0} name={s.name} eager={index<4} views={studyViews(s)} onOpen={i=>openPiece(s,i)}>

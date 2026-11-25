@@ -11,12 +11,15 @@
 
 .compactDoors{display:grid;grid-template-columns:1fr 1fr;gap:1.2rem}.compactDoors .door{display:block;border-top:1px solid #bbaa91;background:transparent}.compactDoors .door>div{padding:1.05rem 0}.compactDoors .door h3{font-size:2.3rem}
 @media(max-width:660px){.compactDoors{grid-template-columns:1fr;gap:.3rem}}
-.fitting{background:#553037;color:#fff9f1;display:grid;grid-template-columns:1fr 1fr;align-items:stretch;margin:clamp(1rem,3vw,3rem) 5%}
-.composition{display:grid;grid-template-columns:2fr .88fr;min-height:19rem;max-height:30rem;gap:3px;overflow:hidden}
-.composition img{height:100%;width:100%;object-fit:cover;display:block}.cloth{min-height:0}.accessories{display:grid;grid-template-rows:1fr 1fr;min-height:0;gap:3px}.accessories img{min-height:0;object-position:center}
-.fittingCopy{padding:clamp(1.5rem,4vw,4.2rem);align-self:center}.fittingCopy>span{font:500 .77rem/1.35 var(--font-ui),sans-serif;letter-spacing:.16em;text-transform:uppercase;color:#e7cfc6}
-.fittingCopy h2{font:400 clamp(3.5rem,6vw,7rem)/1 var(--font-body),serif;letter-spacing:-.055em;margin:.45rem 0 .55rem}
-.fittingCopy p{font:400 1rem/1.6 var(--font-ui),sans-serif;max-width:30rem;color:#f3eae4}
-.fittingCopy a{display:inline-flex;align-items:center;min-height:44px;padding:.6rem 1.3rem;margin:1.2rem .8rem 0 0;background:#fffaf0;color:#30262b;font:500 .88rem var(--font-ui),sans-serif}
-.fittingCopy .roomLink{background:transparent;color:#eee2da;padding-inline:0}
-@media(max-width:670px){.fitting{grid-template-columns:1fr;margin:0 4.5% 2rem}.composition{height:13rem;min-height:0}.fittingCopy{padding:1.4rem 1.2rem 1.7rem}.fittingCopy h2{font-size:4rem}}
+.fitting{display:grid;grid-template-columns:1.05fr 1fr;align-items:center;gap:clamp(1.5rem,4vw,5rem);margin:clamp(2rem,4vw,4.5rem) 5%;background:#f1e4cb;color:#422a29;padding:clamp(1.4rem,3vw,3.6rem)}
+.composition{position:relative;min-width:0;height:clamp(18rem,27vw,29rem);isolation:isolate;background:#e1c49d}
+.composition .cloth{display:block;width:81%;height:90%;object-fit:cover;position:absolute;left:4%;top:5%;border:5px solid #fbf2e0;transform:rotate(-3deg);box-shadow:0 4px 12px #56371f35}
+.accessories{position:absolute;right:4%;inset-block:9%;width:33%;display:grid;grid-template-rows:1fr 1fr;gap:.4rem;transform:rotate(3deg)}
+.accessories img{min-height:0;height:100%;width:100%;object-fit:cover;border:4px solid #fbf2e0;background:#fbf2e0}
+.fittingCopy>span{display:flex;align-items:baseline;gap:.6rem;font:500 .9rem var(--font-ui),sans-serif;color:#734b3e}
+.fittingCopy b{font:400 1.25rem Georgia,serif;color:#873438}
+.fittingCopy h2{font:500 clamp(3.6rem,6vw,6.6rem)/1 var(--font-body),serif;color:#752b35;letter-spacing:-.05em;margin:.25rem 0 .5rem}
+.fittingCopy p{font:400 1rem/1.55 var(--font-ui),sans-serif;max-width:32rem}
+.fittingCopy a{display:inline-flex;align-items:center;min-height:44px;padding:.65rem 1.05rem;margin:1rem .7rem 0 0;background:#742d36;color:#fff3df;font:550 .9rem var(--font-ui),sans-serif}
+.fittingCopy .roomLink{background:transparent;color:#5c3c33;padding-inline:0}
+@media(max-width:670px){.fitting{grid-template-columns:1fr;margin:1rem 4.5% 2rem;padding:1rem;gap:1.3rem}.composition{height:14rem}.fittingCopy{padding:0 .25rem .5rem}.fittingCopy h2{font-size:3.8rem}}

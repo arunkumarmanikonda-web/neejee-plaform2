@@ -1,42 +1,47 @@
-.neejee-home-print { display:none }
-@page neejee-folio { size:A4 landscape; margin:9mm 12mm }
+.neejee-home-print {display:none}
+@page neejee-folio {size:A4 landscape;margin:8mm 10mm}
 @media print {
-  body:has(.neejee-home-print), .house-front:has(.neejee-home-print) { margin:0!important; padding:0!important; background:#fff!important; height:auto!important; min-height:0!important }
-  body:has(.neejee-home-print) :is(.neejee-masthead,footer), .house-front:has(.neejee-home-print)>:not(.neejee-home-print) { display:none!important }
-  .neejee-home-print { display:block!important; page:neejee-folio; color:#322522; background:white; font:10pt/1.4 Georgia,serif; print-color-adjust:exact; -webkit-print-color-adjust:exact }
-  .neejee-home-print * { box-sizing:border-box }
-  .neejee-home-print img { display:block }
-  .neejee-home-print :is(p,h1,h2,h3) { padding:0; margin:0 }
-  .folio-sheet { page:neejee-folio; display:block; clear:both; break-before:page; overflow:visible }
-  .folio-sheet:first-child { break-before:auto }
-  .folio-mast { padding:0 0 3mm; margin:0 0 4mm; border-bottom:.45mm solid #883b38; text-align:center }
-  .folio-mast img { width:59mm; height:auto; margin:auto }
-  .folio-feature { display:grid; grid-template-columns:57% 43%; break-inside:avoid; background:#f4eee3 }
-  .folio-hero-image { width:100%; height:113mm; object-fit:cover; object-position:50% 47% }
-  .folio-feature-copy { align-self:center; padding:6mm 8mm }
-  .folio-kicker,.folio-subtitle,.folio-price,.folio-hero-price,.folio-reference,.folio-foot { font-family:Arial,sans-serif }
-  .folio-kicker { color:#7e3836; text-transform:uppercase; letter-spacing:.13em; font-size:8pt; font-weight:600 }
-  .neejee-home-print h1 { margin:2.5mm 0 3mm; font:400 30pt/1.02 Georgia,serif; letter-spacing:-.035em; color:#4d2423 }
-  .folio-story { font:400 13pt/1.35 Georgia,serif }
-  .neejee-home-print .folio-reference { margin:3mm 0 0; color:#57423e; font-size:9pt; line-height:1.45 }
-  .neejee-home-print .folio-hero-price { display:flex; align-items:baseline; gap:3mm; margin-top:5mm; font-size:14pt; font-weight:600 }
-  .folio-hero-price small { font:400 8.5pt Arial,sans-serif; color:#584d43 }
-  .folio-foot { margin-top:4mm; display:flex; gap:6mm; align-items:baseline; font-size:9pt; color:#453a34 }
-  .folio-foot p { flex:1; line-height:1.4 }
-  .folio-foot strong { display:block; font:400 13pt Georgia,serif; color:#6a2f2b; margin-bottom:1mm }
-  .folio-heading { color:#5c2a28; font:400 25pt/1.1 Georgia,serif; letter-spacing:-.025em; break-after:avoid }
-  .neejee-home-print .folio-subtitle { font-size:8pt; color:#594a3e; margin-top:1mm }
-  .folio-shelf { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:4mm; margin-top:4mm }
-  .folio-card { min-width:0; break-inside:avoid }
-  .folio-product-image { width:100%; height:97mm; object-fit:cover; object-position:center top }
-  .folio-ticket { padding-top:3mm }
-  .folio-card h3 { color:#422928; font:400 15pt/1.15 Georgia,serif; margin:1mm 0 }
-  .folio-card h3 a { color:inherit; text-decoration:none }
-  .folio-copy { font:10pt/1.35 Georgia,serif; color:#443b34 }
-  .neejee-home-print .folio-price { margin:2mm 0 0; font-size:10pt; font-weight:600 }
-  .folio-solo { display:block }
-  .folio-solo .folio-card { display:grid; grid-template-columns:51% 49%; align-items:center; background:#f4eee3 }
-  .folio-solo .folio-product-image { height:104mm; object-fit:contain; background:#eee9e1 }
-  .folio-solo .folio-ticket { padding:6mm 8mm }
-  .folio-solo h3 { font-size:25pt }
+  html:has(.neejee-home-print),body:has(.neejee-home-print),.house-front:has(.neejee-home-print) {page:neejee-folio!important;margin:0!important;padding:0!important;background:white!important;height:auto!important;min-height:0!important}
+  body:has(.neejee-home-print)>:not(:has(.neejee-home-print)):not(.neejee-home-print),.house-front:has(.neejee-home-print)>:not(.neejee-home-print),body:has(.neejee-home-print) :is(footer,.neejee-masthead) {display:none!important}
+  .neejee-home-print {display:block!important;page:neejee-folio;background:#fcf7ec;color:#312521;font:10pt/1.36 Georgia,serif;print-color-adjust:exact;-webkit-print-color-adjust:exact}
+  .neejee-home-print * {box-sizing:border-box}
+  .neejee-home-print img {display:block}
+  .neejee-home-print :is(p,h1,h2,h3,figure) {padding:0;margin:0}
+  .folio-sheet {page:neejee-folio;display:block;break-before:page;padding:0 4mm 4mm;background:#fcf7ec;break-inside:auto}
+  .folio-sheet:first-child {break-before:auto}
+  .folio-mast {display:flex;align-items:center;justify-content:center;gap:6mm;padding:3mm 0;margin:0 0 3mm}
+  .folio-mast:before,.folio-mast:after {content:'';flex:1;height:4mm;background:#792837 url('/brand/house/anar-chintz.webp') 85% 40% / 75mm auto}
+  .folio-mast img {width:48mm;height:auto}
+  .folio-feature {display:grid;grid-template-columns:43% 57%;align-items:center;break-inside:avoid;background-color:#792532;background-image:linear-gradient(90deg,#77212cfa 15%,#77212cef 34%,#77212c10 65%),url('/brand/house/anar-chintz.webp');background-position:center,right center;background-size:cover,auto 122%;background-repeat:no-repeat;color:#fff4e2;padding:6mm 11mm 6mm 8mm}
+  .folio-photo {grid-column:2;grid-row:1;position:relative;margin:0 4mm 0 2mm}
+  .folio-hero-image {width:100%;height:107mm;object-fit:cover;object-position:center;border:1mm solid #f2d3a8;border-radius:48% 48% 0 0 / 22% 22% 0 0}
+  .folio-photo figure {position:absolute;right:-8mm;bottom:7mm;width:33mm;padding:1.4mm;background:#fff2dc;color:#572630;transform:rotate(5deg);box-shadow:0 1mm 2mm #491e2570}
+  .folio-photo figure img {width:100%;height:22mm;object-fit:cover}.folio-photo figcaption {font:8pt Arial,sans-serif;text-align:center;padding:1mm}
+  .folio-feature-copy {grid-column:1;grid-row:1;padding:0 4mm 0 0}
+  .folio-feature-copy .folio-kicker {font:400 36pt/1 Georgia,serif;color:#fff1d7;letter-spacing:-.04em;text-transform:none}
+  .folio-kicker,.folio-subtitle,.folio-price,.folio-hero-price,.folio-reference,.folio-foot {font-family:Arial,sans-serif}
+  .folio-kicker {color:#87372f;font-size:8pt;letter-spacing:.1em;font-weight:600}
+  .neejee-home-print h1 {margin:2mm 0 3mm;font:400 23pt/1.08 Georgia,serif;letter-spacing:-.03em;color:#fff2df}
+  .folio-story {font:400 11.5pt/1.35 Georgia,serif}
+  .neejee-home-print .folio-reference {margin:2.5mm 0 0;font-size:8.6pt;color:#f2d8c4}
+  .neejee-home-print .folio-hero-price {display:flex;align-items:baseline;gap:2mm;margin-top:3mm;font-size:13pt;font-weight:600}
+  .folio-hero-price small {font:8pt Arial,sans-serif}
+  .folio-foot {display:flex;gap:7mm;padding:4mm 1mm 0;font-size:9.5pt;color:#493b34}
+  .folio-foot p {flex:1}.folio-foot strong {display:block;font:400 15pt Georgia,serif;color:#742a32;margin-bottom:1mm}
+  .folio-heading {font:400 26pt/1.12 Georgia,serif;color:#722936;letter-spacing:-.035em;break-after:avoid}
+  .neejee-home-print .folio-subtitle {font-size:8.5pt;color:#594a40;margin-top:1mm}
+  .folio-shelf {display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:4mm;margin-top:4mm}
+  .folio-card {min-width:0;break-inside:avoid;position:relative}
+  .folio-product-image {width:100%;height:85mm;object-fit:cover;object-position:center 30%;border-radius:46% 46% 0 0 / 11% 11% 0 0}
+  .folio-ticket {padding:3mm 0 0}
+  .folio-card h3 {font:400 14pt/1.12 Georgia,serif;letter-spacing:-.015em;color:#502731;margin:1mm 0}
+  .folio-card h3 a {color:inherit;text-decoration:none}
+  .folio-copy {font:10pt/1.3 Georgia,serif;color:#423b34}.neejee-home-print .folio-price {margin-top:1.5mm;font-size:10pt;font-weight:600}
+  .folio-swatch {position:absolute;top:68mm;right:1mm;width:15mm;height:15mm;object-fit:cover;border:1mm solid #f9ebd7;transform:rotate(5deg)}
+  .folio-solo {display:block}
+  .folio-solo .folio-card {display:grid;grid-template-columns:52% 48%;align-items:center;background:#eee3d1}
+  .folio-solo .folio-product-image {height:106mm;object-fit:contain;background:#e9dbc7;border-radius:0}
+  .folio-solo .folio-ticket {position:relative;padding:6mm 8mm}
+  .folio-solo .folio-swatch {position:static;width:26mm;height:22mm;margin-top:3mm}
+  .folio-solo h3 {font-size:23pt}
 }

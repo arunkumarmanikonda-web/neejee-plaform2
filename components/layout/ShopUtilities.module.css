@@ -39,8 +39,8 @@
 .ribbon {position:relative; background:var(--wine); color:#fff9ee; isolation:isolate}
 .ribbon::before, .ribbon::after {
   content:''; pointer-events:none; position:absolute; top:0; bottom:0; z-index:-1; width:min(20vw, 320px);
-  background: linear-gradient(to right, transparent, var(--wine)), url('/brand/house/madder-bel.webp') center 44% / 210px auto;
-  opacity: .29;
+  background: linear-gradient(to right, transparent, var(--wine)), url('/brand/house/anar-chintz.webp') 82% 40% / 250px auto;
+  opacity: .52;
 }
 .ribbon::before {left:0}
 .ribbon::after {right:0; transform:scaleX(-1)}

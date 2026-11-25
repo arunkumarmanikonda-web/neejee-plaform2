@@ -5,3 +5,6 @@
 .cover[data-department=suits]{background:#4e2732}.cover[data-department=suits]>img{width:68%;left:auto;object-position:50% 48%}.cover[data-department=suits]:before{background:linear-gradient(90deg,#472331 23%,#472331cc 38%,transparent 68%)}
 .cover[data-department=home]:before,.cover[data-department=furniture]:before{background:linear-gradient(90deg,#28201be6,#241d1688 38%,transparent 72%)}
 @media(max-width:650px){.cover{min-height:11.5rem}.copy{margin:1.3rem 5%}.copy h1{font-size:clamp(3rem,13vw,4.4rem)}.copy p{font-size:.89rem}.cover>img{object-position:56% center}.copy span{font-size:.93rem}}
+
+.cover:after{content:'';position:absolute;top:0;bottom:0;right:0;width:clamp(16px,3vw,57px);border-left:2px solid #dec4a2;background:#7a2934 url('/brand/house/anar-chintz.webp') 85% 30% / auto 135%;pointer-events:none}
+.copy{max-width:72%}

@@ -1,9 +1,10 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
+import { useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Camera, ShoppingBag } from 'lucide-react';
+import { ShoppingBag } from 'lucide-react';
+import { ClothViewer } from './ClothViewer';
 import { usePhotoRail } from '@/components/gallery/usePhotoRail';
 import { studies } from '@/lib/shop-studies';
 import { changeSample, sampleShopping } from '@/lib/sample-bag';
@@ -58,21 +59,25 @@ function featuredStock(piece: NonNullable<Lead>): Feature {
   };
 }
 
-function FeatureGallery({ piece, visible, priority }: { piece: Feature; visible: boolean; priority: boolean }) {
+function FeatureGallery({ piece, onInspect }: { piece: Feature; onInspect: () => void }) {
   const rail = usePhotoRail(piece.photos.length);
-  const { go } = rail;
-  useEffect(() => { if (!visible) go(0); }, [visible, go]);
-  return <div className={styles.album} data-visible={visible} aria-hidden={!visible}
-    ref={element=>{element?.toggleAttribute('inert',!visible);}} role="group" aria-label={'Photographs of '+piece.name} onKeyDown={rail.onKeyDown}>
-    <div className={'photo-rail '+styles.track} {...rail.props}>
-      {piece.photos.map((photo, i)=><div data-slide="" key={photo.src} aria-hidden={rail.active!==i}>
-        <img src={photo.src} alt={photo.alt} draggable={false} width={1500} height={1000}
-          className={styles.photo} fetchPriority={priority && i===0 ? 'high' : 'auto'} decoding="async"/>
-      </div>)}
+  const detail = piece.photos[1] || piece.photos[0];
+  const inspectLabel = piece.productUrl ? 'Look closer' : piece.id==='neel' ? 'Unfold the pallu' : 'See the border';
+  return <div className={styles.gallery}>
+    <div className={styles.frame}>
+      <div className={'photo-rail '+styles.track} {...rail.props} onKeyDown={rail.onKeyDown} role="group" aria-label={'Photographs of '+piece.name}>
+        {piece.photos.map((photo, i)=><div data-slide="" key={photo.src} aria-hidden={rail.active!==i}>
+          <img src={photo.src} alt={photo.alt} draggable={false} width={1500} height={1000}
+            className={styles.photo} fetchPriority={i===0 ? 'high' : 'auto'} decoding="async"/>
+        </div>)}
+      </div>
     </div>
+    <button type="button" className={styles.swatch} onClick={onInspect} aria-haspopup="dialog">
+      <img src={detail.src} alt="" width={132} height={104}/>
+      <span>{inspectLabel}</span>
+    </button>
     {piece.photos.length>1 && <div className={styles.views} role="group" aria-label="Choose a photograph">
-      <Camera size={16} strokeWidth={1.5} aria-hidden="true"/>
-      {piece.photos.map((photo, i)=><button type="button" key={photo.src} aria-pressed={rail.active===i} onClick={()=>rail.go(i)}>{photo.label}</button>)}
+      {piece.photos.map((photo,i)=><button type="button" key={photo.src} aria-pressed={rail.active===i} onClick={()=>rail.go(i)}>{photo.label}</button>)}
     </div>}
   </div>;
 }
@@ -80,6 +85,8 @@ function FeatureGallery({ piece, visible, priority }: { piece: Feature; visible:
 export function HouseCampaign({ lead, preview, email }: { lead: Lead; preview: boolean; email: string }) {
   const [selected,setSelected] = useState(0);
   const router = useRouter();
+  const [inspecting, setInspecting] = useState(false);
+  const inspectTrigger = useRef<HTMLElement | null>(null);
   const stock = lead?.cover ? featuredStock(lead) : null;
   const piece = stock || editorial[selected];
   const alternate = editorial[1-selected];
@@ -92,12 +99,9 @@ export function HouseCampaign({ lead, preview, email }: { lead: Lead; preview: b
 
   return <section className={styles.campaign} data-colour={stock ? 'stock' : piece.id} aria-label="Featured saree">
     <div className={styles.spread}>
-      <div className={styles.gallery}>
-        {(stock ? [stock] : editorial).map((feature, index)=><FeatureGallery key={feature.id} piece={feature} visible={feature.id===piece.id} priority={index===0}/>)}
-      </div>
       <div className={styles.paper}>
         <div className={styles.copy}>
-          {piece.alias && <p className={styles.kicker}>{piece.hindi && <><span lang="hi">{piece.hindi}</span><span aria-hidden="true">·</span></>}<span>{piece.alias}</span></p>}
+          {piece.alias && <p className={styles.alias}><span>{piece.alias}</span>{piece.hindi && <span lang="hi">{piece.hindi}</span>}</p>}
           <h1 aria-live="polite" aria-atomic="true" className={styles.title} data-catalogue={!!stock}>{piece.name}</h1>
           {piece.description && <p className={styles.line}>{piece.description}</p>}
           {(stock || canSample) && <p className={styles.price}>{formatINR(piece.price)}{canSample && <small>Preview price</small>}</p>}
@@ -113,6 +117,12 @@ export function HouseCampaign({ lead, preview, email }: { lead: Lead; preview: b
           <span><strong>View {alternate.alias}</strong><small>{alternate.name}</small></span>
         </button>}
       </div>
+      <FeatureGallery key={piece.id} piece={piece} onInspect={()=>{
+        inspectTrigger.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+        setInspecting(true);
+      }}/>
     </div>
+    {inspecting && <ClothViewer name={piece.name} photo={piece.photos[1] || piece.photos[0]} label={piece.photos[1]?.label || 'Main view'} styling={piece.styling}
+      onClose={()=>{setInspecting(false);inspectTrigger.current?.focus();}}/>}
   </section>;
 }

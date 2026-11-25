@@ -13,6 +13,7 @@ type PrintPiece = {
   name: string;
   caption: string;
   image?: string;
+  detailImage?: string;
   alias?: string;
   price?: string;
   href?: string;
@@ -22,13 +23,13 @@ function cataloguePiece(piece: ProductCardData): PrintPiece {
   const facts = [piece.colours?.join(' / '), piece.craft || piece.technique, piece.material, piece.region || piece.state];
   return {
     name:piece.name, alias:piece.shortName || undefined, caption:piece.poeticLine || [...new Set(facts.filter(Boolean))].join(' · '),
-    price: formatINR(buildPricing(piece).effectivePrice), image: piece.images[0],
+    price: formatINR(buildPricing(piece).effectivePrice), image: piece.images[0], detailImage:piece.images.find(src=>src && src!==piece.images[0]),
     href: '/products/' + encodeURIComponent(piece.slug),
   };
 }
 
 function collectionPiece(piece: Study, preview: boolean): PrintPiece {
-  return { name:piece.name, alias:piece.alias, caption:piece.caption, image:piece.image, price:preview ? formatINR(piece.price) : undefined };
+  return { name:piece.name, alias:piece.alias, caption:piece.caption, image:piece.image, detailImage:'/brand/study-views/'+piece.id+'.webp', price:preview ? formatINR(piece.price) : undefined };
 }
 
 function Sheet({ children, label }: { children:ReactNode; label:string }) {
@@ -53,6 +54,7 @@ function Shelf({ title, pieces, note }: { title:string; pieces:PrintPiece[]; not
           {p.alias && <p className="folio-kicker">{p.alias}</p>}
           <h3>{p.href ? <a href={p.href}>{p.name}</a> : p.name}</h3>
           {p.caption && <p className="folio-copy">{p.caption}</p>}
+          {p.detailImage && <img className="folio-swatch" src={p.detailImage} alt={'Another view of '+p.name}/>}
           {p.price && <p className="folio-price">{p.price}</p>}
         </div>
       </article>)}
@@ -73,18 +75,20 @@ export function HomePrint({lead,fashion,curated,arrivals,founderNote,preview}:Pr
   const neel = studies.find(piece=>piece.id === 'neel')!;
   const stock = lead?.cover ? lead : null;
   const hero = stock ? {
-    title:stock.name, alias:stock.shortName || '', image:stock.cover!, price:formatINR(stock.price), detail:'',
+    title:stock.name, alias:stock.shortName || '', image:stock.cover!, price:formatINR(stock.price), detail:'', detailImage:stock.images.find(src=>src && src!==stock.cover),
     description:stock.description?.trim() || stock.poeticLine?.trim() || [...new Set([stock.colour,stock.craft,stock.material,stock.region].filter(Boolean))].join(' · '),
   } : {
     title:neel.name, alias:neel.alias, image:'/brand/campaign/neel-courtyard.webp',
-    price:preview ? formatINR(neel.price) : '', description:neel.detail, detail:studyTextiles.neel.reference,
+    price:preview ? formatINR(neel.price) : '', description:neel.detail, detail:studyTextiles.neel.reference, detailImage:'/brand/campaign/indigo-detail.webp',
   };
   const items = fashion ? fashion.map(cataloguePiece) : homeStudyIds.map(id=>collectionPiece(studies.find(p=>p.id===id)!,preview));
   const founder = founderNote?.trim().split(/\n\s*\n/)[0];
   return <div className="neejee-home-print">
     <Sheet label="Featured saree">
       <div className="folio-feature">
-        <img className="folio-hero-image" src={hero.image} alt={hero.title}/>
+        <div className="folio-photo"><img className="folio-hero-image" src={hero.image} alt={hero.title}/>
+          {hero.detailImage && <figure><img src={hero.detailImage} alt={'Detail of '+hero.title}/><figcaption>{stock ? 'Another view' : 'Pallu detail'}</figcaption></figure>}
+        </div>
         <div className="folio-feature-copy">
           {hero.alias && <p className="folio-kicker">{hero.alias}</p>}
           <h1>{hero.title}</h1>

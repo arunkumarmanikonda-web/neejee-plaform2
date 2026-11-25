@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { prisma } from '@/lib/prisma';
 import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
-import { ProductCard, type ProductCardData } from '@/components/product/ProductCard';
+import { CatalogueGrid, ProductCard, type ProductCardData } from '@/components/product/ProductCard';
 import { editLead } from '@/lib/shop-edit-catalog';
 import { shopEdits } from '@/lib/shop-edits';
 import { HomePrint, homeStudyIds } from '@/components/home/HomePrint';
@@ -216,7 +216,7 @@ export default async function HomePage() {
       <main className="house-front">
         <HouseCampaign lead={data.saree} preview={previewPricingEnabled()} email={email}/>
         {(!fashion?.pieces.length || moreFashion.length>0) && <div className="nj-market house-shelf" style={{paddingBottom:'1rem'}}>
-          {fashion?.pieces.length ? <section className="nj-shelf"><div className="nj-shelf-head"><h2>Sarees <em>&amp; suit sets</em></h2><Link className="nj-text-link" href="/edits/clothing">Shop the collection</Link></div><div className="nj-grid">{moreFashion.map(p=><ProductCard key={p.id} product={{...p,images:p.cover?[p.cover,...p.images.filter(i=>i!==p.cover)]:p.images}}/>)}</div></section> :
+          {fashion?.pieces.length ? <section className="nj-shelf"><div className="nj-shelf-head"><h2>Sarees <em>&amp; suit sets</em></h2><Link className="nj-text-link" href="/edits/clothing">Shop the collection</Link></div><CatalogueGrid textiles products={moreFashion.map(p=>({...p,images:p.cover?[p.cover,...p.images.filter(i=>i!==p.cover)]:p.images}))}/></section> :
             <StudyShelf home ids={homeStudyIds} preview={previewPricingEnabled()} email={email}/>}
         </div>}
         {(data.heroBanners.length>0) && <HeroCarousel banners={data.heroBanners} spotlight={data.spotlight}/>}
