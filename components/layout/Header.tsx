@@ -3,11 +3,10 @@ import MegaMenuNav, { stockedDepartments } from './MegaMenuNav';
 import { houseNavigation, editHref } from '@/lib/shop-edits';
 import { Pitari } from '@/components/home/Pitari';
 import Link from 'next/link';
-import Image from 'next/image';
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
 import styles from './ShopUtilities.module.css';
 import { useEffect, useRef, useState } from 'react';
-import { ChevronDown, Search, ShoppingBag, Menu, X } from 'lucide-react';
+import { Search, ShoppingBag, Menu, UserRound, X } from 'lucide-react';
 import { useClientReady } from '@/lib/use-client-ready';
 import { useSampleBag } from '@/lib/sample-bag';
 import { useCart } from '@/lib/cart-store';
@@ -104,64 +103,50 @@ export function Header({ shop = false }: { shop?: boolean } = {}) {
   return (
     <>
       {!shop && <AnnouncementBar />}
-      <header ref={header} className={styles.masthead + " sticky top-0 z-40 bg-ivory border-b border-beige neejee-masthead" + (shop ? " nj-shop-header" : "")}>
-        <div className={styles.inner + " house-masthead-inner"}>
-          <button ref={menuTrigger} type="button" onClick={() => setOpen(!open)} className={styles.menu}
-            aria-label={open ? "Close shop menu" : "Open shop menu"} aria-controls="neejee-shop-menu" aria-expanded={open}>
-            {open ? <X size={20} aria-hidden="true"/> : <Menu size={20} aria-hidden="true"/>}
-            <span>Shop</span>
-          </button>
+      <header ref={header} className={styles.masthead + " sticky top-0 z-40"} data-shop={shop}>
+        <div className={styles.brandRow}>
+          <div className={styles.find}>
+            <button ref={menuTrigger} type="button" className={styles.menu} onClick={() => setOpen(!open)}
+              aria-label={open ? "Close shop menu" : "Open shop menu"} aria-controls="neejee-shop-menu" aria-expanded={open}>
+              {open ? <X size={20} aria-hidden="true"/> : <Menu size={20} aria-hidden="true"/>}
+            </button>
+            <button ref={searchTrigger} type="button" className={styles.search} onClick={openSearch}
+              aria-label="Search the shop" aria-haspopup="dialog">
+              <Search size={18} aria-hidden="true"/><span>Search the shop</span>
+            </button>
+          </div>
 
-          <Link href="/" aria-label="NEEJEE Home, Found. Personal." className="house-signature">
+          <Link href="/" aria-label="NEEJEE Home, Found. Personal." className={styles.signature}>
             <NeejeeLogo size="xl" showTagline />
           </Link>
 
-          <MegaMenuNav />
-
-          <div className={styles.utilities}>
-            <Link className={styles.aaina} href="/ai/mirror" aria-label="Try on a saree with Aaina">
-              <span className={styles.handMirror} aria-hidden="true">
-                <span className={styles.glass}>
-                  <Image src="/brand/bazaar/neel.webp" width={72} height={108} sizes="54px" alt=""/>
-                </span>
-              </span>
-              <span className={styles.aainaCopy}><strong>Aaina</strong><span>Try on a saree</span></span>
+          <div className={styles.personal}>
+            <DropdownMenu.Root modal={false}>
+              <DropdownMenu.Trigger className={styles.account} aria-label="Account options">
+                <UserRound size={17} aria-hidden="true"/><span>Account</span>
+              </DropdownMenu.Trigger>
+              <DropdownMenu.Portal>
+                <DropdownMenu.Content className={styles.accountPanel} align="end" sideOffset={5} collisionPadding={12}>
+                  {me && <DropdownMenu.Label className={styles.signedIn}>Signed in as {me.email}</DropdownMenu.Label>}
+                  {accountLinks.map(([label, href]) => <DropdownMenu.Item asChild key={href}>
+                    <Link className={styles.accountItem} href={href}>{label}</Link>
+                  </DropdownMenu.Item>)}
+                  {!isAdmin && <DropdownMenu.Item asChild><Link className={styles.accountItem} href={savedHref}>Saved pieces</Link></DropdownMenu.Item>}
+                  {me && <DropdownMenu.Item className={styles.accountItem} onSelect={() => void logout()}>Sign out</DropdownMenu.Item>}
+                </DropdownMenu.Content>
+              </DropdownMenu.Portal>
+            </DropdownMenu.Root>
+            <Link href="/cart" className={styles.bag} aria-label={'Shopping bag' + (ready && count ? ', ' + count + (count===1 ? ' item' : ' items') : '')}>
+              <ShoppingBag size={18} aria-hidden="true"/><span>Bag</span>
+              {ready && count>0 && <b className={styles.count} aria-hidden="true">{count>99 ? '99+' : count}</b>}
             </Link>
-
-            <div className={styles.shopping}>
-              <button ref={searchTrigger} type="button" className={styles.search} onClick={openSearch}
-                aria-label="Search the shop" aria-haspopup="dialog">
-                <Search size={18} aria-hidden="true"/><span>Search</span>
-              </button>
-              <Link href="/cart" className={styles.bag} aria-label={'Shopping bag' + (ready && count ? ', ' + count + (count===1 ? ' item' : ' items') : '')}>
-                <ShoppingBag size={18} aria-hidden="true"/><span>Bag</span>
-                {ready && count>0 && <b className={styles.count} aria-hidden="true">{count>99 ? '99+' : count}</b>}
-              </Link>
-            </div>
-
-            <div className={styles.personal}>
-              <Pitari/>
-              {!isAdmin && <Link href={savedHref}>Saved</Link>}
-              <DropdownMenu.Root modal={false}>
-                <DropdownMenu.Trigger className={styles.account} aria-label="Account options">
-                  Account <ChevronDown size={12} aria-hidden="true"/>
-                </DropdownMenu.Trigger>
-                <DropdownMenu.Portal>
-                  <DropdownMenu.Content className={styles.accountPanel} align="end" sideOffset={5} collisionPadding={12}>
-                    {me && <DropdownMenu.Label className={styles.signedIn}>Signed in as {me.email}</DropdownMenu.Label>}
-                    {accountLinks.map(([label, href]) => <DropdownMenu.Item asChild key={href}>
-                      <Link className={styles.accountItem} href={href}>{label}</Link>
-                    </DropdownMenu.Item>)}
-                    {me && <DropdownMenu.Item className={styles.accountItem} onSelect={() => void logout()}>Sign out</DropdownMenu.Item>}
-                  </DropdownMenu.Content>
-                </DropdownMenu.Portal>
-              </DropdownMenu.Root>
-            </div>
           </div>
         </div>
+        <MegaMenuNav onNavigate={()=>setOpen(false)}/>
+        <Pitari showLauncher={false}/>
 
         {open && (
-          <div id="neejee-shop-menu" className={styles.drawer + " lg:hidden border-t border-beige bg-ivory max-h-[80vh] overflow-y-auto"}>
+          <div id="neejee-shop-menu" className={styles.drawer + " border-t border-beige bg-ivory overflow-y-auto"}>
             <nav aria-label="Shop menu" className="flex flex-col py-2 font-ui text-sm tracking-wide">
               <div className={styles.drawerTools}>
                 <button type="button" aria-haspopup="dialog" onClick={()=>{
@@ -204,7 +189,7 @@ export function Header({ shop = false }: { shop?: boolean } = {}) {
               <Link href="/looks" onClick={()=>setOpen(false)} className="px-6 py-3">Saree styling ideas</Link>
               <Link href="/counter" onClick={()=>setOpen(false)} className="px-6 py-3">Compare sarees</Link>
               <Link href="/about" onClick={()=>setOpen(false)} className="px-6 py-3">Nidhi’s story</Link>
-              <Link href="/journal" onClick={() => setOpen(false)} className="px-6 py-3 border-b border-beige/60 hover:bg-beige hover:text-madder transition-colors">STORIES</Link>
+              <Link href="/journal" onClick={() => setOpen(false)} className="px-6 py-3 border-b border-beige/60 hover:bg-beige hover:text-madder transition-colors">The journal</Link>
               <Link href="/ai/imagine" onClick={()=>setOpen(false)} className="px-6 py-3">See décor in my room</Link>
               <Link href="/ai/mirror" onClick={()=>setOpen(false)} className="px-6 py-3">Try on with Aaina</Link>
               <Link href="/ai/gift" onClick={()=>setOpen(false)} className="px-6 py-3">Find a gift</Link>
@@ -217,7 +202,7 @@ export function Header({ shop = false }: { shop?: boolean } = {}) {
                   </>
                 ) : (
                   <>
-                    <Link href="/signup" className="px-6 py-3 block hover:bg-beige" onClick={() => setOpen(false)}>CREATE ACCOUNT</Link>
+                    <Link href="/signup" className="px-6 py-3 block hover:bg-beige" onClick={() => setOpen(false)}>Create an account</Link>
                   </>
                 )}
               </div>

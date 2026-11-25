@@ -61,7 +61,7 @@ export function HeroCarousel({ banners, spotlight }: { banners: HeroBanner[]; sp
         <div data-slide="" className={styles.feature} aria-hidden={active!==0}
           ref={el=>{el?.toggleAttribute('inert',active!==0);}}>
           <div className={styles.copy}>
-            <p className={styles.kicker}>{piece.curated ? 'From the founder’s edit' : 'New in the shop'}</p>
+            <p className={styles.kicker}>{piece.curated ? 'Chosen by Nidhi' : 'New in the shop'}</p>
             <h2 className={styles.title}>{piece.title}</h2>
             {piece.subtitle && <p className={styles.line}>{piece.subtitle}</p>}
             <dl className={styles.facts}>{[['Origin',piece.origin],['Material',piece.material]].map(([label,value])=>value && <div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}</dl>

@@ -82,11 +82,11 @@ export function HomePrint({lead,fashion,curated,arrivals,founderNote,preview}:Pr
   const items = fashion ? fashion.map(cataloguePiece) : homeStudyIds.map(id=>collectionPiece(studies.find(p=>p.id===id)!,preview));
   const founder = founderNote?.trim().split(/\n\s*\n/)[0];
   return <div className="neejee-home-print">
-    <Sheet label="The saree edit">
+    <Sheet label="Featured saree">
       <div className="folio-feature">
         <img className="folio-hero-image" src={hero.image} alt={hero.title}/>
         <div className="folio-feature-copy">
-          <p className="folio-kicker">{hero.alias ? 'The saree edit · '+hero.alias : 'The saree edit'}</p>
+          {hero.alias && <p className="folio-kicker">{hero.alias}</p>}
           <h1>{hero.title}</h1>
           {hero.description && <p className="folio-story">{hero.description}</p>}
           {hero.detail && <p className="folio-reference">{hero.detail}</p>}
@@ -98,8 +98,8 @@ export function HomePrint({lead,fashion,curated,arrivals,founderNote,preview}:Pr
       </div>
     </Sheet>
     <Shelf title="Sarees &amp; suit sets" pieces={items} note={fashion ? undefined : preview ? 'Collection preview · Sample prices' : 'Collection preview · Enquiries welcome'}/>
-    {curated.length>0 && <Shelf title="From the founder’s edit" pieces={curated.slice(0,4).map(cataloguePiece)}/>}
-    {curated.length>4 && <Shelf title="From the founder’s edit" pieces={curated.slice(4).map(cataloguePiece)}/>}
+    {curated.length>0 && <Shelf title="Nidhi’s picks" pieces={curated.slice(0,4).map(cataloguePiece)}/>}
+    {curated.length>4 && <Shelf title="Nidhi’s picks" pieces={curated.slice(4).map(cataloguePiece)}/>}
     {arrivals.length>0 && <Shelf title="Just arrived" pieces={arrivals.map(cataloguePiece)}/>}
   </div>;
 }

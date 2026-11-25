@@ -64,7 +64,7 @@ export function Footer() {
 
           <div className="mt-8">
             <p className="label text-madder mb-3">LETTERS FROM NEEJEE</p>
-            <p className="font-italic italic text-beige/70 text-sm mb-3">Founder&apos;s edits, craft stories, early access.</p>
+            <p className="font-italic italic text-beige/70 text-sm mb-3">Nidhi’s picks, craft stories and early access.</p>
             <NewsletterForm darkMode source="footer" />
           </div>
         </div>

@@ -1,19 +1,78 @@
 'use client';
+
 import Link from 'next/link';
-import { useEffect,useState } from 'react';
-import { getCategoryTree,type CategoryTreeNode } from '@/lib/client/category-tree';
-import { houseNavigation,editHref } from '@/lib/shop-edits';
+import { usePathname } from 'next/navigation';
+import { ChevronDown } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { getCategoryTree, type CategoryTreeNode } from '@/lib/client/category-tree';
+import { houseNavigation, editHref } from '@/lib/shop-edits';
+import styles from './ShopUtilities.module.css';
 
-export function stockedDepartments(tree:CategoryTreeNode[]) {
-  return tree.filter(node=>!['women','home'].includes(node.slug) && node.active!==false && !node.hidden && Number(node.descendantSellableCount||node.directSellableCount||0)>0);
+export function stockedDepartments(tree: CategoryTreeNode[]) {
+  return tree.filter(node => !['women', 'home'].includes(node.slug) && node.active !== false && !node.hidden
+    && Number(node.descendantSellableCount || node.directSellableCount || 0) > 0);
 }
-export default function MegaMenuNav() {
-  const [more,setMore]=useState<CategoryTreeNode[]>([]);
-  useEffect(()=>{let active=true;getCategoryTree().then(tree=>{if(active)setMore(stockedDepartments(tree));}).catch(()=>{});return ()=>{active=false;};},[]);
-  return <nav aria-label="Shop navigation" className="house-shop-nav hidden lg:flex items-center font-ui">
-    {houseNavigation.map(e=><Link key={e.slug} className="font-medium" href={editHref(e.slug)}>{e.name}</Link>)}
 
-    <details className="relative"><summary className="cursor-pointer">Discover</summary><div className="absolute top-full right-0 z-50 mt-2 w-48 border border-mitti/20 bg-ivory shadow-md p-4 grid gap-3">
-      <Link href="/looks">Saree styling ideas</Link><Link href="/ai/imagine">See décor in my room</Link><Link href="/counter">Compare sarees</Link><Link href="/edits/furniture">Furniture</Link><Link href="/products">Shop all pieces</Link><Link href="/about">Nidhi’s story</Link><Link href="/journal">The Journal</Link>{more.map(node=><Link key={node.id} href={'/categories/'+node.slug}>{node.name}</Link>)}</div></details>
+const discoverLinks = [
+  ['Shop all pieces', '/products'], ['Saree styling ideas', '/looks'], ['Compare sarees', '/counter'],
+  ['See décor in my room', '/ai/imagine'], ['Furniture', '/edits/furniture'], ['Nidhi’s story', '/about'], ['The journal', '/journal'],
+];
+
+export default function MegaMenuNav({ onNavigate }: { onNavigate?: () => void } = {}) {
+  const pathname = usePathname();
+  const [more, setMore] = useState<CategoryTreeNode[]>([]);
+  const menu = useRef<HTMLDetailsElement>(null);
+  const summary = useRef<HTMLElement>(null);
+
+  useEffect(() => {
+    let active = true;
+    getCategoryTree().then(tree => { if (active) setMore(stockedDepartments(tree)); }).catch(() => {});
+    return () => { active = false; };
+  }, []);
+
+  useEffect(() => {
+    if (menu.current) menu.current.open = false;
+    const dismiss = (event: PointerEvent) => {
+      if (menu.current?.open && event.target instanceof Node && !menu.current.contains(event.target)) menu.current.open = false;
+    };
+    document.addEventListener('pointerdown', dismiss);
+    return () => document.removeEventListener('pointerdown', dismiss);
+  }, [pathname]);
+
+  function closeMenu() {
+    if (menu.current) menu.current.open = false;
+    onNavigate?.();
+  }
+
+  return <nav className={styles.ribbon} aria-label="Shop navigation">
+    <div className={styles.navigation}>
+      {houseNavigation.map(item => {
+        const href = editHref(item.slug);
+        return <Link key={href} className={styles.department} href={href} onClick={closeMenu}
+          aria-current={pathname === href ? 'page' : undefined}>{item.name}</Link>;
+      })}
+      <details className={styles.discover} ref={menu} onKeyDown={event => {
+        if (event.key === 'Escape' && menu.current?.open) {
+          event.preventDefault();
+          closeMenu();
+          summary.current?.focus();
+        }
+      }} onBlur={event=>{
+        if (event.relatedTarget instanceof Node && !event.currentTarget.contains(event.relatedTarget) && menu.current) menu.current.open=false;
+      }}>
+        <summary ref={summary}>Discover <ChevronDown size={14} aria-hidden="true"/></summary>
+        <div className={styles.discoverPanel}>
+          {discoverLinks.map(([label, href]) => <Link href={href} key={href} onClick={closeMenu}>{label}</Link>)}
+          {more.map(item => <Link href={'/categories/' + encodeURIComponent(item.slug)} key={item.id} onClick={closeMenu}>{item.name}</Link>)}
+          <button type="button" onClick={() => {
+            closeMenu();
+            summary.current?.focus();
+            window.dispatchEvent(new CustomEvent('neejee:ask-pitari'));
+          }}>Ask Sakhi</button>
+        </div>
+      </details>
+      <Link className={styles.fitting} href="/ai/mirror" onClick={closeMenu} aria-label="Try on a saree with Aaina"
+        aria-current={pathname === '/ai/mirror' ? 'page' : undefined}>Aaina <span>try-on</span></Link>
+    </div>
   </nav>;
 }

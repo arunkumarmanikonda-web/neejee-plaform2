@@ -10,7 +10,7 @@ import styles from './Pitari.module.css';
 type Turn = { question: string; answer: PitariReply };
 const eventName = 'neejee:ask-pitari';
 
-export function Pitari() {
+export function Pitari({ showLauncher = true }: { showLauncher?: boolean } = {}) {
   const pathname = usePathname();
   const activeProduct = pathname?.match(/^\/products\/([^/]+)\/?$/)?.[1];
   const dialog = useRef<HTMLDialogElement>(null);
@@ -51,9 +51,9 @@ export function Pitari() {
   },[ask,activeProduct]);
   useEffect(()=>{if(dialog.current?.open) end.current?.scrollIntoView({block:'nearest'});},[turns,pending]);
   return <>
-    <button type="button" className={styles.launch} title="Ask Sakhi" aria-label="Ask Sakhi, shopping help" aria-haspopup="dialog" onClick={()=>{if(activeProduct)piece.current=activeProduct; dialog.current?.showModal();}}>
+    {showLauncher && <button type="button" className={styles.launch} title="Ask Sakhi" aria-label="Ask Sakhi, shopping help" aria-haspopup="dialog" onClick={()=>{if(activeProduct)piece.current=activeProduct; dialog.current?.showModal();}}>
       Ask Sakhi
-    </button>
+    </button>}
     <dialog ref={dialog} className={styles.dialog} aria-labelledby="pitari-heading" onClick={e=>{if(e.target===dialog.current) dialog.current.close();}}>
       <div className={styles.panel}>
         <header>

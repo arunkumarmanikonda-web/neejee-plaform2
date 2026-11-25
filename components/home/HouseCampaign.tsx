@@ -97,7 +97,7 @@ export function HouseCampaign({ lead, preview, email }: { lead: Lead; preview: b
       </div>
       <div className={styles.paper}>
         <div className={styles.copy}>
-          <p className={styles.kicker}>{piece.alias && <>{piece.hindi && <span lang="hi">{piece.hindi}</span>}<span>{piece.alias}</span><i aria-hidden="true">/</i></>}The saree edit</p>
+          {piece.alias && <p className={styles.kicker}>{piece.hindi && <><span lang="hi">{piece.hindi}</span><span aria-hidden="true">·</span></>}<span>{piece.alias}</span></p>}
           <h1 aria-live="polite" aria-atomic="true" className={styles.title} data-catalogue={!!stock}>{piece.name}</h1>
           {piece.description && <p className={styles.line}>{piece.description}</p>}
           {(stock || canSample) && <p className={styles.price}>{formatINR(piece.price)}{canSample && <small>Preview price</small>}</p>}
@@ -108,9 +108,9 @@ export function HouseCampaign({ lead, preview, email }: { lead: Lead; preview: b
             {piece.styling && <Link className={styles.secondary} href={piece.styling}>Try on with Aaina</Link>}
           </div>
         </div>
-        {!stock && <button className={styles.other} type="button" onClick={()=>setSelected(1-selected)} aria-label={'See '+alternate.name}>
+        {!stock && <button className={styles.other} type="button" onClick={()=>setSelected(1-selected)} aria-label={'View '+alternate.alias+', '+alternate.name}>
           <img src={alternate.photos[1].src} alt="" width={70} height={65} draggable={false}/>
-          <span><small>Also in this edit</small><strong>{alternate.alias}<i> · {alternate.shade}</i></strong></span>
+          <span><strong>View {alternate.alias}</strong><small>{alternate.name}</small></span>
         </button>}
       </div>
     </div>

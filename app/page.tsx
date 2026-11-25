@@ -225,7 +225,7 @@ export default async function HomePage() {
           <section className="max-w-8xl mx-auto px-6 lg:px-12 py-20">
             <div className="flex items-baseline justify-between mb-10">
               <div>
-                <h2 className="font-display text-4xl lg:text-5xl text-kohl mt-2">Founder&apos;s Edit</h2>
+                <h2 className="font-display text-4xl lg:text-5xl text-kohl mt-2">Nidhi’s picks</h2>
               </div>
               <Link href="/products" className="font-ui text-xs tracking-widest text-madder">SHOP ALL PIECES</Link>
             </div>
