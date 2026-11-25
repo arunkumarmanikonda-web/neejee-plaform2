@@ -3,13 +3,12 @@ import { prisma } from '@/lib/prisma';
 import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
 import { CatalogueGrid, ProductCard, type ProductCardData } from '@/components/product/ProductCard';
-import { editLead } from '@/lib/shop-edit-catalog';
+import { editLead, homeEditPieces } from '@/lib/shop-edit-catalog';
 import { shopEdits } from '@/lib/shop-edits';
 import { HomePrint, homeStudyIds } from '@/components/home/HomePrint';
 import { HouseCampaign } from '@/components/home/HouseCampaign';
 import { StudyShelf } from '@/components/shop/StudyShelf';
 import { previewPricingEnabled } from '@/lib/shop-studies';
-import { readEdit } from '@/lib/shop-edit-catalog';
 import { getPublicContact } from '@/lib/public-contact';
 import { StudioDoors } from '@/components/home/StudioDoors';
 import { studioHref } from '@/lib/studio';
@@ -207,16 +206,16 @@ async function getHomeData() {
 
 export default async function HomePage() {
   const data = await getHomeData();
-  const fashion = await readEdit(shopEdits[3],1).catch(() => null);
-  const moreFashion = fashion?.pieces.filter(p=>p.slug!==data.saree?.slug).slice(0,4) || [];
+  const fashion = await homeEditPieces(shopEdits[3]).catch(() => []);
+  const moreFashion = fashion.filter(p=>p.slug!==data.saree?.slug).slice(0,4) || [];
   const {email} = await getPublicContact();
   return (
     <>
       <Header shop/>
       <main className="house-front">
         <HouseCampaign lead={data.saree} preview={previewPricingEnabled()} email={email}/>
-        {(!fashion?.pieces.length || moreFashion.length>0) && <div className="nj-market house-shelf" style={{paddingBottom:'1rem'}}>
-          {fashion?.pieces.length ? <section className="nj-shelf"><div className="nj-shelf-head"><h2>Sarees <em>&amp; suit sets</em></h2><Link className="nj-text-link" href="/edits/clothing">Shop the collection</Link></div><CatalogueGrid textiles products={moreFashion.map(p=>({...p,images:p.cover?[p.cover,...p.images.filter(i=>i!==p.cover)]:p.images}))}/></section> :
+        {(!fashion.length || moreFashion.length>0) && <div className="nj-market house-shelf" style={{paddingBottom:'1rem'}}>
+          {fashion.length ? <section className="nj-shelf"><div className="nj-shelf-head"><h2>Sarees <em>&amp; suit sets</em></h2><Link className="nj-text-link" href="/edits/clothing">Shop the collection</Link></div><CatalogueGrid textiles products={moreFashion.map(p=>({...p,images:p.cover?[p.cover,...p.images.filter(i=>i!==p.cover)]:p.images}))}/></section> :
             <StudyShelf home ids={homeStudyIds} preview={previewPricingEnabled()} email={email}/>}
         </div>}
         {(data.heroBanners.length>0) && <HeroCarousel banners={data.heroBanners} spotlight={data.spotlight}/>}
@@ -261,7 +260,7 @@ export default async function HomePage() {
                       {paragraphs.slice(0, 1).map((p, i) => <p key={i}>{p}</p>)}
                       {paragraphs.length > 1 && (
                         <details>
-                          <summary className="cursor-pointer text-madder underline underline-offset-4">Read the full founder’s letter</summary>
+                          <summary className="cursor-pointer text-madder">Read the full founder’s letter</summary>
                           <div className="space-y-5 mt-5">{paragraphs.slice(1).map((p, i) => <p key={i}>{p}</p>)}</div>
                         </details>
                       )}
@@ -311,7 +310,7 @@ export default async function HomePage() {
                       {entry.coverImage ? (
                         // CMS media providers are not guaranteed to exist in next/image remotePatterns.
                         // eslint-disable-next-line @next/next/no-img-element
-                        <img src={entry.coverImage} alt={entry.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />
+                        <img src={entry.coverImage} alt={entry.title} loading="lazy" decoding="async" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />
                       ) : (
                         <div className="w-full h-full bg-ivory" />
                       )}
@@ -331,7 +330,7 @@ export default async function HomePage() {
           <Link className="nj-text-link" href="/help/returns">Returns by product</Link>
           <Link className="nj-text-link" href="/help/track">Track your order</Link>
         </nav>
-        <HomePrint lead={data.saree} fashion={fashion?.pieces.length ? moreFashion : null}
+        <HomePrint lead={data.saree} fashion={fashion.length ? moreFashion : null}
           curated={data.spotlightCard ? [data.spotlightCard, ...data.founder] : data.founder}
           arrivals={data.newArrivals} founderNote={data.founderNoteBody} preview={previewPricingEnabled()}/>
       </main>

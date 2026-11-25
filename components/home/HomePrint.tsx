@@ -32,6 +32,12 @@ function collectionPiece(piece: Study, preview: boolean): PrintPiece {
   return { name:piece.name, alias:piece.alias, caption:piece.caption, image:piece.image, detailImage:'/brand/study-views/'+piece.id+'.webp', price:preview ? formatINR(piece.price) : undefined };
 }
 
+// Print-only photographs must not compete with the storefront on screen.
+function PrintPhoto({src,alt,className}: {src:string;alt:string;className?:string}) {
+  return <picture><source media="print" srcSet={src.replace(/ /g,'%20')}/>
+    <img className={className} src="data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=" alt={alt}/></picture>;
+}
+
 function Sheet({ children, label }: { children:ReactNode; label:string }) {
   return <section className="folio-sheet" aria-label={label}>
     <div className="folio-mast">
@@ -49,12 +55,12 @@ function Shelf({ title, pieces, note }: { title:string; pieces:PrintPiece[]; not
     {note && <p className="folio-subtitle">{note}</p>}
     <div className={'folio-shelf' + (single ? ' folio-solo' : '')}>
       {pieces.map((p, i)=><article key={p.href || p.name + i} className="folio-card">
-        {p.image && <img className="folio-product-image" src={p.image} alt={p.name}/>}
+        {p.image && <PrintPhoto className="folio-product-image" src={p.image} alt={p.name}/>}
         <div className="folio-ticket">
           {p.alias && <p className="folio-kicker">{p.alias}</p>}
           <h3>{p.href ? <a href={p.href}>{p.name}</a> : p.name}</h3>
           {p.caption && <p className="folio-copy">{p.caption}</p>}
-          {p.detailImage && <img className="folio-swatch" src={p.detailImage} alt={'Another view of '+p.name}/>}
+          {p.detailImage && <PrintPhoto className="folio-swatch" src={p.detailImage} alt={'Another view of '+p.name}/>}
           {p.price && <p className="folio-price">{p.price}</p>}
         </div>
       </article>)}
@@ -86,8 +92,8 @@ export function HomePrint({lead,fashion,curated,arrivals,founderNote,preview}:Pr
   return <div className="neejee-home-print">
     <Sheet label="Featured saree">
       <div className="folio-feature">
-        <div className="folio-photo"><img className="folio-hero-image" src={hero.image} alt={hero.title}/>
-          {hero.detailImage && <figure><img src={hero.detailImage} alt={'Detail of '+hero.title}/><figcaption>{stock ? 'Another view' : 'Pallu detail'}</figcaption></figure>}
+        <div className="folio-photo"><PrintPhoto className="folio-hero-image" src={hero.image} alt={hero.title}/>
+          {hero.detailImage && <figure><PrintPhoto src={hero.detailImage} alt={'Detail of '+hero.title}/><figcaption>{stock ? 'Another view' : 'Pallu detail'}</figcaption></figure>}
         </div>
         <div className="folio-feature-copy">
           {hero.alias && <p className="folio-kicker">{hero.alias}</p>}

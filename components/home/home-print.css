@@ -5,6 +5,7 @@
   body:has(.neejee-home-print)>:not(:has(.neejee-home-print)):not(.neejee-home-print),.house-front:has(.neejee-home-print)>:not(.neejee-home-print),body:has(.neejee-home-print) :is(footer,.neejee-masthead) {display:none!important}
   .neejee-home-print {display:block!important;page:neejee-folio;background:#fcf7ec;color:#312521;font:10pt/1.36 Georgia,serif;print-color-adjust:exact;-webkit-print-color-adjust:exact}
   .neejee-home-print * {box-sizing:border-box}
+  .neejee-home-print picture {display:contents}
   .neejee-home-print img {display:block}
   .neejee-home-print :is(p,h1,h2,h3,figure) {padding:0;margin:0}
   .folio-sheet {page:neejee-folio;display:block;break-before:page;padding:0 4mm 4mm;background:#fcf7ec;break-inside:auto}

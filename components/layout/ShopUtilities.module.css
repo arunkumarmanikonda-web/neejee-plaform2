@@ -1,7 +1,7 @@
 .masthead {
   --ink: #342a28;
-  --paper: #fbf7ee;
-  --wine: #602936;
+  --paper: #fffaf4;
+  --wine: #43283f;
   background: var(--paper);
   color: var(--ink);
   font-family: var(--font-ui), Arial, sans-serif;
@@ -37,13 +37,7 @@
 .account:hover, .bag:hover {color: #823341}
 .count {background: var(--wine); color: #fff9e9; min-width: 1.25rem; padding: .12rem .28rem; border-radius: 2rem; font: 550 .7rem/1.1 var(--font-ui), sans-serif; text-align: center}
 .ribbon {position:relative; background:var(--wine); color:#fff9ee; isolation:isolate}
-.ribbon::before, .ribbon::after {
-  content:''; pointer-events:none; position:absolute; top:0; bottom:0; z-index:-1; width:min(20vw, 320px);
-  background: linear-gradient(to right, transparent, var(--wine)), url('/brand/house/anar-chintz.webp') 82% 40% / 250px auto;
-  opacity: .52;
-}
-.ribbon::before {left:0}
-.ribbon::after {right:0; transform:scaleX(-1)}
+.ribbon {border-block:1px solid #643247}
 .navigation {
   display:flex; align-items:center; justify-content:center; gap:clamp(1.35rem, 3.2vw, 3.5rem);
   padding: 0 20px; min-height:46px; margin:auto; width:fit-content; max-width:100%;

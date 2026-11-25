@@ -1,40 +1,56 @@
 .campaign {
-  color:#fff6e6; background:#7a202d;
-  background-image:linear-gradient(90deg,#77212cf7 0%,#77212cf5 28%,#77212cc9 41%,#77212c16 60%,transparent 78%),url('/brand/house/anar-chintz.webp');
-  background-position:center, right center; background-size:cover,auto 119%; background-repeat:no-repeat;
-  border-bottom:4px double #c69a72; isolation:isolate;
+  --ink:#252c49; --accent:#412241; --wash:#faece9; --selvedge:#bb5d68;
+  background:#fffaf4;color:var(--ink);padding:clamp(.65rem,2vw,2rem) clamp(.7rem,3.4vw,4.4rem) 0;
 }
-.spread {display:grid;grid-template-columns:minmax(0,.92fr) minmax(0,1.18fr);gap:clamp(2rem,5vw,6rem);align-items:center;max-width:1660px;margin:auto;padding:clamp(1.8rem,2.7vw,3.4rem) 13% clamp(1rem,1.9vw,2rem) 6%}
-.paper {min-width:0;padding:1rem 0 1.5rem}
-.copy {max-width:35rem}
-.alias {margin:0 0 .5rem;display:flex;align-items:baseline;gap:.8rem;font:500 clamp(4.4rem,7.75vw,8.6rem)/.96 var(--font-body),Georgia,serif;letter-spacing:-.055em;color:#fff1d9}
-.alias [lang] {font:400 clamp(1.2rem,2vw,2.15rem)/1.4 Georgia,serif;letter-spacing:0;color:#efbb92}
-.title {margin:0;font:500 clamp(1.85rem,2.5vw,2.9rem)/1.08 var(--font-body),Georgia,serif;letter-spacing:-.022em;text-wrap:balance}
-.copy:not(:has(.alias)) .title {font-size:clamp(2.7rem,4.1vw,5.2rem)}
-.line {margin:.85rem 0 0;max-width:35ch;font:400 clamp(.96rem,1.04vw,1.12rem)/1.55 var(--font-ui),Arial,sans-serif;color:#f9e6d7}
-.price {display:flex;gap:.65rem;align-items:baseline;margin:1.25rem 0 0;font:550 1.16rem/1.4 var(--font-ui),sans-serif}
-.price small,.other small {font:400 .8rem/1.45 var(--font-ui),sans-serif;color:#efd5c5}
-.actions {display:flex;align-items:center;flex-wrap:wrap;gap:.6rem;margin-top:.8rem}
-.primary,.secondary {display:inline-flex;gap:.45rem;align-items:center;justify-content:center;min-height:44px;padding:.62rem 1.05rem;font:550 .9rem/1.3 var(--font-ui),sans-serif}
-.primary {background:#fff2d9;color:#492329;border:1px solid #fff2d9}
-.secondary {border:1px solid #e5bbae;background:#792535;color:#fff3e1}
-.primary:hover {background:#efce9f}.secondary:hover {background:#67202c}
-.other {display:inline-flex;align-items:center;gap:.7rem;text-align:left;margin-top:clamp(1.1rem,2.1vw,2.3rem);color:#fff2e3}
-.other img {width:43px;height:43px;border-radius:50%;object-fit:cover;border:2px solid #f8dfb3}
-.other span {display:grid}.other strong {font:500 1.2rem/1.18 var(--font-body),serif}
-.gallery {position:relative;min-width:0;align-self:center}
-.frame {padding:3px 3px 2px;background:#f1d5aa;border-radius:48% 48% 1px 1px / 22% 22% 1px 1px;box-shadow:0 10px 30px #2d0c1e44}
-.track {aspect-ratio:1.12;max-height:62vh;min-height:340px;overflow-y:hidden;position:relative;border-radius:inherit}
-.track > [data-slide] {height:100%;align-self:stretch}
-.photo {position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center 48%;display:block}
-.views {display:flex;justify-content:center;align-items:center;gap:.25rem;margin:.34rem 0 0}
-.views button {display:inline-flex;align-items:center;justify-content:center;min-height:40px;gap:.36rem;padding:.22rem .7rem;font:500 .8rem/1.3 var(--font-ui),sans-serif;background:#541b29dc;color:#f3dfcb;border-radius:2rem}
-.views button[aria-pressed=true] {background:#fff0d7;color:#59242c}
-.swatch {position:absolute;right:-12%;bottom:13%;display:flex;flex-direction:column;align-items:center;width:clamp(100px,9vw,144px);padding:5px 5px 0;background:#fff0d7;color:#54222c;transform:rotate(5deg);box-shadow:1px 5px 12px #260e1b55;transition:transform .18s ease}
-.swatch img {width:100%;height:auto;aspect-ratio:1.27;object-fit:cover;display:block}
-.swatch span {padding:.42rem .1rem .45rem;font:550 clamp(.75rem,.85vw,.9rem)/1.28 var(--font-ui),sans-serif}
-.swatch:hover,.swatch:focus-visible {transform:rotate(1deg) translateY(-2px)}
-.campaign :is(a,button):focus-visible {outline:3px solid #e4ad5b;outline-offset:3px}
+.campaign[data-colour=surkh] {--ink:#49263a;--accent:#6c293e;--wash:#fcf0e3;--selvedge:#bb8458}
+.campaign[data-colour=haldi] {--ink:#48331f;--accent:#702546;--wash:#f7efce;--selvedge:#a65055}
+.spread {display:grid;grid-template-columns:minmax(0,1.32fr) minmax(0,1fr);align-items:stretch;max-width:1580px;margin:auto;background:var(--wash)}
+.gallery,.paper,.copy {min-width:0}
+.gallery {display:flex;flex-direction:column;justify-content:center;background:#f6f1e8}
+.frame {background:#ebe6dd}
+.frame .track {display:grid;grid-auto-flow:column;grid-auto-columns:100%;grid-template-rows:minmax(0,1fr);width:100%;aspect-ratio:3/2;color:var(--ink)}
+.track > [data-slide] {min-width:0;min-height:0;display:grid;place-items:stretch}
+.photo {display:block;width:100%;height:100%;max-width:100%;object-fit:contain;object-position:center}
+.unavailable {display:flex;align-items:center;justify-content:center;gap:.65rem;flex-wrap:wrap;font:500 1rem/1.5 var(--font-ui),sans-serif}
+.unavailable button {background:white;padding:.6rem .9rem}
+.galleryFoot {display:flex;justify-content:space-between;align-items:center;gap:.35rem 1rem;flex-wrap:wrap;padding:.25rem clamp(.7rem,1.5vw,1.5rem);background:#fffaf3}
+.views {display:flex;align-items:center;flex-wrap:wrap;gap:.25rem .65rem}
+.views button,.inspect {display:inline-flex;align-items:center;gap:.42rem;min-height:44px;font:550 .86rem/1.35 var(--font-ui),sans-serif}
+.views button {color:#605557}
+.views button::before {content:'';width:7px;height:7px;border:1px solid currentColor;border-radius:50%}
+.views button[aria-pressed=true] {color:var(--ink)}
+.views button[aria-pressed=true]::before {background:currentColor}
+.inspect {color:var(--accent)}
+.paper {position:relative;display:flex;flex-direction:column;justify-content:center;padding:clamp(1.35rem,3vw,3.6rem) clamp(1.3rem,3.5vw,4.2rem)}
+.paper::before {content:'';position:absolute;inset:0 auto 0 0;width:5px;border-inline:1px solid var(--selvedge);background:repeating-linear-gradient(40deg,transparent 0 3px,var(--selvedge) 3px 4px,transparent 4px 7px)}
+.alias {display:flex;align-items:baseline;flex-wrap:wrap;gap:.55rem 1rem;margin:0 0 .45rem;font:500 clamp(3.1rem,6.4vw,7.4rem)/1 var(--font-body),Georgia,serif;letter-spacing:-.055em}
+.alias [lang] {font:400 clamp(1.1rem,1.8vw,2rem)/1.4 Georgia,serif;letter-spacing:0;color:var(--accent)}
+.title {margin:0;max-width:23ch;font:500 clamp(1.8rem,2.6vw,3.25rem)/1.07 var(--font-body),Georgia,serif;letter-spacing:-.022em;text-wrap:balance;overflow-wrap:anywhere}
+.copy:not(:has(.alias)) .title {font-size:clamp(2.2rem,3.4vw,4.3rem)}
+.line {margin:.75rem 0 0;max-width:43ch;font:400 1rem/1.55 var(--font-ui),sans-serif;overflow-wrap:anywhere}
+.place {margin:.5rem 0 0;color:#62545c;font:450 .82rem/1.5 var(--font-ui),sans-serif}
+.price {display:flex;align-items:baseline;gap:.65rem;margin:1rem 0 .55rem;font:600 1.22rem/1.4 var(--font-ui),sans-serif}
+.price small {color:#64575b;font:400 .82rem/1.4 var(--font-ui),sans-serif}
+.actions,.choices {display:flex;align-items:center;flex-wrap:wrap;gap:.55rem}
+.actions {margin-top:.6rem}
+.primary,.secondary {display:inline-flex;align-items:center;justify-content:center;gap:.45rem;min-height:44px;padding:.6rem 1.05rem;border:1px solid var(--accent);font:550 .9rem/1.3 var(--font-ui),sans-serif}
+.primary {background:var(--accent);color:white}.secondary {color:var(--accent);background:transparent}
+.primary:hover,.secondary:hover {box-shadow:inset 0 0 0 1px var(--accent)}
+.rail {min-width:0;margin:clamp(1.25rem,2.3vw,2.65rem) 0 0;padding:0;border:0}
+.rail legend {padding:0 0 .45rem;font:550 .82rem/1.4 var(--font-ui),sans-serif;color:#524650}
+.choices button {display:inline-flex;align-items:center;gap:.38rem;min-height:44px;padding:.2rem .65rem .2rem .2rem;background:#fffaf5;border:1px solid #bdaeb2;color:var(--ink);font:550 .83rem/1.4 var(--font-ui),sans-serif}
+.choices button[aria-pressed=true] {border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
+.choices img {width:32px;height:32px;display:block;object-fit:cover}
+.campaign :is(a,button):focus-visible {outline:2px solid #2c4a71;outline-offset:3px}
+@media(max-width:760px){
+  .campaign {padding:.6rem 0 0}.spread {grid-template-columns:1fr}.paper {padding:1.05rem clamp(1rem,5vw,2rem) 1.4rem}
+  .paper::before {inset:0 0 auto;width:auto;height:4px;border-inline:0;border-block:1px solid var(--selvedge)}
+  .alias {font-size:clamp(2.9rem,11vw,4.8rem);margin:0 0 .3rem}.alias [lang]{font-size:1.2rem}
+  .title {font-size:clamp(1.75rem,6vw,2.45rem);max-width:27ch}
+  .line {margin-top:.45rem}.place {margin-top:.25rem}.price{margin-top:.7rem}
+  .rail {margin-top:1rem}.galleryFoot {gap:0 .4rem}.views{gap:.5rem}.views button,.inspect{font-size:.82rem}
+}
+
 .viewer {margin:auto;padding:0;width:min(880px,94vw);max-height:94dvh;overflow:auto;background:#fff8ec;color:#362923;border:1px solid #ac8663}
 .viewer::backdrop {background:#24141bcc}
 .viewerPaper {padding:clamp(1rem,2.6vw,2rem)}
@@ -55,20 +71,3 @@
 .viewerTools :is(a,button) {display:inline-flex;align-items:center;justify-content:center;gap:.3rem;min-height:44px;padding:.5rem .8rem;font:550 .84rem/1.3 var(--font-ui),sans-serif;color:#622a32;border:1px solid #b79a7c}
 .viewerTools a {background:#642939;color:white;border-color:#642939}
 .privacy {margin:.65rem 0 0;color:#66554d}
-@media(min-width:1800px){.spread{padding-inline:5% 12%}}
-@media(min-width:761px) and (max-width:1050px){.spread{gap:2.1rem;padding-inline:4.5% 10%}.track{min-height:330px}.alias{font-size:5rem}}
-@media(max-width:760px){
-  .campaign {background-position:center, right top;background-size:cover,auto 62%;background-image:linear-gradient(0deg,#77212c 22%,#77212c65 61%,transparent 76%),url('/brand/house/anar-chintz.webp')}
-  .spread {grid-template-columns:1fr;gap:0;padding:1rem 0 1.4rem}
-  .gallery {grid-column:1;grid-row:1;width:min(80%,510px);margin:auto}
-  .frame {padding:2px}.track {aspect-ratio:1.4;min-height:0;max-height:36vh}
-  .swatch {width:clamp(75px,20vw,102px);right:-8%;bottom:18%}.swatch span {font-size:.7rem}
-  .views {margin-top:.2rem}.views button {min-height:38px;padding:.17rem .6rem;font-size:.75rem}
-  .paper {padding:.55rem 6% 0;max-width:590px;width:100%;margin:auto}
-  .alias {font-size:clamp(3rem,12vw,4.8rem);gap:.65rem;margin:0 0 .4rem}
-  .alias [lang]{font-size:1.25rem}
-  .title {font-size:clamp(1.62rem,5.7vw,2.05rem);text-wrap:pretty}
-  .line {font-size:.94rem;margin:.45rem 0 0;max-width:44ch}
-  .price {margin:.65rem 0 0}.actions {margin-top:.65rem}.other {margin:.8rem 0 0}.other img {width:34px;height:34px}
-}
-@media(prefers-reduced-motion:reduce){.swatch{transition:none}}

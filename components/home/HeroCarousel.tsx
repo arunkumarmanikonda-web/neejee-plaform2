@@ -74,7 +74,7 @@ export function HeroCarousel({ banners, spotlight }: { banners: HeroBanner[]; sp
             <Link href={piece.href} aria-label={piece.name} className={styles.photo}>
               {(piece.gallery.length ? piece.gallery : [piece.image]).map((src,i)=>
                 <img key={src} src={src} alt={i===photoIndex ? piece.name : ''} aria-hidden={i!==photoIndex}
-                  className={styles.layer} data-visible={i===photoIndex} decoding="async" loading={i ? 'lazy' : 'eager'}/>)}
+                  className={styles.layer} data-visible={i===photoIndex} decoding="async" loading="lazy"/>)}
 
             </Link>
             {piece.gallery.length>1 && <div className={styles.film} aria-label="Photographs of the featured piece">
@@ -88,7 +88,7 @@ export function HeroCarousel({ banners, spotlight }: { banners: HeroBanner[]; sp
         aria-hidden={active!==i+(piece?1:0)} ref={el=>{el?.toggleAttribute('inert',active!==i+(piece?1:0));}}>
           {banner.image && (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={banner.image} alt="" fetchPriority={active === 0 ? 'high' : 'auto'} />
+            <img src={banner.image} alt="" loading="lazy" decoding="async" />
           )}
           <div className={styles.campaignCopy}>
             <p className={styles.kicker}>NEEJEE</p>

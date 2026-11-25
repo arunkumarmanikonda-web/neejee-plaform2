@@ -117,7 +117,7 @@ export function StudyShelf({ids, preview, email, home = false}: {ids: string[]; 
     </div>
     <div className="nj-grid" aria-live="polite">
       {shown.map((s, index) => <article key={s.id} className="nj-tile loom-card">
-        <TileGallery initialView={showFabric ? 2 : 0} name={s.name} eager={index<4} views={studyViews(s)} onOpen={i=>openPiece(s,i)}>
+        <TileGallery initialView={showFabric ? 1 : 0} name={s.name} eager={!home && index<4} views={studyViews(s)} onOpen={i=>openPiece(s,i)}>
           <button className="nj-save" aria-label={(saved.includes(s.id) ? 'Unsave ' : 'Save ')+s.name} aria-pressed={saved.includes(s.id)} onClick={()=>save(s.id)}><Bookmark size={17} fill={saved.includes(s.id)?'currentColor':'none'}/></button>
         </TileGallery>
         <div className="loom-ticket">
@@ -139,8 +139,8 @@ export function StudyShelf({ids, preview, email, home = false}: {ids: string[]; 
     {!home && hasSarees && <TextileGuide/>}
     <dialog ref={dialog} className="nj-dialog loom-dialog" aria-labelledby="nj-modal-title" onClick={e => {if(e.target === dialog.current) dialog.current.close();}}>
       <div className="nj-modal-content"><button className="nj-modal-close" aria-label="Close" autoFocus onClick={() => dialog.current?.close()}><X size={21}/></button>
-      {picked && <div className="nj-piece loom-piece">
-        {photoSession.version>0 && <PiecePhotographs key={photoSession.version} piece={picked} initial={photoSession.initial}/>}
+      {picked && photoSession.version>0 && <div className="nj-piece loom-piece">
+        <PiecePhotographs key={photoSession.version} piece={picked} initial={photoSession.initial}/>
         <div className="nj-piece-copy"><p className="loom-spec"><i aria-hidden="true" style={{background:picked.swatch}}/>{picked.alias}</p>
           <h2 id="nj-modal-title">{picked.name}</h2><p>{picked.detail}</p>
 

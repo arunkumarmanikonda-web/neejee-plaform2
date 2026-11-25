@@ -14,6 +14,7 @@ const displayFont = Playfair_Display({
   subsets: ['latin'],
   weight: ['400', '500', '600'],
   style: ['normal', 'italic'],
+  preload: false,
   display: 'swap',
   variable: '--font-display',
 });
@@ -22,13 +23,14 @@ const bodyFont = Cormorant_Garamond({
   subsets: ['latin'],
   weight: ['400', '500'],
   style: ['normal', 'italic'],
+  preload: false,
   display: 'swap',
   variable: '--font-body',
 });
 
 const uiFont = Inter({
   subsets: ['latin'],
-  weight: ['300', '400', '500', '600'],
+  weight: 'variable',
   display: 'swap',
   variable: '--font-ui',
 });

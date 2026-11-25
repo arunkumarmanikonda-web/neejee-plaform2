@@ -38,6 +38,10 @@ export async function editLead(edit:Edit) {
   return {slug:p.slug,name:p.name,cover:p.cover,price:p.price,mirror:p.aiTryOnEligible,
     images:p.images,shortName:row.shortName,description:row.description,poeticLine:row.poeticLine,colour:p.colours[0],craft:p.craft || p.technique,material:p.material,region:p.region || p.state};
 }
+export async function homeEditPieces(edit:Edit) {
+  const rows=await prisma.product.findMany({where:editProductWhere(edit),select:pick,orderBy:order,take:5});
+  return rows.map(card);
+}
 export async function readEdit(edit:Edit,requestedPage:number,colour = '',sort = 'featured',textile = '') {
   const base = editProductWhere(edit);
   const total = await prisma.product.count({where:base});
