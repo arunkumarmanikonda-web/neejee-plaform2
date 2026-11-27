@@ -13,7 +13,7 @@
 //
 // The LegalEntity model is a singleton (key="default"). Edit it at
 // /admin/settings/legal-entity. If the record is missing, this falls back
-// to NEXT_PUBLIC_* env vars (back-compat with the v23.40.13 hardcoded block).
+// to server configuration for banking and PAN.
 
 import { prisma } from '@/lib/prisma';
 
@@ -85,7 +85,7 @@ export async function getIssuerProfile(): Promise<IssuerProfile> {
     brandName:   entity?.brandName   || 'NEEJEE',
     tagline:     'Found. Personal.',
     gstin:       entity?.gstin       || env.NEXT_PUBLIC_NEEJEE_GSTIN || '',
-    pan:         entity?.pan         || env.NEXT_PUBLIC_NEEJEE_PAN   || '',
+    pan:         entity?.pan         || env.NEEJEE_PAN   || '',
     cin:         entity?.cinNumber   || null,
     email:       entity?.contactEmail || env.NEXT_PUBLIC_NEEJEE_EMAIL || 'finance@neejee.com',
     phone:       entity?.contactPhone || env.NEXT_PUBLIC_NEEJEE_PHONE || '',
@@ -93,11 +93,11 @@ export async function getIssuerProfile(): Promise<IssuerProfile> {
     addressLine1, addressLine2, city, state, pincode, country,
     address,
     addressMultiline: addressMultiline || 'India',
-    bankName:          entity?.bankName          || env.NEXT_PUBLIC_NEEJEE_BANK_NAME || '',
+    bankName:          entity?.bankName          || env.NEEJEE_BANK_NAME || '',
     bankBranch:        entity?.bankBranch        || null,
     bankAccountName:   entity?.bankAccountName   || entity?.legalName || env.NEXT_PUBLIC_NEEJEE_LEGAL_NAME || '',
-    bankAccountNumber: entity?.bankAccountNumber || env.NEXT_PUBLIC_NEEJEE_BANK_AC || '',
-    bankIfsc:          entity?.bankIfsc          || env.NEXT_PUBLIC_NEEJEE_IFSC    || '',
+    bankAccountNumber: entity?.bankAccountNumber || env.NEEJEE_BANK_AC || '',
+    bankIfsc:          entity?.bankIfsc          || env.NEEJEE_IFSC    || '',
     signatory:         entity?.authorisedSignatory || env.NEXT_PUBLIC_NEEJEE_SIGNATORY || 'Nidhi Chauhan',
     signatoryTitle:    entity?.signatoryTitle      || env.NEXT_PUBLIC_NEEJEE_SIGNATORY_TITLE || 'Founder',
     signatureUrl:      entity?.signatureUrl     || null,
