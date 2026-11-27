@@ -39,7 +39,7 @@ export async function reserveInventory(
 ): Promise<ReservationResult> {
   const payload = payloadFor(items);
   const rows = await db.$queryRaw<Array<{ result: ReservationResult }>>`
-    select private.reserve_inventory(${snapshotId}, ${payload}::jsonb, ${holdMinutes}) as result
+    select private.reserve_inventory(${snapshotId}, ${payload}::jsonb, ${holdMinutes}::integer) as result
   `;
   return rows?.[0]?.result;
 }
