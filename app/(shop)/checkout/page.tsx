@@ -322,7 +322,7 @@ function CheckoutInner() {
         <div className="max-w-2xl mx-auto py-20 px-6 text-center">
           <h1 className="font-display text-3xl text-kohl">This saved bag is no longer available.</h1>
           {error && <p className="mt-4 font-ui text-sm text-mitti">{error}</p>}
-          <Link href="/" className="btn-primary mt-6 inline-block">SHOP THE EDIT</Link>
+          <Link href="/" className="btn-primary mt-6 inline-block">BROWSE THE SHOP</Link>
         </div>
         <Footer />
       </>
@@ -335,7 +335,7 @@ function CheckoutInner() {
         <Header shop/>
         <div className="max-w-2xl mx-auto py-20 px-6 text-center">
           <h1 className="font-display text-3xl text-kohl">Your bag is empty.</h1>
-          <Link href="/" className="btn-primary mt-6 inline-block">SHOP THE EDIT</Link>
+          <Link href="/" className="btn-primary mt-6 inline-block">BROWSE THE SHOP</Link>
         </div>
         <Footer />
       </>

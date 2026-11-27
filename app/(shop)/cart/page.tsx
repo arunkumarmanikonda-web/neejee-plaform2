@@ -74,10 +74,10 @@ function ShopBag({sampleCount}: {sampleCount: number}) {
         <section className="max-w-3xl mx-auto px-6 py-24 text-center">
           <p className="label text-madder">YOUR BAG</p>
           <h1 className="font-display text-4xl text-kohl mt-3">Empty for now.</h1>
-          <p className="font-italic italic text-mitti mt-3">Explore the sarees, suits and objects in Nidhi’s edit.</p>
+          <p className="font-italic italic text-mitti mt-3">Discover the sarees, suit sets and home pieces Nidhi has chosen.</p>
           <div className="madder-divider mx-auto mt-6"></div>
           <div className="mt-10 flex gap-3 justify-center">
-            <Link href="/" className="btn-primary">SHOP THE EDIT</Link>
+            <Link href="/" className="btn-primary">BROWSE THE SHOP</Link>
             <Link href="/edits/sarees" className="btn-outline">EXPLORE SAREES</Link>
           </div>
         </section>
