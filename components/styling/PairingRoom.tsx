@@ -16,14 +16,18 @@ type Draft={layers:Partial<Record<PairSlot,Choice>>;background?:string};
 const empty:Draft={layers:{}};
 // Only this tab's memory holds personal photographs. Revisiting another cart item restores its board.
 const drafts=new Map<string,Draft>();
-const typeOfPhoto='image/jpeg,image/png,image/webp';
+const typeOfPhoto='image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif';
 const endpoint='/api/styling/preview';
 function PhotoInput({label,onFile}:{label:string;onFile:(file:File)=>void}){
   return <label className={ui.upload}><Camera size={17} aria-hidden/>{label}<input type="file" aria-label={label} accept={typeOfPhoto} onChange={e=>{const f=e.target.files?.[0];e.target.value='';if(f)onFile(f);}}/></label>;
 }
-export function PairingRoom({board}:{board:PairBoard}){
+export function PairingRoom({board,initialOptions={}}:{board:PairBoard;initialOptions?:Partial<Record<PairSlot,string|undefined>>}){
   const {anchor}=board,room=board.mode==='room',key=anchor.id+'~'+anchor.variant;
-  const [draft,setDraft]=useState<Draft>(()=>drafts.get(key)||empty);
+  const [draft,setDraft]=useState<Draft>(()=>{
+    const layers:Draft['layers']={...drafts.get(key)?.layers};
+    for(const s of board.slots){const v=initialOptions[s];if(v&&board.options[s]?.some(p=>p.variant===v))layers[s]={variant:v};}
+    return {...(drafts.get(key)||empty),layers};
+  });
   const [slot,setSlot]=useState<PairSlot>(board.slots[0]);
   const [notice,setNotice]=useState(''),[consent,setConsent]=useState(false),[running,setRunning]=useState(false);
   const [result,setResult]=useState(''),[adding,setAdding]=useState(false);
@@ -35,6 +39,7 @@ export function PairingRoom({board}:{board:PairBoard}){
   const chosen=board.slots.filter(s=>draft.layers[s]?.photo||selection(s));
   const lines=ready?items:[];
   const checkout=lines.length>0;
+  const anchorInCart=lines.some(i=>i.productId===anchor.id&&i.variantId===anchor.variant);
   useEffect(()=>{active.current=true;return ()=>{active.current=false;worker.current?.abort();};},[]);
   useEffect(()=>()=>{if(result)URL.revokeObjectURL(result);},[result]);
   function update(change:(old:Draft)=>Draft){
@@ -49,7 +54,7 @@ export function PairingRoom({board}:{board:PairBoard}){
     const version=++revision.current;
     try{const photo=await localWardrobePhoto(file);if(!active.current||version!==revision.current)return;
       if(s)choose(s,{photo});else update(old=>({...old,background:photo}));}
-    catch{if(active.current)setNotice('Choose a clear JPG, PNG or WebP photo up to 15 MB.');}
+    catch(e){if(active.current)setNotice(e instanceof Error?e.message:'Choose a clear JPG, PNG or WebP photo up to 15 MB.');}
   }
   async function add(p:PairPiece){
     if(adding)return;setAdding(true);setNotice('');
@@ -98,7 +103,7 @@ export function PairingRoom({board}:{board:PairBoard}){
       <option value="" disabled>Choose a piece</option>{lines.map(i=><option key={i.productId+'~'+i.variantId} value={i.productId+'~'+i.variantId}>{i.product.name} {i.variantLabel}</option>)}</select></label>}
     <div className={ui.grid}>
       <div className={ui.visual}>
-        <div className={ui.photos} aria-label="Your styling board"><figure className={ui.anchor}><img src={anchor.image} alt={anchor.name}/><figcaption><strong>{anchor.name}</strong><span>{anchor.option}{anchor.price>0?' · '+formatINR(anchor.price):' · Collection preview'}</span></figcaption></figure>
+        <div className={ui.photos} aria-label="Your styling board"><figure className={ui.anchor}><img src={anchor.image} alt={anchor.name}/><figcaption><strong>{anchor.name}</strong><span>{anchor.option}{anchor.price>0?' · '+formatINR(anchor.price):' · Collection preview'}</span>{!board.study&&!anchorInCart&&ready&&<button className={ui.anchorBuy} disabled={adding} onClick={()=>add(anchor)}><Plus size={15}/>Add this piece to cart</button>}</figcaption></figure>
           {!!(chosen.length||draft.background)&&<div className={ui.refs}>{draft.background&&<figure><img src={draft.background} alt={room?'Your room':'Your photo'}/><figcaption>{room?'Your room':'Your photo'}</figcaption></figure>}
           {chosen.map(s=><figure key={s}><img src={draft.layers[s]?.photo||selection(s)?.image} alt={draft.layers[s]?.photo?'Your '+pairingSlots[s].label:selection(s)?.name}/><figcaption>{draft.layers[s]?.photo?'Your '+pairingSlots[s].label.toLowerCase():selection(s)?.name}</figcaption></figure>)}</div>}
         </div>
