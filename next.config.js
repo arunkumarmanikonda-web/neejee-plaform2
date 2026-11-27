@@ -31,6 +31,14 @@ const nextConfig = {
   async redirects() {
     return [
       { source: '/sellers/apply', destination: '/sell/apply', permanent: true },
+      { source: '/catalogue', destination: '/products', permanent: true },
+      { source: '/sell', destination: '/sell/apply', permanent: true },
+      { source: '/admin/users', destination: '/admin/customers', permanent: true },
+      { source: '/admin/catalogue', destination: '/admin/products', permanent: true },
+      { source: '/admin/tickets', destination: '/admin/disputes', permanent: true },
+      { source: '/account/disputes/:id', destination: '/account/disputes#dispute-:id', permanent: false },
+      { source: '/admin/ai-photo-requests/:id', destination: '/admin/ai-photo-requests#request-:id', permanent: false },
+      { source: '/forgot-password', has: [{ type: 'query', key: 'role', value: 'seller' }], destination: '/help/contact', permanent: false },
       { source: '/stories', destination: '/journal', permanent: true },
       { source: '/legal/shipping', destination: '/help/shipping', permanent: true },
       { source: '/legal/returns', destination: '/help/returns', permanent: true },

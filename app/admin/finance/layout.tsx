@@ -34,7 +34,7 @@ export default async function FinanceLayout({ children }: { children: React.Reac
         </p>
         <nav className="flex gap-1 mt-6 -mb-px overflow-x-auto">
           {TABS.map(t => (
-            <Link key={t.href} href={t.href}
+            <Link prefetch={false} key={t.href} href={t.href}
               className="px-4 py-2 font-ui text-xs tracking-widest uppercase text-mitti hover:text-kohl border-b-2 border-transparent hover:border-kohl whitespace-nowrap">
               {t.label}
             </Link>

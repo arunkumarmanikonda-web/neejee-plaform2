@@ -340,9 +340,8 @@ export default function CatalogueBuilderPage() {
       });
       const data = await res.json();
       if (!res.ok || !data.ok) throw new Error(data.error || data.message || 'Failed to generate draft');
-      setActive(data.project);
-      setMessage('AI draft applied to catalogue copy.');
-      await loadProjects(active.id);
+      setActive(current => current?.id === active.id ? { ...current, sections: { ...current.sections, copy: { ...current.sections.copy, ...data.copy } } } : current);
+      setMessage('Draft ready. Review the copy and save your changes.');
     } catch (e: any) {
       setError(e?.message || 'Failed to generate AI draft');
     } finally {

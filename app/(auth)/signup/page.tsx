@@ -246,15 +246,8 @@ function SignupInner() {
         </form>
 
         <p className="label text-monsoon mt-4 text-center">
-          BY SIGNING UP YOU AGREE TO OUR{' '}
-          <Link href="/legal/terms" className="underline">
-            TERMS
-          </Link>{' '}
-          |{' '}
-          <Link href="/legal/privacy" className="underline">
-            PRIVACY
-          </Link>{' '}
-          | DPDP-COMPLIANT
+          Read our <Link href="/legal/terms" className="text-madder">shopping policies</Link> and{' '}
+          <Link href="/legal/privacy" className="text-madder">privacy notice</Link>.
         </p>
 
         <p className="font-italic italic text-mitti text-center mt-10">

@@ -40,6 +40,15 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'employeeId, month, year, daysWorked required' }, { status: 400 });
     }
 
+    const periodYear=Number(year),periodMonth=Number(month);
+    const daysInPeriod=new Date(Date.UTC(periodYear,periodMonth,0)).getUTCDate();
+    const days=[daysWorked,leavesPaid,leavesUnpaid].map(Number);
+    if (!Number.isInteger(periodYear)||periodYear<1900||periodYear>2200||!Number.isInteger(periodMonth)||periodMonth<1||periodMonth>12||
+        days.some(v=>!Number.isInteger(v)||v<0)||days.reduce((a,b)=>a+b,0)>daysInPeriod||
+        !Number.isFinite(Number(overtimeHours))||Number(overtimeHours)<0||Number(overtimeHours)>daysInPeriod*24) {
+      return NextResponse.json({error:'Check the month, attendance days and overtime hours.'},{status:400});
+    }
+
     const upserted = await prisma.attendance.upsert({
       where: { employeeId_month_year: { employeeId, month: Number(month), year: Number(year) } },
       create: {

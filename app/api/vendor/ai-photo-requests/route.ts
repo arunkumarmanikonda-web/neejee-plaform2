@@ -71,7 +71,7 @@ export async function POST(req: NextRequest) {
             authorSide: 'vendor',
             vendorName: r.vendor.legalName,
             preview: description.slice(0, 200),
-            link: `/admin/ai-photo-requests/${row.id}`,
+            link: `/admin/ai-photo-requests#request-${encodeURIComponent(row.id)}`,
           },
           context: { type: 'AI_PHOTO_REQUEST', id: row.id },
         } as any).catch(() => {});

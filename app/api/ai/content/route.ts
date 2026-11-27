@@ -1,5 +1,5 @@
 import { draftMerchandise, editorialExtras, savedProductFacts } from '@/lib/catalog/narrative-service';
-// AI Content Assistant ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â admin tool to draft product story, care notes, SEO copy
+// AI Content Assistant — admin tool to draft product story, care notes, SEO copy
 // from artisan-supplied metadata.
 import { NextResponse } from 'next/server';
 import { getSession, requireRole } from '@/lib/auth';
@@ -23,20 +23,20 @@ interface BriefInput {
   campaign?: string;
   segment?: string;
   notes?: string;
-  // v23.31 ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â marketing/commerce surfaces context
+  // v23.31 — marketing/commerce surfaces context
   code?: string;
   discount?: string;
   category?: string;
   releaseDate?: string;
   audience?: string;
-  // v23.28 ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â product extensions
+  // v23.28 — product extensions
   shortName?: string;
   productName?: string;
   nameSuggestions?: any;
   fieldHint?: string;
   feedback?: string;
   returnEligible?: boolean;
-  // v23.31 ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â widened field union for new directives
+  // v23.31 — widened field union for new directives
   field: string;
   // Banner / generic creative context
   intent?: string;    // 'seasonal_sale' | 'new_arrival' | 'product_spotlight' | 'founder_note' | 'restock' | 'free_text'
@@ -51,7 +51,7 @@ interface BriefInput {
 
 const FIELD_DIRECTIVES: Record<string, string> = {
   productName: 'A useful colour, product type and defining feature.',
-  craftLabel: 'A clean 1-3 word craft NAME suitable as a facet/filter label (e.g. "Banarasi", "Kalamkari", "Phulkari", "Block Print", "Turkish Mosaic"). Title Case. Return ONLY the label ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â NO sentences, NO punctuation other than spaces, NO description.',
+  craftLabel: 'A clean 1-3 word craft NAME suitable as a facet/filter label (e.g. "Banarasi", "Kalamkari", "Phulkari", "Block Print", "Turkish Mosaic"). Title Case. Return ONLY the label — NO sentences, NO punctuation other than spaces, NO description.',
   shortName: 'The supplied short house name.',
   poeticLine: 'The shopper-facing card caption describing a visible detail.',
   description: 'Describe the recorded drape, motif or set contents.',
@@ -82,13 +82,13 @@ const FIELD_DIRECTIVES: Record<string, string> = {
   badge: `Return JSON: { "label": "<2-4 word badge label, e.g. \"HANDLOOM CERTIFIED\">", "description": "<12-25 word tooltip explaining what this trust signal means>", "group": "<'editorial' | 'craft' | 'trust'>" }. Quiet, factual, never marketing fluff.`,
   imagePrompt: `Return a SINGLE LINE prompt (40-80 words) for an AI image generator. Describe a NEEJEE-brand visual scene: setting, lighting, mood, props, composition, colour palette (ivory, mitti, banarasi gold, madder, kohl earthtones). NO embedded text. NO faces unless requested. Editorial, slow, quiet. Return ONLY the prompt text, no surrounding quotes or labels.`,
 
-  // ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ v23.31 additions: marketing / commerce surfaces ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬
+  // ─── v23.31 additions: marketing / commerce surfaces ─────────────────────
   couponName: 'A short coupon name (2-4 words) shown internally in the admin panel. Evocative but functional. Examples: "Diwali Festive", "First-Time Gift", "Founder Friends". Return ONLY the name.',
   couponDescription: 'A 12-25 word description of what this coupon is for, shown internally and to staff. Plain language. No marketing fluff. Return ONLY the description text.',
   couponBanner: 'Return JSON: { "headline": "<4-7 word banner headline, evocative not pushy>", "subtitle": "<10-18 word supporting line>", "ctaText": "<2-3 word CTA in CAPS>" }. This banner promotes a discount coupon on the site. Voice: quiet invitation, never "HURRY" or "LIMITED TIME". Use brief.discount and brief.code if given.',
 
   campaignName: 'A 2-4 word internal campaign name, descriptive and operational. Examples: "Monsoon Saree Edit", "Diwali Founder Picks". Return ONLY the name.',
-  campaignBlurb: 'A 25-45 word internal description of the campaign ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â its angle, audience, and the moment it celebrates. Used by staff and finance for accounting. Plain language. No emoji.',
+  campaignBlurb: 'A 25-45 word internal description of the campaign — its angle, audience, and the moment it celebrates. Used by staff and finance for accounting. Plain language. No emoji.',
 
   dropAnnouncement: 'Return JSON: { "title": "<5-8 word title for the drop>", "subtitle": "<12-20 word evocative supporting line>", "body": "<60-100 word announcement paragraph. Mention the craft, the artisan or cluster, and what makes this drop personal. Quiet, reverent. End with a soft invitation.>" }. This announces a new limited drop to the community.',
   dropReleaseDate: 'Return a single short sentence (8-14 words) announcing when a drop becomes available. Quiet, factual. Example: "This collection opens on the 24th of October, at sunset." Return only the sentence.',
@@ -179,15 +179,15 @@ export async function POST(request: Request) {
         : brief.intent === 'restock' ? 'a restock announcement'
         : brief.intent === 'founder_note' ? 'a founder-voice note from Nidhi'
         : 'a generic brand moment';
-      const positionLabel = brief.position === 'announcement' ? '(for the slim announcement bar ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â single short line, no big CTA)'
-        : brief.position === 'footer' ? '(for the footer area ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â quiet send-off)'
-        : '(for the homepage hero ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â full splash)';
+      const positionLabel = brief.position === 'announcement' ? '(for the slim announcement bar — single short line, no big CTA)'
+        : brief.position === 'footer' ? '(for the footer area — quiet send-off)'
+        : '(for the homepage hero — full splash)';
       let productLine = '';
       if (brief.productContext?.name) {
         productLine = `Product context: "${brief.productContext.name}"`;
         if (brief.productContext.craft) productLine += `, craft: ${brief.productContext.craft}`;
         if (brief.productContext.region) productLine += `, region: ${brief.productContext.region}`;
-        if (brief.productContext.story) productLine += `. Story snippet: "${brief.productContext.story.slice(0, 180)}ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦"`;
+        if (brief.productContext.story) productLine += `. Story snippet: "${brief.productContext.story.slice(0, 180)}…"`;
       }
       const freeBit = brief.freeText ? `\nAdditional brief from the editor: "${brief.freeText}"` : '';
       // Repurpose the `notes` channel for the prompt assembly
@@ -204,31 +204,31 @@ export async function POST(request: Request) {
       });
     }
 
-    // v23.40.25 ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â SEO + SEM brief baked into every content directive so all
+    // v23.40.25 — SEO + SEM brief baked into every content directive so all
     // AI-generated copy (product names, hero blocks, FAQ, shipping, returns,
     // banner CTAs, etc.) is at par with current trending SEO standards.
     const SEO_BRIEF = `SEO + SEM rules (apply to every output):
-ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ Lead with the most-searched keyword first when the field is title-like
+• Lead with the most-searched keyword first when the field is title-like
   (product name, hero title, SEO title, FAQ question). For Indian craft buyers in 2025-26,
-  high-intent keywords include: heritage Ãƒâ€šÃ‚Â· hand-loom Ãƒâ€šÃ‚Â· hand-painted Ãƒâ€šÃ‚Â· GI tag Ãƒâ€šÃ‚Â· artisan Ãƒâ€šÃ‚Â·
+  high-intent keywords include: heritage · hand-loom · hand-painted · GI tag · artisan ·
   craft name (Banarasi, Kalamkari, Phulkari, Patola, Pochampally, Chanderi, Kanjeevaram,
   Pashmina, Bidri, Pattachitra, Meenakari, Kundan, Polki, Channapatna, Madhubani,
-  Block Print, Ajrakh, Bandhani, Chikankari, Pattu, Khadi, Khurja, Moradabad brass) Ãƒâ€šÃ‚Â·
-  occasion (wedding, festive, gifting, mehendi, sangeet, diwali, eid, raksha bandhan) Ãƒâ€šÃ‚Â·
-  region/place name Ãƒâ€šÃ‚Â· 'slow-made', 'heirloom', 'founder-curated', 'fair-trade'.
-ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ Use long-tail phrasing where it reads natural (e.g. 'hand-painted Kashmiri papier-mÃƒÆ’Ã‚Â¢chÃƒÆ’Ã‚Â© bowl'
-  beats 'painted bowl'). Title Case nouns. No keyword stuffing ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â if a word doesn't belong, drop it.
-ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ Be concrete: name the technique, the region, the material. Vague copy loses to specific copy in SERP.
-ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ Avoid generic e-commerce words ('item', 'product', 'piece', 'set') unless the product is literally a set.
-ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ Voice still rules over keyword ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â if a keyword breaks NEEJEE's quiet voice, rewrite.
-ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ Internal linking opportunity: where the directive returns a CTA or link, prefer
+  Block Print, Ajrakh, Bandhani, Chikankari, Pattu, Khadi, Khurja, Moradabad brass) ·
+  occasion (wedding, festive, gifting, mehendi, sangeet, diwali, eid, raksha bandhan) ·
+  region/place name · 'slow-made', 'heirloom', 'founder-curated', 'fair-trade'.
+• Use long-tail phrasing where it reads natural (e.g. 'hand-painted Kashmiri papier-mâché bowl'
+  beats 'painted bowl'). Title Case nouns. No keyword stuffing — if a word doesn't belong, drop it.
+• Be concrete: name the technique, the region, the material. Vague copy loses to specific copy in SERP.
+• Avoid generic e-commerce words ('item', 'product', 'piece', 'set') unless the product is literally a set.
+• Voice still rules over keyword — if a keyword breaks NEEJEE's quiet voice, rewrite.
+• Internal linking opportunity: where the directive returns a CTA or link, prefer
   /collections/<slug> or /categories/<slug> over generic /products.
 `;
 
     const system = `You are NEEJEE's Content Assistant.
 NEEJEE is a personal Indian craft brand. Voice: quiet, reverent, sincere, never sales-y.
 Brand pillar: "Found. Personal." We honour the artisan and the craft.
-Avoid: "luxurious", "exquisite", "premium", "elegant" ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â these are marketplace words.
+Avoid: "luxurious", "exquisite", "premium", "elegant" — these are marketplace words.
 Prefer: specific sensory detail, named techniques, named places, named people.
 Use Indian English. No exclamation marks. No emoji.
 
@@ -236,7 +236,7 @@ ${SEO_BRIEF}
 
 ${FIELD_DIRECTIVES[brief.field]}`;
 
-    // v23.31 ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â marketing/commerce fields use a brief tailored for their context
+    // v23.31 — marketing/commerce fields use a brief tailored for their context
     const MARKETING_FIELDS = new Set([
       'couponName', 'couponDescription', 'couponBanner',
       'campaignName', 'campaignBlurb',
@@ -266,7 +266,7 @@ Write only the requested copy. No preamble, no explanation, no quotes around the
 
 Write only the requested copy. No preamble, no explanation, no quotes around the output.`
       : `Brief:
-- Piece: ${brief.name || '(name not yet decided ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â propose one based on craft + region + material)'}
+- Piece: ${brief.name || '(name not yet decided — propose one based on craft + region + material)'}
 - Craft: ${brief.craft || 'unspecified'}
 - Region: ${brief.region || 'unspecified'}
 - Artisan: ${brief.artisanName || 'unspecified'}

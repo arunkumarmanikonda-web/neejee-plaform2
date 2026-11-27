@@ -62,7 +62,7 @@ export default function AdminAiPhotoRequestsPage() {
       {loading && <div className="text-sm text-charcoal/50">Loading…</div>}
       {!loading && rows.length === 0 && <div className="bg-beige/40 p-6 text-sm text-charcoal/60">No requests in this status.</div>}
       <div className="space-y-3">
-        {rows.map(r => <div key={r.id} className="border border-charcoal/10 p-4 bg-ivory">
+        {rows.map(r => <div key={r.id} id={'request-'+r.id} className="border border-charcoal/10 p-4 bg-ivory">
           <div className="flex justify-between items-start gap-3 mb-2">
             <div className="flex-1"><div className="flex items-center gap-2"><span className={`text-xs px-2 py-1 ${STATUS_STYLE[r.status]}`}>{r.status}</span><strong>{r.vendor.legalName}</strong><span className="text-xs text-charcoal/50">· {new Date(r.createdAt).toLocaleString('en-IN')}</span></div>
               {r.product && <div className="text-xs text-charcoal/60 mt-1">Product: <Link href={`/admin/products/${r.product.id}`} className="underline">{r.product.name}</Link></div>}

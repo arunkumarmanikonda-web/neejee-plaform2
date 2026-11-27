@@ -136,7 +136,7 @@ export async function openDispute(args: {
       notify({
         event: 'DISPUTE_OPENED',
         userId: customerUserId,
-        data: { ...eventData, link: `/account/disputes/${dispute.id}` },
+        data: { ...eventData, link: `/account/disputes#dispute-${encodeURIComponent(dispute.id)}` },
         context: { type: 'DISPUTE', id: dispute.id },
       } as any).catch(() => {});
     }
