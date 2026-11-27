@@ -98,12 +98,12 @@ export default function AdminBanners() {
       </div>
 
       {/* v23.40.23: AI status strip */}
-      {aiStatus && (!aiStatus?.text?.configured || !aiStatus?.image?.configured) && (
+      {aiStatus && (!aiStatus?.text?.configured || !aiStatus?.image?.configured || !aiStatus?.storage?.configured) && (
         <div className="bg-haldi/15 border border-haldi p-3 text-xs text-kohl">
           <strong>AI not fully configured.</strong>{' '}
           {!aiStatus?.text?.configured && <span>OpenAI text generation is OFF (set <code>OPENAI_API_KEY</code> in Vercel env vars). </span>}
           {!aiStatus?.image?.configured && <span>fal.ai image generation is OFF (set <code>FAL_KEY</code> in Vercel env vars). </span>}
-          {!aiStatus?.storage?.configured && <span>Supabase storage is OFF — generated images will use ephemeral URLs that expire after a few hours.</span>}
+          {!aiStatus?.storage?.configured && <span>Media storage needs its Production server key (SUPABASE_SERVICE_ROLE_KEY) to save generated images.</span>}
         </div>
       )}
 
