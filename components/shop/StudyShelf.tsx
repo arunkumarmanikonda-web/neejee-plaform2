@@ -117,7 +117,7 @@ export function StudyShelf({ids, preview, email, home = false}: {ids: string[]; 
     </div>
     <div className="nj-grid" aria-live="polite">
       {shown.map((s, index) => <article key={s.id} className="nj-tile loom-card">
-        <TileGallery initialView={showFabric ? 1 : 0} name={s.name} eager={!home && index<4} views={studyViews(s)} onOpen={i=>openPiece(s,i)}>
+        <TileGallery detailView={{index:1,label:s.group==='sarees'?'See fabric':'See the set'}} initialView={showFabric ? 1 : 0} name={s.name} eager={!home && index<4} views={studyViews(s)} onOpen={i=>openPiece(s,i)}>
           <button className="nj-save" aria-label={(saved.includes(s.id) ? 'Unsave ' : 'Save ')+s.name} aria-pressed={saved.includes(s.id)} onClick={()=>save(s.id)}><Bookmark size={17} fill={saved.includes(s.id)?'currentColor':'none'}/></button>
         </TileGallery>
         <div className="loom-ticket">
@@ -131,6 +131,7 @@ export function StudyShelf({ids, preview, email, home = false}: {ids: string[]; 
             {preview ? <button type="button" className="loom-add" aria-label={'Add '+s.name+' to bag'} onClick={()=>buy(s,'/cart?bag=sample')}><Plus size={15}/> Add to bag</button> :
               <a className="loom-add" href={'mailto:'+email+'?subject='+encodeURIComponent('Enquiry about '+s.name)}>Enquire</a>}
             <button type="button" className="loom-detail" onClick={()=>openPiece(s)}>Details</button>
+            {s.group==='sarees' && <Link className="loom-style-link" href={lookUrl('/ai/mirror',defaultStyling(s.id))}>Style in Aaina</Link>}
           </div>
         </div>
       </article>)}

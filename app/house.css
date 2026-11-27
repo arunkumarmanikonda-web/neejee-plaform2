@@ -165,3 +165,34 @@
   .house-shelf .nj-shelf-head h2{font-size:clamp(2.05rem,7.8vw,3.1rem)}
   .house-shelf .nj-shelf-head :is(.nj-bag-link,.nj-text-link){font-size:.77rem;padding:.55rem .65rem}
 }
+
+@media screen {
+ .house-front {--house-paper:#fbf8ef;--house-ink:#29372e;background:var(--house-paper)}
+ .house-front .nj-market.house-shelf {max-width:1660px;margin:auto;padding:clamp(2rem,4.25vw,5rem) 5.3% 2rem}
+ .house-front .house-shelf .nj-shelf-head {align-items:center;margin:0 0 1rem}
+ .house-front .house-shelf .nj-shelf-head h2{font:500 clamp(2.6rem,5vw,5.4rem)/1.03 var(--font-body),Georgia,serif;letter-spacing:-.055em;color:#233e34}
+ .house-front .house-shelf .nj-shelf-head h2 em{font-style:italic;color:#823d4d}
+ .house-front .house-shelf .nj-shelf-head a{background:transparent;border:1px solid #bdb6a5;color:#273b30;min-height:44px;display:inline-flex;align-items:center}
+ .house-front .house-shelf .nj-shelf-head p{font:400 .81rem/1.4 var(--font-ui),sans-serif;color:#625b50;margin:.5rem 0 0}
+ .house-front .house-shelf .nj-grid{gap:clamp(1.5rem,3vw,3.2rem) clamp(.8rem,1.75vw,2rem)}
+ .house-front .loom-presentation button[aria-pressed=true]{color:white;background:#294237}
+ .house-front .loom-ticket{border-left:2px solid #b98677;margin:.75rem 0 0;padding:.05rem 0 .2rem .78rem}
+ .house-front .loom-card:nth-child(4n+1) .loom-ticket{border-color:#aa7a29}
+ .house-front .loom-card:nth-child(4n+3) .loom-ticket{border-color:#809275}
+ .house-front .loom-card:nth-child(4n+4) .loom-ticket{border-color:#4e617b}
+ .house-front .loom-actions{gap:.35rem .7rem}
+ .house-shelf .loom-style-link{color:#753248;display:inline-flex;align-items:center;min-height:44px;font:550 .82rem/1.3 var(--font-ui),Arial,sans-serif}
+ .house-front .loom-add{background:#284036;color:white}
+ .house-front .house-letter {background:#f0eadb;color:#293c31}
+}
+@media screen and (max-width:700px){
+ .house-front .nj-market.house-shelf{padding:1.9rem 4.3% 1rem}
+ .house-front .house-shelf .nj-shelf-head{align-items:flex-start;flex-wrap:wrap;gap:.55rem}
+ .house-front .house-shelf .nj-shelf-head h2{font-size:2.45rem}.house-front .loom-ticket{padding-left:.45rem}
+ .house-shelf .loom-style-link{font-size:.76rem}
+}
+
+.loom-card .loom-swatch-tab {position:absolute;z-index:2;left:.6rem;bottom:3.05rem;display:inline-flex;align-items:center;gap:.42rem;min-height:44px;padding:4px .6rem 4px 4px;color:#263c31;background:#fffbf0f5;border:1px solid #c5b9a1;box-shadow:0 1px 5px #231f191a;font:550 .8rem/1.2 var(--font-ui),Arial,sans-serif}
+.loom-swatch-tab img{display:block;width:30px;height:30px;object-fit:cover}
+.loom-card .loom-swatch-tab:focus-visible{outline:2px solid #8b3b50;outline-offset:2px}
+@media(max-width:600px){.loom-card .loom-swatch-tab{left:.35rem;bottom:2.75rem;font-size:.72rem;gap:.28rem;min-height:40px;padding:3px .4rem 3px 3px}.loom-swatch-tab img{width:24px;height:24px}}

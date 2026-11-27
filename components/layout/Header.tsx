@@ -105,41 +105,42 @@ export function Header({ shop = false }: { shop?: boolean } = {}) {
       {!shop && <AnnouncementBar />}
       <header ref={header} className={styles.masthead + " sticky top-0 z-40"} data-shop={shop}>
         <div className={styles.brandRow}>
-          <div className={styles.find}>
-            <button ref={menuTrigger} type="button" className={styles.menu} onClick={() => setOpen(!open)}
-              aria-label={open ? "Close shop menu" : "Open shop menu"} aria-controls="neejee-shop-menu" aria-expanded={open}>
-              {open ? <X size={20} aria-hidden="true"/> : <Menu size={20} aria-hidden="true"/>}
-            </button>
-            <button ref={searchTrigger} type="button" className={styles.search} onClick={openSearch}
-              aria-label="Search the shop" aria-haspopup="dialog">
-              <Search size={18} aria-hidden="true"/><span>Search the shop</span>
-            </button>
-          </div>
-
           <Link href="/" aria-label="NEEJEE Home, Found. Personal." className={styles.signature}>
             <NeejeeLogo size="xl" showTagline />
           </Link>
+          <div className={styles.utilities}>
+            <div className={styles.find}>
+              <button ref={menuTrigger} type="button" className={styles.menu} onClick={() => setOpen(!open)}
+                aria-label={open ? "Close shop menu" : "Open shop menu"} aria-controls="neejee-shop-menu" aria-expanded={open}>
+                {open ? <X size={20} aria-hidden="true"/> : <Menu size={20} aria-hidden="true"/>}
+              </button>
+              <button ref={searchTrigger} type="button" className={styles.search} onClick={openSearch}
+                aria-label="Search the shop" aria-haspopup="dialog">
+                <Search size={18} aria-hidden="true"/><span>Search the shop</span>
+              </button>
+            </div>
 
-          <div className={styles.personal}>
-            <DropdownMenu.Root modal={false}>
-              <DropdownMenu.Trigger className={styles.account} aria-label="Account options">
-                <UserRound size={17} aria-hidden="true"/><span>Account</span>
-              </DropdownMenu.Trigger>
-              <DropdownMenu.Portal>
-                <DropdownMenu.Content className={styles.accountPanel} align="end" sideOffset={5} collisionPadding={12}>
-                  {me && <DropdownMenu.Label className={styles.signedIn}>Signed in as {me.email}</DropdownMenu.Label>}
-                  {accountLinks.map(([label, href]) => <DropdownMenu.Item asChild key={href}>
-                    <Link className={styles.accountItem} href={href}>{label}</Link>
-                  </DropdownMenu.Item>)}
-                  {!isAdmin && <DropdownMenu.Item asChild><Link className={styles.accountItem} href={savedHref}>Saved pieces</Link></DropdownMenu.Item>}
-                  {me && <DropdownMenu.Item className={styles.accountItem} onSelect={() => void logout()}>Sign out</DropdownMenu.Item>}
-                </DropdownMenu.Content>
-              </DropdownMenu.Portal>
-            </DropdownMenu.Root>
-            <Link href="/cart" className={styles.bag} aria-label={'Shopping bag' + (ready && count ? ', ' + count + (count===1 ? ' item' : ' items') : '')}>
-              <ShoppingBag size={18} aria-hidden="true"/><span>Bag</span>
-              {ready && count>0 && <b className={styles.count} aria-hidden="true">{count>99 ? '99+' : count}</b>}
-            </Link>
+            <div className={styles.personal}>
+              <DropdownMenu.Root modal={false}>
+                <DropdownMenu.Trigger className={styles.account} aria-label="Account options">
+                  <UserRound size={17} aria-hidden="true"/><span>Account</span>
+                </DropdownMenu.Trigger>
+                <DropdownMenu.Portal>
+                  <DropdownMenu.Content className={styles.accountPanel} align="end" sideOffset={5} collisionPadding={12}>
+                    {me && <DropdownMenu.Label className={styles.signedIn}>Signed in as {me.email}</DropdownMenu.Label>}
+                    {accountLinks.map(([label, href]) => <DropdownMenu.Item asChild key={href}>
+                      <Link className={styles.accountItem} href={href}>{label}</Link>
+                    </DropdownMenu.Item>)}
+                    {!isAdmin && <DropdownMenu.Item asChild><Link className={styles.accountItem} href={savedHref}>Saved pieces</Link></DropdownMenu.Item>}
+                    {me && <DropdownMenu.Item className={styles.accountItem} onSelect={() => void logout()}>Sign out</DropdownMenu.Item>}
+                  </DropdownMenu.Content>
+                </DropdownMenu.Portal>
+              </DropdownMenu.Root>
+              <Link href="/cart" className={styles.bag} aria-label={'Shopping bag' + (ready && count ? ', ' + count + (count===1 ? ' item' : ' items') : '')}>
+                <ShoppingBag size={18} aria-hidden="true"/><span>Bag</span>
+                {ready && count>0 && <b className={styles.count} aria-hidden="true">{count>99 ? '99+' : count}</b>}
+              </Link>
+            </div>
           </div>
         </div>
         <MegaMenuNav onNavigate={()=>setOpen(false)}/>

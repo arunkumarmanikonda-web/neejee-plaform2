@@ -14,8 +14,8 @@ export function catalogueViews(images: string[]): PieceView[] {
   return photos.length ? [...views, {src:photos[0],label:'Detail crop',focus:'50% 62%',zoom:2.3}] : views;
 }
 
-export function TileGallery({name, views, href, onOpen, children, eager = false, initialView = 0}: {
-  name:string; views:PieceView[]; href?:string; onOpen?:(index:number)=>void; children?:ReactNode; eager?:boolean; initialView?:number;
+export function TileGallery({name, views, href, onOpen, children, detailView, eager = false, initialView = 0}: {
+  name:string; views:PieceView[]; href?:string; onOpen?:(index:number)=>void; children?:ReactNode; detailView?: { index:number; label:string }; eager?:boolean; initialView?:number;
 }) {
   const rail = usePhotoRail(views.length, initialView);
   return <div className="nj-photo nj-gallery" role="group" aria-roledescription="carousel"
@@ -33,6 +33,12 @@ export function TileGallery({name, views, href, onOpen, children, eager = false,
       {!views.length && (href ? <Link href={href} className="nj-image-open">View piece</Link> : <button onClick={()=>onOpen?.(0)}>View piece</button>)}
     </div>
     {children}
+    {detailView && views[detailView.index] && <button type="button" className="loom-swatch-tab"
+      aria-label={(rail.active===detailView.index ? 'Return to full view of ' : detailView.label+' of ')+name}
+      onClick={()=>rail.go(rail.active===detailView.index ? 0 : detailView.index)}>
+      <img src={views[rail.active===detailView.index ? 0 : detailView.index].src} width={32} height={32} alt="" loading="lazy" decoding="async"/>
+      <span>{rail.active===detailView.index ? 'Full view' : detailView.label}</span>
+    </button>}
     {views.length>1 && <div className="loom-gallery-nav">
       <button type="button" aria-label={'Previous photo of '+name} aria-disabled={rail.active===0} onClick={()=>rail.step(-1)}><ChevronLeft size={18}/></button>
       <span className="loom-gallery-caption" aria-live="polite" aria-atomic="true">{views[rail.active]?.label} <i>{rail.active+1}/{views.length}</i></span>

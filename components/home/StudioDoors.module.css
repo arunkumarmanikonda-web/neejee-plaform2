@@ -23,3 +23,9 @@
 .fittingCopy a{display:inline-flex;align-items:center;min-height:44px;padding:.65rem 1.05rem;margin:1rem .7rem 0 0;background:#742d36;color:#fff3df;font:550 .9rem var(--font-ui),sans-serif}
 .fittingCopy .roomLink{background:transparent;color:#5c3c33;padding-inline:0}
 @media(max-width:670px){.fitting{grid-template-columns:1fr;margin:1rem 4.5% 2rem;padding:1rem;gap:1.3rem}.composition{height:14rem}.fittingCopy{padding:0 .25rem .5rem}.fittingCopy h2{font-size:3.8rem}}
+
+.fitting{background:#efd9d4;color:#3e3330;margin:clamp(2rem,4vw,4rem) auto;padding:clamp(1.6rem,4vw,4.5rem) 6%;max-width:1660px;grid-template-columns:1.1fr 1fr}
+.fittingCopy h2{color:#73374a}.fittingCopy a{background:#673447;color:#fff8eb}
+.fitting .composition{background:#e1c2b9}
+.fittingCopy .roomLink{color:#613b44;background:transparent}
+@media(max-width:670px){.fitting{grid-template-columns:1fr;padding:1.15rem 5% 1.7rem;margin-block:1.5rem}}

@@ -218,6 +218,7 @@ export default async function HomePage() {
           {fashion.length ? <section className="nj-shelf"><div className="nj-shelf-head"><h2>Sarees <em>&amp; suit sets</em></h2><Link className="nj-text-link" href="/edits/clothing">Shop the collection</Link></div><CatalogueGrid textiles products={moreFashion.map(p=>({...p,images:p.cover?[p.cover,...p.images.filter(i=>i!==p.cover)]:p.images}))}/></section> :
             <StudyShelf home ids={homeStudyIds} preview={previewPricingEnabled()} email={email}/>}
         </div>}
+        <StudioDoors roomPiece={data.spotlight?.roomHref ? data.spotlight.slug : undefined} wearable={data.saree?.mirror ? data.saree.slug : data.suit?.mirror ? data.suit.slug : undefined}/>
         {(data.heroBanners.length>0) && <HeroCarousel banners={data.heroBanners} spotlight={data.spotlight}/>}
 
         {(data.founder.length > 0 || (data.spotlight && !data.heroBanners.length)) && (
@@ -235,7 +236,7 @@ export default async function HomePage() {
           </section>
         )}
 
-        <StudioDoors roomPiece={data.spotlight?.roomHref ? data.spotlight.slug : undefined} wearable={data.saree?.mirror ? data.saree.slug : data.suit?.mirror ? data.suit.slug : undefined}/>
+
         <div className="house-letter">
           <figure><img src="/brand/journey-loom.webp" loading="lazy" alt="Coloured bobbins at a handloom in Varanasi"/><figcaption>Varanasi, 2011 · <a href="https://commons.wikimedia.org/wiki/File:Silk_Looms,_Varanasi.jpg">Dan Ruth</a> · <a href="https://creativecommons.org/licenses/by/2.0/">CC BY 2.0</a> · cropped</figcaption></figure>
           <div>

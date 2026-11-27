@@ -47,7 +47,7 @@ export function ProductCard({ product, closeUp = false }: { product: ProductCard
   const label = alias && !product.name.toLowerCase().includes(alias.toLowerCase()) ? alias : location;
   const descriptor = [...new Set([(product.colours || []).slice(0,2).join(' / '), product.craft || product.technique, product.material, label!==location ? location : ''].filter(Boolean))].join(' · ');
   return <article className="nj-tile loom-card">
-    <TileGallery initialView={closeUp ? Math.max(0, views.length-1) : 0} name={product.name} views={views} href={href}>
+    <TileGallery detailView={views.length>1 ? {index:views.length-1,label:'Closer view'} : undefined} initialView={closeUp ? Math.max(0, views.length-1) : 0} name={product.name} views={views} href={href}>
       <div className="nj-live-badges">{info.salePrice && <span className="nj-stock">On sale</span>}<BadgeChipRow badges={product.badges}/>
         {product.inventory === 0 ? <span className="nj-stock">Sold out</span> : product.inventory != null && product.inventory <= 3 && <span className="nj-stock">Only {product.inventory} left</span>}</div>
       <button className="nj-save" aria-pressed={saved} aria-label={(saved?'Remove from wishlist: ':'Add to wishlist: ')+product.name} onClick={() => toggle(product.id,product.slug)}><Bookmark size={17} fill={saved?'currentColor':'none'}/></button>
