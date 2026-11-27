@@ -1,3 +1,4 @@
+import {requireIntakeAccess} from '@/lib/seller-onboarding/intake-access';
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { isKycMockMode, normalizeText, normalizeUpper } from '@/lib/seller-onboarding/kyc-provider';
@@ -11,6 +12,8 @@ const BodySchema = z.object({
 });
 
 export async function POST(request: Request) {
+  const denied = await requireIntakeAccess(request);
+  if (denied) return denied;
   try {
     const body = BodySchema.parse(await request.json());
     const cin = normalizeUpper(body.cin);

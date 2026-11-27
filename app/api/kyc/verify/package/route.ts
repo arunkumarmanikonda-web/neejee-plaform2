@@ -1,3 +1,4 @@
+import {requireIntakeAccess} from '@/lib/seller-onboarding/intake-access';
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 
@@ -131,6 +132,8 @@ function summarize(results: Array<ReturnType<typeof normalizeResult>>) {
 }
 
 export async function POST(request: NextRequest) {
+  const denied = await requireIntakeAccess(request);
+  if (denied) return denied;
   try {
     const body = BodySchema.parse(await request.json())
     const resolvedName = String(body.name ?? body.businessName ?? '').trim() || null

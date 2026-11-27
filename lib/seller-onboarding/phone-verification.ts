@@ -15,7 +15,6 @@ function signingKey(): Buffer {
   const source =
     process.env.AUTH_SECRET ||
     process.env.NEXTAUTH_SECRET ||
-    process.env.DATABASE_URL ||
     '';
 
   if (!source) {
@@ -55,12 +54,9 @@ export function issueSellerPhoneVerificationProof(phoneInput: string): {
   };
 }
 
-export function verifySellerPhoneVerificationProof(
+function readSignedSellerProof(
   token: string | null | undefined,
-  expectedPhoneInput: string,
 ): { ok: true; phone: string } | { ok: false; reason: string } {
-  const expectedPhone = normalizePhone(expectedPhoneInput);
-  if (!expectedPhone) return { ok: false, reason: 'invalid_phone' };
   if (!token) return { ok: false, reason: 'missing_verification' };
 
   const [encoded, providedSignature, ...rest] = String(token).split('.');
@@ -82,17 +78,28 @@ export function verifySellerPhoneVerificationProof(
     return { ok: false, reason: 'invalid_verification' };
   }
 
-  if (payload.purpose !== 'seller-application') {
+  if (!payload || payload.purpose !== 'seller-application') {
     return { ok: false, reason: 'invalid_verification' };
   }
-  if (payload.phone !== expectedPhone) {
-    return { ok: false, reason: 'phone_changed' };
-  }
+  if (typeof payload.phone !== 'string' || !normalizePhone(payload.phone)) return {ok:false, reason:'invalid_phone'};
   if (!Number.isFinite(payload.exp) || payload.exp <= Math.floor(Date.now() / 1000)) {
     return { ok: false, reason: 'verification_expired' };
   }
 
-  return { ok: true, phone: expectedPhone };
+  return { ok: true, phone: payload.phone };
+}
+
+export function verifySellerPhoneVerificationProof(token: string | null | undefined, expectedPhoneInput: string) {
+  const phone = normalizePhone(expectedPhoneInput);
+  if (!phone) return {ok:false, reason:'invalid_phone'} as const;
+  const verified = readSignedSellerProof(token);
+  if (!verified.ok) return verified;
+  return verified.phone === phone ? verified : {ok:false, reason:'phone_changed'} as const;
+}
+
+export function sellerIntakePhoneVerified(request: Request): boolean {
+  const token = readCookieValue(request.headers.get('cookie'), SELLER_PHONE_VERIFICATION_COOKIE);
+  return readSignedSellerProof(token).ok;
 }
 
 export function readCookieValue(cookieHeader: string | null, name: string): string | null {

@@ -1,3 +1,4 @@
+import {requireIntakeAccess} from '@/lib/seller-onboarding/intake-access';
 import { NextResponse } from 'next/server'
 import { averageScore, buildVerificationPayload, toNullableString } from '@/lib/kyc/normalized-verification'
 
@@ -29,6 +30,8 @@ function last4(value: string) {
 }
 
 export async function POST(request: Request) {
+  const denied = await requireIntakeAccess(request);
+  if (denied) return denied;
   try {
     const body = await request.json().catch(() => null) as Record<string, unknown> | null
     const bankAccount = String(body?.bankAccount ?? body?.bank_account ?? '').trim()
