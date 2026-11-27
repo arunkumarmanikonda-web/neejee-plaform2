@@ -199,10 +199,10 @@ function SellerLoginInner() {
             </div>
             <div className="mt-2 text-right">
               <Link
-                href="/forgot-password?role=seller"
+                href="/help/contact"
                 className="text-xs text-mitti hover:text-madder underline-offset-4 hover:underline"
               >
-                Forgot password?
+                Get help with seller sign-in
               </Link>
             </div>
           </div>

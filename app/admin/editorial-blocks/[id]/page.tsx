@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 type BlockStatus = 'DRAFT' | 'PREVIEW' | 'PUBLISHED' | 'ARCHIVED';
 
@@ -92,10 +92,7 @@ export default function AdminEditorialBlockDetailPage() {
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
 
-  const previewUrl = useMemo(() => {
-    if (!form.previewToken) return '';
-    return `/api/admin/editorial-blocks/preview/${form.previewToken}`;
-  }, [form.previewToken]);
+  const previewUrl = blockId && blockId !== 'new' ? '/admin/editorial-blocks/' + encodeURIComponent(blockId) + '/preview' : '';
 
   const load = useCallback(async () => {
     if (!blockId) return;
@@ -150,7 +147,7 @@ export default function AdminEditorialBlockDetailPage() {
   }, [load]);
 
   const patch = useCallback(
-    async (statusOverride?: BlockStatus, regeneratePreviewToken = false) => {
+    async (statusOverride?: BlockStatus) => {
       if (!blockId) return;
 
       setSaving(true);
@@ -178,7 +175,6 @@ export default function AdminEditorialBlockDetailPage() {
             tags: splitTags(form.tags),
             placement: form.placement || null,
             ...(statusOverride ? { status: statusOverride } : {}),
-            ...(regeneratePreviewToken ? { regeneratePreviewToken: true } : {}),
           }),
         });
 
@@ -213,9 +209,7 @@ export default function AdminEditorialBlockDetailPage() {
         });
 
         setMessage(
-          regeneratePreviewToken
-            ? 'Preview token regenerated'
-            : statusOverride === 'PUBLISHED'
+          statusOverride === 'PUBLISHED'
             ? 'Editorial block published'
             : statusOverride === 'ARCHIVED'
             ? 'Editorial block archived'
@@ -676,27 +670,9 @@ export default function AdminEditorialBlockDetailPage() {
           </div>
 
           <div className="bg-white rounded-3xl border border-stone-200 p-6">
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <p className="label text-madder mb-1">PREVIEW</p>
-                <h2 className="text-xl font-semibold text-stone-900">
-                  Preview token
-                </h2>
-              </div>
-
-              <button
-                onClick={() => void patch(undefined, true)}
-                disabled={saving}
-                className="rounded-full border border-stone-300 px-4 py-2 text-sm font-medium hover:bg-stone-50 disabled:opacity-60"
-              >
-                Regenerate
-              </button>
-            </div>
-
-            <div className="mt-4 rounded-2xl bg-stone-50 border border-stone-200 px-4 py-3 text-sm break-all text-stone-700">
-              {form.previewToken || 'No preview token'}
-            </div>
-
+            <p className="label text-madder mb-1">PREVIEW</p>
+            <h2 className="text-xl font-semibold">Saved editorial block</h2>
+            <p className="mt-2 text-sm">Open a private staff preview of the last saved version.</p>
             {previewUrl ? (
               <div className="mt-4">
                 <a

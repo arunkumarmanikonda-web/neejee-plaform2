@@ -1,4 +1,5 @@
 // v23.40 — Payroll configuration (singleton)
+import { z } from 'zod';
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getSession } from '@/lib/auth';
@@ -27,16 +28,22 @@ export async function PATCH(req: Request) {
   if (!gate.ok) return NextResponse.json({ error: gate.error }, { status: gate.status });
 
   const before = await prisma.payrollConfig.findUnique({ where: { id: 'singleton' } });
-  const body = await req.json();
-  const allowed = [
-    'pfEnabled', 'esiEnabled', 'tdsEnabled', 'ptEnabled',
-    'pfEmployeeRate', 'pfEmployerRate', 'pfWageCeilingPaise',
-    'esiEmployeeRate', 'esiEmployerRate', 'esiGrossCeilingPaise',
-    'ptSlabsJson', 'tdsDefaultRate',
-    'payCycleDay', 'workingDaysPerMonth', 'notes',
-  ];
-  const data: any = {};
-  for (const k of allowed) if (body[k] !== undefined) data[k] = body[k];
+  const rate = z.number().min(0).max(100);
+  const money = z.number().int().min(0).max(2147483647);
+  const slab = z.object({minPaise:money,maxPaise:money,taxPaise:money}).refine(v=>v.maxPaise>=v.minPaise);
+  const slabs = z.string().max(20000).refine(value=>{
+    try {return z.array(slab).safeParse(JSON.parse(value)).success;} catch {return false;}
+  });
+  const schema = z.object({
+    pfEnabled:z.boolean(),esiEnabled:z.boolean(),ptEnabled:z.boolean(),tdsEnabled:z.boolean(),
+    pfEmployeeRate:rate,pfEmployerRate:rate,esiEmployeeRate:rate,esiEmployerRate:rate,tdsDefaultRate:rate,
+    pfWageCeilingPaise:money,esiGrossCeilingPaise:money,ptSlabsJson:slabs,
+    payCycleDay:z.number().int().min(1).max(31),workingDaysPerMonth:z.number().int().min(1).max(31),
+    notes:z.string().max(8000).nullable(),
+  }).partial();
+  const input=schema.safeParse(await req.json().catch(()=>null));
+  if (!input.success) return NextResponse.json({error:'Check the payroll rates, dates and professional tax slabs.'},{status:400});
+  const data=input.data;
 
   const updated = await prisma.payrollConfig.upsert({
     where: { id: 'singleton' },

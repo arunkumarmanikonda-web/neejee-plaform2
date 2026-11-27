@@ -161,7 +161,7 @@ export default function AdminMetaIntegrationsPage() {
   return (
     <div className="space-y-8">
       <div>
-        <p className="label text-madder">META-001 Â· ACCOUNT CENTER</p>
+        <p className="label text-madder">META-001 · ACCOUNT CENTER</p>
         <h1 className="font-display text-4xl text-kohl mt-2">Meta account center</h1>
         <p className="font-ui text-sm text-mitti mt-3 max-w-4xl leading-7">
           Connect Facebook business access and linked Instagram professional accounts so marketing surfaces can use one managed control plane for account health, publish readiness, and future content operations.
@@ -243,7 +243,7 @@ export default function AdminMetaIntegrationsPage() {
       <section className="bg-white border border-mitti/15 rounded-2xl p-6">
         <p className="label text-madder">CONNECTED ACCOUNTS</p>
         {loading ? (
-          <p className="text-sm text-mitti mt-4">Loading connectionsâ€¦</p>
+          <p className="text-sm text-mitti mt-4">Loading connections…</p>
         ) : connections.length === 0 ? (
           <p className="text-sm text-mitti mt-4">No Meta accounts linked yet.</p>
         ) : (
@@ -270,7 +270,7 @@ export default function AdminMetaIntegrationsPage() {
                     disabled={disconnecting === connection.id}
                     className="px-3 py-2 rounded-lg border border-mitti/20 bg-white text-kohl text-xs flex items-center gap-2 disabled:opacity-50"
                   >
-                    <Unlink className="w-3.5 h-3.5" /> {disconnecting === connection.id ? 'Disconnectingâ€¦' : 'Disconnect'}
+                    <Unlink className="w-3.5 h-3.5" /> {disconnecting === connection.id ? 'Disconnecting…' : 'Disconnect'}
                   </button>
                 </div>
 
@@ -316,10 +316,10 @@ export default function AdminMetaIntegrationsPage() {
                 {allPages.map((page) => (
                   <tr key={page.id} className="border-b border-mitti/10">
                     <td className="py-3 pr-4 text-kohl">{page.pageName}</td>
-                    <td className="py-3 pr-4 text-mitti">{page.category || 'â€”'}</td>
-                    <td className="py-3 pr-4 text-mitti">{page.tasks?.join(', ') || 'â€”'}</td>
+                    <td className="py-3 pr-4 text-mitti">{page.category || '—'}</td>
+                    <td className="py-3 pr-4 text-mitti">{page.tasks?.join(', ') || '—'}</td>
                     <td className="py-3 pr-4 text-mitti">{page.isPrimary ? 'Yes' : 'No'}</td>
-                    <td className="py-3 pr-4 text-mitti">{page.linkedInstagramId || 'â€”'}</td>
+                    <td className="py-3 pr-4 text-mitti">{page.linkedInstagramId || '—'}</td>
                   </tr>
                 ))}
               </tbody>
@@ -347,9 +347,9 @@ export default function AdminMetaIntegrationsPage() {
               <tbody>
                 {allInstagram.map((account) => (
                   <tr key={account.id} className="border-b border-mitti/10">
-                    <td className="py-3 pr-4 text-kohl">{account.username || 'â€”'}</td>
-                    <td className="py-3 pr-4 text-mitti">{account.name || 'â€”'}</td>
-                    <td className="py-3 pr-4 text-mitti">{account.linkedPageId || 'â€”'}</td>
+                    <td className="py-3 pr-4 text-kohl">{account.username || '—'}</td>
+                    <td className="py-3 pr-4 text-mitti">{account.name || '—'}</td>
+                    <td className="py-3 pr-4 text-mitti">{account.linkedPageId || '—'}</td>
                     <td className="py-3 pr-4 text-mitti">{account.canPublish ? 'Ready' : 'Not ready'}</td>
                     <td className="py-3 pr-4 text-mitti">{account.canCommentModerate ? 'Ready' : 'Not ready'}</td>
                   </tr>

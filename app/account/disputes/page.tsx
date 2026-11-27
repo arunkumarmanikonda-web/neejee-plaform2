@@ -62,7 +62,7 @@ export default function CustomerDisputesPage() {
 
       <div className="space-y-3">
         {rows.map(r => (
-          <div key={r.id} className="border border-charcoal/10 p-4">
+          <div key={r.id} id={'dispute-'+r.id} className="border border-charcoal/10 p-4">
             <div className="flex justify-between items-start gap-2">
               <div>
                 <div className="font-display text-lg">{r.title}</div>

@@ -391,13 +391,12 @@ export default function AdminAgreementWorkbenchPage() {
 
     try {
       const res = await fetch(
-        `/api/admin/agreements/${agreement.id}/observations/${observationId}`,
+        `/api/admin/sellers/${encodeURIComponent(id)}/agreement-workflow`,
         {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            adminResponse: observationDrafts[observationId] || '',
-            ...(status ? { status } : {}),
+            observation: { id: observationId, adminResponse: observationDrafts[observationId] || '', status },
           }),
         },
       );
@@ -479,13 +478,13 @@ export default function AdminAgreementWorkbenchPage() {
                   <Printer className="w-3.5 h-3.5" /> PRINT PREVIEW
                 </Link>
 
-                <Link
-                  href={`/seller/agreements/${agreement.id}`}
+                {agreement.sellerSigningToken && <Link
+                  href={`/agreement/public/sellers/${encodeURIComponent(id)}/sign?token=${encodeURIComponent(agreement.sellerSigningToken)}`}
                   target="_blank"
                   className="inline-flex items-center gap-1 px-3 py-2 border border-mitti/30 text-xs tracking-wider text-mitti hover:bg-mitti/5"
                 >
                   Seller review <ExternalLink className="w-3.5 h-3.5" />
-                </Link>
+                </Link>}
               </div>
             </div>
 
@@ -585,7 +584,7 @@ export default function AdminAgreementWorkbenchPage() {
             {bundle?.agreement?.sellerSigningUrl ? (
               <div className="mt-4 bg-ivory border border-mitti/15 p-4 space-y-2">
                 <p className="label text-mitti">SELLER SIGNING</p>
-                <p className="text-xs text-mitti">Status: {bundle?.agreement?.sellerSignatureStatus || bundle?.agreement?.status || 'â€”'}</p>
+                <p className="text-xs text-mitti">Status: {bundle?.agreement?.sellerSignatureStatus || bundle?.agreement?.status || '—'}</p>
                 <div className="flex flex-wrap gap-2">
                   <a
                     href={bundle.agreement.sellerSigningUrl}

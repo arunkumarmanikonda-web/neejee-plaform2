@@ -431,6 +431,7 @@ async function loadSellerOr401(id: string) {
       craft: true,
       kycStatus: true,
       autoKycSummary: true,
+      updatedAt: true,
     },
   });
 
@@ -485,13 +486,13 @@ async function saveWorkflowState(
 
   // Explicit select is required because production intentionally avoids returning
   // stale Prisma Seller columns that are not present in the live database.
-  await prisma.seller.update({
-    where: { id: seller.id },
+  const saved = await prisma.seller.updateMany({
+    where: { id: seller.id, updatedAt: seller.updatedAt },
     data: {
       autoKycSummary: nextSummary as any,
     },
-    select: { id: true },
   });
+  if (!saved.count) throw new Error('The seller record changed. Reload before saving your edits.');
 
   return buildAgreementBundle(nextDocument, nextWorkflow, signatories);
 }
@@ -575,6 +576,20 @@ export async function PATCH(
     if (body?.renegotiationReason !== undefined) patch.renegotiationReason = String(body.renegotiationReason || '');
     if (Array.isArray(body?.signatories)) patch.signatories = body.signatories;
     if (Array.isArray(body?.observations)) patch.observations = body.observations;
+    if (body?.observation) {
+      const { id: observationId, adminResponse, status } = body.observation;
+      if (typeof observationId !== 'string' || typeof adminResponse !== 'string' || adminResponse.length > 8000 ||
+          (status !== undefined && !['RESOLVED','REJECTED'].includes(status))) {
+        return NextResponse.json({ error: 'Invalid observation response' }, { status: 400 });
+      }
+      const current = toJsonObject(toJsonObject(loaded.seller.autoKycSummary).agreementWorkflow);
+      const observations: any[] = Array.isArray(current.observations) ? current.observations : [];
+      if (!observations.some(item => item.id === observationId)) {
+        return NextResponse.json({ error: 'Observation not found' }, { status: 404 });
+      }
+      patch.observations = observations.map(item => item.id === observationId
+        ? { ...item, adminResponse, ...(status ? { status } : {}), updatedAt: nowIso() } : item);
+    }
 
     const bundle = await saveWorkflowState(loaded.seller, request, patch);
     return NextResponse.json(bundle);

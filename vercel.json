@@ -1,5 +1,8 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
+  "regions": [
+    "sin1"
+  ],
   "functions": {
     "app/api/cron/database-recovery/route.ts": {
       "regions": [

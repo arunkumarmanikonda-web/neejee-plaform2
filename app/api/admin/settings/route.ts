@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getSession, requireRole } from '@/lib/auth';
 import { razorpayxConfigured } from '@/lib/razorpayx';
 import { webhookSecretConfigured } from '@/lib/webhooks/auth';
+import { aisensyAdapter } from '@/lib/notifications/channels/aisensy';
+import { razorpayCredentials, liveCheckoutUnavailable } from '@/lib/payments/razorpay-credentials';
 import { storageConfigured } from '@/lib/storage';
 
 export const dynamic = 'force-dynamic';
@@ -69,6 +71,7 @@ function productionEditorConfigured() {
 }
 
 function runtimeStatus() {
+  const payments = razorpayCredentials();
   return {
     database: !!process.env.DATABASE_URL,
     directUrl: !!process.env.DIRECT_URL,
@@ -78,13 +81,13 @@ function runtimeStatus() {
     supabaseUrl: !!(process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL),
     supabaseServiceKey: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
     shiprocket: !!(process.env.SHIPROCKET_EMAIL && process.env.SHIPROCKET_PASSWORD),
-    razorpay: !!(process.env.RAZORPAY_KEY_ID && process.env.RAZORPAY_KEY_SECRET),
+    razorpay: !!(payments.keyId && payments.keySecret && !liveCheckoutUnavailable(payments.keyId)),
     payouts: razorpayxConfigured(),
     shipmentCallbacks: webhookSecretConfigured(process.env.SHIPROCKET_WEBHOOK_TOKEN),
     smsCallbacks: webhookSecretConfigured(process.env.FAST2SMS_WEBHOOK_SECRET),
     whatsappCallbacks: webhookSecretConfigured(process.env.AISENSY_WEBHOOK_SECRET),
     resend: !!process.env.RESEND_API_KEY,
-    aisensy: !!(process.env.AISENSY_API_KEY && process.env.AISENSY_NUMBER),
+    aisensy: aisensyAdapter.isConfigured(),
     openai: !!process.env.OPENAI_API_KEY,
     fal: !!process.env.FAL_KEY,
     replicate: !!process.env.REPLICATE_API_TOKEN,

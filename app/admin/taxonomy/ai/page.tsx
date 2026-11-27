@@ -366,7 +366,7 @@ export default function TaxonomyAiWorkbenchPage() {
           <div className="rounded-xl border border-mitti/15 bg-beige p-4">
             <p className="label text-madder">OPENAI STATUS</p>
             <p className="font-display text-3xl text-kohl mt-2">
-              {configured === null ? 'â€”' : configured ? 'AI' : 'FALLBACK'}
+              {configured === null ? '—' : configured ? 'AI' : 'FALLBACK'}
             </p>
           </div>
           <div className="rounded-xl border border-mitti/15 bg-beige p-4">
