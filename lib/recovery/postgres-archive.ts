@@ -2,6 +2,7 @@ import { execFile } from 'node:child_process';
 import { chmod, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { rootCertificates } from 'node:tls';
+import { supabaseRootCa } from './supabase-ca';
 import { promisify } from 'node:util';
 import { readCredential } from '../payments/razorpay-credentials';
 
@@ -11,7 +12,7 @@ const maxBytes = 32 * 1024 * 1024;
 
 export async function dumpDatabase(dir: string) {
   const ca = join(dir,'trusted-ca.pem');
-  await writeFile(ca,rootCertificates.join('\n'),{mode:0o600});
+  await writeFile(ca,[...rootCertificates, supabaseRootCa].join('\n'),{mode:0o600});
   const candidates = [...new Set([process.env.DIRECT_URL, process.env.DATABASE_URL].map(readCredential).filter(Boolean))];
   let failure = 'No database connection is configured';
   for (const candidate of candidates) {
