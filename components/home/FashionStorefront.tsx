@@ -221,7 +221,7 @@ export async function FashionStorefront({review=false}:{review?:boolean}) {
         </div>}
         {!data.saree && data.spotlightCard && <StockFeature piece={data.spotlightCard} home={data.homeLead}/>}
         <StudioDoors roomPiece={data.spotlight?.roomHref ? data.spotlight.slug : undefined} wearable={data.saree?.mirror ? data.saree.slug : data.suit?.mirror ? data.suit.slug : undefined}/>
-        {(data.heroBanners.length>0) && <HeroCarousel banners={data.heroBanners} spotlight={data.spotlight}/>}
+        {(data.heroBanners.length>0) && <HeroCarousel banners={data.heroBanners} spotlight={data.saree && data.saree.slug!==data.spotlight?.slug ? data.spotlight : null}/>}
 
         {(data.founder.length > 0 || (data.saree && data.spotlight && !data.heroBanners.length)) && (
           <section className="max-w-8xl mx-auto px-6 lg:px-12 py-20">
