@@ -1,5 +1,17 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
+  "functions": {
+    "app/api/cron/database-recovery/route.ts": {
+      "regions": [
+        "sin1"
+      ]
+    },
+    "app/api/cron/storage-recovery/route.ts": {
+      "regions": [
+        "sin1"
+      ]
+    }
+  },
   "crons": [
     {
       "path": "/api/cron/cart-recovery",
