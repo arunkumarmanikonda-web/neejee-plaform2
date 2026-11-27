@@ -4,6 +4,7 @@
 // scenarios at a glance.
 import { NextResponse } from 'next/server';
 import { getSession, requireRole } from '@/lib/auth';
+import { storageConfigured } from '@/lib/storage';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -14,8 +15,8 @@ export async function GET() {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
   return NextResponse.json({
-    text:    { configured: !!process.env.OPENAI_API_KEY,                  envVar: 'OPENAI_API_KEY' },
-    image:   { configured: !!process.env.FAL_KEY,                          envVar: 'FAL_KEY' },
-    storage: { configured: !!(process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_KEY), envVar: 'SUPABASE_URL + SUPABASE_SERVICE_KEY' },
+    text:    { configured: Boolean(process.env.OPENAI_API_KEY?.trim()),                  envVar: 'OPENAI_API_KEY' },
+    image:   { configured: Boolean(process.env.FAL_KEY?.trim()),                          envVar: 'FAL_KEY' },
+    storage: { configured: storageConfigured(), envVar: 'SUPABASE_SERVICE_ROLE_KEY' },
   });
 }
