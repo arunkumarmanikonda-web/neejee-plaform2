@@ -1,30 +1,37 @@
 // lib/razorpayx.ts
 // Thin client for RazorpayX (the payout side of Razorpay's API).
-// Auth uses HTTP Basic with RAZORPAY_KEY_ID:RAZORPAY_KEY_SECRET (the same
-// keys used for the payments API — both share the same root credentials).
-//
-// Docs: https://razorpay.com/docs/api/x/
-//
-// We use three resources here:
-//   1. Contacts        — POST /v1/contacts          (the vendor/seller entity)
-//   2. Fund Accounts   — POST /v1/fund_accounts     (their bank account)
-//   3. Payouts         — POST /v1/payouts           (the money movement)
-//
-// Optional env vars (set in Vercel):
-//   RAZORPAYX_ACCOUNT_NUMBER     — your RazorpayX VA account number (mandatory for payouts)
-//   RAZORPAYX_MODE               — "test" | "live"  (informational only)
+// Payouts use the RazorpayX account credentials. Older installations opted
+// into a shared merchant key pair by supplying RAZORPAYX_ACCOUNT_NUMBER.
+
+import { createHmac, timingSafeEqual } from 'node:crypto';
+import { readCredential } from './payments/razorpay-credentials';
 
 const RZP_BASE = 'https://api.razorpay.com/v1';
 
+function payoutCredentials() {
+  const id = readCredential(process.env.RAZORPAYX_KEY_ID);
+  const secret = readCredential(process.env.RAZORPAYX_KEY_SECRET);
+  const source = readCredential(process.env.RAZORPAYX_SOURCE_ACCOUNT_NUMBER);
+  const legacyAccount = readCredential(process.env.RAZORPAYX_ACCOUNT_NUMBER);
+  if (id || secret || source || !legacyAccount) return { id, secret, account: source || legacyAccount };
+  return {
+    id: readCredential(process.env.RAZORPAY_KEY_ID),
+    secret: readCredential(process.env.RAZORPAY_KEY_SECRET),
+    account: legacyAccount,
+  };
+}
+
 function authHeader(): string {
-  const id = process.env.RAZORPAY_KEY_ID;
-  const secret = process.env.RAZORPAY_KEY_SECRET;
-  if (!id || !secret) throw new Error('RAZORPAY_KEY_ID / RAZORPAY_KEY_SECRET not configured');
+  const { id, secret } = payoutCredentials();
+  if (!id || !secret) throw new Error('RazorpayX credentials are incomplete');
   return 'Basic ' + Buffer.from(`${id}:${secret}`).toString('base64');
 }
 
 export function razorpayxConfigured(): boolean {
-  return !!(process.env.RAZORPAY_KEY_ID && process.env.RAZORPAY_KEY_SECRET && process.env.RAZORPAYX_ACCOUNT_NUMBER);
+  const { id, secret, account } = payoutCredentials();
+  const allowedMode = process.env.VERCEL_ENV === 'production' ? id.startsWith('rzp_live_')
+    : process.env.VERCEL_ENV === 'preview' ? id.startsWith('rzp_test_') : true;
+  return Boolean(allowedMode && id && secret && account && process.env.RAZORPAYX_WEBHOOK_SECRET?.trim());
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -102,15 +109,16 @@ export interface CreatePayoutInput {
   mode: PayoutMode;
   purpose: 'payout' | 'salary' | 'vendor_bill' | 'refund' | 'cashback' | 'utility_bill';
   queue_if_low_balance?: boolean;
-  reference_id?: string;        // your VendorPayout.id / Payout.id
+  reference_id: string;         // persisted VendorPayout.id / Payout.id
   narration?: string;
   notes?: Record<string, string>;
 }
 
 export async function createPayout(input: CreatePayoutInput): Promise<{ ok: boolean; id?: string; status?: string; data?: any; error?: string }> {
   try {
-    const accountNumber = process.env.RAZORPAYX_ACCOUNT_NUMBER;
-    if (!accountNumber) return { ok: false, error: 'RAZORPAYX_ACCOUNT_NUMBER not configured' };
+    if (!razorpayxConfigured()) return { ok: false, error: 'Payout credentials or webhook are incomplete' };
+    if (!input.reference_id?.trim()) return { ok: false, error: 'A persisted payout reference is required' };
+    const accountNumber = payoutCredentials().account;
 
     const body: any = {
       account_number: accountNumber,
@@ -122,9 +130,7 @@ export async function createPayout(input: CreatePayoutInput): Promise<{ ok: bool
       headers: {
         Authorization: authHeader(),
         'Content-Type': 'application/json',
-        // RazorpayX accepts an idempotency key on payouts. We use the payout
-        // reference_id when present to make the call safe to retry.
-        ...(input.reference_id ? { 'X-Payout-Idempotency': input.reference_id } : {}),
+        'X-Payout-Idempotency': input.reference_id,
       },
       body: JSON.stringify(body),
     });
@@ -152,17 +158,9 @@ export async function fetchPayoutStatus(payoutId: string): Promise<{ ok: boolean
 // ─────────────────────────────────────────────────────────────────────────────
 // Webhook signature verification (X-Razorpay-Signature)
 
-import { createHmac } from 'crypto';
-
 export function verifyWebhookSignature(rawBody: string, signature: string): boolean {
   const secret = process.env.RAZORPAYX_WEBHOOK_SECRET;
-  if (!secret) return false;
-  const expected = createHmac('sha256', secret).update(rawBody).digest('hex');
-  // constant-time compare
-  if (expected.length !== signature.length) return false;
-  let mismatch = 0;
-  for (let i = 0; i < expected.length; i++) {
-    mismatch |= expected.charCodeAt(i) ^ signature.charCodeAt(i);
-  }
-  return mismatch === 0;
+  if (!secret || !/^[a-f0-9]{64}$/i.test(signature)) return false;
+  const expected = createHmac('sha256', secret).update(rawBody).digest();
+  return timingSafeEqual(expected, Buffer.from(signature, 'hex'));
 }

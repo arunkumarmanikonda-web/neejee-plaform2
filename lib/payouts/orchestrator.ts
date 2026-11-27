@@ -111,7 +111,7 @@ async function ensureContactAndFundAccount(
 
 export async function initiateVendorPayout(payoutId: string, actorUserId: string | null, opts?: { mode?: PayoutMode }) {
   if (!razorpayxConfigured()) {
-    throw new Error('RazorpayX not configured (set RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET, RAZORPAYX_ACCOUNT_NUMBER)');
+    throw new Error('Configure RazorpayX payout credentials, source account and signed webhook before issuing payouts.');
   }
 
   const payout = await prisma.vendorPayout.findUnique({
@@ -197,7 +197,7 @@ export async function initiateVendorPayout(payoutId: string, actorUserId: string
 
 export async function initiateSellerPayout(payoutId: string, actorUserId: string | null, opts?: { mode?: PayoutMode }) {
   if (!razorpayxConfigured()) {
-    throw new Error('RazorpayX not configured (set RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET, RAZORPAYX_ACCOUNT_NUMBER)');
+    throw new Error('Configure RazorpayX payout credentials, source account and signed webhook before issuing payouts.');
   }
 
   const payout = await prisma.payout.findUnique({

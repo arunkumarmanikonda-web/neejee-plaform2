@@ -1,5 +1,5 @@
 // Vercel CLI imports and pasted .env values can retain quotes or line endings.
-function readCredential(value: string | undefined): string {
+export function readCredential(value: string | undefined): string {
   const trimmed = (value ?? '').trim();
   const quote = trimmed[0];
   if ((quote === '"' || quote === "'") && trimmed.endsWith(quote)) {
