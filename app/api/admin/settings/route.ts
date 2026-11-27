@@ -34,7 +34,9 @@ function cfg() {
 
 function vurl(path: string) {
   const c = cfg();
-  return `https://api.vercel.com${path}${c.teamId ? `?teamId=${encodeURIComponent(c.teamId)}` : ''}`;
+  const url = new URL(path, 'https://api.vercel.com');
+  if (c.teamId) url.searchParams.set('teamId', c.teamId);
+  return url;
 }
 
 async function vfetch(path: string, init?: RequestInit) {
@@ -46,22 +48,20 @@ async function vfetch(path: string, init?: RequestInit) {
   });
 }
 
-async function vercelInventory() {
+type Entry = { id: string; key: string; type: string; target: string[]; customEnvironmentIds?: string[] };
+
+async function productionInventory(): Promise<Map<string, Entry>> {
+  const res = await vfetch(`/v10/projects/${cfg().projectId}/env?decrypt=false`);
+  if (!res.ok) throw new Error('Could not read Vercel settings.');
+  const data = await res.json();
+  const items: Entry[] = Array.isArray(data) ? data : data.envs;
+  if (!Array.isArray(items) || data.pagination?.next) throw new Error('Incomplete Vercel settings inventory.');
+  return new Map(items.filter(item => item.target?.includes('production')).map(item => [item.key, item]));
+}
+
+function productionEditorConfigured() {
   const c = cfg();
-  const present = new Set<string>();
-  const publicValues: Record<string,string> = {};
-  if (!c.token || !c.projectId) return { present, publicValues };
-  const res = await vfetch(`/v10/projects/${c.projectId}/env`);
-  if (!res.ok) return { present, publicValues };
-  const data = await res.json().catch(() => ({}));
-  const items = Array.isArray(data) ? data : (data?.envs || data?.variables || []);
-  for (const item of items) {
-    const key = typeof item?.key === 'string' ? item.key : '';
-    if (!key || !KEYS.includes(key as Key)) continue;
-    present.add(key);
-    if (PUBLIC.has(key as Key) && typeof item?.value === 'string') publicValues[key] = item.value;
-  }
-  return { present, publicValues };
+  return process.env.VERCEL_ENV === 'production' && !!(c.token && c.projectId);
 }
 
 function runtimeStatus() {
@@ -90,19 +90,20 @@ export async function GET() {
   const user = await getSession();
   if (!requireRole(user, ['ADMIN','SUPER_ADMIN','FINANCE'] as any)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   const c = cfg();
-  const inventory = user?.role === 'SUPER_ADMIN' ? await vercelInventory() : { present: new Set<string>(), publicValues: {} as Record<string,string> };
+  const connected = productionEditorConfigured();
+  const inventory = user?.role === 'SUPER_ADMIN' && connected ? await productionInventory().catch(() => null) : null;
   const response = NextResponse.json({
-    canEdit: requireRole(user, ['SUPER_ADMIN'] as any),
-    vercel: { configured: !!(c.token && c.projectId), projectId: c.projectId || null, teamId: c.teamId || null },
+    canEdit: connected && requireRole(user, ['SUPER_ADMIN']),
+    vercel: { configured: connected, projectId: c.projectId || null, teamId: c.teamId || null },
     runtimeStatus: runtimeStatus(),
     fields: KEYS.map((key) => {
       const runtimeValue = process.env[key] || '';
       const inRuntime = !!runtimeValue;
-      const inVercel = inventory.present.has(key);
+      const inVercel = inventory?.has(key) ?? false;
       const secret = !PUBLIC.has(key);
       return {
         key,
-        value: secret ? '' : (runtimeValue || inventory.publicValues[key] || ''),
+        value: secret ? '' : runtimeValue,
         configured: inRuntime || inVercel,
         source: inRuntime && inVercel ? 'runtime+vercel' : inRuntime ? 'runtime' : inVercel ? 'vercel' : 'missing',
         secret,
@@ -117,7 +118,9 @@ export async function PUT(req: NextRequest) {
   const user = await getSession();
   if (!requireRole(user, ['SUPER_ADMIN'] as any)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   const c = cfg();
-  if (!c.token || !c.projectId) return NextResponse.json({ error: 'Vercel sync is not configured. Set VERCEL_ACCESS_TOKEN and VERCEL_PROJECT_ID on the server first.' }, { status: 503 });
+  if (!productionEditorConfigured()) return NextResponse.json({ error: 'Edit these settings from the production workspace.' }, { status: 403 });
+  const inventory = await productionInventory().catch(() => null);
+  if (!inventory) return NextResponse.json({error:'Could not verify production settings. Try again from Vercel.'}, {status:503});
   const body = await req.json().catch(() => ({}));
   const values = (body?.values || {}) as Record<string,string>;
   const updated: string[] = [];
@@ -126,16 +129,32 @@ export async function PUT(req: NextRequest) {
     if (typeof values[key] !== 'string') continue;
     const value = values[key].trim();
     if (!value) continue; // secret inputs are write-only; blank never erases an existing value
-    const res = await vfetch(`/v10/projects/${c.projectId}/env?upsert=true`, {
-      method: 'POST',
-      body: JSON.stringify({ key, value, type: PUBLIC.has(key) ? 'plain' : 'encrypted', target: ['production','preview','development'], comment: 'Updated from NEEJEE Super Admin settings' }),
-    });
-    if (!res.ok) failed.push({ key, error: (await res.text()) || `HTTP ${res.status}` }); else updated.push(key);
+    const existing = inventory.get(key);
+    if (existing && (existing.target.length !== 1 || existing.customEnvironmentIds?.length)) {
+      failed.push({key, error:'Split this shared setting by environment in Vercel before editing it here.'});
+      continue;
+    }
+    if (existing?.type === 'sensitive' && key.startsWith('NEXT_PUBLIC_')) {
+      failed.push({key, error:'This public field was saved as a Vercel Secret. Manage its type in Vercel.'});
+      continue;
+    }
+    const type = !PUBLIC.has(key) || existing?.type === 'sensitive' ? 'sensitive' : 'plain';
+    const path = existing ? `/v9/projects/${c.projectId}/env/${existing.id}` : `/v10/projects/${c.projectId}/env`;
+    try {
+      const res = await vfetch(path, {
+        method: existing ? 'PATCH' : 'POST',
+        body: JSON.stringify({key, value, type, target:['production']}),
+      });
+      if (res.ok) updated.push(key);
+      else failed.push({key, error:`Vercel declined this setting (HTTP ${res.status}).`});
+    } catch {
+      failed.push({key, error:'The save could not be confirmed. Check the setting in Vercel before retrying.'});
+    }
   }
   return NextResponse.json({
     ok: failed.length === 0,
     updated,
     failed,
-    note: updated.length ? 'Saved to Vercel. Secret values remain hidden. A fresh deployment may be required before runtime health reflects the change.' : 'No values changed. Existing configured settings were left untouched.',
+    note: updated.length ? 'Saved to Vercel. Secret values remain hidden. A fresh deployment may be required before runtime health reflects the change.' : 'No settings were confirmed saved.',
   });
 }

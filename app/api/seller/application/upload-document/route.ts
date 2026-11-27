@@ -1,3 +1,4 @@
+import {requireIntakeAccess} from '@/lib/seller-onboarding/intake-access';
 import path from 'path';
 import { createHash, randomUUID } from 'crypto';
 import { NextResponse } from 'next/server';
@@ -15,7 +16,7 @@ export const runtime = 'nodejs';
 const MAX_FILE_BYTES = 8 * 1024 * 1024;
 const STORAGE_PREFIX = 'seller-applications/intake/';
 const SUPABASE_PROJECT_URL = 'https://xjqehwvxscoktfecbwse.supabase.co';
-const SELLER_UPLOAD_FUNCTION_URL = `${SUPABASE_PROJECT_URL}/functions/v1/seller-private-upload`;
+
 
 // The anon key is a publishable project credential. It is intentionally safe to
 // embed in server/client applications; the Edge Function still requires a short-
@@ -65,6 +66,15 @@ async function uploadPrivateSellerDocumentViaEdge(input: {
   file: File;
   mimeType: string;
 }): Promise<{ path: string; url: string }> {
+  const configuredUrl = (process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || '').trim().replace(/\/+$/, '');
+  const production = process.env.VERCEL_ENV === 'production';
+  const base = configuredUrl || (production ? SUPABASE_PROJECT_URL : '');
+  if (!base || (!production && new URL(base).origin === SUPABASE_PROJECT_URL)) {
+    throw new Error('This environment requires its own seller document storage.');
+  }
+  const key = process.env.SUPABASE_ANON_KEY ||
+    (production && base === SUPABASE_PROJECT_URL ? SUPABASE_ANON_KEY : '');
+  if (!key) throw new Error('Seller upload anonymous JWT is missing.');
   const ticket = `${randomUUID()}${randomUUID()}`;
   const tokenHash = createHash('sha256').update(ticket).digest('hex');
   const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
@@ -87,11 +97,11 @@ async function uploadPrivateSellerDocumentViaEdge(input: {
     edgeForm.append('mimeType', input.mimeType);
     edgeForm.append('file', input.file);
 
-    const response = await fetch(SELLER_UPLOAD_FUNCTION_URL, {
+    const response = await fetch(`${base}/functions/v1/seller-private-upload`, {
       method: 'POST',
       headers: {
-        Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
-        apikey: SUPABASE_ANON_KEY,
+        Authorization: `Bearer ${key}`,
+        apikey: key,
       },
       body: edgeForm,
       cache: 'no-store',
@@ -117,7 +127,12 @@ async function uploadPrivateSellerDocumentViaEdge(input: {
 }
 
 export async function POST(request: Request) {
+  const denied = await requireIntakeAccess(request);
+  if (denied) return denied;
   try {
+    if (Number(request.headers.get('content-length')) > MAX_FILE_BYTES + 128 * 1024) {
+      return NextResponse.json({error:'Document exceeds the upload limit'}, {status:413});
+    }
     const form = await request.formData();
     const docType = String(form.get('docType') || '').trim() as ApplicationDocType;
     const title = String(form.get('title') || '').trim() || null;

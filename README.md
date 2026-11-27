@@ -65,9 +65,7 @@ npm run dev
 # → open http://localhost:3000
 ```
 
-### Demo accounts (after seeding)
-- **Customer**: `demo@neejee.com` / `neejee123`
-- **Admin**: `admin@neejee.com` / `admin123` → `/admin`
+Set distinct local `NEEJEE_SEED_ADMIN_PASSWORD` and `NEEJEE_SEED_CUSTOMER_PASSWORD` values of at least 16 characters before running `npm run seed`. Use those values for the local admin and customer demo accounts. Existing accounts keep their passwords.
 
 ---
 

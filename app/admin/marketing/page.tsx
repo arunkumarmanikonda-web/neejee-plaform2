@@ -1,4 +1,5 @@
 'use client';
+import { CampaignPreview } from '@/components/admin/CampaignPreview';
 import { useEffect, useState } from 'react';
 import { Plus, Send, X, Sparkles, Eye, Shield } from 'lucide-react';
 
@@ -308,7 +309,7 @@ function CampaignEditor({ existing: initial, onClose }: { existing: any; onClose
               </div>
             </div>
             {preview ? (
-              <div className="mt-1 p-4 bg-ivory border border-mitti/20 prose prose-sm max-w-none" dangerouslySetInnerHTML={{ __html: form.bodyHtml.replace(/\{\{firstName\}\}/g, 'Nidhi') }} />
+              <CampaignPreview html={form.bodyHtml.replace(/\{\{firstName\}\}/g, 'Nidhi')} />
             ) : (
               <textarea
                 value={form.bodyHtml}

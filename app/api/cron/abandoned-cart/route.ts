@@ -2,8 +2,6 @@
 // Sends 3-tier reminders: at 2h, 24h, 72h after abandonment.
 // Honors opt-outs and recoveries.
 //
-// Secure with `?key=` query param matching CRON_SECRET env var,
-// or with Vercel's built-in `Authorization: Bearer ${CRON_SECRET}` header.
 import { cronAuthorized } from '@/lib/cron/authorize';
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
@@ -100,7 +98,7 @@ function escapeHtml(s: string): string {
 }
 
 export async function GET(request: Request) {
-  if (!cronAuthorized(request, true)) {
+  if (!cronAuthorized(request)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 

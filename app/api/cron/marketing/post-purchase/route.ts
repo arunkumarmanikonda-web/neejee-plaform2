@@ -20,7 +20,7 @@ const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || 'https://neejee.com';
 const DRIP_DELAY_DAYS = 7;
 
 export async function GET(req: Request) {
-  if (!cronAuthorized(req, true)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  if (!cronAuthorized(req)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   const cutoff = new Date(Date.now() - DRIP_DELAY_DAYS * 86_400_000);
 

@@ -1,3 +1,4 @@
+import {requireIntakeAccess} from '@/lib/seller-onboarding/intake-access';
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { validateSellerApplicationPackage } from '@/lib/seller-onboarding/application-validation';
@@ -112,6 +113,8 @@ async function postPackageVerification(request: NextRequest, body: {
 }
 
 export async function POST(request: NextRequest) {
+  const denied = await requireIntakeAccess(request);
+  if (denied) return denied;
   try {
     const body = BodySchema.parse(await request.json());
 
