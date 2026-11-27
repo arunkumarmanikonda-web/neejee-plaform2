@@ -1,5 +1,29 @@
 ﻿import chromium from '@sparticuz/chromium';
 import puppeteer, { type Page } from 'puppeteer-core';
+import LambdaFS from '@sparticuz/chromium/build/lambdafs';
+import { join } from 'node:path';
+
+let linuxLibraries: Promise<string> | undefined;
+async function serverlessBrowserEnv() {
+  if (process.env.VERCEL !== '1' || process.env.CHROME_EXECUTABLE_PATH) return undefined;
+  // Chromium 126 only auto-loads these libraries on specific Lambda Node versions.
+  // Vercel's Node 22 runtime needs the same NSS/NSPR libraries for the browser process.
+  const archive = join(process.cwd(), 'node_modules/@sparticuz/chromium/bin/al2023.tar.br');
+  linuxLibraries ??= LambdaFS.inflate(archive).catch(error => {
+    linuxLibraries = undefined;
+    throw error;
+  });
+  const libraryPath = join(await linuxLibraries, 'lib');
+  return {
+    PATH: process.env.PATH,
+    HOME: process.env.HOME,
+    TMPDIR: process.env.TMPDIR,
+    LANG: process.env.LANG,
+    TZ: process.env.TZ,
+    FONTCONFIG_PATH: process.env.FONTCONFIG_PATH || '/tmp/fonts',
+    LD_LIBRARY_PATH: [libraryPath, process.env.LD_LIBRARY_PATH].filter(Boolean).join(':'),
+  };
+}
 
 async function resolveExecutablePath(): Promise<string> {
   if (process.env.CHROME_EXECUTABLE_PATH) {
@@ -79,6 +103,7 @@ export async function renderHtmlToPdfBuffer(html: string): Promise<Buffer> {
   const browser = await puppeteer.launch({
     executablePath: await resolveExecutablePath(),
     args: resolveArgs(),
+    env: await serverlessBrowserEnv(),
     headless: true,
     defaultViewport: {
       width: 1400,

@@ -7,6 +7,7 @@ import { renderHtmlToPdfBuffer } from '@/lib/catalogue-builder/pdf';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
+export const maxDuration = 180;
 
 function isAllowed(user: Awaited<ReturnType<typeof getSession>>) {
   return requireRole(user, ['ADMIN', 'SUPER_ADMIN', 'CONTENT_EDITOR']);
@@ -67,6 +68,10 @@ export async function GET(
 
   if (format === 'pdf') {
     const pdf = await renderHtmlToPdfBuffer(html);
+    if (pdf.subarray(0, 5).toString('ascii') !== '%PDF-') {
+      throw new Error('Catalogue export returned an invalid PDF');
+    }
+    console.info('[catalogue-pdf] Rendered PDF', { bytes: pdf.length });
 
     const pdfStream = new ReadableStream({
       start(controller) {
