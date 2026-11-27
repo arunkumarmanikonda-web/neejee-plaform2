@@ -29,6 +29,8 @@ export const PRIVATE_SELLER_STORAGE_BUCKET =
 const PRIVATE_MARKER = 'private-ai:';
 const PRIVATE_SELLER_ROUTE_PREFIX = '/api/admin/seller-documents/';
 
+export function getStorageOrigin() { return SUPABASE_URL; }
+
 function safeObjectPath(value: string): string | null {
   const decoded = String(value || '').trim().replace(/^\/+/, '');
   if (!decoded || decoded.includes('..') || decoded.includes('\\') || decoded.includes('\0')) return null;

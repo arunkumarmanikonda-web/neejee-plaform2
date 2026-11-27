@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { get, put } from '@vercel/blob';
 import { NextResponse } from 'next/server';
+import { readCredential } from '@/lib/payments/razorpay-credentials';
 import { recoveryAuthorized } from '@/lib/recovery/authorization';
 import { dumpDatabase, rehearseDatabase } from '@/lib/recovery/postgres-archive';
 import { restoreFiles, sealFiles } from '@/lib/recovery/storage-archive';
@@ -16,8 +17,9 @@ const headers = {'Cache-Control':'private, no-store'};
 export async function GET(request: Request) {
   if (!recoveryAuthorized(request)) return NextResponse.json({error:'Unauthorized'},{status:401,headers});
   const storeId=process.env.RECOVERY_STORE_ID, key=process.env.RECOVERY_ARCHIVE_KEY;
-  if (process.env.VERCEL_ENV !== 'production' || !storeId || !key)
-    return NextResponse.json({error:'Production database recovery is unconfigured.'},{status:503,headers});
+  const missing = [readCredential(process.env.VERCEL_ENV) !== 'production' && 'production target',
+    !storeId && 'store connection', !key && 'encryption key'].filter(Boolean);
+  if (missing.length) return NextResponse.json({verified:false,stage:'configuration',reason:missing.join(', ')},{status:503,headers});
   const time=new Date().toISOString(), day=time.slice(0,10);
   const path='database/'+day+'.njbackup';
   const opts = {storeId,access:'private' as const,useCache:false};
@@ -52,7 +54,8 @@ export async function GET(request: Request) {
   } catch (e) {
     const err=e as {name?:string;code?:string;message?:string};
     const safeCode=err.code && /^[A-Z0-9_]{2,25}$/.test(err.code)?err.code:undefined;
-    const reason=stage==='database dump' && err.message?.startsWith('Database ')?err.message:undefined;
+    const reason=stage==='database dump' && err.message?.startsWith('Database ')?err.message
+      : /^Failed to fetch blob: ([1-5][0-9]{2})/.exec(err.message || '')?.[1];
     console.error('[database-recovery] Incomplete',stage,err.name,safeCode,reason);
     return NextResponse.json({verified:false,stage,error:err.name,code:safeCode,reason},{status:503,headers});
   } finally { if (dir) await rm(dir,{recursive:true,force:true}); }

@@ -30,9 +30,11 @@ export async function GET(req: Request) {
   const storeId = process.env.RECOVERY_STORE_ID;
   const key = process.env.RECOVERY_ARCHIVE_KEY;
   const serviceKey = readCredential(process.env.SUPABASE_SERVICE_ROLE_KEY);
-  const origin = readCredential(process.env.NEXT_PUBLIC_SUPABASE_URL).replace(/\/+$/, '');
-  if (process.env.VERCEL_ENV !== 'production' || !storeId || !key || !serviceKey || !origin)
-    return NextResponse.json({ error: 'Production recovery configuration is incomplete.' }, { status: 503, ...noStore });
+  const { getStorageOrigin } = await import('@/lib/storage');
+  const origin = getStorageOrigin();
+  const missing = [readCredential(process.env.VERCEL_ENV) !== 'production' && 'production target',
+    !storeId && 'store connection', !key && 'encryption key', !serviceKey && 'storage credential', !origin && 'storage origin'].filter(Boolean);
+  if (missing.length) return NextResponse.json({ verified:false, stage:'configuration', reason:missing.join(', ') }, { status:503,...noStore });
   const date = new Date().toISOString();
   const path = 'storage/' + date.slice(0,10) + '.njbackup';
   let stage = 'receipt';
@@ -58,7 +60,7 @@ export async function GET(req: Request) {
             headers: { apikey: serviceKey, Authorization: 'Bearer ' + serviceKey },
             redirect: 'error', cache: 'no-store', signal: AbortSignal.timeout(12000),
           });
-          if (!response.ok) throw new Error('Source object fetch failed.');
+          if (!response.ok) throw new Error('Source HTTP '+response.status);
           const bytes = Buffer.from(await response.arrayBuffer());
           if (bytes.length !== row.size) throw new Error('Source object size changed.');
           return { bucket: row.bucket, name: row.name, contentType: row.mime, bytes };
@@ -87,6 +89,8 @@ export async function GET(req: Request) {
   } catch (error) {
     // Never log object names, provider responses, credentials or customer data.
     console.error('[storage-recovery] Backup incomplete', stage, error instanceof Error ? error.name : 'Error');
-    return NextResponse.json({ verified: false, stage, error: error instanceof Error ? error.name : 'RecoveryError' }, { status: 503, ...noStore });
+    const message = error instanceof Error ? error.message : '';
+    const reason = /^(?:Source HTTP |Failed to fetch blob: )([1-5][0-9]{2})/.exec(message)?.[1];
+    return NextResponse.json({ verified: false, stage, reason, error: error instanceof Error ? error.name : 'RecoveryError' }, { status: 503, ...noStore });
   }
 }
