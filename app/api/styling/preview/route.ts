@@ -44,8 +44,17 @@ async function readInput(req:NextRequest){
     if(length>4000000){await reader.cancel();throw Error('Photos too large');}buffers.push(value);}
   return schema.parse(JSON.parse(Buffer.concat(buffers).toString('utf8')));
 }
+function sameShopOrigin(req:NextRequest){
+  if(req.headers.get('sec-fetch-site')==='cross-site')return false;
+  const origin=req.headers.get('origin');if(!origin)return false;
+  if(origin===req.nextUrl.origin)return true;
+  try{
+    const source=new URL(origin),protocol=(req.headers.get('x-forwarded-proto')?.split(',')[0]||req.nextUrl.protocol).trim().replace(/:$/,'');
+    return source.host===req.headers.get('host')&&source.protocol===protocol+':';
+  }catch{return false;}
+}
 export async function POST(req:NextRequest){
-  if(req.headers.get('origin')!==req.nextUrl.origin || !req.headers.get('content-type')?.includes('application/json'))return json({error:'Open the styling page again.'},403);
+  if(!sameShopOrigin(req) || !req.headers.get('content-type')?.includes('application/json'))return json({error:'Open the styling page again.'},403);
   const identity=owner(req);
   if(!identity)return json({error:'Enable this site’s cookies to create a rendered preview.'},401);
   if(!process.env.FAL_KEY)return json({error:'Photo rendering is unavailable. Your styling board and checkout are ready.'},503);
