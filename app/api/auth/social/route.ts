@@ -5,7 +5,7 @@
 
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { setSessionCookie } from '@/lib/auth';
+import { isPrivilegedRole, setSessionCookie } from '@/lib/auth';
 import {
   verifyGoogleIdToken,
   verifyAppleIdToken,
@@ -27,7 +27,6 @@ export async function POST(request: Request) {
   const provider = (body.provider || '').toString().toLowerCase();
   const token = (body.token || '').toString();
   const fallbackName = (body.name || '').toString().trim() || null;
-  const fallbackEmail = (body.email || '').toString().trim().toLowerCase() || null;
 
   if (!['google', 'apple', 'facebook'].includes(provider)) {
     return NextResponse.json({ error: 'Unknown provider' }, { status: 400 });
@@ -49,7 +48,7 @@ export async function POST(request: Request) {
 
   // 2. Identify the user — by email when we have one (preferred), else by a
   //    deterministic placeholder linked to the provider id.
-  const email = verified.email || fallbackEmail;
+  const email = verified.emailVerified ? verified.email?.trim().toLowerCase() : undefined;
   const name = verified.name || fallbackName;
   const picture = verified.picture || undefined;
 
@@ -62,6 +61,9 @@ export async function POST(request: Request) {
   const lookupEmail = email || `${verified.providerId}@${provider}.neejee.com`;
 
   let user = await prisma.user.findUnique({ where: { email: lookupEmail } });
+  if (user && isPrivilegedRole(user.role)) {
+    return NextResponse.json({ error: 'Use your Neejee staff email, password and verification code to sign in.' }, { status: 403 });
+  }
   let isNewUser = false;
 
   if (!user) {

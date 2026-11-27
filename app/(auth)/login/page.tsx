@@ -26,6 +26,7 @@ function LoginInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const nextParam = localReturn(searchParams?.get('next'));
+  const staffSignIn = /^\/(admin|staff)(?:[/?#]|$)/.test(nextParam || '');
 
   const [step, setStep] = useState<Step>('identity');
   const [identifier, setIdentifier] = useState('');
@@ -481,7 +482,8 @@ Create an account with this number to continue.`);
             loading={loading}
             error={error}
             info={info}
-            otpEnabled={otpEnabled}
+            otpEnabled={otpEnabled && !staffSignIn}
+            staffSignIn={staffSignIn}
             canCreateAccount={canCreateAccount}
           />
         )}
@@ -669,7 +671,7 @@ Create an account with this number to continue.`);
           </form>
         )}
 
-        {step === 'identity' && (socialAvailable.google || socialAvailable.facebook) && (
+        {step === 'identity' && !staffSignIn && (socialAvailable.google || socialAvailable.facebook) && (
           <>
             <div className="flex items-center gap-2 my-4">
               <div className="flex-1 h-px bg-mitti/20"></div>
@@ -796,6 +798,7 @@ function IdentityField({
   error,
   info,
   otpEnabled,
+  staffSignIn,
   canCreateAccount,
 }: {
   identifier: string;
@@ -808,6 +811,7 @@ function IdentityField({
   error: string;
   info: string;
   otpEnabled: boolean;
+  staffSignIn: boolean;
   canCreateAccount: boolean;
 }) {
   const isEmail = identifier.includes('@');
@@ -856,7 +860,7 @@ function IdentityField({
 
         {!otpEnabled && (
           <p className="text-[10px] italic text-mitti/70 mt-1">
-            Mobile sign-in is coming soon. Use your email or continue with Google below.
+            {staffSignIn ? 'Use your staff email and password, then enter the code sent to your registered phone.' : 'Use your email to continue.'}
           </p>
         )}
       </label>
