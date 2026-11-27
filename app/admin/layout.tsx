@@ -277,6 +277,7 @@ export default async function AdminLayout({
   const isAllowedAdmin = ADMIN_ALLOWED_ROLES.includes(user.role as AdminAllowedRole);
 
   if (!isAllowedAdmin) {
+    if (user.role === 'TELECALLER') redirect('/staff/calls');
     if (user.role === 'SELLER' || user.role === 'SELLER_STAFF') {
       redirect('/seller');
     }

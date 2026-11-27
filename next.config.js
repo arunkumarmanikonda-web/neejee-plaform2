@@ -88,7 +88,7 @@ const nextConfig = {
         source: '/(.*)',
         headers: securityHeaders,
       },
-      ...['/admin/:path*','/account/:path*','/api/admin/:path*','/api/me','/api/account/:path*','/api/orders/:path*','/api/order-returns/:path*','/api/ai/media'].map(source => ({
+      ...['/staff/:path*','/admin/:path*','/account/:path*','/api/admin/:path*','/api/me','/api/account/:path*','/api/orders/:path*','/api/order-returns/:path*','/api/ai/media'].map(source => ({
         source, headers: [
           { key:'Cache-Control', value:'private, no-store, max-age=0' },
           { key:'X-Robots-Tag', value:'noindex, nofollow, noarchive' },

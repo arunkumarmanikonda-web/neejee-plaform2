@@ -98,7 +98,7 @@ export function Header({ shop = false }: { shop?: boolean } = {}) {
 
   const savedHref = me ? '/account?tab=wishlist' : '/login?next=%2Faccount%3Ftab%3Dwishlist';
   const accountLinks = me
-    ? isAdmin ? [['Admin dashboard', '/admin']] : [['My account', '/account'], ['Orders', '/account?tab=orders'], ['Addresses', '/account?tab=addresses']]
+    ? me.role === 'TELECALLER' ? [['Call queue','/staff/calls'],['My account','/account']] : isAdmin ? [['Admin dashboard', '/admin']] : [['My account', '/account'], ['Orders', '/account?tab=orders'], ['Addresses', '/account?tab=addresses']]
     : [['Sign in', '/login'], ['Create an account', '/signup']];
 
   return (
@@ -159,7 +159,7 @@ export function Header({ shop = false }: { shop?: boolean } = {}) {
                   window.dispatchEvent(new CustomEvent('neejee:ask-pitari'));
                 }}>Ask Sakhi</button>
                 {!isAdmin && <Link href={savedHref} onClick={()=>setOpen(false)}>Saved pieces</Link>}
-                <Link href={me ? (isAdmin ? '/admin' : '/account') : '/login'} onClick={()=>setOpen(false)}>{me ? (isAdmin ? 'Admin' : 'Account') : 'Sign in'}</Link>
+                <Link href={me?.role === 'TELECALLER' ? '/staff/calls' : me ? (isAdmin ? '/admin' : '/account') : '/login'} onClick={()=>setOpen(false)}>{me?.role==='TELECALLER' ? 'Call queue' : me ? (isAdmin ? 'Admin' : 'Account') : 'Sign in'}</Link>
               </div>
               {houseNavigation.map(e=><Link key={e.slug} href={editHref(e.slug)} onClick={()=>setOpen(false)} className="px-6 py-3 border-b border-beige font-medium">{e.name}</Link>)}
               <Link href="/products" onClick={() => setOpen(false)} className="px-6 py-3 border-b border-beige">Shop all</Link>

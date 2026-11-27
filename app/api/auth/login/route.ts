@@ -30,6 +30,7 @@ type LoginThrottleStatus = {
 };
 
 function redirectFor(role: string) {
+  if (role === 'TELECALLER') return '/staff/calls';
   if (isPrivilegedRole(role)) return '/admin';
   if (role === 'SELLER') return '/seller';
   return '/account';
