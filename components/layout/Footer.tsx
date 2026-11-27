@@ -100,6 +100,7 @@ export function Footer() {
         <div>
           <div className="label text-madder mb-4">SUPPORT</div>
           <ul className="space-y-2 font-ui text-xs text-beige/80">
+            <li><Link href="/help/install" className="hover:text-ivory">Neejee on your phone</Link></li>
             <li><Link href="/help/shipping" className="hover:text-ivory">Shipping</Link></li>
             <li><Link href="/help/returns" className="hover:text-ivory">Returns</Link></li>
             <li><Link href="/help/track" className="hover:text-ivory">Track Order</Link></li>

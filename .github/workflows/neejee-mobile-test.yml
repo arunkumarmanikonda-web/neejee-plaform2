@@ -1,0 +1,61 @@
+name: Build Neejee test apps
+on:
+  push:
+    branches:
+      - release/neejee-commerce
+    paths:
+      - 'mobile/ios/**'
+      - 'mobile/wordmark.png'
+      - '.github/workflows/neejee-mobile-test.yml'
+  workflow_dispatch:
+    inputs:
+      review_host:
+        description: Exact approved Neejee preview hostname, without path or query (optional)
+        required: false
+        type: string
+permissions:
+  contents: read
+jobs:
+  android:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Build and verify the test APK
+        env:
+          REVIEW_HOST: ${{ inputs.review_host }}
+        shell: bash
+        run: |
+          sdkmanager "platforms;android-36" "build-tools;36.0.0"
+          if [[ -n "$REVIEW_HOST" ]]; then
+            bash mobile/android/build-test.sh "$REVIEW_HOST"
+          else
+            bash mobile/android/build-test.sh
+          fi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Neejee-Android-Test
+          path: mobile/build/Neejee-Android-Test.apk
+  ios:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build the iPhone and iPad simulator app
+        env:
+          REVIEW_HOST: ${{ inputs.review_host }}
+        shell: bash
+        run: |
+          if [[ -n "$REVIEW_HOST" ]]; then
+            bash mobile/ios/build-simulator.sh "$REVIEW_HOST"
+          else
+            bash mobile/ios/build-simulator.sh
+          fi
+          ditto -c -k --keepParent mobile/build/ios/Debug-iphonesimulator/Neejee.app Neejee-Simulator.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Neejee-iPhone-iPad-Simulator
+          path: Neejee-Simulator.zip

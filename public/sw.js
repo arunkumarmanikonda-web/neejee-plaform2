@@ -1,128 +1,81 @@
-// NEEJEE service worker — minimal, focused on offline shell + push notifications.
-// Cache strategy: network-first for HTML/API, cache-first for static assets.
+// Only immutable public assets and the generic offline page belong in this cache.
+const CACHE_VERSION = 'neejee-mobile-v4';
+const OFFLINE = '/offline';
+const APP_ICON = '/brand/identity/icon-192.png?v=bindi';
 
-// Bump whenever brand/app-shell assets must be invalidated for existing installs.
-const CACHE_VERSION = 'neejee-bindi-v3';
-const STATIC_CACHE = `${CACHE_VERSION}-static`;
-const RUNTIME_CACHE = `${CACHE_VERSION}-runtime`;
-const OFFICIAL_LOGO =
-  'https://xjqehwvxscoktfecbwse.supabase.co/storage/v1/object/public/neejee-media/legal-entity/1781352832764-ig1uzl-01_neejee_primary_logo.png';
-
-const PRECACHE = [
-  '/',
-  '/offline',
-  '/manifest.json',
-];
-
-self.addEventListener('install', (event) => {
-  event.waitUntil(
-    caches.open(STATIC_CACHE).then((cache) => cache.addAll(PRECACHE).catch(() => {}))
-  );
-  self.skipWaiting();
+self.addEventListener('install', event => {
+  event.waitUntil((async () => {
+    const cache = await caches.open(CACHE_VERSION);
+    const response = await fetch(OFFLINE, { credentials: 'same-origin', cache: 'reload' });
+    if (!response.ok || response.redirected || !response.headers.get('content-type')?.includes('text/html'))
+      throw new Error('Offline sheet unavailable');
+    await cache.put(OFFLINE, response);
+    await self.skipWaiting();
+  })());
 });
 
-self.addEventListener('activate', (event) => {
-  event.waitUntil(
-    caches.keys().then((keys) => {
-      return Promise.all(
-        keys.filter((k) => k.startsWith('neejee-') && !k.startsWith(CACHE_VERSION)).map((k) => caches.delete(k))
-      );
-    })
-  );
-  self.clients.claim();
+self.addEventListener('activate', event => {
+  event.waitUntil((async () => {
+    const keys = await caches.keys();
+    await Promise.all(keys.filter(k => k.startsWith('neejee-') && k !== CACHE_VERSION).map(k => caches.delete(k)));
+    await self.clients.claim();
+  })());
 });
 
-self.addEventListener('fetch', (event) => {
-  const { request } = event;
-  if (request.method !== 'GET') return;
-
+self.addEventListener('fetch', event => {
+  const request = event.request;
   const url = new URL(request.url);
-
-  // Never cache: API routes, admin routes, auth routes, analytics events
-  if (
-    url.pathname.startsWith('/api/') ||
-    url.pathname.startsWith('/admin') ||
-    url.pathname.startsWith('/_next/data/') ||
-    url.pathname.startsWith('/account')
-  ) {
+  if (request.method !== 'GET' || url.origin !== self.location.origin) return;
+  if (request.mode === 'navigate') {
+    event.respondWith(fetch(request).catch(async () => {
+      const cache = await caches.open(CACHE_VERSION);
+      return await cache.match(OFFLINE) || new Response('You are offline. Reconnect and try again.', {
+        status: 503, headers: {'Content-Type':'text/plain; charset=utf-8'},
+      });
+    }));
     return;
   }
-
-  // Static assets — cache-first. External owner-brand media remains controlled
-  // by its CDN and is intentionally not rewritten into an application-local logo.
-  if (
-    url.origin === self.location.origin && (
-      url.pathname.startsWith('/_next/static/') ||
-      url.pathname.startsWith('/brand/') ||
-      url.pathname.startsWith('/images/') ||
-      url.pathname.endsWith('.png') ||
-      url.pathname.endsWith('.jpg') ||
-      url.pathname.endsWith('.jpeg') ||
-      url.pathname.endsWith('.webp') ||
-      url.pathname.endsWith('.svg') ||
-      url.pathname.endsWith('.woff') ||
-      url.pathname.endsWith('.woff2') ||
-      url.pathname === '/manifest.json'
-    )
-  ) {
-    event.respondWith(
-      caches.match(request).then((cached) => {
-        if (cached) return cached;
-        return fetch(request).then((response) => {
-          if (response.ok && response.status < 400) {
-            const clone = response.clone();
-            caches.open(RUNTIME_CACHE).then((cache) => cache.put(request, clone));
-          }
-          return response;
-        }).catch(() => cached);
-      })
-    );
-    return;
-  }
-
-  // HTML pages — network-first with offline fallback
-  if (request.headers.get('accept')?.includes('text/html')) {
-    event.respondWith(
-      fetch(request)
-        .then((response) => {
-          if (response.ok) {
-            const clone = response.clone();
-            caches.open(RUNTIME_CACHE).then((cache) => cache.put(request, clone));
-          }
-          return response;
-        })
-        .catch(() => caches.match(request).then((cached) => cached || caches.match('/offline')))
-    );
-    return;
-  }
+  if (!url.pathname.startsWith('/_next/static/') && !url.pathname.startsWith('/brand/')) return;
+  if (request.headers.has('range')) return;
+  event.respondWith((async () => {
+    const cache = await caches.open(CACHE_VERSION);
+    const cached = await cache.match(request);
+    if (cached) return cached;
+    const response = await fetch(request);
+    if (response.ok && !response.redirected && response.type === 'basic'
+        && !/private|no-store/i.test(response.headers.get('cache-control') || '')
+        && !/text\/html/i.test(response.headers.get('content-type') || '')) {
+      try { await cache.put(request, response.clone()); } catch { /* The network response remains usable when storage is full. */ }
+    }
+    return response;
+  })());
 });
 
-// Push notifications
-self.addEventListener('push', (event) => {
+function appTarget(raw) {
+  try {
+    const target = new URL(typeof raw === 'string' ? raw : '/', self.location.origin);
+    if (target.origin === self.location.origin && !target.username && !target.password) return target.href;
+  } catch {}
+  return self.location.origin + '/';
+}
+
+self.addEventListener('push', event => {
   if (!event.data) return;
-  let payload = {};
-  try { payload = event.data.json(); } catch { payload = { body: event.data.text() }; }
-
-  const title = payload.title || 'NEEJEE';
-  const options = {
-    body: payload.body || 'A quiet update from NEEJEE.',
-    icon: OFFICIAL_LOGO,
-    badge: OFFICIAL_LOGO,
-    data: { url: payload.url || '/' },
-    tag: payload.tag || 'neejee',
-  };
-  event.waitUntil(self.registration.showNotification(title, options));
+  let payload;
+  try { payload = event.data.json(); } catch { payload = {body: event.data.text()}; }
+  if (!payload || typeof payload !== 'object') payload = {};
+  event.waitUntil(self.registration.showNotification(payload.title || 'Neejee', {
+    body: payload.body || 'An update from Neejee.', icon: APP_ICON, badge: APP_ICON,
+    data:{url:appTarget(payload.url)}, tag:payload.tag || 'neejee',
+  }));
 });
-
-self.addEventListener('notificationclick', (event) => {
+self.addEventListener('notificationclick', event => {
   event.notification.close();
-  const url = event.notification.data?.url || '/';
-  event.waitUntil(
-    self.clients.matchAll({ type: 'window' }).then((windows) => {
-      for (const win of windows) {
-        if (win.url.includes(url) && 'focus' in win) return win.focus();
-      }
-      if (self.clients.openWindow) return self.clients.openWindow(url);
-    })
-  );
+  const target = appTarget(event.notification.data?.url);
+  event.waitUntil((async () => {
+    const windows = await self.clients.matchAll({type:'window', includeUncontrolled:true});
+    const open = windows.find(win => win.url === target);
+    if (open) return open.focus();
+    return self.clients.openWindow(target);
+  })());
 });
