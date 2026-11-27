@@ -8,6 +8,7 @@ import { Footer } from '@/components/layout/Footer';
 import { Heart, Sparkles, Truck, RotateCcw, Plus, Minus, ChevronDown, Check, Home } from 'lucide-react';
 import { formatINR, effectivePricePaise, discountPct } from '@/lib/money';
 import { isPreorder, isSoldOut, fulfilmentStatusLine, buyCtaLabel, checkoutPaise } from '@/lib/fulfilment';
+import { styleHref } from '@/lib/pairing';
 import { useCart } from '@/lib/cart-store';
 import { WaitlistSignup } from '@/components/product/WaitlistSignup';
 import { ReviewsSection } from '@/components/product/ReviewsSection';
@@ -89,8 +90,10 @@ function PDPInner() {
     ? (activeVariant?.inventory ?? product.totalInventory ?? 0)
     : 50;
 
-  const addAndGo = (destination: '/cart' | '/checkout') => {
+  const addAndGo = (destination: '/cart' | '/style') => {
     if (added || !inStock) return;
+    const existing=useCart.getState().items.find(i=>i.productId===product.id && (i.variantId||null)===(activeVariant?.id||null));
+    if(destination==='/style' && existing && existing.quantity>=qty){setAdded(true);router.push(styleHref(product.id,activeVariant?.id));return;}
     addItem({
       id: product.id,
       slug: product.slug,
@@ -101,9 +104,9 @@ function PDPInner() {
       inventory: stockLeft,
       variantId: activeVariant?.id,
       variantLabel: [activeVariant?.size, activeVariant?.color].filter(Boolean).join(' · ') || null,
-    } as any, qty);
+    } as any, destination==='/style'?Math.max(0,qty-(existing?.quantity||0)):qty);
     setAdded(true);
-    router.push(destination);
+    router.push(destination==='/style'?styleHref(product.id,activeVariant?.id):destination);
   };
 
 
@@ -306,11 +309,11 @@ function PDPInner() {
               <WaitlistSignup productId={product.id} productName={product.name} source="pdp" />
             ) : (
               <div className="flex gap-3">
-                <button onClick={()=>addAndGo('/checkout')} disabled={!inStock || added} className="btn-primary flex-1 disabled:opacity-50">
+                <button onClick={()=>addAndGo('/style')} disabled={!inStock || added} className="btn-primary flex-1 disabled:opacity-50">
                   {isPreorder(product) ? 'RESERVE NOW' : 'BUY NOW'}
                 </button>
                 <button onClick={()=>addAndGo('/cart')} disabled={!inStock || added} className="btn-outline flex-1 disabled:opacity-50">
-                  {added ? 'ADDED TO BAG' : buyCtaLabel(product).toUpperCase()}
+                  {added ? 'ADDED TO CART' : isPreorder(product) ? buyCtaLabel(product).toUpperCase() : 'ADD TO CART'}
                 </button>
               </div>
             )}

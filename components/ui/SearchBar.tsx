@@ -90,8 +90,8 @@ export function SearchBar({ onClose }: { onClose: () => void }) {
           </div>
         )}
 
-        {!!enquiries.length && <section className="mt-6" aria-label="Collection enquiries">
-          <h2 className="label text-mitti">Fashion available for enquiry</h2>
+        {!!enquiries.length && <section className="mt-6" aria-label="Collection previews">
+          <h2 className="label text-mitti">Fashion to style</h2>
           {enquiries.map(piece=><Link key={piece.id} onClick={dismiss} href={'/edits/'+piece.group+'?piece='+piece.id} className="flex items-center gap-4 p-2 hover:bg-beige">
             <img src={piece.image} width="48" height="60" alt="" className="w-12 h-[60px] object-cover"/>
             <span className="font-display text-lg">{piece.name}</span>

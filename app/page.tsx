@@ -6,6 +6,7 @@ import { CatalogueGrid, ProductCard, type ProductCardData } from '@/components/p
 import { editLead, homeEditPieces } from '@/lib/shop-edit-catalog';
 import { shopEdits } from '@/lib/shop-edits';
 import { HomePrint, homeStudyIds } from '@/components/home/HomePrint';
+import { StockFeature } from '@/components/home/StockFeature';
 import { HouseCampaign } from '@/components/home/HouseCampaign';
 import { StudyShelf } from '@/components/shop/StudyShelf';
 import { previewPricingEnabled } from '@/lib/shop-studies';
@@ -53,7 +54,7 @@ async function getHomeData() {
     const lead = await prisma.product.findFirst({
       where: { AND: [
         publicWhere,
-        { catalogueImageApproved: true, sellingPrice: { gt: 0 }, variants: { some: { inventory: { gt: 0 } } } },
+        { category:{active:true,hidden:false}, OR:[{catalogueCtaMode:'SHOP_NOW'},{catalogueCtaMode:null}], catalogueImageApproved: true, sellingPrice: { gt: 0 }, variants: { some: { inventory: { gt: 0 } } } },
         { OR: [
           { cataloguePreferredImage: { not: '' } }, { images: { isEmpty: false } },
           { variants: { some: { images: { isEmpty: false } } } },
@@ -213,7 +214,8 @@ export default async function HomePage() {
     <>
       <Header shop/>
       <main className="house-front">
-        <HouseCampaign lead={data.saree} preview={previewPricingEnabled()} email={email}/>
+        {!data.saree && data.spotlightCard && <StockFeature piece={data.spotlightCard}/>}
+        <HouseCampaign secondary={!data.saree && !!data.spotlightCard} lead={data.saree} preview={previewPricingEnabled()} email={email}/>
         {(!fashion.length || moreFashion.length>0) && <div className="nj-market house-shelf" style={{paddingBottom:'1rem'}}>
           {fashion.length ? <section className="nj-shelf"><div className="nj-shelf-head"><h2>Sarees <em>&amp; suit sets</em></h2><Link className="nj-text-link" href="/edits/clothing">Shop the collection</Link></div><CatalogueGrid textiles products={moreFashion.map(p=>({...p,images:p.cover?[p.cover,...p.images.filter(i=>i!==p.cover)]:p.images}))}/></section> :
             <StudyShelf home ids={homeStudyIds} preview={previewPricingEnabled()} email={email}/>}
@@ -221,7 +223,7 @@ export default async function HomePage() {
         <StudioDoors roomPiece={data.spotlight?.roomHref ? data.spotlight.slug : undefined} wearable={data.saree?.mirror ? data.saree.slug : data.suit?.mirror ? data.suit.slug : undefined}/>
         {(data.heroBanners.length>0) && <HeroCarousel banners={data.heroBanners} spotlight={data.spotlight}/>}
 
-        {(data.founder.length > 0 || (data.spotlight && !data.heroBanners.length)) && (
+        {(data.founder.length > 0 || (data.saree && data.spotlight && !data.heroBanners.length)) && (
           <section className="max-w-8xl mx-auto px-6 lg:px-12 py-20">
             <div className="flex items-baseline justify-between mb-10">
               <div>
@@ -230,7 +232,7 @@ export default async function HomePage() {
               <Link href="/products" className="font-ui text-xs tracking-widest text-madder">SHOP ALL PIECES</Link>
             </div>
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 lg:gap-8">
-              {data.spotlight && !data.heroBanners.length && data.spotlightCard && <ProductCard product={data.spotlightCard}/>}
+              {data.saree && data.spotlight && !data.heroBanners.length && data.spotlightCard && <ProductCard product={data.spotlightCard}/>}
               {data.founder.slice(0, 4).map((p) => <ProductCard key={p.id} product={p} />)}
             </div>
           </section>

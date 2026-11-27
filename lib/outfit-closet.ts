@@ -20,8 +20,17 @@ export function saveDressing(key:string,state:Dressing) {
 }
 export function clearDressing(key:string){memory.delete(key);try{sessionStorage.removeItem(prefix+key);}catch{}}
 export async function localWardrobePhoto(file:File) {
-  if(!['image/png','image/jpeg','image/webp'].includes(file.type)||!file.size||file.size>15*1024*1024) throw Error('Choose a JPG, PNG or WebP image up to 15 MB.');
-  const bitmap=await createImageBitmap(file);
+  const supported=['image/png','image/jpeg','image/webp','image/heic','image/heif'];
+  if(!(supported.includes(file.type)||(!file.type&&/\.(heic|heif|jpe?g|png|webp)$/i.test(file.name)))||!file.size||file.size>15*1024*1024)
+    throw Error('Choose a photo up to 15 MB. JPG, PNG and WebP work across devices.');
+  let url='';
+  let bitmap:ImageBitmap|HTMLImageElement;
+  try{bitmap=await createImageBitmap(file);}
+  catch{
+    const img=new Image();url=URL.createObjectURL(file);img.src=url;
+    try{await img.decode();bitmap=img;}
+    catch{URL.revokeObjectURL(url);throw Error('This browser could not open the photo. Try a JPG, PNG or WebP copy.');}
+  }
   try{
     const scale=Math.min(1,820/Math.max(bitmap.width,bitmap.height));
     const canvas=document.createElement('canvas');canvas.width=Math.max(1,Math.round(bitmap.width*scale));canvas.height=Math.max(1,Math.round(bitmap.height*scale));
@@ -30,6 +39,6 @@ export async function localWardrobePhoto(file:File) {
     const data=canvas.toDataURL('image/jpeg',0.75);
     if(data.length>650000 || !data.startsWith('data:image/jpeg;base64,')) throw Error('Please choose a smaller photo.');
     return data;
-  }finally{bitmap.close();}
+  }finally{if('close' in bitmap)bitmap.close();if(url)URL.revokeObjectURL(url);}
 }
 export const homeSlots=(value:string|undefined)=>slots.filter(slot=>(value||'').split(',').includes(slot));

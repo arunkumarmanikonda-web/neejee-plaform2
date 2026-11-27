@@ -1,6 +1,6 @@
 import type { Viewport } from 'next';
 import { Suspense } from 'react';
-import { Cormorant_Garamond, Inter, Playfair_Display } from 'next/font/google';
+import localFont from 'next/font/local';
 import './globals.css';
 import './house.css';
 import { AnalyticsProvider } from '@/components/analytics/AnalyticsProvider';
@@ -10,30 +10,15 @@ import { InstallPrompt } from '@/components/pwa/InstallPrompt';
 import { CurrencyProvider } from '@/components/i18n/CurrencyProvider';
 import { getRootMetadata } from '@/lib/site/seo-config';
 
-const displayFont = Playfair_Display({
-  subsets: ['latin'],
-  weight: ['400', '500', '600'],
-  style: ['normal', 'italic'],
-  preload: false,
-  display: 'swap',
-  variable: '--font-display',
+const displayFont = localFont({
+  src:[{path:'./fonts/playfair.woff2',weight:'400 900',style:'normal'},{path:'./fonts/playfair-italic.woff2',weight:'400 900',style:'italic'}],
+  display:'swap',preload:false,variable:'--font-display',
 });
-
-const bodyFont = Cormorant_Garamond({
-  subsets: ['latin'],
-  weight: ['400', '500'],
-  style: ['normal', 'italic'],
-  preload: false,
-  display: 'swap',
-  variable: '--font-body',
+const bodyFont = localFont({
+  src:[{path:'./fonts/cormorant.woff2',weight:'300 700',style:'normal'},{path:'./fonts/cormorant-italic.woff2',weight:'300 700',style:'italic'}],
+  display:'swap',preload:false,variable:'--font-body',
 });
-
-const uiFont = Inter({
-  subsets: ['latin'],
-  weight: 'variable',
-  display: 'swap',
-  variable: '--font-ui',
-});
+const uiFont = localFont({src:'./fonts/inter.woff2',weight:'100 900',display:'swap',variable:'--font-ui'});
 
 export const metadata = getRootMetadata();
 

@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { lookUrl, selectedAccessories, slotNames,type Slot,type StyleOption, type Styling } from '@/lib/stylebook';
 import { lineKey,readDressing } from '@/lib/outfit-closet';
+import {styleHref,studyStyleHref} from '@/lib/pairing';
 import { uploadAiImage } from '@/lib/client-upload';
 import { formatINR } from '@/lib/money';
 import { studioHref, type StudioMode } from '@/lib/studio';
@@ -26,6 +27,12 @@ export function StudioSession({mode,piece,initialVariant,signedIn,configured,sty
   const bagUrl=fromBag==='sample'?'/cart?bag=sample':'/cart';
   const bagQuery=fromBag?'&fromBag='+fromBag+(ownSlots.length?'&own='+ownSlots.join(','):''):'';
   const back=fittingLink(variant?.id)+bagQuery;
+  const guestBase=editorial&&styling?studyStyleHref(styling.look):styleHref(piece.id,variant?.id);
+  const pairParams=new URLSearchParams();
+  if(styling)for(const [oldSlot,newSlot] of [['shoe','footwear'],['jewel','jewellery'],['blouse','blouse']] as const){
+    const id=styling[oldSlot];if(id?.startsWith('sku-'))pairParams.set(newSlot,id.slice(4));
+  }
+  const guestLink=guestBase+(pairParams.size?'&'+pairParams.toString():'');
   const ownKey=lineKey(piece.id,variant?.id||'');
   const [personal,setPersonal]=useState<Partial<Record<Slot,string>>>({});
   const slotList=ownSlots.join(',');
@@ -113,9 +120,7 @@ export function StudioSession({mode,piece,initialVariant,signedIn,configured,sty
           <select value={initialVariant} disabled={!!status} onChange={e=>router.replace(fittingLink(e.target.value),{scroll:false})}>
             <option value="">Choose an option</option>{piece.variants.map((v,i)=><option key={v.id} value={v.id}>{[v.color,v.size].filter(Boolean).join(' / ') || 'Option '+(i+1)}</option>)}</select></label>}
         {missing && <p className={styles.notice}>Re-select your personal item photo in this tab. <Link href={bagUrl}>Return to my bag</Link></p>}
-        {missingVariantPhoto ? <p className={styles.notice}>A fitting photograph for this colour or size is not available yet. <Link href={fromBag?bagUrl:'/products/'+piece.slug}>{fromBag?'Back to my bag':'View the piece'}</Link></p> : !configured ? <p className={styles.notice}>{process.env.NEXT_PUBLIC_VERCEL_ENV==='preview'?'Personal photo rendering is off in this review.':'Personal photo rendering is temporarily unavailable.'} <Link href={fromBag?bagUrl:editing||'/products/'+piece.slug}>{fromBag?'Back to my bag':editorial?'Back to my look':'View the piece'}</Link></p> :
-          !signedIn ? <><p className={styles.note}>Sign in to add your photo. We’ll keep this piece selected.</p>
-            <Link className={styles.primary} href={'/login?next='+encodeURIComponent(back)}>Sign in to add a photo</Link></> :
+        {!signedIn ? <Link className={styles.primary} href={guestLink}>{mirror?'Style this look with my photos':'Style this space with my photos'}</Link> : missingVariantPhoto ? <p className={styles.notice}>A fitting photograph for this colour or size is not available yet. <Link href={fromBag?bagUrl:'/products/'+piece.slug}>{fromBag?'Back to my bag':'View the piece'}</Link></p> : !configured ? <p className={styles.notice}>{process.env.NEXT_PUBLIC_VERCEL_ENV==='preview'?'Personal photo rendering is off in this review.':'Personal photo rendering is temporarily unavailable.'} <Link href={fromBag?bagUrl:editing||'/products/'+piece.slug}>{fromBag?'Back to my bag':editorial?'Back to my look':'View the piece'}</Link></p> :
             <><label className={styles.field}>{file?'Change your photo':'Choose a photo'}<input disabled={!!status} type="file" accept="image/jpeg,image/png,image/webp" onChange={e=>selectPhoto(e.target.files?.[0])}/></label>
               {photo && <img className={styles.inputPhoto} src={photo} alt={mirror?'Your fitting photo':'Your room photo'}/>}
               <p className={styles.note}>JPG, PNG or WebP, up to 15 MB. Your photo uploads when you request the preview.</p>

@@ -55,7 +55,7 @@ export default async function Page(props: Props) {
       {edit.slug==='sarees'&&<TextileGuide/>}
     </section> : null}
     {ids.length>0 && (!data?.total || ids.includes(searchParams.piece || '')) ? <StudyShelf initialPiece={searchParams.piece} key={edit.slug} ids={ids} preview={preview} email={email}/> : !data?.total &&
-      <section className="nj-empty"><h2>{data?'Enquire about a piece':'The catalogue is temporarily unavailable'}</h2><p>{data?'Tell us what you have in mind for your home.':'Please try again or get in touch with the shop.'}</p><a href={'mailto:'+email+'?subject='+encodeURIComponent(edit.name+' enquiry')} className="nj-text-link mt-3">Ask the shop ↗</a> · <Link className="nj-text-link" href="/products">Browse all pieces</Link></section>}
+      <section className="nj-empty"><h2>{data?'More pieces are on their way':'The catalogue is temporarily unavailable'}</h2><Link className="nj-primary" href="/products">Shop available pieces</Link></section>}
     <nav className="nj-aisles mt-7" aria-label="Help choosing">{ids.length ? <><Link href="/looks">Saree styling ideas</Link><Link href="/ai/mirror">Try on with Aaina</Link><Link href="/counter">Compare sarees</Link></> : <Link href="/ai/imagine">See it in my room</Link>}</nav>
   </div></main><Footer/></>;
 }
