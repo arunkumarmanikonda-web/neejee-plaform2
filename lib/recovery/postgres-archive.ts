@@ -34,7 +34,9 @@ export async function dumpDatabase(dir: string) {
     } catch (error) {
       // Do not propagate command lines, host names, connection parameters, SQL or source rows.
       const detail = String((error as {stderr?: unknown})?.stderr || '');
-      failure = /certificate|SSL error/i.test(detail) ? 'Database TLS verification failed'
+      const systemCode = (error as {code?:string}).code;
+      failure = systemCode === 'EACCES' || systemCode === 'ENOENT' || systemCode === 'ENOEXEC' ? 'Database client unavailable '+systemCode
+        : /certificate|SSL error/i.test(detail) ? 'Database TLS verification failed'
         : /permission denied/i.test(detail) ? 'Database backup permission denied'
         : /password authentication|no password supplied/i.test(detail) ? 'Database login rejected'
         : /connection|resolve|translate host/i.test(detail) ? 'Database connection unavailable'
