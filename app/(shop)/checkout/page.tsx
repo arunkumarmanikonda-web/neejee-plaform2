@@ -1,7 +1,8 @@
 'use client';
 import type { SavedAddress } from '@/components/account/AddressBook';
 
-import { Suspense, useId, useState, useEffect, useRef } from 'react';
+import { bagIdentity, clearBrowserAttempt, newBrowserAttempt, readBrowserAttempt, recoverCodOrder, type BrowserAttempt } from '@/lib/checkout/cod-browser';
+import { Suspense, useCallback, useId, useState, useEffect, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { HouseHeading } from '@/components/checkout/HouseHeading';
 import Link from 'next/link';
@@ -79,6 +80,29 @@ function CheckoutInner() {
   const [gstinCustomer, setGstinCustomer] = useState('');
   const [wantGstInvoice, setWantGstInvoice] = useState(false);
   const submittingRef = useRef(false);
+  const codAttempt = useRef<BrowserAttempt | null>(null);
+  const [canCheckReceipt, setCanCheckReceipt] = useState(false);
+  const [attemptConflict, setAttemptConflict] = useState(false);
+  const checkReceipt = useCallback(async (signal?: AbortSignal) => {
+    const attempt = codAttempt.current;
+    if (!attempt) return false;
+    const number = await recoverCodOrder(attempt, signal);
+    if (!number || signal?.aborted || codAttempt.current?.key !== attempt.key) return false;
+    if (bagIdentity(useCart.getState().items) === attempt.bag) clear();
+    codAttempt.current = null;
+    clearBrowserAttempt();
+    router.replace(`/order-confirmation?order=${encodeURIComponent(number)}`);
+    return true;
+  }, [clear, router]);
+  useEffect(() => {
+    const stored = readBrowserAttempt();
+    if (!stored) return;
+    codAttempt.current = stored;
+    setCanCheckReceipt(true);
+    const ctrl = new AbortController();
+    void checkReceipt(ctrl.signal).catch(() => {});
+    return () => ctrl.abort();
+  }, [checkReceipt]);
   const [quoteVersion, setQuoteVersion] = useState(0);
   const [quoteResult, setQuoteResult] = useState<{key:string; quote?:CheckoutQuote; error?:string} | null>(null);
   const [pointsToRedeem, setPointsToRedeem] = useState(0);
@@ -412,10 +436,13 @@ function CheckoutInner() {
     setError('');
 
     try {
+      if (payment === 'COD' && !codAttempt.current) {
+        codAttempt.current = readBrowserAttempt() || newBrowserAttempt(bagIdentity(items));
+      }
       const res = await fetch('/api/checkout', {
         method: 'POST',
         credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...(payment === 'COD' && codAttempt.current ? { 'Idempotency-Key': codAttempt.current.key } : {}) },
         body: JSON.stringify({
           items: items.map((i) => ({
             productId: i.productId,
@@ -440,6 +467,7 @@ function CheckoutInner() {
 
       const d = await res.json().catch(() => ({}));
       if (!res.ok) {
+        if (d.code === 'COD_ATTEMPT_CONFLICT') setAttemptConflict(true);
         if (d.code === 'QUOTE_CHANGED') setQuoteVersion(v => v + 1);
         if (!me && (d.code === 'OTP_REQUIRED' || d.code === 'OTP_EXPIRED')) {
           setGuestOtpRequired(true);
@@ -459,6 +487,9 @@ function CheckoutInner() {
       }
 
       if (payment === 'COD') {
+        if (!d.orderNumber) throw new Error('We could not confirm the order. Check the earlier submission before trying again.');
+        clearBrowserAttempt();
+        codAttempt.current = null;
         clear();
         router.push(`/order-confirmation?order=${encodeURIComponent(d.orderNumber)}`);
       } else {
@@ -468,6 +499,10 @@ function CheckoutInner() {
         router.push(`/payment?snapshot=${encodeURIComponent(d.snapshotId)}`);
       }
     } catch (e: any) {
+      if (payment === 'COD' && codAttempt.current) {
+        setCanCheckReceipt(true);
+        try { if (await checkReceipt()) return; } catch { /* The same key is retained for retry. */ }
+      }
       submittingRef.current = false;
       setError(e.message || 'Unable to place order');
       setSubmitting(false);
@@ -513,6 +548,15 @@ function CheckoutInner() {
         </div>
 
         {error && <p className="mt-6 font-ui text-sm text-madder bg-madder/10 p-3">{error}</p>}
+        {canCheckReceipt && <div className="mt-3 flex gap-3 items-center flex-wrap">
+          <button type="button" className="btn-secondary" disabled={submitting} onClick={async () => {
+            try { if (!await checkReceipt()) setError('No confirmed order was found for that submission. You can retry with the same details.'); }
+            catch { setError('Unable to check your earlier order. Please try again.'); }
+          }}>Check earlier COD order</button>
+          {attemptConflict && <button type="button" className="btn-secondary" onClick={() => {
+            clearBrowserAttempt(); codAttempt.current = null; setAttemptConflict(false); setCanCheckReceipt(false); setError('');
+          }}>Start a separate order</button>}
+        </div>}
 
         <div className="grid lg:grid-cols-[1fr_400px] gap-10 mt-10">
           <div className="space-y-6">

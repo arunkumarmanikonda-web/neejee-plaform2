@@ -5,6 +5,7 @@ import { notFound, redirect } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
 import { Header } from '@/components/layout/Header';
+import { OrderReturns } from '@/components/returns/OrderReturns';
 import { Footer } from '@/components/layout/Footer';
 import { prisma } from '@/lib/prisma';
 import { getSession } from '@/lib/auth';
@@ -40,7 +41,7 @@ export default async function OrderDetailsPage({
   if (!order) notFound();
 
   // Only the buyer may view their order (or admin/staff via separate admin route).
-  const isOwner = order.userId === session.id || order.guestEmail === session.email;
+  const isOwner = order.userId === session.id || (!order.userId && !!order.guestEmail && order.guestEmail === session.email);
   const isStaff = ['ADMIN', 'SUPER_ADMIN', 'CONTENT_EDITOR', 'QC_TEAM'].includes(session.role);
   if (!isOwner && !isStaff) {
     notFound();
@@ -124,8 +125,11 @@ export default async function OrderDetailsPage({
           </section>
         )}
 
+        {order.userId === session.id && <OrderReturns orderNumber={order.orderNumber} />}
+        {isOwner && !order.userId && <Link href="/help/track" className="btn-secondary mt-8 inline-flex">Look up this guest order for returns</Link>}
+
         <div className="mt-12 text-center">
-          <Link href="/help/contact" className="font-body text-sm text-mitti underline">
+          <Link href="/help/contact" className="font-body text-sm text-mitti">
             Need help with this order?
           </Link>
         </div>

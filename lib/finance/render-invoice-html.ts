@@ -5,6 +5,7 @@
 // - keeps Print + Save PDF toolbar
 // - avoids page breaks inside the key invoice blocks
 
+import { CHECKOUT_INCLUSIVE } from './checkout-tax';
 import { formatINR } from '@/lib/money';
 import { numberToWordsINR } from '@/lib/finance/number-to-words';
 import type { IssuerProfile } from '@/lib/finance/legal-entity';
@@ -223,7 +224,7 @@ function renderOneInvoice(inv: any, issuer: IssuerProfile, pageBreak = false): s
           <th>Description &amp; craft</th>
           <th>HSN/SAC</th>
           <th class="r">Qty</th>
-          <th class="r">Rate</th>
+          <th class="r">${inv.priceBasis === CHECKOUT_INCLUSIVE ? 'Unit incl. GST' : 'Rate'}</th>
           <th class="r">Disc.</th>
           <th class="r">Taxable</th>
           <th class="r">GST</th>
@@ -303,7 +304,7 @@ function renderOneInvoice(inv: any, issuer: IssuerProfile, pageBreak = false): s
       <table class="nj-totals" style="margin-top:0">
         <tbody>
           <tr><td class="l">Taxable value</td><td class="r">${formatINR(inv.taxableValuePaise)}</td></tr>
-          ${inv.discountPaise > 0 ? `<tr><td class="l">Discount</td><td class="r">– ${formatINR(inv.discountPaise)}</td></tr>` : ''}
+          ${inv.discountPaise > 0 ? `<tr><td class="l">${inv.priceBasis === CHECKOUT_INCLUSIVE ? 'Coupon and points already included' : 'Discount'}</td><td class="r">${inv.priceBasis === CHECKOUT_INCLUSIVE ? '' : '– '}${formatINR(inv.discountPaise)}</td></tr>` : ''}
           ${inv.cgstPaise > 0 ? `<tr><td class="l">CGST</td><td class="r">${formatINR(inv.cgstPaise)}</td></tr>` : ''}
           ${inv.sgstPaise > 0 ? `<tr><td class="l">SGST</td><td class="r">${formatINR(inv.sgstPaise)}</td></tr>` : ''}
           ${inv.igstPaise > 0 ? `<tr><td class="l">IGST</td><td class="r">${formatINR(inv.igstPaise)}</td></tr>` : ''}

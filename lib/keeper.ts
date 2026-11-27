@@ -6,6 +6,11 @@ export const keeperChecks = [
   {key:'stock',name:'Variants with negative stock',href:'/admin/products'},
   {key:'failures',name:'Open ERP failures',href:'/admin/erp/failures'},
   {key:'stalled',name:'ERP work over an hour behind',href:'/admin/erp/dashboard'},
+  {key:'photos',name:'Catalogue photo jobs failed or queued over an hour',href:'/admin/ai-photo-studio'},
+  {key:'dispatch',name:'Carrier bookings awaiting staff reconciliation',href:'/admin/orders'},
+  {key:'returns',name:'Return cases past their first response deadline',href:'/admin/disputes'},
+  {key:'messages',name:'Failed notifications with no retry scheduled',href:'/admin/notification-dispatches'},
+  {key:'invoices',name:'Sales invoices whose total differs from the order',href:'/admin/finance/sales-invoices'},
   {key:'journal',name:'Journal publications over ten minutes late',href:'/admin/cms'},
 ] as const;
 const live = {status:'ACTIVE' as const,takedownAt:null,catalogueExclude:false};
@@ -18,7 +23,14 @@ export async function inspectShop(db: Prisma.TransactionClient, now: Date) {
   const failures = await db.erpDeadLetter.count({where:{status:'OPEN'}});
   const stalled = await db.erpSyncAttempt.count({where:{OR:[{status:'QUEUED',runAfter:{lt:hourAgo}},{status:'PROCESSING',updatedAt:{lt:hourAgo}}]}});
   const journal = await db.cmsPage.count({where:lateJournal(now)});
-  return {price,media,stock,failures,stalled,journal};
+  const photos = await db.aiPhotoJob.count({where:{id:{startsWith:'intake-'},OR:[{status:'FAILED'},{status:'QUEUED',createdAt:{lt:hourAgo}}]}});
+  const dispatch = await db.order.count({where:{shiprocketStage:{in:['CHECK_BOOKING','CHECK_AWB','CHECK_PAYMENT']}}});
+  const returns = await db.dispute.count({where:{id:{startsWith:'return-'},status:{in:['OPEN','UNDER_REVIEW']},firstResponseAt:null,dueBy:{lt:now}}});
+  const messages = await db.notificationDispatch.count({where:{status:'failed',nextRetryAt:null}});
+  const [totals] = await db.$queryRaw<Array<{count:number}>>`SELECT count(*)::int AS count
+    FROM public."SalesInvoice" AS i JOIN public."Order" AS o ON i."orderId" = o.id
+    WHERE i."totalPaise" <> o.total`;
+  return {price,media,stock,failures,stalled,journal,photos,dispatch,returns,messages,invoices:totals.count};
 }
 
 export async function runKeeper(now = new Date()) {

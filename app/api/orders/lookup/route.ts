@@ -3,6 +3,7 @@
 // part of the lookup failed.
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { issueReturnAccess, RETURN_ACCESS_SECONDS, RETURN_COOKIE } from '@/lib/returns/guest-access';
 import { invoiceTokenFor } from '@/lib/finance/invoice-token';
 
 export const dynamic = 'force-dynamic';
@@ -24,6 +25,7 @@ export async function POST(req: Request) {
       where: { orderNumber },
       select: {
         id: true,
+        userId: true,
         orderNumber: true,
         guestEmail: true,
         user: { select: { email: true } },
@@ -36,10 +38,19 @@ export async function POST(req: Request) {
     }
 
     const token = invoiceTokenFor(order.id);
-    return NextResponse.json({
+    const guestReturnAccess = body.returns === true && order.userId === null;
+    const response = NextResponse.json({
+      guestReturnAccess,
       url: `/api/orders/${encodeURIComponent(order.orderNumber)}/invoice?token=${encodeURIComponent(token)}`,
       orderNumber: order.orderNumber,
-    });
+    }, { headers: { 'Cache-Control': 'private, no-store' } });
+    if (guestReturnAccess) {
+      response.cookies.set(RETURN_COOKIE, issueReturnAccess(order.id), {
+        path: '/api/order-returns', maxAge: RETURN_ACCESS_SECONDS, httpOnly: true,
+        secure: process.env.NODE_ENV === 'production', sameSite: 'strict',
+      });
+    }
+    return response;
   } catch (error: any) {
     console.error('[orders.lookup] failed', { message: error?.message });
     return NextResponse.json({ error: 'Unable to look up this order right now' }, { status: 500 });

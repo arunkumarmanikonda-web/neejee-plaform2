@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/prisma';
-import { calculateGST } from '@/lib/utils';
+import { calculateInvoiceAmounts, checkoutFee } from '@/lib/finance/checkout-tax';
+import { InvoiceStateReviewError } from '@/lib/finance/gst-state';
 import { resolveShippingOptions } from '@/lib/shipping/resolve';
 import type { ShippingResolveInput } from '@/lib/shipping/resolve';
 const GIFT_WRAP_PAISE = 15000;
@@ -33,6 +34,8 @@ export async function calculateCheckoutPricing(input:Inputs, session:{id:string}
     price: number;
     total: number;
     name: string;
+    gstRate: number;
+    hsnCode: string | null;
     craft?: string | null;
     region?: string | null;
   }> = [];
@@ -41,7 +44,7 @@ export async function calculateCheckoutPricing(input:Inputs, session:{id:string}
   const products = await prisma.product.findMany({
     where: { id: {in: productIds} },
     select: {id:true,name:true,status:true,takedownAt:true,catalogueExclude:true,codEligible:true,sellingPrice:true,salePrice:true,saleStartsAt:true,saleEndsAt:true,
-      craft:true,region:true,variants:{ select:{id:true,inventory:true,sellingPrice:true} }},
+      craft:true,region:true,gstRate:true,hsnCode:true,variants:{ select:{id:true,inventory:true,sellingPrice:true} }},
   });
   const byId = new Map(products.map(product => [product.id, product]));
   for (const rawItem of items) {
@@ -111,6 +114,8 @@ export async function calculateCheckoutPricing(input:Inputs, session:{id:string}
       price,
       total: lineTotal,
       name: product.name,
+      gstRate: product.gstRate,
+      hsnCode: product.hsnCode ?? null,
       craft: product.craft || null,
       region: product.region || null,
     });
@@ -204,10 +209,22 @@ export async function calculateCheckoutPricing(input:Inputs, session:{id:string}
     }
   }
 
-  const totalBeforeTax = subtotal + wrap + shippingPaise - discountPaise - pointsValuePaise;
-  const tax = calculateGST(totalBeforeTax, 5);
-  const total = totalBeforeTax;
+  const total = subtotal + wrap + shippingPaise - discountPaise - pointsValuePaise;
+  let amounts;
+  try {
+    amounts = calculateInvoiceAmounts({
+      version:1, items:verifiedItems,
+      shipping:checkoutFee(shippingPaise, verifiedItems, 'SHIPPING'),
+      wrap:checkoutFee(wrap, verifiedItems, 'GIFT_WRAP'),
+      coupon:discountPaise, points:pointsValuePaise, total,
+    });
+  } catch (error) {
+    if (!(error instanceof InvoiceStateReviewError)) throw error;
+    console.warn('[checkout tax] ' + error.message);
+    throw new CheckoutPricingError({error:'We need to confirm the tax details for this bag before payment.',code:'CHECKOUT_TAX_REVIEW'}, {status:409});
+  }
+  const { tax, snapshot:checkoutTaxSnapshot } = amounts;
   return { subtotal, wrap, rates, shippingPaise, discountPaise, appliedCouponId, pointsRedeemed, pointsValuePaise,
-    total, tax, loyalty, allCodEligible, codAvailable:allCodEligible && total <= COD_MAX_PAISE, verifiedItems };
+    total, tax, checkoutTaxSnapshot, loyalty, allCodEligible, codAvailable:allCodEligible && total <= COD_MAX_PAISE, verifiedItems };
 
 }

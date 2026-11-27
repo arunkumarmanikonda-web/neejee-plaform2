@@ -18,7 +18,11 @@
 import { prisma } from '@/lib/prisma';
 import { nextInvoiceNumber } from './invoice-numbering';
 import { postSalesInvoice } from './post-revenue';
+import { CHECKOUT_INCLUSIVE, reconcileWebsiteOrder } from './checkout-tax';
+import type { Prisma } from '@prisma/client';
 import { randomBytes } from 'crypto';
+import { getIssuerProfile } from './legal-entity';
+import { InvoiceStateReviewError, resolveDomesticGstSupply } from './gst-state';
 
 interface PostOrderResult {
   invoiceId:        string;
@@ -28,8 +32,6 @@ interface PostOrderResult {
   totalPaise:       number;
   saleType:         'DIRECT' | 'MARKETPLACE' | 'MIXED';
 }
-
-const FACILITATOR_STATE = process.env.NEEJEE_STATE_CODE || '27'; // default Maharashtra; override via env
 
 /** Heuristic: any line that's marketplace-sourced makes the order mixed/marketplace. */
 function classifyOrder(saleTypes: Set<'DIRECT' | 'MARKETPLACE'>): 'DIRECT' | 'MARKETPLACE' | 'MIXED' {
@@ -71,7 +73,7 @@ export async function postOrderToInvoice(
         include: {
           product: {
             select: {
-              id: true, name: true, sku: true, gstRate: true, hsnCode: true,
+              id: true, name: true, sku: true, gstRate: true, hsnCode: true, updatedAt: true,
               ownershipModel: true, sellerId: true,
               seller: { select: { id: true, commissionPct: true, gstin: true } },
             },
@@ -85,40 +87,32 @@ export async function postOrderToInvoice(
   });
   if (!order) throw new Error('Order not found');
 
-  // 3. Determine GST split: inter-state vs intra-state.
-  // We compare the order's billing state to NEEJEE_STATE_CODE.
-  const buyerState = (order.address?.state || '').slice(0, 2);
-  const isInterState = !!buyerState && buyerState.toUpperCase() !== FACILITATOR_STATE.toUpperCase();
+  if (order.gstInvoice) {
+    throw new InvoiceStateReviewError('The order already references an invoice. Verify the original in finance.');
+  }
+
+  const { buyerState, isInterState } = resolveDomesticGstSupply(
+    order.address, await getIssuerProfile(), process.env.NEEJEE_STATE_CODE,
+  );
+
+  const reconciled = reconcileWebsiteOrder(order);
 
   // 4. Build invoice lines
   const saleTypes = new Set<'DIRECT' | 'MARKETPLACE'>();
-  let subtotal = 0, discount = 0, taxable = 0, cgstTotal = 0, sgstTotal = 0, igstTotal = 0;
+  const discount = order.discount + order.pointsValue;
 
-  const builtLines = order.items.map(item => {
+  const builtLines: Array<Prisma.SalesInvoiceLineUncheckedCreateWithoutInvoiceInput & {quantity:number}> = order.items.map((item, index) => {
     const product = item.product;
     const isMarketplace = product.ownershipModel === 'MARKETPLACE';
     const saleType: 'DIRECT' | 'MARKETPLACE' = isMarketplace ? 'MARKETPLACE' : 'DIRECT';
     saleTypes.add(saleType);
 
-    const qty           = item.quantity;
-    const unitPrice     = item.price;                       // already in paise
-    const lineSub       = unitPrice * qty;                  // gross before tax
-    // Discount allocation: prorate Order.discount across lines by gross weight
-    const lineDisc      = order.subtotal > 0
-      ? Math.round(order.discount * (lineSub / order.subtotal))
-      : 0;
-    const taxBase       = Math.max(0, lineSub - lineDisc);
-    const gstRate       = product.gstRate ?? 5;
-    const totalTax      = Math.round(taxBase * gstRate / 100);
-
-    let cgst = 0, sgst = 0, igst = 0;
-    if (isInterState) {
-      igst = totalTax;
-    } else {
-      cgst = Math.floor(totalTax / 2);
-      sgst = totalTax - cgst;
-    }
-    const lineTotal = taxBase + totalTax;
+    const line = reconciled.products[index];
+    const qty = item.quantity;
+    const unitPrice = item.price;
+    const cgst = isInterState ? 0 : Math.floor(line.tax / 2);
+    const sgst = isInterState ? 0 : line.tax - cgst;
+    const igst = isInterState ? line.tax : 0;
 
     // v23.40.9 — KEY MARKETPLACE LOGIC:
     // For marketplace items, the seller's share = sellingPrice × (1 − commissionPct/100).
@@ -141,33 +135,26 @@ export async function postOrderToInvoice(
       cogsPaise     = null;
     }
 
-    subtotal  += lineSub;
-    discount  += lineDisc;
-    taxable   += taxBase;
-    cgstTotal += cgst;
-    sgstTotal += sgst;
-    igstTotal += igst;
-
     return {
       id: 'invl_' + randomBytes(10).toString('hex'),
       productId: product.id,
       variantId: item.variantId || null,
       sku: product.sku || null,
       description: product.name,
-      hsnSac: product.hsnCode || null,
+      hsnSac: line.hsnCode,
       quantity: qty,
       unitPricePaise: unitPrice,
-      discountPaise:  lineDisc,
-      taxableValuePaise: taxBase,
-      gstRatePercent: gstRate,
+      discountPaise:  line.discount,
+      taxableValuePaise: line.taxable,
+      gstRatePercent: line.gstRate,
       cgstPaise: cgst, sgstPaise: sgst, igstPaise: igst,
-      totalPaise: lineTotal,
+      totalPaise: line.total,
       unitCostPaise,
       cogsPaise,
       saleType,
       sellerId: isMarketplace ? product.sellerId : null,
       commissionRatePercent:     isMarketplace && product.seller ? product.seller.commissionPct : null,
-      commissionBaseAmountPaise: isMarketplace ? lineSub : null,
+      commissionBaseAmountPaise: isMarketplace ? line.amount : null,
     };
   });
 
@@ -195,12 +182,24 @@ export async function postOrderToInvoice(
     }
   }
 
-  // 5. Shipping
-  const shippingPaise    = order.shipping || 0;
-  const shippingTaxPaise = 0; // We treat shipping GST as already in Order.tax for now
-
-  // 6. Totals
-  const totalPaise = taxable + cgstTotal + sgstTotal + igstTotal + shippingPaise + shippingTaxPaise;
+  for (const fee of reconciled.fees) {
+    const cgst = isInterState ? 0 : Math.floor(fee.tax / 2);
+    const shipping = fee.kind === 'shipping';
+    builtLines.push({
+      id: 'invl_' + randomBytes(10).toString('hex'),
+      sku: shipping ? 'CHECKOUT_SHIPPING' : 'CHECKOUT_GIFT_WRAP',
+      description: shipping ? 'Delivery' : 'Gift wrap',
+      hsnSac: fee.hsnCode, saleType: 'DIRECT', quantity: 1, unitPricePaise: fee.amount,
+      discountPaise: fee.discount, taxableValuePaise: fee.taxable, gstRatePercent: fee.gstRate,
+      cgstPaise: cgst, sgstPaise: isInterState ? 0 : fee.tax - cgst, igstPaise: isInterState ? fee.tax : 0,
+      totalPaise: fee.total,
+    });
+  }
+  const totalPaise = order.total;
+  const taxable = builtLines.reduce((sum, line) => sum + line.taxableValuePaise, 0);
+  const cgstTotal = builtLines.reduce((sum, line) => sum + (line.cgstPaise ?? 0), 0);
+  const sgstTotal = builtLines.reduce((sum, line) => sum + (line.sgstPaise ?? 0), 0);
+  const igstTotal = builtLines.reduce((sum, line) => sum + (line.igstPaise ?? 0), 0);
 
   // 7. Generate invoice number (INV/YYMM/####)
   const issuedOn      = order.createdAt;
@@ -230,7 +229,8 @@ export async function postOrderToInvoice(
     data: {
       id: 'inv_' + randomBytes(10).toString('hex'),
       invoiceNumber,
-      invoiceType: 'B2C',
+      invoiceType: order.gstinCustomer ? 'B2B' : 'B2C',
+      priceBasis: CHECKOUT_INCLUSIVE,
       saleChannel: 'WEBSITE',
       saleType: orderSaleType === 'MIXED' ? 'DIRECT' : orderSaleType, // per-line saleType handles the mix
       customerId: customerResolution?.customerId || null,
@@ -243,42 +243,35 @@ export async function postOrderToInvoice(
         ? [order.address.line1, order.address.line2, order.address.city, order.address.state, order.address.pincode].filter(Boolean).join(', ')
         : null,
       shippingAddress: null,
-      placeOfSupply: buyerState || null,
+      placeOfSupply: buyerState,
       orderId: order.id,
       issuedOn,
       dueOn: null,
-      subtotalPaise: subtotal,
+      subtotalPaise: order.subtotal + reconciled.snapshot.wrap.amount + reconciled.snapshot.shipping.amount,
       discountPaise: discount,
       taxableValuePaise: taxable,
       cgstPaise: cgstTotal,
       sgstPaise: sgstTotal,
       igstPaise: igstTotal,
-      shippingPaise,
-      shippingTaxPaise,
+      shippingPaise: 0,
+      shippingTaxPaise: 0,
       totalPaise,
       paidPaise: order.paymentStatus === 'PAID' ? totalPaise : 0,
       paymentStatus: order.paymentStatus === 'PAID' ? 'PAID' : 'UNPAID',
       notes: `Auto-generated from website order ${order.orderNumber}.`,
       createdByUserId: postedByUserId || 'system_order_post',
       lines: { create: builtLines },
+      payments: order.paymentStatus === 'PAID' && totalPaise > 0 ? {
+        create: {
+          id: 'spay_' + randomBytes(8).toString('hex'),
+          amountPaise: totalPaise, paidOn: order.updatedAt,
+          method: order.paymentMethod || 'RAZORPAY', reference: order.razorpayPaymentId || null,
+          notes: `Auto-recorded payment from order ${order.orderNumber}.`,
+          createdByUserId: postedByUserId || 'system_order_post',
+        },
+      } : undefined,
     },
   });
-
-  // 9. If the order is already paid, record a SalesInvoicePayment too
-  if (order.paymentStatus === 'PAID' && totalPaise > 0) {
-    await prisma.salesInvoicePayment.create({
-      data: {
-        id: 'spay_' + randomBytes(10).toString('hex'),
-        invoiceId: invoice.id,
-        amountPaise: totalPaise,
-        paidOn: order.updatedAt,
-        method: order.paymentMethod || 'RAZORPAY',
-        reference: order.razorpayPaymentId || null,
-        notes: `Auto-recorded payment from order ${order.orderNumber}.`,
-        createdByUserId: postedByUserId || 'system_order_post',
-      },
-    });
-  }
 
   // 10. Post to revenue ledger
   let postedCount = 0;

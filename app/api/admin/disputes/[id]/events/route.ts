@@ -3,6 +3,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getSession } from '@/lib/auth';
+import { CUSTOMER_UPDATE_PREFIX } from '@/lib/returns/request';
 import { commentOnDispute } from '@/lib/disputes';
 
 export const dynamic = 'force-dynamic';
@@ -18,11 +19,16 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   }
   try {
     const body = await req.json();
+    const note = typeof body.body === 'string' ? body.body.trim() : '';
+    if (note.startsWith(CUSTOMER_UPDATE_PREFIX.trim())) {
+      return NextResponse.json({ error: 'Use the customer visibility control to share an update.' }, { status: 400 });
+    }
+    const share = params.id.startsWith('return-') && body.shareWithCustomer === true;
     const ev = await commentOnDispute({
       disputeId: params.id,
       actorUserId: session.id,
       actorRole: 'ADMIN',
-      body: body.body || '',
+      body: share ? CUSTOMER_UPDATE_PREFIX + note : note,
       attachments: Array.isArray(body.attachments) ? body.attachments : [],
     });
     return NextResponse.json({ ok: true, event: ev });

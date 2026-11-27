@@ -480,6 +480,8 @@ model CartItem {
 model Order {
   id                 String        @id @default(cuid())
   orderNumber        String        @unique
+  codAttemptKey      String?       @unique
+  codRequestHash     String?
   userId             String?
   user               User?         @relation(fields: [userId], references: [id])
   addressId          String?
@@ -493,6 +495,7 @@ model Order {
   tax                Int           @default(0)
   discount           Int           @default(0)
   total              Int
+  checkoutTaxSnapshot Json?
   // Payment
   paymentMethod      String? // UPI, CARD, COD, NET_BANKING
   paymentStatus      PaymentStatus @default(PENDING)
@@ -3308,6 +3311,7 @@ model RevenueEntry {
 model SalesInvoice {
   id                String                @id @default(cuid())
   invoiceNumber     String                @unique // INV/2606/0001 or COM/2606/0001 ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â sequential per FY
+  priceBasis         String?
   invoiceType       String // 'B2C' | 'B2B' | 'POS' | 'BULK' | 'COMMISSION'
   saleChannel       String // 'WEBSITE' | 'POS' | 'BULK' | 'WHATSAPP' | 'MARKETPLACE_COMMISSION'
   saleType          String                @default("DIRECT") // 'DIRECT' | 'MARKETPLACE' (snapshot from products)

@@ -8,6 +8,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { orderShippingAddress } from '@/lib/checkout/order-shipping-address';
+import { codAttemptKey, codRequestHash, confirmedCodOrder, findCodAttempt } from '@/lib/checkout/cod-attempt';
 import { getSession } from '@/lib/auth';
 import { generateOrderNumber } from '@/lib/utils';
 import { sendEmail, orderPlacedEmail } from '@/lib/email';
@@ -80,6 +81,16 @@ function safeCheckoutFailure(error: any) {
 }
 
 export async function POST(request: Request) {
+  let attempt: { key: string; hash: string } | null = null;
+  async function replay() {
+    if (!attempt) return null;
+    const existing = await findCodAttempt(attempt.key);
+    if (!existing) return null;
+    if (existing.codRequestHash !== attempt.hash) {
+      return NextResponse.json({ error: 'This checkout has already been used with different details. Check the earlier order before starting another.', code: 'COD_ATTEMPT_CONFLICT' }, { status: 409 });
+    }
+    return NextResponse.json(confirmedCodOrder(existing));
+  }
   try {
     const body = await request.json();
     const {
@@ -105,6 +116,14 @@ export async function POST(request: Request) {
     }
 
     const guestSession = await getSession();
+    const header = request.headers.get('Idempotency-Key');
+    if (payment === 'COD' && header !== null) {
+      const key = codAttemptKey(header);
+      if (!key) return NextResponse.json({ error: 'Invalid checkout attempt.' }, { status: 400 });
+      attempt = { key, hash: codRequestHash(body, guestSession?.id) };
+      const confirmed = await replay();
+      if (confirmed) return confirmed;
+    }
     if (process.env.CHECKOUT_OTP_REQUIRED === 'true' && !guestSession) {
       if (!phoneVerified || !contact?.phone) {
         return NextResponse.json({
@@ -183,8 +202,6 @@ export async function POST(request: Request) {
       }
 
       const order = await prisma.$transaction(async (tx: any) => {
-        await consumeUnreservedInventory(tx, inventoryItems);
-
         const { id: addressId } = await tx.address.create({
           data: orderShippingAddress(session?.id, address, contact.phone),
           select: { id: true },
@@ -192,6 +209,7 @@ export async function POST(request: Request) {
         const created = await tx.order.create({
           data: {
             orderNumber: generateOrderNumber(),
+            ...(attempt ? { codAttemptKey: attempt.key, codRequestHash: attempt.hash } : {}),
             userId: session?.id || null,
             addressId,
             guestEmail: session ? null : normalizedEmail,
@@ -199,6 +217,7 @@ export async function POST(request: Request) {
             subtotal,
             shipping: shippingPaise,
             tax,
+            checkoutTaxSnapshot: pricing.checkoutTaxSnapshot,
             discount: discountPaise,
             total,
             pointsRedeemed,
@@ -222,6 +241,7 @@ export async function POST(request: Request) {
           },
         });
 
+        await consumeUnreservedInventory(tx, inventoryItems);
         if (appliedCouponId) {
           await redeemCouponNow(tx, {
             couponId: appliedCouponId,
@@ -289,14 +309,7 @@ export async function POST(request: Request) {
         }).catch(() => {});
       }
 
-      return NextResponse.json({
-        success: true,
-        orderNumber: order.orderNumber,
-        orderId: order.id,
-        total,
-        paymentMethod: 'COD',
-        next: 'confirmation',
-      });
+      return NextResponse.json(confirmedCodOrder(order));
     }
 
     const snapshotJson = JSON.stringify({
@@ -309,6 +322,7 @@ export async function POST(request: Request) {
         tax,
         discount: discountPaise,
         wrap,
+        checkoutTaxSnapshot: pricing.checkoutTaxSnapshot,
         pointsRedeemed,
         pointsValuePaise,
         total,
@@ -368,6 +382,12 @@ export async function POST(request: Request) {
       reservationExpiresAt: reservation?.expiresAt || null,
     });
   } catch (error: any) {
+    // An overlapping placement can commit between the first read and pricing, or
+    // while this transaction waits on the unique attempt key. Its receipt wins.
+    if (attempt) {
+      try { const confirmed = await replay(); if (confirmed) return confirmed; }
+      catch { /* Surface the original checkout failure. */ }
+    }
     console.error('[checkout] error:', error);
     return safeCheckoutFailure(error);
   }

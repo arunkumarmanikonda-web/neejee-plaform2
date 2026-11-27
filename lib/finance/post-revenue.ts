@@ -12,6 +12,7 @@
 //
 // All entries share a deterministic sourceHash so re-posting is a no-op.
 
+import { CHECKOUT_INCLUSIVE, includedGst } from './checkout-tax';
 import { prisma } from '@/lib/prisma';
 import { createHash, randomBytes } from 'crypto';
 import { monthBucketOf } from './invoice-numbering';
@@ -104,20 +105,18 @@ export async function postSalesInvoice(invoiceId: string, postedByUserId?: strin
         line,
       });
     } else {
-      // Regular product line → PRODUCT_REVENUE credit (taxable value, post-discount)
+      const inclusive = invoice.priceBasis === CHECKOUT_INCLUSIVE;
+      const gross = line.quantity * line.unitPricePaise;
+      const preDiscountTaxable = gross - includedGst(gross, line.gstRatePercent);
+      const discount = inclusive ? preDiscountTaxable - line.taxableValuePaise : line.discountPaise;
+      const shipping = inclusive && !line.productId && line.sku === 'CHECKOUT_SHIPPING';
       add({
-        type: 'PRODUCT_REVENUE',
-        amountPaise: line.taxableValuePaise,
+        type: shipping ? 'SHIPPING_REVENUE' : 'PRODUCT_REVENUE',
+        amountPaise: inclusive ? preDiscountTaxable : line.taxableValuePaise,
         line,
       });
-      // Discount: only post if explicit discount on this line
-      if (line.discountPaise > 0) {
-        add({
-          type: 'DISCOUNT',
-          amountPaise: -line.discountPaise,
-          line,
-          notes: 'Discount on ' + line.description,
-        });
+      if (discount > 0) {
+        add({type: 'DISCOUNT', amountPaise: -discount, line, notes: 'Discount on ' + line.description});
       }
       // v23.40.9 — Two-stream cost accounting:
       //   DIRECT (Neejee-owned)     → COGS debit (Neejee bore inventory cost)

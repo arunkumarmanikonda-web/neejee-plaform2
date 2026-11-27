@@ -5,7 +5,7 @@ import { calculateCheckoutPricing } from '../../lib/checkout/pricing';
 test('shipping quotes apply exact SKU, regional tariff, coupon and payment rules before any order write', async () => {
   const state = globalThis as typeof globalThis & {prisma?: unknown};
   const prior = state.prisma;
-  const found = {id:'p1',name:'Saree',status:'ACTIVE',sellingPrice:120000,salePrice:null,codEligible:false,
+  const found = {id:'p1',name:'Saree',gstRate:5,hsnCode:null,status:'ACTIVE',sellingPrice:120000,salePrice:null,codEligible:false,
     variants:[{id:'v1',inventory:4,sellingPrice:100000}]};
   const zone = {id:'z1',name:'Local',active:true,isDefault:false,states:[],pincodeExact:['201301'],
     pincodePrefixes:[],freeAboveSubtotalPaise:250000,standardPaise:4500,expressPaise:7500,inclusive:false};

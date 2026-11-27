@@ -217,11 +217,12 @@ export async function POST(request: Request) {
               addressId,
               guestEmail: session?.id ? null : snapshot.email,
               guestName: session?.id ? null : snapshot.customerName,
-              subtotal: pricing.subtotal || snapshot.subtotal,
+              subtotal: pricing.subtotal ?? snapshot.subtotal,
               shipping: pricing.shipping || 0,
-              tax: pricing.tax || 0,
+              tax: pricing.tax ?? 0,
+              ...(pricing.checkoutTaxSnapshot ? {checkoutTaxSnapshot:pricing.checkoutTaxSnapshot} : {}),
               discount: pricing.discount || 0,
-              total: pricing.total || snapshot.subtotal,
+              total: pricing.total ?? snapshot.subtotal,
               pointsRedeemed: pricing.pointsRedeemed || 0,
               pointsValue: pricing.pointsValuePaise || 0,
               paymentMethod: 'RAZORPAY',
@@ -260,7 +261,7 @@ export async function POST(request: Request) {
               await redeemCouponNow(tx, {
                 couponId: String(data.appliedCouponId),
                 userId: session?.id || null,
-                subtotalPaise: Number(pricing.subtotal || snapshot.subtotal || 0),
+                subtotalPaise: Number(pricing.subtotal ?? snapshot.subtotal ?? 0),
                 orderId: created.id,
               });
             }

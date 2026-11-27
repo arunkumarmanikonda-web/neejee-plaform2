@@ -13,7 +13,7 @@ export default async function KeeperPage() {
   const history=await prisma.financeAuditLog.findMany({where:{entityType:'StoreKeeper'},orderBy:{createdAt:'desc'},take:24,select:{id:true,createdAt:true,fullSnapshot:true}});
   return <main className="max-w-5xl p-6 space-y-6">
     <div><p className="font-ui text-madder">बही खाता · Shop operations</p><h1 className="font-display text-4xl">Bahi Khata</h1>
-    <p className="mt-2">Live checks on stock, pricing, photography, integrations and publishing. Open a row to investigate.</p></div>
+    <p className="mt-2">Review stock, photography, dispatch, returns, customer messages and invoice totals. Select a row to open the corresponding staff workspace.</p></div>
     <div className="divide-y border-y">{keeperChecks.map(c=><Link href={c.href} key={c.key} className="flex justify-between gap-4 py-4"><span>{c.name}</span><strong className={counts[c.key]?'text-madder':'text-kohl'}>{counts[c.key]}</strong></Link>)}</div>
     <h2 className="font-display text-2xl">Hourly audit history</h2>
     <p>The scheduled check records exceptions and releases overdue journal entries that an editor already scheduled. A staff member reviews stock, prices and ERP failures.</p>

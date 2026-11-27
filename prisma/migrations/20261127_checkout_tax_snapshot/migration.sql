@@ -1,0 +1,2 @@
+ALTER TABLE "Order" ADD COLUMN IF NOT EXISTS "checkoutTaxSnapshot" JSONB;
+ALTER TABLE "SalesInvoice" ADD COLUMN IF NOT EXISTS "priceBasis" TEXT;
