@@ -8,7 +8,8 @@ import { getCounterStock } from '@/lib/counter-shop';
 
 export const dynamic='force-dynamic';
 export const metadata={title:'The saree counter | Neejee',description:'Bring a blouse colour, unfold two pieces and ask someone whose eye you trust.',alternates:{canonical:'/counter'}};
-export default async function Page({searchParams}:{searchParams:Record<string,string|string[]|undefined>}) {
+export default async function Page(props:{searchParams:Promise<Record<string,string|string[]|undefined>>}) {
+  const searchParams = await props.searchParams;
   const q=new URLSearchParams();
   for(const key of ['c','one','two','mode','pick','start']){const v=searchParams[key];if(typeof v==='string')q.set(key,v);}
   const link=readCounter(q);

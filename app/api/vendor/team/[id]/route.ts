@@ -15,7 +15,8 @@ async function ownerGate() {
   return { session, vendor };
 }
 
-export async function PATCH(request: Request, { params }: { params: { id: string } }) {
+export async function PATCH(request: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const g = await ownerGate();
   if ('error' in g) return NextResponse.json({ error: g.error }, { status: g.status });
   let body: any = {};
@@ -48,7 +49,8 @@ export async function PATCH(request: Request, { params }: { params: { id: string
   return NextResponse.json({ member: updated });
 }
 
-export async function DELETE(_req: Request, { params }: { params: { id: string } }) {
+export async function DELETE(_req: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const g = await ownerGate();
   if ('error' in g) return NextResponse.json({ error: g.error }, { status: g.status });
   const member = await prisma.vendorTeamMember.findFirst({

@@ -3707,3 +3707,14 @@ model AdminAiTask {
   @@index([createdByUserId, createdAt])
   @@index([status, createdAt])
 }
+
+model ShopEnquiry {
+  id        String    @id @db.Uuid
+  pieceId   String
+  email     String
+  message   String
+  createdAt DateTime  @default(now()) @db.Timestamptz(3)
+  handledAt DateTime? @db.Timestamptz(3)
+
+  @@index([createdAt])
+}

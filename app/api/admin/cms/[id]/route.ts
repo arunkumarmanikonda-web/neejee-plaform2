@@ -6,7 +6,8 @@ import { getSession, requireRole } from '@/lib/auth';
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
-export async function GET(request: Request, { params }: { params: { id: string } }) {
+export async function GET(request: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const user = await getSession();
   if (!requireRole(user, ['ADMIN', 'SUPER_ADMIN', 'CONTENT_EDITOR'])) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -22,7 +23,8 @@ export async function GET(request: Request, { params }: { params: { id: string }
   }
 }
 
-export async function PATCH(request: Request, { params }: { params: { id: string } }) {
+export async function PATCH(request: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const user = await getSession();
   if (!requireRole(user, ['ADMIN', 'SUPER_ADMIN', 'CONTENT_EDITOR'])) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -98,7 +100,8 @@ export async function PATCH(request: Request, { params }: { params: { id: string
   }
 }
 
-export async function DELETE(request: Request, { params }: { params: { id: string } }) {
+export async function DELETE(request: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const user = await getSession();
   if (!requireRole(user, ['ADMIN', 'SUPER_ADMIN'])) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });

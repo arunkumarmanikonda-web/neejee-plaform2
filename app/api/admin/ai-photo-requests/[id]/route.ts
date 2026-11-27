@@ -23,7 +23,8 @@ async function gate() {
   return { session };
 }
 
-export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(_req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const g = await gate();
   if (g.error) return g.error;
   const row = await prisma.aiPhotoRequest.findUnique({
@@ -45,7 +46,8 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
   return NextResponse.json({ request: row, job });
 }
 
-export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
+export async function PATCH(req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const g = await gate();
   if (g.error) return g.error;
   try {

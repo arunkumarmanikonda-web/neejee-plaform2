@@ -13,12 +13,15 @@ import { sareeVocabulary } from '@/lib/saree-vocabulary';
 import { getPublicContact } from '@/lib/public-contact';
 
 export const dynamic='force-dynamic';
-type Props = {params:{slug:string};searchParams:{page?:string;colour?:string;sort?:string;textile?:string}};
-export function generateMetadata({params}: Props) {
+type Props = {params: Promise<{slug:string}>;searchParams: Promise<{piece?:string;page?:string;colour?:string;sort?:string;textile?:string}>};
+export async function generateMetadata(props: Props) {
+  const params = await props.params;
   const edit = getEdit(params.slug);
   return edit ? {title:edit.name+' shop',description:edit.note,alternates:{canonical:editHref(edit.slug)}} : {};
 }
-export default async function Page({params,searchParams}: Props) {
+export default async function Page(props: Props) {
+  const searchParams = await props.searchParams;
+  const params = await props.params;
   const edit = getEdit(params.slug);
   if (!edit) notFound();
   const colour = typeof searchParams.colour==='string' ? searchParams.colour.slice(0,100) : '';
@@ -50,7 +53,8 @@ export default async function Page({params,searchParams}: Props) {
       {!data.matches && <p className="nj-no-results">No pieces match this selection. <Link className="nj-text-link" href={editHref(edit.slug)}>See all pieces</Link></p>}
       {data.pages>1 && <nav className="nj-aisles" aria-label="Collection pages">{data.page>1&&<Link href={url(colour,sort,data.page-1)}>Previous</Link>}<span>Page {data.page} of {data.pages}</span>{data.page<data.pages&&<Link href={url(colour,sort,data.page+1)}>Next</Link>}</nav>}
       {edit.slug==='sarees'&&<TextileGuide/>}
-    </section> : ids.length>0 ? <StudyShelf key={edit.slug} ids={ids} preview={preview} email={email}/> :
+    </section> : null}
+    {ids.length>0 && (!data?.total || ids.includes(searchParams.piece || '')) ? <StudyShelf initialPiece={searchParams.piece} key={edit.slug} ids={ids} preview={preview} email={email}/> : !data?.total &&
       <section className="nj-empty"><h2>{data?'Enquire about a piece':'The catalogue is temporarily unavailable'}</h2><p>{data?'Tell us what you have in mind for your home.':'Please try again or get in touch with the shop.'}</p><a href={'mailto:'+email+'?subject='+encodeURIComponent(edit.name+' enquiry')} className="nj-text-link mt-3">Ask the shop ↗</a> · <Link className="nj-text-link" href="/products">Browse all pieces</Link></section>}
     <nav className="nj-aisles mt-7" aria-label="Help choosing">{ids.length ? <><Link href="/looks">Saree styling ideas</Link><Link href="/ai/mirror">Try on with Aaina</Link><Link href="/counter">Compare sarees</Link></> : <Link href="/ai/imagine">See it in my room</Link>}</nav>
   </div></main><Footer/></>;

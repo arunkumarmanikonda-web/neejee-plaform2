@@ -22,7 +22,8 @@ const nextConfig = {
     ],
     minimumCacheTTL: 60 * 60 * 24,
   },
-  experimental: { outputFileTracingIncludes: { '/api/ai/mirror': ['./public/brand/lookbook/*.webp','./public/brand/bazaar/surkh.webp','./public/brand/bazaar/neel.webp','./public/brand/bazaar/haldi.webp','./public/brand/pairing/*.webp'] }, optimizePackageImports: ['lucide-react'] },
+  outputFileTracingIncludes: { '/api/ai/mirror': ['./public/brand/lookbook/*.webp','./public/brand/bazaar/surkh.webp','./public/brand/bazaar/neel.webp','./public/brand/bazaar/haldi.webp','./public/brand/pairing/*.webp'] },
+  experimental: { cpus: 2, webpackMemoryOptimizations: true, optimizePackageImports: ['lucide-react'] },
   poweredByHeader: false,
   compress: true,
 
@@ -87,6 +88,13 @@ const nextConfig = {
         source: '/(.*)',
         headers: securityHeaders,
       },
+      ...['/staff/:path*','/admin/:path*','/account/:path*','/api/admin/:path*','/api/me','/api/account/:path*','/api/orders/:path*','/api/order-returns/:path*','/api/ai/media'].map(source => ({
+        source, headers: [
+          { key:'Cache-Control', value:'private, no-store, max-age=0' },
+          { key:'X-Robots-Tag', value:'noindex, nofollow, noarchive' },
+          { key:'Referrer-Policy', value:'no-referrer' },
+        ],
+      })),
     ];
   },
 };

@@ -1,6 +1,7 @@
 // JWT-based application auth. Privileged sessions carry explicit MFA assurance.
 import { SignJWT, jwtVerify } from 'jose';
 import { cookies } from 'next/headers';
+import { prisma } from './prisma';
 import bcrypt from 'bcryptjs';
 
 const rawSecret = process.env.AUTH_SECRET || '';
@@ -93,7 +94,8 @@ export function hasValidPrivilegedAssurance(user: SessionUser): boolean {
   const verifiedAt = Date.parse(user.mfaVerifiedAt);
   if (!Number.isFinite(verifiedAt)) return false;
 
-  return Date.now() - verifiedAt <= PRIVILEGED_SESSION_SECONDS * 1000;
+  const age = Date.now() - verifiedAt;
+  return age >= -30_000 && age <= PRIVILEGED_SESSION_SECONDS * 1000;
 }
 
 function normaliseSession(user: SessionUser): SessionUser {
@@ -121,7 +123,7 @@ export async function signSession(user: SessionUser): Promise<string> {
 
 export async function verifySession(token: string): Promise<SessionUser | null> {
   try {
-    const { payload } = await jwtVerify(token, secret, { issuer: 'neejee' });
+    const { payload } = await jwtVerify(token, secret, { issuer: 'neejee', algorithms: ['HS256'] });
 
     if (
       typeof payload.id !== 'string' ||
@@ -149,9 +151,13 @@ export async function verifySession(token: string): Promise<SessionUser | null> 
 }
 
 export async function getSession(): Promise<SessionUser | null> {
-  const token = cookies().get(SESSION_COOKIE)?.value;
+  const token = (await cookies()).get(SESSION_COOKIE)?.value;
   if (!token) return null;
-  return await verifySession(token);
+  const user = await verifySession(token);
+  if (!user) return null;
+  const current = await prisma.user.findUnique({where:{id:user.id},select:{role:true,email:true}});
+  if (!current || current.role !== user.role || current.email !== user.email) return null;
+  return user;
 }
 
 export async function setSessionCookie(user: SessionUser) {
@@ -167,7 +173,7 @@ export async function setSessionCookie(user: SessionUser) {
   }
 
   const token = await signSession(normalised);
-  cookies().set(SESSION_COOKIE, token, {
+  (await cookies()).set(SESSION_COOKIE, token, {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
     sameSite: 'lax',
@@ -191,7 +197,7 @@ export async function createAdminMfaChallenge(challenge: Omit<AdminMfaChallenge,
     .setExpirationTime('10m')
     .sign(secret);
 
-  cookies().set(ADMIN_MFA_COOKIE, token, {
+  (await cookies()).set(ADMIN_MFA_COOKIE, token, {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
     sameSite: 'lax',
@@ -201,7 +207,7 @@ export async function createAdminMfaChallenge(challenge: Omit<AdminMfaChallenge,
 }
 
 export async function getAdminMfaChallenge(): Promise<AdminMfaChallenge | null> {
-  const token = cookies().get(ADMIN_MFA_COOKIE)?.value;
+  const token = (await cookies()).get(ADMIN_MFA_COOKIE)?.value;
   if (!token) return null;
 
   try {
@@ -227,13 +233,13 @@ export async function getAdminMfaChallenge(): Promise<AdminMfaChallenge | null> 
   }
 }
 
-export function clearAdminMfaChallenge() {
-  cookies().delete(ADMIN_MFA_COOKIE);
+export async function clearAdminMfaChallenge() {
+  (await cookies()).delete(ADMIN_MFA_COOKIE);
 }
 
 export async function clearSession() {
-  cookies().delete(SESSION_COOKIE);
-  cookies().delete(ADMIN_MFA_COOKIE);
+  (await cookies()).delete(SESSION_COOKIE);
+  (await cookies()).delete(ADMIN_MFA_COOKIE);
 }
 
 export const hashPassword = (pwd: string) => bcrypt.hash(pwd, 12);

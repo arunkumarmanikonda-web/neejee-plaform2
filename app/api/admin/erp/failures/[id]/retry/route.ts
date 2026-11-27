@@ -8,7 +8,7 @@ export const runtime = 'nodejs';
 
 export async function POST(
   _request: Request,
-  context: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   const user = await getSession();
 
@@ -19,7 +19,7 @@ export async function POST(
   try {
     const result = await prisma.$transaction(async (tx) => {
       const deadLetter = await tx.erpDeadLetter.findUnique({
-        where: { id: context.params.id },
+        where: { id: (await context.params).id },
         include: { syncAttempt: true },
       });
 

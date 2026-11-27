@@ -35,7 +35,8 @@ async function adminGate(write = false) {
   return { session };
 }
 
-export async function GET(_req: Request, { params }: { params: { id: string } }) {
+export async function GET(_req: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const g = await adminGate();
   if ('error' in g) return NextResponse.json({ error: g.error }, { status: g.status });
   try {
@@ -52,7 +53,8 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
   }
 }
 
-export async function POST(request: Request, { params }: { params: { id: string } }) {
+export async function POST(request: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const g = await adminGate(true);
   if ('error' in g) return NextResponse.json({ error: g.error }, { status: g.status });
   if (!storageConfigured()) return NextResponse.json({ error: 'Storage not configured' }, { status: 500 });
@@ -116,7 +118,8 @@ export async function POST(request: Request, { params }: { params: { id: string 
   }
 }
 
-export async function PATCH(request: Request, { params }: { params: { id: string } }) {
+export async function PATCH(request: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const g = await adminGate(true);
   if ('error' in g) return NextResponse.json({ error: g.error }, { status: g.status });
   let body: any = {};

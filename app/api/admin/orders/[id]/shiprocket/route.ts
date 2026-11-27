@@ -13,7 +13,8 @@ const fail=(message:string,status:number)=>NextResponse.json({error:message},{st
 const stateWhere=(row:DispatchSnapshot)=>({id:row.id,shiprocketStage:row.shiprocketStage,shiprocketPaymentMode:row.shiprocketPaymentMode,shiprocketClaimedAt:row.shiprocketClaimedAt,shiprocketShipmentId:row.shiprocketShipmentId});
 const eligibleWhere={status:{in:['PLACED','CONFIRMED','PACKED'] as ('PLACED'|'CONFIRMED'|'PACKED')[]},OR:[{paymentStatus:'PAID' as const},{paymentMethod:'COD',paymentStatus:'PENDING' as const}]};
 
-export async function POST(_request:Request,{params}:{params:{id:string}}) {
+export async function POST(_request:Request, props:{params: Promise<{id:string}>}) {
+  const params = await props.params;
   const user=await getSession();
   if (!requireRole(user,['ADMIN','SUPER_ADMIN'])) return fail('Unauthorized',401);
   const order=await prisma.order.findFirst({where:lookup(params.id),include:{
@@ -57,7 +58,8 @@ export async function POST(_request:Request,{params}:{params:{id:string}}) {
   } catch {return fail('Dispatch could not be confirmed. Refresh the order and check Shiprocket before retrying.',503);}
 }
 
-export async function PATCH(request:Request,{params}:{params:{id:string}}) {
+export async function PATCH(request:Request, props:{params: Promise<{id:string}>}) {
+  const params = await props.params;
   const user=await getSession();
   if (!requireRole(user,['ADMIN','SUPER_ADMIN']) || !user) return fail('Unauthorized',401);
   const body=await request.json().catch(()=>null);

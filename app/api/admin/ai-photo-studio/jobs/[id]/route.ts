@@ -20,7 +20,8 @@ async function gate() {
   return { session };
 }
 
-export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(_req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const g = await gate();
   if (g.error) return g.error;
   const job = await prisma.aiPhotoJob.findUnique({
@@ -34,7 +35,8 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
   return NextResponse.json({ job });
 }
 
-export async function DELETE(_req: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(_req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const g = await gate();
   if (g.error) return g.error;
   const job = await prisma.aiPhotoJob.findUnique({ where: { id: params.id } });

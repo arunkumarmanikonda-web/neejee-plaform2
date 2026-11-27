@@ -8,7 +8,8 @@ import { prisma } from '@/lib/prisma';
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
-export async function GET(_req: Request, { params }: { params: { id: string } }) {
+export async function GET(_req: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const session = await getSession();
   if (!session || !['ADMIN', 'SUPER_ADMIN', 'FINANCE'].includes(session.role)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });

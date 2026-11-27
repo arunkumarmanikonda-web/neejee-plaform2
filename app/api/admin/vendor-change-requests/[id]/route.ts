@@ -11,7 +11,8 @@ import { notify } from '@/lib/notifications';
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
-export async function POST(request: Request, { params }: { params: { id: string } }) {
+export async function POST(request: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const session = await getSession();
   if (!session || !['ADMIN', 'SUPER_ADMIN'].includes(session.role)) {
     return NextResponse.json({ error: 'Only ADMIN or SUPER_ADMIN can review change requests' }, { status: 403 });

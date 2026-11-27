@@ -7,7 +7,7 @@ import { availableReasons, CUSTOMER_UPDATE_PREFIX, readReturnRequest, RETURN_REA
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-type Context = { params: { orderNumber: string } };
+type Context = { params: Promise<{ orderNumber: string }> };
 const json = (body: object, status = 200) => NextResponse.json(body, { status, headers: { 'Cache-Control': 'private, no-store' } });
 const hidden = () => json({ error: 'Open the order in your account or look it up again.' }, 404);
 
@@ -45,7 +45,8 @@ async function buyerOrder(req: NextRequest, number: string) {
   return order;
 }
 
-export async function GET(req: NextRequest, { params }: Context) {
+export async function GET(req: NextRequest, props: Context) {
+  const params = await props.params;
   const order = await buyerOrder(req, params.orderNumber);
   if (!order) return hidden();
   const cases = await prisma.dispute.findMany({
@@ -70,7 +71,8 @@ export async function GET(req: NextRequest, { params }: Context) {
   });
 }
 
-export async function POST(req: NextRequest, { params }: Context) {
+export async function POST(req: NextRequest, props: Context) {
+  const params = await props.params;
   if (!sameOrigin(req)) {
     return json({ error: 'Open this order in the store to send a request.' }, 403);
   }
@@ -116,7 +118,8 @@ export async function POST(req: NextRequest, { params }: Context) {
   }
 }
 
-export async function PATCH(req: NextRequest, { params }: Context) {
+export async function PATCH(req: NextRequest, props: Context) {
+  const params = await props.params;
   if (!sameOrigin(req)) {
     return json({ error: 'Open this order in the store to send a reply.' }, 403);
   }

@@ -7,7 +7,7 @@ export const runtime = 'nodejs';
 
 export async function POST(
   request: Request,
-  context: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   const user = await getSession();
 
@@ -24,7 +24,7 @@ export async function POST(
     }
 
     const deadLetter = await prisma.erpDeadLetter.update({
-      where: { id: context.params.id },
+      where: { id: (await context.params).id },
       data: {
         status: 'RESOLVED',
         resolutionNote,

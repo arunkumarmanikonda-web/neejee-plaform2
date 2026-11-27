@@ -34,6 +34,7 @@ export function Header({ shop = false }: { shop?: boolean } = {}) {
   const count = liveCount + Object.values(sample).reduce((n,qty)=>n+qty,0);
 
   useEffect(() => {
+    if (!open) return;
     let alive = true;
     getCategoryTree(false)
       .then((tree) => {
@@ -49,7 +50,7 @@ export function Header({ shop = false }: { shop?: boolean } = {}) {
       })
       .catch(() => {});
     return () => { alive = false; };
-  }, []);
+  }, [open]);
 
   useEffect(() => {
     fetch('/api/me', { credentials: 'include', cache: 'no-store' })
@@ -93,20 +94,22 @@ export function Header({ shop = false }: { shop?: boolean } = {}) {
   }
 
   const firstName = me?.name?.split(' ')[0] || '';
-  const isAdmin = me && ['ADMIN', 'SUPER_ADMIN', 'CONTENT_EDITOR', 'QC_TEAM'].includes(me.role || '');
+  const isAdmin = me && ['ADMIN', 'SUPER_ADMIN', 'CONTENT_EDITOR', 'QC_TEAM', 'FINANCE', 'FINANCE_OPERATOR', 'MARKETING_OPERATOR', 'MARKETING_MANAGER'].includes(me.role || '');
 
   const savedHref = me ? '/account?tab=wishlist' : '/login?next=%2Faccount%3Ftab%3Dwishlist';
   const accountLinks = me
-    ? isAdmin ? [['Admin dashboard', '/admin']] : [['My account', '/account'], ['Orders', '/account?tab=orders'], ['Addresses', '/account?tab=addresses']]
+    ? me.role === 'TELECALLER' ? [['Call queue','/staff/calls'],['My account','/account']] : isAdmin ? [['Admin dashboard', '/admin']] : [['My account', '/account'], ['Orders', '/account?tab=orders'], ['Addresses', '/account?tab=addresses']]
     : [['Sign in', '/login'], ['Create an account', '/signup']];
 
   return (
     <>
       {!shop && <AnnouncementBar />}
-      <header ref={header} className={styles.masthead + " sticky top-0 z-40"} data-shop={shop}>
+      <header ref={header} onBlur={event => {
+        if (event.relatedTarget instanceof Node && !event.currentTarget.contains(event.relatedTarget)) setOpen(false);
+      }} className={styles.masthead + " sticky top-0 z-40"} data-shop={shop}>
         <div className={styles.brandRow}>
           <Link href="/" aria-label="NEEJEE Home, Found. Personal." className={styles.signature}>
-            <NeejeeLogo size="xl" showTagline />
+            <NeejeeLogo size="xl" variant="ivory" showTagline />
           </Link>
           <div className={styles.utilities}>
             <div className={styles.find}>
@@ -156,7 +159,7 @@ export function Header({ shop = false }: { shop?: boolean } = {}) {
                   window.dispatchEvent(new CustomEvent('neejee:ask-pitari'));
                 }}>Ask Sakhi</button>
                 {!isAdmin && <Link href={savedHref} onClick={()=>setOpen(false)}>Saved pieces</Link>}
-                <Link href={me ? (isAdmin ? '/admin' : '/account') : '/login'} onClick={()=>setOpen(false)}>{me ? (isAdmin ? 'Admin' : 'Account') : 'Sign in'}</Link>
+                <Link href={me?.role === 'TELECALLER' ? '/staff/calls' : me ? (isAdmin ? '/admin' : '/account') : '/login'} onClick={()=>setOpen(false)}>{me?.role==='TELECALLER' ? 'Call queue' : me ? (isAdmin ? 'Admin' : 'Account') : 'Sign in'}</Link>
               </div>
               {houseNavigation.map(e=><Link key={e.slug} href={editHref(e.slug)} onClick={()=>setOpen(false)} className="px-6 py-3 border-b border-beige font-medium">{e.name}</Link>)}
               <Link href="/products" onClick={() => setOpen(false)} className="px-6 py-3 border-b border-beige">Shop all</Link>

@@ -8,7 +8,8 @@ export const runtime = 'nodejs';
 
 const STAFF_ROLES = ['ADMIN', 'SUPER_ADMIN', 'CONTENT_EDITOR', 'SELLER', 'QC_TEAM'];
 
-export async function PATCH(request: Request, { params }: { params: { id: string } }) {
+export async function PATCH(request: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const user = await getSession();
   if (!requireRole(user, ['SUPER_ADMIN'])) {
     return NextResponse.json({ error: 'Only SUPER_ADMIN can update staff' }, { status: 401 });
@@ -37,7 +38,8 @@ export async function PATCH(request: Request, { params }: { params: { id: string
   }
 }
 
-export async function DELETE(request: Request, { params }: { params: { id: string } }) {
+export async function DELETE(request: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const session = await getSession();
   if (!requireRole(session, ['SUPER_ADMIN'])) {
     return NextResponse.json({ error: 'Only SUPER_ADMIN can remove staff' }, { status: 401 });

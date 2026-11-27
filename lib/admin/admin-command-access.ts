@@ -1,4 +1,5 @@
-﻿import type { SessionUser } from '@/lib/auth';
+import { canOpenAdminPage } from './shop-access';
+import type { SessionUser } from '@/lib/auth';
 import type { AdminCommandItem } from '@/lib/admin/admin-command-catalog';
 import { hasFinancePerm } from '@/lib/finance/roles';
 
@@ -17,7 +18,7 @@ export function canAccessAdminCommand(
   item: AdminCommandItem,
   user: SessionUser | null,
 ) {
-  if (!user) return false;
+  if (!user || !canOpenAdminPage(user.role,item.href)) return false;
   if (item.financePerm && !hasFinancePerm(user, item.financePerm)) return false;
   return true;
 }

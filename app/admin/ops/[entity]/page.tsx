@@ -1,15 +1,17 @@
+import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { getCrudEntityBySlug } from '../_lib/entities';
 
 export const dynamic = 'force-dynamic';
 
 type PageProps = {
-  params: {
+  params: Promise<{
     entity: string;
-  };
+  }>;
 };
 
-export default function AdminOpsEntityPage({ params }: PageProps) {
+export default async function AdminOpsEntityPage(props: PageProps) {
+  const params = await props.params;
   const entity = getCrudEntityBySlug(params.entity);
 
   if (!entity) {
@@ -32,12 +34,12 @@ export default function AdminOpsEntityPage({ params }: PageProps) {
             </div>
 
             <div className="flex gap-2">
-              <a
+              <Link
                 href="/admin/ops"
                 className="rounded-lg border border-slate-700 px-3 py-2 text-sm text-slate-300 hover:border-slate-500 hover:text-white"
               >
                 Back to ops
-              </a>
+              </Link>
               <a
                 href={entity.href}
                 className="rounded-lg border border-cyan-700 px-3 py-2 text-sm text-cyan-300 hover:border-cyan-500 hover:text-cyan-200"

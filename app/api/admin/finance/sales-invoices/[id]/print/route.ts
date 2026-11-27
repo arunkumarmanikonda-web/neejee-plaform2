@@ -13,7 +13,8 @@ import { renderInvoiceHtml } from '@/lib/finance/render-invoice-html';
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
-export async function GET(req: Request, { params }: { params: { id: string } }) {
+export async function GET(req: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const session = await getSession();
   const gate = requireFinancePerm(session, 'finance.read');
   if (!gate.ok) {

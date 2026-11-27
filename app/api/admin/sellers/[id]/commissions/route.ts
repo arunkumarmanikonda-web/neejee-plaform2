@@ -10,7 +10,8 @@ import { prismaErrorToHttp } from '@/lib/prisma-errors';
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
-export async function GET(_req: Request, { params }: { params: { id: string } }) {
+export async function GET(_req: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const session = await getSession();
   if (!requireRole(session, ['ADMIN', 'SUPER_ADMIN', 'FINANCE'])) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
@@ -54,7 +55,8 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
   }
 }
 
-export async function POST(req: Request, { params }: { params: { id: string } }) {
+export async function POST(req: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const session = await getSession();
   if (!requireRole(session, ['ADMIN', 'SUPER_ADMIN'])) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
@@ -107,7 +109,8 @@ export async function POST(req: Request, { params }: { params: { id: string } })
   }
 }
 
-export async function DELETE(req: Request, { params }: { params: { id: string } }) {
+export async function DELETE(req: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const session = await getSession();
   if (!requireRole(session, ['ADMIN', 'SUPER_ADMIN'])) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });

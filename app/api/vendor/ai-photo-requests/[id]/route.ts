@@ -26,7 +26,8 @@ async function resolveVendor(reqId: string) {
   return { session, vendor, row } as const;
 }
 
-export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(_req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const r = await resolveVendor(params.id);
   if ('error' in r) return r.error;
 
@@ -49,7 +50,8 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
   return NextResponse.json({ request: r.row, job });
 }
 
-export async function DELETE(_req: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(_req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const r = await resolveVendor(params.id);
   if ('error' in r) return r.error;
   if (r.row.status !== 'SUBMITTED') {

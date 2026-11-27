@@ -132,7 +132,8 @@ async function lifecyclePayload(id: string) {
   };
 }
 
-export async function GET(_request: Request, { params }: { params: { id: string } }) {
+export async function GET(_request: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const user = await getSession();
   if (!requireRole(user, ['ADMIN', 'SUPER_ADMIN'])) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -145,7 +146,8 @@ export async function GET(_request: Request, { params }: { params: { id: string 
   return NextResponse.json({ seller, ...lifecycle });
 }
 
-export async function POST(request: Request, { params }: { params: { id: string } }) {
+export async function POST(request: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const user = await getSession();
   if (!requireRole(user, ['ADMIN', 'SUPER_ADMIN'])) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });

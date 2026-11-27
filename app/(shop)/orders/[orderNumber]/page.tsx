@@ -21,11 +21,12 @@ const fmtINR = (paise: number) => `₹${(paise / 100).toLocaleString('en-IN')}`;
 const fmtDate = (d: Date | null | undefined) =>
   d ? new Date(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '—';
 
-export default async function OrderDetailsPage({
-  params,
-}: {
-  params: { orderNumber: string };
-}) {
+export default async function OrderDetailsPage(
+  props: {
+    params: Promise<{ orderNumber: string }>;
+  }
+) {
+  const params = await props.params;
   const session = await getSession();
   if (!session) {
     redirect(`/login?next=/orders/${encodeURIComponent(params.orderNumber)}`);

@@ -15,7 +15,8 @@ export const maxDuration = 30;
 const MAX_SIZE = 15 * 1024 * 1024;
 const ALLOWED_MIME = new Set(['image/jpeg', 'image/png', 'image/webp', 'application/pdf']);
 
-export async function POST(request: Request, { params }: { params: { id: string } }) {
+export async function POST(request: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const session = await getSession();
   const v = await resolveVendorForSession(session);
   if (!v) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });

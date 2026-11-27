@@ -41,7 +41,8 @@ function noSellerRecordResponse() {
   return NextResponse.json({ error: 'No seller record' }, { status: 404 });
 }
 
-export async function GET(_: Request, { params }: { params: { id: string } }) {
+export async function GET(_: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const ctx = await requireApprovedSeller();
   if (!ctx.ok) {
     return NextResponse.json({ error: ctx.error }, { status: ctx.status });
@@ -78,7 +79,8 @@ export async function GET(_: Request, { params }: { params: { id: string } }) {
   return NextResponse.json({ product });
 }
 
-export async function PATCH(request: Request, { params }: { params: { id: string } }) {
+export async function PATCH(request: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const ctx = await requireApprovedSeller();
   if (!ctx.ok) {
     return NextResponse.json({ error: ctx.error }, { status: ctx.status });

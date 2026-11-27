@@ -22,6 +22,7 @@ const BodySchema = z.object({
 });
 
 function redirectFor(role: string) {
+  if (role === 'TELECALLER') return '/staff/calls';
   if (isPrivilegedRole(role)) return '/admin';
   if (role === 'SELLER') return '/seller';
   return '/account';
@@ -71,7 +72,7 @@ export async function POST(request: Request) {
     const challenge = await getAdminMfaChallenge();
 
     if (!challenge || challenge.email !== email) {
-      clearAdminMfaChallenge();
+      await clearAdminMfaChallenge();
       return NextResponse.json(
         { error: 'Your admin sign-in challenge is missing or expired. Please sign in again.' },
         { status: 401 },
@@ -96,7 +97,7 @@ export async function POST(request: Request) {
       user.role !== challenge.role ||
       !isPrivilegedRole(user.role)
     ) {
-      clearAdminMfaChallenge();
+      await clearAdminMfaChallenge();
       return NextResponse.json(
         { error: 'Admin access is not allowed for this account' },
         { status: 403 },
@@ -104,7 +105,7 @@ export async function POST(request: Request) {
     }
 
     if (!user.phone) {
-      clearAdminMfaChallenge();
+      await clearAdminMfaChallenge();
       return NextResponse.json(
         { error: 'Admin account does not have a phone number configured' },
         { status: 400 },
@@ -123,7 +124,7 @@ export async function POST(request: Request) {
         verification.reason === 'expired' ||
         verification.reason === 'max_attempts'
       ) {
-        clearAdminMfaChallenge();
+        await clearAdminMfaChallenge();
       }
 
       return NextResponse.json(
@@ -143,7 +144,7 @@ export async function POST(request: Request) {
       amr: ['password', 'otp'],
       mfaVerifiedAt,
     });
-    clearAdminMfaChallenge();
+    await clearAdminMfaChallenge();
 
     return NextResponse.json({
       ok: true,

@@ -69,11 +69,12 @@ function resolveSurface(raw: string | string[] | undefined): SurfaceKey {
   return null;
 }
 
-export default async function AdminAI({
-  searchParams,
-}: {
-  searchParams?: Promise<{ surface?: string | string[] }> | { surface?: string | string[] };
-}) {
+export default async function AdminAI(
+  props: {
+    searchParams?: Promise<Promise<{ surface?: string | string[] }> | { surface?: string | string[] }>;
+  }
+) {
+  const searchParams = await props.searchParams;
   const resolvedSearchParams = await Promise.resolve(searchParams);
   const surface = resolveSurface(resolvedSearchParams?.surface);
 

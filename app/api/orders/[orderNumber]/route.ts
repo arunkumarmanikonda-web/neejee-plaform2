@@ -7,7 +7,8 @@ import { prisma } from '@/lib/prisma';
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
-export async function GET(_request: Request, { params }: { params: { orderNumber: string } }) {
+export async function GET(_request: Request, props: { params: Promise<{ orderNumber: string }> }) {
+  const params = await props.params;
   try {
     const order = await prisma.order.findUnique({
       where: { orderNumber: params.orderNumber },

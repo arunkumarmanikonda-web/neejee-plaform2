@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { ChevronDown } from 'lucide-react';
+import { ChevronDown, ScanFace } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { getCategoryTree, type CategoryTreeNode } from '@/lib/client/category-tree';
 import { houseNavigation, editHref } from '@/lib/shop-edits';
@@ -24,11 +24,13 @@ export default function MegaMenuNav({ onNavigate }: { onNavigate?: () => void } 
   const menu = useRef<HTMLDetailsElement>(null);
   const summary = useRef<HTMLElement>(null);
 
+  const [discoverOpened, setDiscoverOpened] = useState(false);
   useEffect(() => {
+    if (!discoverOpened) return;
     let active = true;
     getCategoryTree().then(tree => { if (active) setMore(stockedDepartments(tree)); }).catch(() => {});
     return () => { active = false; };
-  }, []);
+  }, [discoverOpened]);
 
   useEffect(() => {
     if (menu.current) menu.current.open = false;
@@ -51,7 +53,7 @@ export default function MegaMenuNav({ onNavigate }: { onNavigate?: () => void } 
         return <Link key={href} className={styles.department} href={href} onClick={closeMenu}
           aria-current={pathname === href ? 'page' : undefined}>{item.name}</Link>;
       })}
-      <details className={styles.discover} ref={menu} onKeyDown={event => {
+      <details className={styles.discover} ref={menu} onToggle={event => { if (event.currentTarget.open) setDiscoverOpened(true); }} onKeyDown={event => {
         if (event.key === 'Escape' && menu.current?.open) {
           event.preventDefault();
           closeMenu();
@@ -72,7 +74,7 @@ export default function MegaMenuNav({ onNavigate }: { onNavigate?: () => void } 
         </div>
       </details>
       <Link className={styles.fitting} href="/ai/mirror" onClick={closeMenu} aria-label="Try on a saree with Aaina"
-        aria-current={pathname === '/ai/mirror' ? 'page' : undefined}>Aaina <span>try-on</span></Link>
+        aria-current={pathname === '/ai/mirror' ? 'page' : undefined}><ScanFace aria-hidden="true"/>Aaina <span>try-on</span></Link>
     </div>
   </nav>;
 }

@@ -5,7 +5,8 @@ import { prisma } from '@/lib/prisma';
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
-export async function GET(_req: Request, { params }: { params: { slug: string } }) {
+export async function GET(_req: Request, props: { params: Promise<{ slug: string }> }) {
+  const params = await props.params;
   try {
     const craft = await prisma.craft.findFirst({
       where: { OR: [{ slug: params.slug }, { id: params.slug }], active: true },

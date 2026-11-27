@@ -11,7 +11,7 @@ function isAllowed(user: Awaited<ReturnType<typeof getSession>>) {
 
 export async function GET(
   _request: Request,
-  context: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   const user = await getSession();
   if (!isAllowed(user)) {
@@ -19,7 +19,7 @@ export async function GET(
   }
 
   try {
-    const launch = await getMerchLaunch(context.params.id);
+    const launch = await getMerchLaunch((await context.params).id);
     if (!launch) {
       return NextResponse.json({ error: 'Launch not found' }, { status: 404 });
     }
@@ -31,7 +31,7 @@ export async function GET(
 
 export async function PATCH(
   request: Request,
-  context: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   const user = await getSession();
   if (!isAllowed(user)) {
@@ -40,7 +40,7 @@ export async function PATCH(
 
   try {
     const body = await request.json();
-    const launch = await updateMerchLaunch(context.params.id, body);
+    const launch = await updateMerchLaunch((await context.params).id, body);
     if (!launch) {
       return NextResponse.json({ error: 'Launch not found' }, { status: 404 });
     }
@@ -52,7 +52,7 @@ export async function PATCH(
 
 export async function DELETE(
   _request: Request,
-  context: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   const user = await getSession();
   if (!isAllowed(user)) {
@@ -60,7 +60,7 @@ export async function DELETE(
   }
 
   try {
-    await deleteMerchLaunch(context.params.id);
+    await deleteMerchLaunch((await context.params).id);
     return NextResponse.json({ ok: true });
   } catch (e: any) {
     return NextResponse.json({ error: e?.message || 'Failed to delete launch' }, { status: 500 });

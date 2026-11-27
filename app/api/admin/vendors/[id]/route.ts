@@ -20,7 +20,8 @@ async function gate(write = false) {
   return { session };
 }
 
-export async function GET(_req: Request, { params }: { params: { id: string } }) {
+export async function GET(_req: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const g = await gate();
   if ('error' in g) return NextResponse.json({ error: g.error }, { status: g.status });
   const vendor = await prisma.vendor.findUnique({
@@ -42,7 +43,8 @@ const STRING_FIELDS = [
   'notes','status',
 ];
 
-export async function PATCH(request: Request, { params }: { params: { id: string } }) {
+export async function PATCH(request: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const g = await gate(true);
   if ('error' in g) return NextResponse.json({ error: g.error }, { status: g.status });
   let body: any = {};
@@ -64,7 +66,8 @@ export async function PATCH(request: Request, { params }: { params: { id: string
   }
 }
 
-export async function DELETE(_req: Request, { params }: { params: { id: string } }) {
+export async function DELETE(_req: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const g = await gate(true);
   if ('error' in g) return NextResponse.json({ error: g.error }, { status: g.status });
   // Soft-delete by archiving instead of hard-delete (Vendor referenced by POs and costs)

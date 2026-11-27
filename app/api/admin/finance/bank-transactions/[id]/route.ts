@@ -12,7 +12,8 @@ import { findMatchForTxn } from '@/lib/finance/bank-matcher';
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
-export async function PATCH(req: Request, { params }: { params: { id: string } }) {
+export async function PATCH(req: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const session = await getSession();
   const gate = requireFinancePerm(session, 'finance.write');
   if (!gate.ok) return NextResponse.json({ error: gate.error }, { status: gate.status });

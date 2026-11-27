@@ -24,7 +24,8 @@ async function gate(write = false) {
   return { session };
 }
 
-export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const g = await gate(false);
   if (g.error) return g.error;
   const url = new URL(req.url);
@@ -41,7 +42,8 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
   return NextResponse.json({ items });
 }
 
-export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const g = await gate(true);
   if (g.error) return g.error;
   try {

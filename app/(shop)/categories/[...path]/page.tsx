@@ -5,9 +5,9 @@ export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
 type PageProps = {
-  params: {
+  params: Promise<{
     path: string | string[];
-  };
+  }>;
 };
 
 function normalizeSegment(value: string): string {
@@ -27,7 +27,8 @@ function normalizeRedirectTarget(value: string | null | undefined): string | nul
   return segments[segments.length - 1] ?? null;
 }
 
-export default async function LegacyCategoryPathPage({ params }: PageProps) {
+export default async function LegacyCategoryPathPage(props: PageProps) {
+  const params = await props.params;
   const parts = normalizePathInput(params.path);
 
   if (!parts.length) {

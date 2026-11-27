@@ -18,7 +18,8 @@ function parseSnapshot(itemsJson: string) {
   }
 }
 
-export async function GET(_req: Request, { params }: { params: { id: string } }) {
+export async function GET(_req: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   try {
     const recovery = verifyRecoveryRef(params.id);
     if (!recovery.ok || !recovery.cartId) {

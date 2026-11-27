@@ -141,7 +141,7 @@ export function HouseCampaign({lead,preview,email}: {lead:Lead;preview:boolean;e
             {piece.productUrl ? <Link className={styles.primary} href={piece.productUrl}>Shop this saree · {formatINR(piece.price)}</Link> :
               canSample ? <button type="button" className={styles.primary} aria-label={'Add '+piece.name+' to bag'} onClick={()=>{changeSample(piece.id,1);router.push('/cart?bag=sample');}}>
                 <ShoppingBag size={17} strokeWidth={1.5} aria-hidden/>Add to bag <span>·</span> {formatINR(piece.price)}</button> :
-              <a className={styles.primary} href={'mailto:'+email+'?subject='+encodeURIComponent('Enquiry about '+piece.name)}>Enquire about this saree</a>}
+              <Link className={styles.primary} href={'/enquire/'+piece.id}>Enquire about this saree</Link>}
             {piece.styling && <Link className={styles.secondary} href={piece.styling}>Style this saree in Aaina</Link>}
           </div>
           {campaignPortrait && <div className={styles.inspectLinks}>

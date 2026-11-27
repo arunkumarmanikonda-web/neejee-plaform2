@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, use } from 'react';
 import { formatPrice } from '@/lib/utils';
 
 type CustomerOrder = {
@@ -73,11 +73,12 @@ function formatDate(value?: string | null) {
   return d.toLocaleDateString('en-IN');
 }
 
-export default function AdminCustomerDetailPage({
-  params,
-}: {
-  params: { id: string };
-}) {
+export default function AdminCustomerDetailPage(
+  props: {
+    params: Promise<{ id: string }>;
+  }
+) {
+  const params = use(props.params);
   const customerId = params?.id;
 
   const [customer, setCustomer] = useState<CustomerDetail | null>(null);

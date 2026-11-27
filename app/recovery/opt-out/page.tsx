@@ -1,3 +1,4 @@
+import Link from 'next/link';
 // One-click opt-out from recovery messaging. The recovery reference is signed,
 // so a raw cart id cannot be used to opt out another customer's address.
 import { prisma } from '@/lib/prisma';
@@ -5,7 +6,8 @@ import { verifyRecoveryRef } from '@/lib/recovery/link';
 
 export const dynamic = 'force-dynamic';
 
-export default async function OptOutPage({ searchParams }: { searchParams: { cart?: string } }) {
+export default async function OptOutPage(props: { searchParams: Promise<{ cart?: string }> }) {
+  const searchParams = await props.searchParams;
   const recoveryRef = searchParams?.cart;
   let result: 'done' | 'not-found' | 'no-id' | 'expired' = 'no-id';
 
@@ -92,7 +94,7 @@ export default async function OptOutPage({ searchParams }: { searchParams: { car
         )}
 
         <div style={{ marginTop: 36 }}>
-          <a href="/" style={{
+          <Link href="/" style={{
             background: '#1A1613',
             color: '#F4EFE6',
             textDecoration: 'none',
@@ -101,7 +103,7 @@ export default async function OptOutPage({ searchParams }: { searchParams: { car
             letterSpacing: '0.12em',
             textTransform: 'uppercase',
             display: 'inline-block',
-          }}>Return home</a>
+          }}>Return home</Link>
         </div>
       </div>
     </main>

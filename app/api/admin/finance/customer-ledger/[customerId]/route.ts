@@ -7,7 +7,8 @@ import { requireFinancePerm } from '@/lib/finance/roles';
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
-export async function GET(_req: Request, { params }: { params: { customerId: string } }) {
+export async function GET(_req: Request, props: { params: Promise<{ customerId: string }> }) {
+  const params = await props.params;
   const session = await getSession();
   const gate = requireFinancePerm(session, 'finance.read');
   if (!gate.ok) return NextResponse.json({ error: gate.error }, { status: gate.status });
@@ -122,7 +123,8 @@ export async function GET(_req: Request, { params }: { params: { customerId: str
 }
 
 // PATCH — update customer profile (credit limit, address, etc.)
-export async function PATCH(req: Request, { params }: { params: { customerId: string } }) {
+export async function PATCH(req: Request, props: { params: Promise<{ customerId: string }> }) {
+  const params = await props.params;
   const session = await getSession();
   const gate = requireFinancePerm(session, 'finance.write');
   if (!gate.ok) return NextResponse.json({ error: gate.error }, { status: gate.status });

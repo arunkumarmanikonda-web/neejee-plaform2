@@ -208,7 +208,8 @@ async function generateCoverWithDebug(prompt: string): Promise<string> {
   );
 }
 
-export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(_req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const g = await gate();
   if (g.error) return g.error;
 
@@ -218,7 +219,8 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
   return NextResponse.json({ draft });
 }
 
-export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
+export async function PATCH(req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const g = await gate();
   if (g.error) return g.error;
 
@@ -255,7 +257,8 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   }
 }
 
-export async function DELETE(_req: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(_req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const g = await gate();
   if (g.error) return g.error;
 
@@ -273,7 +276,8 @@ export async function DELETE(_req: NextRequest, { params }: { params: { id: stri
   return NextResponse.json({ ok: true });
 }
 
-export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const g = await gate();
   if (g.error) return g.error;
 
