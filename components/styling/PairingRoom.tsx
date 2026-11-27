@@ -1,5 +1,8 @@
 'use client';
 import Link from 'next/link';
+import {lineStyling, reviewPrefix, reviewStudy} from '@/lib/collection-review';
+import {StudyPurchase} from '@/components/shop/StudyPurchase';
+import {studies} from '@/lib/shop-studies';
 import {useRouter} from 'next/navigation';
 import {buildPricing} from '@/lib/catalog/pricing-read';
 import {useEffect,useRef,useState} from 'react';
@@ -22,7 +25,7 @@ const endpoint='/api/styling/preview';
 function PhotoInput({label,onFile}:{label:string;onFile:(file:File)=>void}){
   return <label className={ui.upload}><Camera size={17} aria-hidden/>{label}<input type="file" aria-label={label} accept={typeOfPhoto} onChange={e=>{const f=e.target.files?.[0];e.target.value='';if(f)onFile(f);}}/></label>;
 }
-export function PairingRoom({board,initialOptions={}}:{board:PairBoard;initialOptions?:Partial<Record<PairSlot,string|undefined>>}){
+export function PairingRoom({board,initialOptions={},review=false}:{board:PairBoard;review?:boolean;initialOptions?:Partial<Record<PairSlot,string|undefined>>}){
   const {anchor}=board,room=board.mode==='room',key=anchor.id+'~'+anchor.variant;
   const [draft,setDraft]=useState<Draft>(()=>{
     const layers:Draft['layers']={...drafts.get(key)?.layers};
@@ -41,7 +44,11 @@ export function PairingRoom({board,initialOptions={}}:{board:PairBoard;initialOp
   const chosen=board.slots.filter(s=>draft.layers[s]?.photo||selection(s));
   const lines=ready?items:[];
   const checkout=lines.length>0;
-  const anchorInCart=lines.some(i=>i.productId===anchor.id&&i.variantId===anchor.variant);
+  const anchorId=review && board.study ? reviewPrefix+anchor.id : anchor.id;
+  const anchorLine=lines.find(i=>i.productId===anchorId && i.variantId===anchor.variant);
+  const anchorInCart=!!anchorLine;
+  const styleLines=lines.filter(i=>!i.productId.startsWith(reviewPrefix)||reviewStudy(i));
+  const anchorStudy=board.study && review ? studies.find(s=>s.id===anchor.id) : undefined;
   useEffect(()=>{active.current=true;return ()=>{active.current=false;worker.current?.abort();};},[]);
   useEffect(()=>{
     if(!result)return;
@@ -66,6 +73,12 @@ export function PairingRoom({board,initialOptions={}}:{board:PairBoard;initialOp
   async function add(p:PairPiece){
     if(adding)return;setAdding(true);setNotice('');
     try{
+      if(review && p.id.startsWith(reviewPrefix)){
+        const cart=useCart.getState();
+        if(!cart.items.some(i=>i.variantId===p.variant)) cart.addItem({id:p.id,slug:p.slug,name:p.name,variantId:p.variant,sellingPrice:p.price,images:[p.image]});
+        setNotice(p.name+' added to cart.');
+        return;
+      }
       const res=await fetch('/api/products/'+encodeURIComponent(p.slug),{cache:'no-store'}),body=await res.json();
       const v=body.product?.variants?.find((x:{id:string;inStock:boolean})=>x.id===p.variant&&x.inStock);
       if(!res.ok||!v || body.product.id!==p.id || (body.product.catalogueCtaMode && body.product.catalogueCtaMode!=='SHOP_NOW'))throw Error('That option is unavailable. Your other pieces are still in the cart.');
@@ -105,12 +118,12 @@ export function PairingRoom({board,initialOptions={}}:{board:PairBoard;initialOp
     <div className={ui.nav}><Link href={checkout?'/cart':'/products'}><ArrowLeft size={16}/>{checkout?'Back to cart':'Shop pieces'}</Link>
       {checkout&&<Link className={ui.checkout} href="/checkout">Skip styling &amp; check out <ArrowRight size={17}/></Link>}</div>
     <div className={ui.head}><p>Aaina <span lang="hi">आईना</span></p><h1>{room?'Style your space':'Style your look'}</h1></div>
-    {lines.length>1&&<label className={ui.switcher}>Piece to style <select value={lines.find(i=>i.productId===anchor.id&&i.variantId===anchor.variant)?key:''}
-      onChange={e=>{const line=lines.find(i=>i.productId+'~'+i.variantId===e.target.value);if(line)router.push(styleHref(line.productId,line.variantId));}}>
-      <option value="" disabled>Choose a piece</option>{lines.map(i=><option key={i.productId+'~'+i.variantId} value={i.productId+'~'+i.variantId}>{i.product.name} {i.variantLabel}</option>)}</select></label>}
+    {styleLines.length>1&&<label className={ui.switcher}>Piece to style <select value={anchorLine?anchorLine.productId+'~'+anchorLine.variantId:''}
+      onChange={e=>{const line=styleLines.find(i=>i.productId+'~'+i.variantId===e.target.value);if(line)router.push(lineStyling(line));}}>
+      <option value="" disabled>Choose a piece</option>{styleLines.map(i=><option key={i.productId+'~'+i.variantId} value={i.productId+'~'+i.variantId}>{i.product.name} {i.variantLabel}</option>)}</select></label>}
     <div className={ui.grid}>
       <div className={ui.visual}>
-        <div className={ui.photos} aria-label="Your styling board"><figure className={ui.anchor}><img src={anchor.image} alt={anchor.name}/><figcaption><strong>{anchor.name}</strong><span>{anchor.option}{anchor.price>0?' · '+formatINR(anchor.price):' · Collection preview'}</span>{!board.study&&!anchorInCart&&ready&&<button className={ui.anchorBuy} disabled={adding} onClick={()=>add(anchor)}><Plus size={15}/>Add this piece to cart</button>}</figcaption></figure>
+        <div className={ui.photos} aria-label="Your styling board"><figure className={ui.anchor}><img src={anchor.image} alt={anchor.name}/><figcaption><strong>{anchor.name}</strong><span>{anchor.option}{anchor.price>0?' · '+formatINR(anchor.price):' · Collection preview'}</span>{anchorStudy&&!anchorInCart&&ready&&<StudyPurchase piece={anchorStudy}/>}{!board.study&&!anchorInCart&&ready&&<button className={ui.anchorBuy} disabled={adding} onClick={()=>add(anchor)}><Plus size={15}/>Add this piece to cart</button>}</figcaption></figure>
           {!!(chosen.length||draft.background)&&<div className={ui.refs}>{draft.background&&<figure><img src={draft.background} alt={room?'Your room':'Your photo'}/><figcaption>{room?'Your room':'Your photo'}</figcaption></figure>}
           {chosen.map(s=><figure key={s}><img src={draft.layers[s]?.photo||selection(s)?.image} alt={draft.layers[s]?.photo?'Your '+pairingSlots[s].label:selection(s)?.name}/><figcaption>{draft.layers[s]?.photo?'Your '+pairingSlots[s].label.toLowerCase():selection(s)?.name}</figcaption></figure>)}</div>}
         </div>

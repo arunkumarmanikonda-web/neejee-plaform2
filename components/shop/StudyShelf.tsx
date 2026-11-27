@@ -1,4 +1,5 @@
 'use client';
+import { StudyPurchase } from './StudyPurchase';
 import Link from 'next/link';
 import { Bookmark, ChevronDown, Plus, ShoppingBag, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
@@ -42,7 +43,7 @@ function PiecePhotographs({ piece, initial }: { piece: Study; initial: number })
     </div>
   </div>;
 }
-export function StudyShelf({ids, preview, email, initialPiece, home = false}: {ids: string[]; preview: boolean; email: string; initialPiece?:string; home?: boolean}) {
+export function StudyShelf({ids, preview, email, initialPiece, home = false, review=false}: {ids: string[]; preview: boolean; email: string; initialPiece?:string; home?: boolean; review?:boolean}) {
   const all = ids.map(id => studies.find(s => s.id === id)).filter((s): s is Study => !!s);
   const [shade, setShade] = useState('');
   const [showFabric, setShowFabric] = useState(false);
@@ -99,9 +100,9 @@ export function StudyShelf({ids, preview, email, initialPiece, home = false}: {i
     dialog.current?.close();
     router.push(destination);
   }
-  return <section className="nj-shelf" aria-label={preview ? 'Preview collection' : 'Collection studies'}>
+  return <section className="nj-shelf" aria-label={review ? 'Shop the collection' : preview ? 'Preview collection' : 'Collection studies'}>
     <div className="nj-shelf-head"><div><h2>{home ? <>Sarees <em>&amp; suit sets</em></> : 'The collection'}</h2>
-      <p>{preview ? 'Collection preview · Sample prices' : 'Style the collection · Not yet on sale'}</p></div>
+      <p>{review ? all.length + ' pieces' : preview ? 'Collection preview · Sample prices' : 'Style the collection · Not yet on sale'}</p></div>
       {home ? <Link className="nj-bag-link" href="/edits/clothing">Shop the collection</Link> : preview && <Link className="nj-bag-link" href="/cart?bag=sample"><ShoppingBag size={16}/> View bag ({count})</Link>}
     </div>
     <div className="loom-tools">
@@ -120,7 +121,7 @@ export function StudyShelf({ids, preview, email, initialPiece, home = false}: {i
           {hasSarees && <label className="nj-textile-search">Textile or region<input type="search" list="nj-traditions" value={query} onChange={e=>setQuery(e.target.value)} placeholder="Bandhani, Gujarat…"/><datalist id="nj-traditions">{sareeVocabulary.map(t=><option key={t.id} value={t.name}/>)}</datalist></label>}
         </div>
       </details>
-      <label className="loom-sort">Sort <select aria-label="Sort collection" value={sort} onChange={e=>setSort(e.target.value)}><option value="featured">Featured</option>{preview && <><option value="low">Price, low to high</option><option value="high">Price, high to low</option></>}<option value="name">Name, A to Z</option></select></label></>}
+      <label className="loom-sort">Sort <select aria-label="Sort collection" value={sort} onChange={e=>setSort(e.target.value)}><option value="featured">Featured</option>{(review || preview) && <><option value="low">Price, low to high</option><option value="high">Price, high to low</option></>}<option value="name">Name, A to Z</option></select></label></>}
     </div>
     <div className="nj-grid" aria-live="polite">
       {shown.map((s, index) => <article key={s.id} className="nj-tile loom-card">
@@ -130,12 +131,12 @@ export function StudyShelf({ids, preview, email, initialPiece, home = false}: {i
         <div className="loom-ticket">
           <div className={styles.label}>
             <span><i aria-hidden="true" style={{background:s.swatch}}/>{s.alias}</span>
-            {preview && <strong>{formatINR(s.price)}</strong>}
+            {(preview || review) && <strong>{formatINR(s.price)}</strong>}
           </div>
           <h3 className={styles.name}><button onClick={()=>openPiece(s)}>{s.name}</button></h3>
           <p className={styles.caption}>{s.caption}</p>
           <div className="loom-actions">
-            {preview ? <button type="button" className="loom-add" aria-label={'Add '+s.name+' to bag'} onClick={()=>buy(s,'/cart?bag=sample')}><Plus size={15}/> Add to bag</button> :
+            {review ? <StudyPurchase piece={s}/> : preview ? <button type="button" className="loom-add" aria-label={'Add '+s.name+' to bag'} onClick={()=>buy(s,'/cart?bag=sample')}><Plus size={15}/> Add to bag</button> :
               <Link className="loom-add" href={'/style?study='+s.id}>Style this piece</Link>}
             <button type="button" className="loom-detail" onClick={()=>openPiece(s)}>Details</button>
             {preview && s.group==='sarees' && <Link className="loom-style-link" href={lookUrl('/ai/mirror',defaultStyling(s.id))}>Style in Aaina</Link>}
@@ -152,7 +153,7 @@ export function StudyShelf({ids, preview, email, initialPiece, home = false}: {i
         <div className="nj-piece-copy"><p className="loom-spec"><i aria-hidden="true" style={{background:picked.swatch}}/>{picked.alias}</p>
           <h2 id="nj-modal-title">{picked.name}</h2><p>{picked.detail}</p>
 
-          <div className="nj-buy">{preview ? <><strong>{formatINR(picked.price)}</strong><small>Preview price · Sample checkout</small>
+          <div className="nj-buy">{review ? <><strong>{formatINR(picked.price)}</strong><StudyPurchase key={picked.id} piece={picked}/></> : preview ? <><strong>{formatINR(picked.price)}</strong><small>Preview price · Sample checkout</small>
             <div className="nj-buy-actions"><button className="nj-primary" onClick={() => buy(picked,'/checkout/sample')}>Buy now</button><button className="nj-secondary" onClick={() => buy(picked,'/cart?bag=sample')}><ShoppingBag size={16}/> Add to bag</button></div>
           </> : <><small>Not yet on sale</small><Link className="nj-primary" href={'/style?study='+picked.id}>Style this piece in Aaina</Link></>}</div>
           {textile && <details className="loom-facts"><summary>Pattern &amp; textile details</summary>

@@ -1,3 +1,5 @@
+import { cookies } from 'next/headers';
+import { reviewCookie } from '@/lib/collection-review';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { Header } from '@/components/layout/Header';
@@ -31,6 +33,7 @@ export default async function Page(props: Props) {
   const ids = studyIdsFor(edit.slug);
   const {email} = await getPublicContact();
   const preview = previewPricingEnabled();
+  const review = (await cookies()).get(reviewCookie)?.value === '1';
   function url(c=colour, s=sort, page=1) {
     const q = new URLSearchParams();
     if(c) q.set('colour',c);
@@ -54,7 +57,7 @@ export default async function Page(props: Props) {
       {data.pages>1 && <nav className="nj-aisles" aria-label="Collection pages">{data.page>1&&<Link href={url(colour,sort,data.page-1)}>Previous</Link>}<span>Page {data.page} of {data.pages}</span>{data.page<data.pages&&<Link href={url(colour,sort,data.page+1)}>Next</Link>}</nav>}
       {edit.slug==='sarees'&&<TextileGuide/>}
     </section> : null}
-    {ids.length>0 && (!data?.total || ids.includes(searchParams.piece || '')) ? <StudyShelf initialPiece={searchParams.piece} key={edit.slug} ids={ids} preview={preview} email={email}/> : !data?.total &&
+    {ids.length>0 && (review || !data?.total || ids.includes(searchParams.piece || '')) ? <StudyShelf review={review} initialPiece={searchParams.piece} key={edit.slug} ids={ids} preview={preview} email={email}/> : !data?.total &&
       <section className="nj-empty"><h2>{data?'More pieces are on their way':'The catalogue is temporarily unavailable'}</h2><Link className="nj-primary" href="/products">Shop available pieces</Link></section>}
     <nav className="nj-aisles mt-7" aria-label="Help choosing">{ids.length ? <><Link href="/looks">Saree styling ideas</Link><Link href="/ai/mirror">Try on with Aaina</Link><Link href="/counter">Compare sarees</Link></> : <Link href="/ai/imagine">See it in my room</Link>}</nav>
   </div></main><Footer/></>;

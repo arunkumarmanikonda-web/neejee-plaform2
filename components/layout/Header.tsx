@@ -8,6 +8,7 @@ import styles from './ShopUtilities.module.css';
 import { useEffect, useRef, useState } from 'react';
 import { Search, ShoppingBag, Menu, UserRound, X } from 'lucide-react';
 import { useClientReady } from '@/lib/use-client-ready';
+import { inCollectionReview } from '@/lib/collection-review';
 import { useSampleBag } from '@/lib/sample-bag';
 import { useCart } from '@/lib/cart-store';
 import { SearchBar } from '@/components/ui/SearchBar';
@@ -103,6 +104,7 @@ export function Header({ shop = false }: { shop?: boolean } = {}) {
 
   return (
     <>
+      {ready && inCollectionReview() && <div className={styles.reviewBar}>Collection preview · Simulated checkout <a href="/collection-preview?exit=1">Return to live shop</a></div>}
       {!shop && <AnnouncementBar />}
       <header ref={header} onBlur={event => {
         if (event.relatedTarget instanceof Node && !event.currentTarget.contains(event.relatedTarget)) setOpen(false);

@@ -5,6 +5,7 @@ import {z} from 'zod';
 import {prisma} from '@/lib/prisma';
 import {guestRenderingConfigured,GuestRenderError,guestRenderResult,startGuestRender} from '@/lib/ai/guest-style-service';
 import {openAiStyleAvailable,finishOpenAiStyle} from '@/lib/ai/guest-style-openai';
+import {reviewCookie} from '@/lib/collection-review';
 import {getPairBoard} from '@/lib/pairing-catalog';
 import {pairingSlots,type PairSlot} from '@/lib/pairing';
 
@@ -63,7 +64,7 @@ export async function POST(req:NextRequest){
   try {
     const prior=await job(identity,data.id);
     if(prior)return json({id:data.id},202);
-    const board=await getPairBoard(data);
+    const board=await getPairBoard(data,req.cookies.get(reviewCookie)?.value==='1');
     if(!board?.anchor.image)return json({error:'This piece is no longer available for styling.'},409);
     const refs:string[]=[];const labels:string[]=[];
     if(data.background){refs.push(await cleanPhoto(data.background));labels.push(board.mode==='room'?'the customer’s room. Preserve its architecture and other furniture':'the customer. Preserve their identity, complexion, body proportions and pose');}

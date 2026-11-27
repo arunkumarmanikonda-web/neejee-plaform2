@@ -1,3 +1,4 @@
+import { reviewMatches, reviewSizes, studyCartProduct } from './collection-review';
 import type { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { buildPricing } from '@/lib/catalog/pricing-read';
@@ -32,13 +33,15 @@ function rank(base:{colour:string;craft:string|null;material:string|null;region:
     {ok:same(base.region,p.region),weight:1,note:'From the same region.'}].filter(m=>m.ok);
   return {score:matches.reduce((n,m)=>n+m.weight,0),reason:matches[0]?.note};
 }
-export async function getPairBoard(key:{product?:string;variant?:string;study?:string}):Promise<PairBoard|null>{
+export async function getPairBoard(key:{product?:string;variant?:string;study?:string}, review=false):Promise<PairBoard|null>{
   const study=key.study?studies.find(s=>s.id===key.study):undefined;
   if(key.study&&!study || !key.study&&!key.product) return null;
   const row=study?null:await prisma.product.findFirst({where:{AND:[publicStock,{OR:[{id:key.product},{slug:key.product}]}]},select:fields});
   const variant=key.variant?row?.variants.find(v=>v.id===key.variant):row?.variants[0];
   if(!study && (!row||!variant))return null;
-  const anchor=study?{id:study.id,slug:study.id,name:study.name,image:study.image,variant:'',price:0,option:study.shade}:piece(row!,variant!);
+  const size=study?.group==='suits' ? reviewSizes.find(size=>studyCartProduct(study,size).variantId===key.variant) : undefined;
+  const option=study && review ? studyCartProduct(study,size) : undefined;
+  const anchor=study?{id:study.id,slug:study.id,name:study.name,image:study.image,variant:option?.variantId||'',price:option?.sellingPrice||0,option:option?.variantLabel||study.shade}:piece(row!,variant!);
   if(!anchor.image && row) anchor.image=row.cataloguePreferredImage||row.images.find(Boolean)||'';
   const description=study?study.group:wordsFor([row?.category.path,row?.category.slug,row?.name].join(' '));
   const mode=/(home|room|furniture|decor|lamp|table|rug|carpet|frame|vase|wall|artefact|artifact|lighting)/i.test(description)?'room':'fashion';
@@ -55,5 +58,8 @@ export async function getPairBoard(key:{product?:string;variant?:string;study?:s
       .flatMap(p=>p.variants.map(v=>({...piece(p,v),...rank(base,p,v)}))).filter(p=>p.image&&p.price>0)
       .sort((a,b)=>b.score-a.score||a.name.localeCompare(b.name)||a.option.localeCompare(b.option)).slice(0,64);
   }));
+  if (study && review) {
+    for (const slot of slots) options[slot]=[...(options[slot]||[]),...reviewMatches(study,slot)];
+  }
   return {anchor,mode,slots,options,study:!!study};
 }

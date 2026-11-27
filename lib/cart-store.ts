@@ -1,6 +1,7 @@
 'use client';
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
+import { inCollectionReview } from './collection-review';
+import { createJSONStorage, persist } from 'zustand/middleware';
 
 // Cart product shape — minimal, flexible enough for both legacy lib/data Product and DB product
 export interface CartProduct {
@@ -35,6 +36,9 @@ export type ReplaceCartItem = {
   mrp?: number;
   inventory?: number;
 };
+
+// Capture the cart namespace for this document. Changing modes performs a full navigation.
+export const reviewCart = inCollectionReview();
 
 const GIFT_WRAP_PAISE = 15000; // ₹150
 
@@ -152,6 +156,6 @@ export const useCart = create<CartState>()(
 
       itemCount: () => get().items.reduce((sum, i) => sum + i.quantity, 0),
     }),
-    { name: 'neejee-cart-v2' }
+    { name: 'neejee-cart-v2', storage:createJSONStorage(() => reviewCart ? window.sessionStorage : window.localStorage) }
   )
 );
