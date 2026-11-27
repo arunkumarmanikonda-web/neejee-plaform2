@@ -54,12 +54,15 @@ public final class Home extends Activity {
         campaign.setContentDescription("Surkh, a vermilion saree with gold checks."); column.addView(campaign,row(240));
         LinearLayout nav = new LinearLayout(this); nav.setOrientation(LinearLayout.VERTICAL); nav.setPadding(dp(22),dp(16),dp(22),dp(16)); column.addView(nav,row(-2));
         nav.addView(heading("Sarees, suits & objects",27),row(-2));
-        addButton(nav,"Enter the shop",true,() -> visit("/"));
+        boolean connectFirst = !reviewHosts.isEmpty() && !getPreferences(MODE_PRIVATE).contains("origin");
+        addButton(nav,connectFirst ? "Connect review storefront" : "Enter the shop",true,() -> {
+            if (connectFirst && !getPreferences(MODE_PRIVATE).contains("origin")) review(); else visit("/");
+        });
         addButton(nav,"Try a saree with Aaina",false,() -> visit("/ai/mirror"));
         addButton(nav,"Shopping bag",false,() -> visit("/cart"));
         addButton(nav,"My account and orders",false,() -> visit("/account"));
         addButton(nav,"Staff console",false,() -> visit("/admin"));
-        if (!reviewHosts.isEmpty()) addButton(nav,"Open a review link",false,this::review);
+        if (!reviewHosts.isEmpty() && !connectFirst) addButton(nav,"Change review storefront",false,this::review);
     }
     private void addButton(LinearLayout parent, String title, boolean primary, Runnable action) {
         Button button = new Button(this); button.setText(title); button.setAllCaps(false); button.setTextSize(16);
@@ -84,13 +87,13 @@ public final class Home extends Activity {
         AlertDialog dialog = new AlertDialog.Builder(this).setTitle("Open a review link").setView(field)
             .setPositiveButton("Open",null).setNegativeButton("Cancel",null)
             .setNeutralButton("Use public shop",(d,w) -> {
-                origin = Origin.SHOP; getPreferences(MODE_PRIVATE).edit().remove("origin").apply(); visit("/");
+                origin = Origin.SHOP; getPreferences(MODE_PRIVATE).edit().putString("origin", origin).apply(); visit("/"); recreate();
             }).create();
         dialog.setOnShowListener(d -> dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
             try {
                 URI uri = Origin.checked(field.getText().toString(), reviewHosts);
                 if (open(Uri.parse(uri.toASCIIString()))) {
-                    origin = Origin.origin(uri); getPreferences(MODE_PRIVATE).edit().putString("origin",origin).apply(); dialog.dismiss();
+                    origin = Origin.origin(uri); getPreferences(MODE_PRIVATE).edit().putString("origin",origin).apply(); dialog.dismiss(); recreate();
                 }
             } catch (Exception e) { field.setError("Use the Neejee preview link supplied with this build."); }
         }));

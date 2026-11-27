@@ -10,7 +10,7 @@ on:
   workflow_dispatch:
     inputs:
       review_host:
-        description: Exact approved Neejee preview hostname, without path or query (optional)
+        description: Additional approved Neejee preview hostname, alongside the stable release preview (optional)
         required: false
         type: string
 permissions:

@@ -28,7 +28,7 @@ struct AppHome: View {
               let hosts = try? String(contentsOf: file, encoding: .utf8) else { return [] }
         return Set(hosts.components(separatedBy: .newlines).filter { !$0.isEmpty })
     }()
-    @AppStorage("shopOrigin") private var storedOrigin = publicShop.absoluteString
+    @AppStorage("shopOrigin") private var storedOrigin = ""
     @State private var destination: Destination?
     @State private var showReview = false
     @State private var reviewText = ""
@@ -62,13 +62,17 @@ struct AppHome: View {
                     .accessibilityLabel("Surkh, a vermilion saree with gold checks.")
                 VStack(alignment: .leading, spacing: 9) {
                     Text("Sarees, suits & objects").font(.system(.title, design: .serif)).padding(.bottom, 3)
-                    entry("Enter the shop", primary: true) { open("/") }
+                    if !reviewHosts.isEmpty && storedOrigin.isEmpty {
+                        entry("Connect review storefront", primary: true) { reviewText = ""; invalid = false; showReview = true }
+                    } else {
+                        entry("Enter the shop", primary: true) { open("/") }
+                    }
                     entry("Try a saree with Aaina") { open("/ai/mirror") }
                     entry("Shopping bag") { open("/cart") }
                     entry("My account and orders") { open("/account") }
                     entry("Staff console") { open("/admin") }
-                    if !reviewHosts.isEmpty {
-                        entry("Open a review link") { reviewText = ""; invalid = false; showReview = true }
+                    if !reviewHosts.isEmpty && !storedOrigin.isEmpty {
+                        entry("Change review storefront") { reviewText = ""; invalid = false; showReview = true }
                     }
                 }.padding(20)
             }.frame(maxWidth: 720).frame(maxWidth: .infinity)

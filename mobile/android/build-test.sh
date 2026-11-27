@@ -16,7 +16,7 @@ cp "$repo_dir/public/brand/identity/icon-512.png" "$work/res/drawable-nodpi/app_
 cp "$mobile_dir/wordmark.png" "$work/assets/wordmark.png"
 cp "$repo_dir/public/brand/surkh-campaign/portrait-768.webp" "$work/assets/surkh.webp"
 : > "$work/assets/review-hosts.txt"
-for review_host in "$@"; do
+for review_host in neejee-plaform2-git-release-neeje-ddbb5c-akms-projects-1230b0a9.vercel.app "$@"; do
   if [[ ! "$review_host" =~ ^neejee-plaform2-[a-z0-9-]+-akms-projects-1230b0a9\.vercel\.app$ ]]; then
     echo 'Only exact approved Neejee project hostnames may be packaged.' >&2; exit 2
   fi

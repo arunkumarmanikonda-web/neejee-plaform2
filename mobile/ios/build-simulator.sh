@@ -9,7 +9,7 @@ cp "$mobile_dir/wordmark.png" "$resources/Wordmark.imageset/wordmark.png"
 sips -s format jpeg "$repo_dir/public/brand/surkh-campaign/portrait-768.webp" --out "$resources/Surkh.imageset/surkh.jpg" >/dev/null
 sips -z 1024 1024 -s format png "$repo_dir/public/brand/identity/icon-512.png" --out "$resources/AppIcon.appiconset/icon.png" >/dev/null
 : > "$ios_dir/Neejee/review-hosts.txt"
-for review_host in "$@"; do
+for review_host in neejee-plaform2-git-release-neeje-ddbb5c-akms-projects-1230b0a9.vercel.app "$@"; do
   if [[ ! "$review_host" =~ ^neejee-plaform2-[a-z0-9-]+-akms-projects-1230b0a9\.vercel\.app$ ]]; then
     echo 'Only exact approved Neejee project hostnames may be packaged.' >&2; exit 2
   fi
