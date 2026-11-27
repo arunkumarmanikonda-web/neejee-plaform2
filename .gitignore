@@ -38,3 +38,6 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 *.stackdump
+
+# Verified, platform-specific tools prepared for the recovery function
+.neejee-postgres/
