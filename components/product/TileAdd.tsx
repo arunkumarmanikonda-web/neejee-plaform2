@@ -3,6 +3,7 @@
 import { useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { styleHref } from '@/lib/pairing';
 import { Plus } from 'lucide-react';
 import { useCart } from '@/lib/cart-store';
 import { buildPricing } from '@/lib/catalog/pricing-read';
@@ -48,7 +49,7 @@ export function TileAdd({ slug, name, soldOut = false }: { slug: string; name: s
   const router = useRouter();
   const add = useCart(store => store.addItem);
 
-  async function choose() {
+  async function choose(intent:'cart'|'buy') {
     if (locked.current) return;
     locked.current = true;
     setBusy(true);
@@ -78,6 +79,11 @@ export function TileAdd({ slug, name, soldOut = false }: { slug: string; name: s
       const price = optionPrice(product, selected);
       if (!(price > 0)) throw Error('The price is being updated. Please try again.');
       const line = useCart.getState().items.find(item => item.productId === product.id && item.variantId === selected.id);
+      if (intent === 'buy' && line) {
+        added = true;
+        router.push(styleHref(product.id, selected.id));
+        return;
+      }
       if (selected.inventory != null && (line?.quantity ?? 0) >= selected.inventory) {
         throw Error('All available pieces in this option are already in your bag.');
       }
@@ -87,7 +93,7 @@ export function TileAdd({ slug, name, soldOut = false }: { slug: string; name: s
         images: selected.images?.length ? selected.images : product.images,
       });
       added = true;
-      router.push('/cart');
+      router.push(intent === 'buy' ? styleHref(product.id,selected.id) : '/cart');
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'Please try again.');
     } finally {
@@ -110,10 +116,12 @@ export function TileAdd({ slug, name, soldOut = false }: { slug: string; name: s
         </option>)}
       </select>
     </label>}
-    <button type="button" className="loom-add" disabled={busy || soldOut || (!!piece && !choice)}
-      aria-label={'Add ' + name + ' to bag'} onClick={choose}>
-      <Plus size={15}/>{soldOut ? 'Sold out' : busy ? 'Checking…' : 'Add to bag'}
+    <div className="nj-purchase-buttons"><button type="button" className="loom-add" disabled={busy || soldOut || (!!piece && !choice)}
+      aria-label={'Add ' + name + ' to cart'} onClick={()=>choose('cart')}>
+      <Plus size={15}/>{soldOut ? 'Sold out' : busy ? 'Checking…' : 'Add to cart'}
     </button>
+    {!soldOut && <button type="button" className="nj-buy-immediate" disabled={busy || (!!piece && !choice)}
+      aria-label={'Buy ' + name + ' now'} onClick={()=>choose('buy')}>Buy now</button>}</div>
     {message && <p role="status" className="nj-tile-message">{message}</p>}
   </div>;
 }

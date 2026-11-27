@@ -101,7 +101,7 @@ export function StudyShelf({ids, preview, email, initialPiece, home = false}: {i
   }
   return <section className="nj-shelf" aria-label={preview ? 'Preview collection' : 'Collection studies'}>
     <div className="nj-shelf-head"><div><h2>{home ? <>Sarees <em>&amp; suit sets</em></> : 'The collection'}</h2>
-      <p>{preview ? 'Collection preview · Sample prices' : 'Collection preview · Enquiries welcome'}</p></div>
+      <p>{preview ? 'Collection preview · Sample prices' : 'Style the collection · Not yet on sale'}</p></div>
       {home ? <Link className="nj-bag-link" href="/edits/clothing">Shop the collection</Link> : preview && <Link className="nj-bag-link" href="/cart?bag=sample"><ShoppingBag size={16}/> View bag ({count})</Link>}
     </div>
     <div className="loom-tools">
@@ -136,9 +136,9 @@ export function StudyShelf({ids, preview, email, initialPiece, home = false}: {i
           <p className={styles.caption}>{s.caption}</p>
           <div className="loom-actions">
             {preview ? <button type="button" className="loom-add" aria-label={'Add '+s.name+' to bag'} onClick={()=>buy(s,'/cart?bag=sample')}><Plus size={15}/> Add to bag</button> :
-              <Link className="loom-add" href={'/enquire/'+s.id}>Enquire</Link>}
+              <Link className="loom-add" href={'/style?study='+s.id}>Style this piece</Link>}
             <button type="button" className="loom-detail" onClick={()=>openPiece(s)}>Details</button>
-            {s.group==='sarees' && <Link className="loom-style-link" href={lookUrl('/ai/mirror',defaultStyling(s.id))}>Style in Aaina</Link>}
+            {preview && s.group==='sarees' && <Link className="loom-style-link" href={lookUrl('/ai/mirror',defaultStyling(s.id))}>Style in Aaina</Link>}
           </div>
         </div>
       </article>)}
@@ -154,7 +154,7 @@ export function StudyShelf({ids, preview, email, initialPiece, home = false}: {i
 
           <div className="nj-buy">{preview ? <><strong>{formatINR(picked.price)}</strong><small>Preview price · Sample checkout</small>
             <div className="nj-buy-actions"><button className="nj-primary" onClick={() => buy(picked,'/checkout/sample')}>Buy now</button><button className="nj-secondary" onClick={() => buy(picked,'/cart?bag=sample')}><ShoppingBag size={16}/> Add to bag</button></div>
-          </> : <><small>Collection preview</small><Link className="nj-primary" href={'/enquire/'+picked.id}>Ask about this piece</Link></>}</div>
+          </> : <><small>Not yet on sale</small><Link className="nj-primary" href={'/style?study='+picked.id}>Style this piece in Aaina</Link></>}</div>
           {textile && <details className="loom-facts"><summary>Pattern &amp; textile details</summary>
             <p>{textile.reference}</p><dl className="nj-fabric-notes">{[['Border',textile.border],['Pallu',textile.pallu]].map(([label,value])=><div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}</dl>
             <small>Regional references describe the pattern on this preview piece.</small></details>}

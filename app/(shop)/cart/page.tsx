@@ -8,7 +8,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
-import { BagPairing, useBagSarees } from '@/components/shop/BagPairing';
+import { styleHref } from '@/lib/pairing';
 import { useClientReady } from '@/lib/use-client-ready';
 import { useCart } from '@/lib/cart-store';
 import { formatINR } from '@/lib/money';
@@ -38,7 +38,7 @@ function ShopBag({sampleCount}: {sampleCount: number}) {
   const [applyingCoupon, setApplyingCoupon] = useState(false);
 
   const ready = useClientReady();
-  const sarees=useBagSarees(ready?items.map(i=>i.productId):[]);
+
   const sub = itemsSubtotal();
   const wrap = giftWrapPaise();
   const couponApplied = !!couponCode;
@@ -129,7 +129,7 @@ function ShopBag({sampleCount}: {sampleCount: number}) {
                     </div>
                   </div>
                   <p className="font-display text-lg text-kohl text-right">{formatINR(item.product.sellingPrice * item.quantity)}</p>
-                  {sarees.includes(item.productId)&&<BagPairing name={item.product.name} product={item.productId} variant={item.variantId}/>}
+                  <Link className="col-span-full justify-self-start rounded border border-banarasi px-4 py-2 text-banarasi font-ui" href={styleHref(item.productId,item.variantId)}>Style this piece in Aaina <span aria-hidden>↗</span></Link>
                 </div>
               ))}
             </div>

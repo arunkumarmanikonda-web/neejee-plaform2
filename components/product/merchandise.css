@@ -39,3 +39,8 @@
 .nj-grid .nj-tile-actions {
   width: 100%;
 }
+
+.nj-purchase-buttons{display:flex;gap:.45rem;align-items:stretch;flex-wrap:wrap}
+.nj-purchase-buttons>button{min-height:44px}
+.nj-buy-immediate{background:var(--banarasi,#681e32);color:#fff9ef;border:1px solid transparent;border-radius:3px;padding:.55rem .9rem;font-weight:600}
+.nj-buy-immediate:disabled{opacity:.55}

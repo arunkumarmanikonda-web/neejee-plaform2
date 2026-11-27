@@ -107,7 +107,7 @@ export function HomePrint({lead,fashion,curated,arrivals,founderNote,preview}:Pr
         {founder && <p><strong>Nidhi’s note</strong> {founder}</p>}
       </div>
     </Sheet>
-    <Shelf title="Sarees &amp; suit sets" pieces={items} note={fashion ? undefined : preview ? 'Collection preview · Sample prices' : 'Collection preview · Enquiries welcome'}/>
+    <Shelf title="Sarees &amp; suit sets" pieces={items} note={fashion ? undefined : preview ? 'Collection preview · Sample prices' : 'Collection preview · Not yet on sale'}/>
     {curated.length>0 && <Shelf title="Nidhi’s picks" pieces={curated.slice(0,4).map(cataloguePiece)}/>}
     {curated.length>4 && <Shelf title="Nidhi’s picks" pieces={curated.slice(4).map(cataloguePiece)}/>}
     {arrivals.length>0 && <Shelf title="Just arrived" pieces={arrivals.map(cataloguePiece)}/>}

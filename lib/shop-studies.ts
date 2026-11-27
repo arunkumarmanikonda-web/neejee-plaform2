@@ -51,7 +51,7 @@ export const studies: Study[] = [
   ...suits,
 ];
 export function previewPricingEnabled() {
-  return process.env.VERCEL_ENV === 'preview' || process.env.NODE_ENV === 'development';
+  return process.env.NEXT_PUBLIC_NEEJEE_SAMPLE_SHOP === '1' && process.env.VERCEL_ENV !== 'production';
 }
 export function studyIdsFor(department: string) {
   return studies.filter(s => department === 'clothing' || s.group === department).map(s => s.id);

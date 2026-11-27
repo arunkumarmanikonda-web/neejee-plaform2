@@ -10,7 +10,8 @@ import { studies } from '@/lib/shop-studies';
 import { studyTextiles } from '@/lib/study-textiles';
 import { changeSample, sampleShopping } from '@/lib/sample-bag';
 import { defaultStyling, lookUrl } from '@/lib/stylebook';
-import { studioHref } from '@/lib/studio';
+import { styleHref,studyStyleHref } from '@/lib/pairing';
+import { TileAdd } from '@/components/product/TileAdd';
 import { formatINR } from '@/lib/money';
 import type { editLead } from '@/lib/shop-edit-catalog';
 import styles from './HouseCampaign.module.css';
@@ -35,7 +36,7 @@ const editorial = (['surkh','neel','haldi'] as const).map((id): Feature => {
     base+'-480.webp 480w, '+base+'-800.webp 800w, '+base+'-1200.webp 1200w';
   return {
     id, name:saree.name, alias:saree.alias, hindi:photos.hindi, shade:saree.shade, price:saree.price,
-    description:saree.caption, region:studyTextiles[id].region, styling:lookUrl('/ai/mirror',defaultStyling(id)), swatch:base+'-swatch.webp',
+    description:saree.caption, region:studyTextiles[id].region, styling:studyStyleHref(id), swatch:base+'-swatch.webp',
     photos:[
       {src:photos.full, display:base+'-800.webp', srcSet, label:'Full drape', alt:saree.shade+' saree shown from shoulder to hem.'},
       {src:photos.detail, display:base+'-detail.webp', label:photos.label, alt:id === 'neel' ? studyTextiles[id].pallu : studyTextiles[id].border},
@@ -51,7 +52,7 @@ function featuredStock(piece: NonNullable<Lead>): Feature {
     shade:piece.colour || '', price:piece.price, region:piece.region || undefined,
     description:piece.description?.trim() || piece.poeticLine?.trim() || [...new Set([piece.colour,piece.craft,piece.material].filter(Boolean))].join(' · '),
     photos:photos.map((src,i) => ({src,label:i ? 'View '+(i+1) : 'Main view',alt:piece.name+', view '+(i+1)})),
-    productUrl:'/products/'+encodeURIComponent(piece.slug), styling:piece.mirror ? studioHref('mirror',piece.slug) : undefined,
+    productUrl:'/products/'+encodeURIComponent(piece.slug), styling:styleHref(piece.slug),
   };
 }
 
@@ -138,10 +139,10 @@ export function HouseCampaign({lead,preview,email}: {lead:Lead;preview:boolean;e
           {piece.description && <p className={styles.line}>{piece.description}</p>}
           {stock && piece.region && <p className={styles.origin}>{piece.region}</p>}
           <div className={styles.actions}>
-            {piece.productUrl ? <Link className={styles.primary} href={piece.productUrl}>Shop this saree · {formatINR(piece.price)}</Link> :
+            {piece.productUrl ? <TileAdd name={piece.name} slug={piece.id}/> :
               canSample ? <button type="button" className={styles.primary} aria-label={'Add '+piece.name+' to bag'} onClick={()=>{changeSample(piece.id,1);router.push('/cart?bag=sample');}}>
                 <ShoppingBag size={17} strokeWidth={1.5} aria-hidden/>Add to bag <span>·</span> {formatINR(piece.price)}</button> :
-              <Link className={styles.primary} href={'/enquire/'+piece.id}>Enquire about this saree</Link>}
+              <Link className={styles.primary} href="/products">Shop available pieces</Link>}
             {piece.styling && <Link className={styles.secondary} href={piece.styling}>Style this saree in Aaina</Link>}
           </div>
           {campaignPortrait && <div className={styles.inspectLinks}>
@@ -149,6 +150,7 @@ export function HouseCampaign({lead,preview,email}: {lead:Lead;preview:boolean;e
             <span aria-hidden="true">·</span>
             <button type="button" onClick={()=>inspect(detailIndex)} aria-haspopup="dialog"><ZoomIn aria-hidden size={15}/>Inspect the border</button>
           </div>}
+          {!stock && !canSample && <small className={styles.preview}>Collection preview · Not yet on sale</small>}
           {canSample && <small className={styles.preview}>Preview price</small>}
         </div>
       </div>
