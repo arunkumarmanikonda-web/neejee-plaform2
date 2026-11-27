@@ -1,3 +1,4 @@
+import { razorpayCredentials } from './razorpay-credentials';
 type RazorpayRefund = {
   id?: string;
   status?: string;
@@ -31,8 +32,7 @@ export async function refundCapturedPayment({
   snapshotId: string;
   reason: CheckoutRefundReason;
 }): Promise<RazorpayRefund> {
-  const keyId = process.env.RAZORPAY_KEY_ID;
-  const keySecret = process.env.RAZORPAY_KEY_SECRET;
+  const { keyId, keySecret } = razorpayCredentials();
   if (!keyId || !keySecret) {
     throw new Error('Razorpay refund credentials are not configured');
   }
