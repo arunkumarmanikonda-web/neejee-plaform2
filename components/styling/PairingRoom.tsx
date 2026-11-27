@@ -131,7 +131,7 @@ export function PairingRoom({board,initialOptions={}}:{board:PairBoard;initialOp
           <p>{room?'Add a photo of your room to place the pieces in your own space.':'Add a full-length photo to see the outfit on you.'} You can also preview the pairing on its own.</p>
           <PhotoInput label={room?'Add my room photo':'Add my photo'} onFile={f=>load(f)}/>
           {draft.background&&<button className={ui.remove} onClick={()=>update(old=>({...old,background:undefined}))}>Remove my photo</button>}
-          <label className={ui.consent}><input type="checkbox" checked={consent} onChange={e=>setConsent(e.target.checked)}/> <span>I have permission to use these photos and send them to Neejee’s image providers (fal or Replicate) to create this preview.</span></label>
+          <label className={ui.consent}><input type="checkbox" checked={consent} onChange={e=>setConsent(e.target.checked)}/> <span>I have permission to use these photos and send them to Neejee’s image providers (fal, Replicate or OpenAI) to create this preview.</span></label>
           <button className={ui.generate} disabled={running||!consent||(!chosen.length&&!draft.background)} onClick={render}>{running?'Creating your preview…':'Create photo preview'} <ArrowRight size={16}/></button>
         </div>
         <p role="status" aria-live="polite" className={ui.notice}>{notice}</p>
