@@ -3,6 +3,7 @@ import sharp from 'sharp';
 import {NextRequest,NextResponse} from 'next/server';
 import {z} from 'zod';
 import {prisma} from '@/lib/prisma';
+import {guestRenderingConfigured,GuestRenderError,guestRenderResult,startGuestRender} from '@/lib/ai/guest-style-service';
 import {getPairBoard} from '@/lib/pairing-catalog';
 import {pairingSlots,type PairSlot} from '@/lib/pairing';
 
@@ -10,7 +11,6 @@ export const dynamic='force-dynamic';
 export const runtime='nodejs';
 export const maxDuration=60;
 const cookie='nj_style_guest';
-const queue='https://queue.fal.run/fal-ai/nano-banana-2';
 const headers={'Cache-Control':'private, no-store','Referrer-Policy':'no-referrer'};
 const json=(data:unknown,status=200)=>NextResponse.json(data,{status,headers});
 const hash=(s:string)=>createHash('sha256').update('neejee-style/'+s).digest('hex');
@@ -26,7 +26,6 @@ async function job(ownerHash:string,id:string){
     from private.guest_style_job where owner_hash=${ownerHash} and id=${id}::uuid and expires_at>now()`;
   return row;
 }
-const falAuth=()=>({Authorization:'Key '+process.env.FAL_KEY});
 function publicImage(src:string) {
   if (src.startsWith('/')&&!src.startsWith('//')) return new URL(src,process.env.NEXT_PUBLIC_SITE_URL||'https://www.neejee.com').href;
   const url=new URL(src);if(url.protocol!=='https:')throw Error('Invalid catalogue image');return url.href;
@@ -57,7 +56,7 @@ export async function POST(req:NextRequest){
   if(!sameShopOrigin(req) || !req.headers.get('content-type')?.includes('application/json'))return json({error:'Open the styling page again.'},403);
   const identity=owner(req);
   if(!identity)return json({error:'Enable this site’s cookies to create a rendered preview.'},401);
-  if(!process.env.FAL_KEY)return json({error:'Photo rendering is unavailable. Your styling board and checkout are ready.'},503);
+  if(!guestRenderingConfigured())return json({error:'Photo rendering is unavailable. Your styling board and checkout are ready.'},503);
   const data=await readInput(req).catch(()=>null);
   if(!data||(!data.background&&!data.layers.length)||new Set(data.layers.map(i=>i.slot)).size!==data.layers.length)return json({error:'Choose a photo or a pairing and confirm permission.'},400);
   try {
@@ -91,16 +90,13 @@ export async function POST(req:NextRequest){
     const scene=board.mode==='room'?(data.background?'Place the selected pieces in the supplied room in plausible positions.':'Make a realistic Indian interior vignette around the main piece.'):(data.background?'Dress the person in the main piece and selected accessories.':'Show the main garment and selected accessories worn together in a realistic editorial fitting.');
     const prompt=scene+' '+labels.map((s,i)=>'Image '+(i+1)+' is '+s+'.').join(' ')+' Match light and scale. Keep the main piece and pairings visible. Do not add text, new products or a collage border.';
     try{
-      const response=await fetch(queue+'/edit',{method:'POST',redirect:'error',signal:AbortSignal.timeout(22000),
-        headers:{...falAuth(),'Content-Type':'application/json','X-Fal-Store-IO':'0','X-Fal-Object-Lifecycle-Preference':'{"expiration_duration_seconds":3600}'},
-        body:JSON.stringify({prompt,image_urls:refs,num_images:1,output_format:'jpeg',resolution:'1K'})});
-      const result=await response.json();
-      if(!response.ok||typeof result.request_id!=='string'||!/^[a-zA-Z0-9_-]{1,150}$/.test(result.request_id))throw Error('Unavailable');
-      await prisma.$executeRaw`update private.guest_style_job set state='queued',provider_id=${result.request_id} where owner_hash=${identity} and id=${data.id}::uuid`;
+      const providerId=await startGuestRender(prompt,refs);
+      await prisma.$executeRaw`update private.guest_style_job set state='queued',provider_id=${providerId} where owner_hash=${identity} and id=${data.id}::uuid`;
       return json({id:data.id},202);
-    }catch{
-      await prisma.$executeRaw`update private.guest_style_job set state='failed' where owner_hash=${identity} and id=${data.id}::uuid`;
-      return json({error:'The photo studio could not start. Your choices are still here.'},502);
+    }catch(e){
+      const code=e instanceof GuestRenderError?e.message.slice(0,120):'job_record';
+      await prisma.$executeRaw`update private.guest_style_job set state='failed',failure_code=${code} where owner_hash=${identity} and id=${data.id}::uuid`;
+      return json({error:'Photo rendering is unavailable right now. You can arrange these pieces on your photo below.'},502);
     }
   }catch{return json({error:'The studio could not open these photos. Please try another photo or continue to checkout.'},503);}
 }
@@ -114,18 +110,8 @@ export async function GET(req:NextRequest) {
     const row=await job(identity,id!);if(!row)return json({error:'This preview has expired.'},404);
     if(row.state==='failed'||(row.state==='pending'&&row.old))return json({error:'The preview could not be completed.'},502);
     if(!row.provider_id)return json({pending:true},202);
-    const endpoint=queue+'/requests/'+encodeURIComponent(row.provider_id);
-    const init={headers:falAuth(),cache:'no-store' as const,redirect:'error' as const,signal:AbortSignal.timeout(12000)};
-    const status=await fetch(endpoint+'/status',init);
-    if(!status.ok)return json({error:'The studio could not check this preview.'},502);
-    const {status:state}=await status.json();
-    if(['IN_QUEUE','IN_PROGRESS'].includes(state))return json({pending:true},202);
-    if(state!=='COMPLETED')return json({error:'The preview could not be completed.'},502);
-    const result=await fetch(endpoint,init);if(!result.ok)throw Error('Unavailable');
-    const image=new URL((await result.json()).images?.[0]?.url);
-    if(image.protocol!=='https:'||!(image.hostname==='fal.media'||image.hostname.endsWith('.fal.media')))throw Error('Invalid output');
-    const media=await fetch(image,{cache:'no-store',redirect:'error',signal:AbortSignal.timeout(12000)});
-    if(!media.ok||!media.headers.get('content-type')?.startsWith('image/'))throw Error('Invalid image');
+    const media=await guestRenderResult(row.provider_id);
+    if(!media)return json({pending:true},202);
     return new Response(media.body,{headers:{...headers,'X-Content-Type-Options':'nosniff','Content-Type':media.headers.get('content-type')!}});
   }catch{return json({error:'The studio is temporarily unavailable.'},502);}
 }
