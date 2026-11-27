@@ -1,3 +1,4 @@
+import Link from 'next/link';
 // One-click opt-out from recovery messaging. The recovery reference is signed,
 // so a raw cart id cannot be used to opt out another customer's address.
 import { prisma } from '@/lib/prisma';
@@ -93,7 +94,7 @@ export default async function OptOutPage(props: { searchParams: Promise<{ cart?:
         )}
 
         <div style={{ marginTop: 36 }}>
-          <a href="/" style={{
+          <Link href="/" style={{
             background: '#1A1613',
             color: '#F4EFE6',
             textDecoration: 'none',
@@ -102,7 +103,7 @@ export default async function OptOutPage(props: { searchParams: Promise<{ cart?:
             letterSpacing: '0.12em',
             textTransform: 'uppercase',
             display: 'inline-block',
-          }}>Return home</a>
+          }}>Return home</Link>
         </div>
       </div>
     </main>

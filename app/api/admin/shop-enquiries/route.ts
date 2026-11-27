@@ -6,7 +6,9 @@ async function handle(req:Request,native:boolean){
   const user=await getSession();
   if(!user||!requireRole(user,['ADMIN','SUPER_ADMIN'])) return NextResponse.json({error:'Staff access required.'},{status:user?403:401});
   const origin = req.headers.get('origin');
-  if (origin) {
+  const site = req.headers.get('sec-fetch-site');
+  if (site === 'cross-site') return NextResponse.json({error:'Invalid request origin.'},{status:403});
+  if (origin && !(origin === 'null' && site === 'same-origin')) {
     let sameOrigin = false;
     try {
       const sender = new URL(origin), target = new URL(req.url);

@@ -668,7 +668,7 @@ function BulkPanel({ onImported, statusFilter }: { onImported: () => void; statu
                 Mandatory: Name, Category slug, MRP, Selling Price. SKUs auto-generate.
               </p>
               <a
-                href="/api/admin/products/template"
+                href="/api/admin/products/template" download
                 className="inline-flex items-center gap-2 px-3 py-2 bg-kohl text-ivory text-xs uppercase tracking-wider hover:bg-madder"
               >
                 <Download className="w-4 h-4" /> Download template (.xlsx)
