@@ -8,7 +8,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
-import { styleHref } from '@/lib/pairing';
+import { inCollectionReview, lineDetails, lineStyling, reviewPrefix, reviewStudy } from '@/lib/collection-review';
 import { useClientReady } from '@/lib/use-client-ready';
 import { useCart } from '@/lib/cart-store';
 import { formatINR } from '@/lib/money';
@@ -39,6 +39,7 @@ function ShopBag({sampleCount}: {sampleCount: number}) {
 
   const ready = useClientReady();
 
+  const review = ready && inCollectionReview();
   const sub = itemsSubtotal();
   const wrap = giftWrapPaise();
   const couponApplied = !!couponCode;
@@ -101,15 +102,15 @@ function ShopBag({sampleCount}: {sampleCount: number}) {
             <div className="space-y-6">
               {items.map(item => (
                 <div key={`${item.productId}-${item.variantId || ''}`} className="grid grid-cols-[100px_1fr_auto] gap-4 pb-6 border-b border-mitti/15">
-                  <Link href={`/products/${item.product.slug}`} className="block aspect-[4/5] bg-beige overflow-hidden">
+                  <a href={review && item.productId.startsWith(reviewPrefix) && !reviewStudy(item) ? undefined : lineDetails(item)} className="block aspect-[4/5] bg-beige overflow-hidden">
                     {item.product.images?.[0] && (
                       <Image src={item.product.images[0]} alt={item.product.name} width={100} height={125} className="w-full h-full object-cover" />
                     )}
-                  </Link>
+                  </a>
                   <div>
-                    <Link href={`/products/${item.product.slug}`}>
+                    <a href={review && item.productId.startsWith(reviewPrefix) && !reviewStudy(item) ? undefined : lineDetails(item)}>
                       <h3 className="font-display text-lg text-kohl hover:text-madder transition-colors">{item.product.name}</h3>
-                    </Link>
+                    </a>
                     {item.variantLabel && <p className="font-ui text-xs text-mitti mt-1">{item.variantLabel}</p>}
                     <p className="font-ui text-sm text-kohl mt-2">{formatINR(item.product.sellingPrice)} each</p>
 
@@ -129,7 +130,7 @@ function ShopBag({sampleCount}: {sampleCount: number}) {
                     </div>
                   </div>
                   <p className="font-display text-lg text-kohl text-right">{formatINR(item.product.sellingPrice * item.quantity)}</p>
-                  <Link className="col-span-full justify-self-start rounded border border-banarasi px-4 py-2 text-banarasi font-ui" href={styleHref(item.productId,item.variantId)}>Style this piece in Aaina <span aria-hidden>↗</span></Link>
+                  {(!item.productId.startsWith(reviewPrefix) || reviewStudy(item)) && <Link className="col-span-full justify-self-start rounded border border-banarasi px-4 py-2 text-banarasi font-ui" href={lineStyling(item)}>Style this piece in Aaina <span aria-hidden>↗</span></Link>}
                 </div>
               ))}
             </div>
@@ -177,7 +178,7 @@ function ShopBag({sampleCount}: {sampleCount: number}) {
               </div>
 
               <Link href="/checkout" className="btn-primary w-full mt-6 block text-center">Checkout</Link>
-              <div className="mt-6 pt-4 border-t border-mitti/20">
+              {!review && <div className="mt-6 pt-4 border-t border-mitti/20">
                 <p className="label text-mitti mb-2 flex items-center gap-2"><Tag className="w-3 h-3" /> COUPON CODE</p>
                 {couponApplied ? (
                   <div className="flex items-center justify-between bg-ivory p-3">
@@ -198,16 +199,16 @@ function ShopBag({sampleCount}: {sampleCount: number}) {
                   </div>
                 )}
                 {couponMsg && <p className={`font-ui text-xs mt-2 ${couponMsg.startsWith('✓') ? 'text-neem' : 'text-madder'}`}>{couponMsg}</p>}
-              </div>
+              </div>}
 
 
               <Link href="/" className="block text-center font-ui text-xs tracking-widest text-mitti hover:text-madder mt-4">CONTINUE SHOPPING</Link>
             </div>
 
-            <div className="mt-4 bg-beige p-5 text-center">
+            {!review && <div className="mt-4 bg-beige p-5 text-center">
               <p className="font-ui text-[10px] tracking-widest text-mitti">SECURED BY</p>
               <p className="font-display text-sm mt-1">Razorpay · UPI · Cards · NetBanking · COD</p>
-            </div>
+            </div>}
           </aside>
         </div>
       </section>

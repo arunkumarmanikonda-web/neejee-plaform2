@@ -75,3 +75,5 @@
 .privacy {margin:.65rem 0 0;color:#66554d}
 
 @media(min-width:701px){.portrait img,.fallbackPhoto{mask-image:linear-gradient(to right,transparent,#000 22%)}.portrait::after{background:linear-gradient(90deg,var(--field) 0%,transparent 54%)}}
+
+.price{margin:.5rem 0 0;color:#fff6e3;font:600 1.16rem/1.35 var(--font-ui),sans-serif}

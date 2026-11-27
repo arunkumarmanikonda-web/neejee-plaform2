@@ -3,6 +3,10 @@
 import { Suspense, useEffect, useMemo, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
+import { inCollectionReview } from '@/lib/collection-review';
+import { useClientReady } from '@/lib/use-client-ready';
+import { studies } from '@/lib/shop-studies';
+import { StudyShelf } from '@/components/shop/StudyShelf';
 import { Filter, X, ChevronDown } from 'lucide-react';
 import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
@@ -202,6 +206,8 @@ function featuredHeading(featured: string, q: string) {
 function PLPInner() {
   const router = useRouter();
   const sp = useSearchParams();
+  const ready=useClientReady();
+  const review=ready && inCollectionReview();
   const spKey = sp?.toString() || '';
 
   const [products, setProducts] = useState<ProductCardData[]>([]);
@@ -233,6 +239,12 @@ function PLPInner() {
     };
   }, [spKey]);
 
+  const reviewPieces = review ? studies.filter(p => {
+    const facts = [p.name,p.shade,p.alias,p.group,p.detail].join(' ').toLowerCase();
+    return !filters.featured && !filters.badge && !filters.occasion &&
+      [filters.q,filters.craft,filters.region,filters.material].every(value=>!value || facts.includes(value.toLowerCase())) &&
+      (!filters.minPrice || p.price>=Number(filters.minPrice)*100) && (!filters.maxPrice || p.price<=Number(filters.maxPrice)*100);
+  }).map(p=>p.id):[];
   const hero = useMemo(
     () => featuredHeading(filters.featured, filters.q),
     [filters.featured, filters.q]
@@ -346,7 +358,7 @@ function PLPInner() {
 
   return (
     <div className="min-h-screen bg-ivory">
-      <Header />
+      <Header shop={review}/>
 
       <section className="bg-kohl text-ivory py-12 md:py-16 px-4">
         <div className="max-w-7xl mx-auto">
@@ -377,7 +389,7 @@ function PLPInner() {
           <p className="text-xs tracking-wider text-kohl/60 hidden md:block">
             {loading
               ? 'Loading…'
-              : `${products.length} of ${facets.total} pieces`}
+              : `${products.length+reviewPieces.length} of ${facets.total+reviewPieces.length} pieces`}
           </p>
 
           <div className="flex items-center gap-3">
@@ -440,6 +452,7 @@ function PLPInner() {
         )}
 
         <div>
+          {reviewPieces.length>0 && <div className="nj-market house-shelf"><StudyShelf ids={reviewPieces} preview={false} email="" review/></div>}
           {loading ? (
             <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
               {Array.from({ length: 6 }).map((_, i) => (
@@ -449,7 +462,7 @@ function PLPInner() {
                 />
               ))}
             </div>
-          ) : products.length === 0 ? (
+          ) : products.length === 0 && reviewPieces.length===0 ? (
             <div className="text-center py-20">
               <p className="font-display text-3xl mb-3">Nothing here yet</p>
               <p className="text-kohl/60 mb-6">

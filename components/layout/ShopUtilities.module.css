@@ -66,3 +66,5 @@
 }
 @media(max-width:380px){.fitting span{display:none}}
 @media print{.masthead{display:none!important}}
+
+.reviewBar{background:#522438;color:#fff5df;text-align:center;padding:.45rem 1rem;font:500 .83rem/1.5 var(--font-ui),sans-serif}.reviewBar a{margin-inline-start:1rem;color:#fff5df;border:1px solid #c29e99;border-radius:3px;padding:.1rem .45rem;white-space:nowrap}

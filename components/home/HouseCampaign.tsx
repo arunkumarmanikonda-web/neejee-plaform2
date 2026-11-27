@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Check, ShoppingBag, ZoomIn } from 'lucide-react';
+import { StudyPurchase } from '@/components/shop/StudyPurchase';
 import { ClothViewer } from './ClothViewer';
 import { usePhotoRail } from '@/components/gallery/usePhotoRail';
 import { studies } from '@/lib/shop-studies';
@@ -106,14 +107,14 @@ function CampaignPortrait() {
   </picture>;
 }
 
-export function HouseCampaign({lead,preview,email,secondary=false}: {lead:Lead;preview:boolean;email:string;secondary?:boolean}) {
+export function HouseCampaign({lead,preview,email,review=false}: {lead:Lead;preview:boolean;email:string;review?:boolean}) {
   const [selected,setSelected] = useState(0);
   const [inspection,setInspection] = useState<number|null>(null);
   const trigger = useRef<HTMLElement|null>(null);
   const router = useRouter();
   const stock = lead?.cover ? featuredStock(lead) : null;
   const piece = stock || editorial[selected];
-  const Title = secondary ? 'h2' : 'h1';
+  const Title = 'h1';
   const canSample = !stock && preview && sampleShopping;
   const campaignPortrait = !stock && piece.id==='surkh';
   const detailIndex = piece.photos.length>1 ? 1 : 0;
@@ -139,19 +140,21 @@ export function HouseCampaign({lead,preview,email,secondary=false}: {lead:Lead;p
           <Title aria-live="polite" className={styles.title}>{piece.name}</Title>
           {piece.description && <p className={styles.line}>{piece.description}</p>}
           {stock && piece.region && <p className={styles.origin}>{piece.region}</p>}
+          {review && !stock && <p className={styles.price}>{formatINR(piece.price)}</p>}
           <div className={styles.actions}>
             {piece.productUrl ? <TileAdd name={piece.name} slug={piece.id}/> :
+              review ? <StudyPurchase key={piece.id} piece={studies.find(s=>s.id===piece.id)!} primary={styles.primary} secondary={styles.secondary}/> :
               canSample ? <button type="button" className={styles.primary} aria-label={'Add '+piece.name+' to bag'} onClick={()=>{changeSample(piece.id,1);router.push('/cart?bag=sample');}}>
                 <ShoppingBag size={17} strokeWidth={1.5} aria-hidden/>Add to bag <span>·</span> {formatINR(piece.price)}</button> :
-              <Link className={styles.primary} href="/products">Shop available pieces</Link>}
-            {piece.styling && <Link className={styles.secondary} href={piece.styling}>Style this saree in Aaina</Link>}
+              <Link className={styles.primary} href="/edits/sarees">Explore sarees</Link>}
+            {piece.styling && !review && <Link className={styles.secondary} href={piece.styling}>Style this saree in Aaina</Link>}
           </div>
           {campaignPortrait && <div className={styles.inspectLinks}>
             <button type="button" onClick={()=>inspect(0)} aria-haspopup="dialog">See the full drape</button>
             <span aria-hidden="true">·</span>
             <button type="button" onClick={()=>inspect(detailIndex)} aria-haspopup="dialog"><ZoomIn aria-hidden size={15}/>Inspect the border</button>
           </div>}
-          {!stock && !canSample && <small className={styles.preview}>Collection preview · Not yet on sale</small>}
+          {!stock && !canSample && !review && <small className={styles.preview}>Collection preview · Not yet on sale</small>}
           {canSample && <small className={styles.preview}>Preview price</small>}
         </div>
       </div>

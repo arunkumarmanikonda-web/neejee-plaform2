@@ -59,6 +59,20 @@ const BARE_ROOT_REDIRECTS: Record<string, string> = {
 
 export async function middleware(request: NextRequest) {
   const { pathname, origin } = request.nextUrl;
+  if (request.cookies.get('neejee_collection_preview')?.value === '1') {
+    if (pathname === '/') {
+      const url = request.nextUrl.clone();
+      url.pathname = '/collection-preview/storefront';
+      const response = NextResponse.rewrite(url);
+      response.headers.set('Cache-Control','private, no-store');
+      response.headers.set('X-Robots-Tag','noindex, nofollow');
+      return response;
+    }
+    if (pathname === '/payment') return NextResponse.redirect(new URL('/checkout',request.url));
+    if ((pathname==='/api/checkout' || pathname==='/api/razorpay/create-order' || pathname.startsWith('/api/cart') || pathname==='/api/checkout/abandon') && request.method !== 'GET' && request.method !== 'HEAD') {
+      return NextResponse.json({error:'Collection preview uses simulated checkout.'},{status:409});
+    }
+  }
 
   // Ã¢â€â‚¬Ã¢â€â‚¬ (0) Admin surface recovery redirect Ã¢â‚¬â€ intercept blocked direct routes before app resolution Ã¢â€â‚¬Ã¢â€â‚¬
   if (
@@ -123,6 +137,8 @@ export async function middleware(request: NextRequest) {
 // Bare roots are listed individually so unrelated requests skip the middleware entirely (zero overhead).
 export const config = {
   matcher: [
+    '/', '/payment', '/api/checkout/:path*', '/api/razorpay/:path*', '/api/cart/:path*',
+
     '/categories/:path*',
     '/admin/taxonomy/ai',
     '/admin/integrations/meta',

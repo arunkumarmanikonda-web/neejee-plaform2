@@ -9,7 +9,9 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
-import { useCart } from '@/lib/cart-store';
+import { CollectionCheckout } from '@/components/checkout/CollectionCheckout';
+import { useClientReady } from '@/lib/use-client-ready';
+import { reviewCart, useCart } from '@/lib/cart-store';
 import { formatINR } from '@/lib/money';
 import { Check, ShieldCheck } from 'lucide-react';
 import { readUtm } from '@/lib/analytics';
@@ -800,6 +802,9 @@ function CheckoutInner() {
 }
 
 export default function CheckoutPage() {
+  const ready=useClientReady();
+  if(!ready)return <p role="status">Opening checkout…</p>;
+  if(reviewCart)return <CollectionCheckout/>;
   return (
     <Suspense
       fallback={
