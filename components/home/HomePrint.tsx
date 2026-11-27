@@ -78,14 +78,14 @@ type Props = {
 };
 
 export function HomePrint({lead,fashion,curated,arrivals,founderNote,preview}:Props) {
-  const neel = studies.find(piece=>piece.id === 'neel')!;
+  const surkh = studies.find(piece=>piece.id === 'surkh')!;
   const stock = lead?.cover ? lead : null;
   const hero = stock ? {
     title:stock.name, alias:stock.shortName || '', image:stock.cover!, price:formatINR(stock.price), detail:'', detailImage:stock.images.find(src=>src && src!==stock.cover),
     description:stock.description?.trim() || stock.poeticLine?.trim() || [...new Set([stock.colour,stock.craft,stock.material,stock.region].filter(Boolean))].join(' · '),
   } : {
-    title:neel.name, alias:neel.alias, image:'/brand/campaign/neel-courtyard.webp',
-    price:preview ? formatINR(neel.price) : '', description:neel.detail, detail:studyTextiles.neel.reference, detailImage:'/brand/campaign/indigo-detail.webp',
+    title:surkh.name, alias:surkh.alias, image:'/brand/surkh-campaign/portrait-768.webp',
+    price:preview ? formatINR(surkh.price) : '', description:surkh.detail, detail:studyTextiles.surkh.reference, detailImage:'/brand/counter/surkh-detail.webp',
   };
   const items = fashion ? fashion.map(cataloguePiece) : homeStudyIds.map(id=>collectionPiece(studies.find(p=>p.id===id)!,preview));
   const founder = founderNote?.trim().split(/\n\s*\n/)[0];
@@ -93,7 +93,7 @@ export function HomePrint({lead,fashion,curated,arrivals,founderNote,preview}:Pr
     <Sheet label="Featured saree">
       <div className="folio-feature">
         <div className="folio-photo"><PrintPhoto className="folio-hero-image" src={hero.image} alt={hero.title}/>
-          {hero.detailImage && <figure><PrintPhoto src={hero.detailImage} alt={'Detail of '+hero.title}/><figcaption>{stock ? 'Another view' : 'Pallu detail'}</figcaption></figure>}
+          {hero.detailImage && <figure><PrintPhoto src={hero.detailImage} alt={'Detail of '+hero.title}/><figcaption>{stock ? 'Another view' : 'Border detail'}</figcaption></figure>}
         </div>
         <div className="folio-feature-copy">
           {hero.alias && <p className="folio-kicker">{hero.alias}</p>}
