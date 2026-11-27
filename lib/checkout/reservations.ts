@@ -28,8 +28,8 @@ export async function reserveCoupon(
       ${args.snapshotId},
       ${args.couponId},
       ${args.userId || null},
-      ${Math.max(0, Math.floor(args.subtotalPaise))},
-      ${holdMinutes}
+      ${Math.max(0, Math.floor(args.subtotalPaise))}::integer,
+      ${holdMinutes}::integer
     ) as result
   `;
   return rows?.[0]?.result;
@@ -59,7 +59,7 @@ export async function redeemCouponNow(
     select private.redeem_coupon_now(
       ${args.couponId},
       ${args.userId || null},
-      ${Math.max(0, Math.floor(args.subtotalPaise))},
+      ${Math.max(0, Math.floor(args.subtotalPaise))}::integer,
       ${args.orderId}
     ) as result
   `;
@@ -91,8 +91,8 @@ export async function reserveLoyaltyPoints(
     select private.reserve_loyalty_points(
       ${args.snapshotId},
       ${args.userId},
-      ${Math.max(0, Math.floor(args.points))},
-      ${holdMinutes}
+      ${Math.max(0, Math.floor(args.points))}::integer,
+      ${holdMinutes}::integer
     ) as result
   `;
   return rows?.[0]?.result;
@@ -116,7 +116,7 @@ export async function redeemLoyaltyPointsNow(
   const rows = await db.$queryRaw<Array<{ result: CheckoutReservationResult }>>`
     select private.redeem_loyalty_points_now(
       ${args.userId},
-      ${Math.max(0, Math.floor(args.points))},
+      ${Math.max(0, Math.floor(args.points))}::integer,
       ${args.orderId}
     ) as result
   `;
