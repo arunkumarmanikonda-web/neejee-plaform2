@@ -1,5 +1,6 @@
 'use client';
 import { useState } from 'react';
+import { useClientReady } from '@/lib/use-client-ready';
 import { Camera } from 'lucide-react';
 import CaptureDialog from './CaptureDialog';
 import { guideFor, guideNames, matchesShot, shotFileName, shotsFor, type CaptureView, type Guide } from '@/lib/product-capture/frames';
@@ -10,6 +11,7 @@ type Props = {
   max?: number; disabled?: boolean; appendOnly?: boolean;
 };
 export default function GuidedCapture({ category, images, max = Infinity, disabled, appendOnly, onUse }: Props) {
+  const ready = useClientReady();
   const inferred = guideFor(category);
   const [override, setOverride] = useState<{base:Guide; guide:Guide} | null>(null);
   const guide = override?.base === inferred ? override.guide : inferred;
@@ -19,14 +21,14 @@ export default function GuidedCapture({ category, images, max = Infinity, disabl
   const existing = (shot: CaptureView) => images.find(url => matchesShot(url, fileFor(shot)));
   return <section className={css.panel} aria-label="Guided product photography">
     <div className={css.top}><h3>Photograph this piece</h3>
-      <label className={css.select}>Shot guide <select value={guide} disabled={disabled} onChange={e => { setOverride({base:inferred,guide:e.target.value as Guide}); setMessage(''); }}>
+      <label className={css.select}>Shot guide <select value={guide} disabled={!ready || disabled} onChange={e => { setOverride({base:inferred,guide:e.target.value as Guide}); setMessage(''); }}>
         {(Object.keys(guideNames) as Guide[]).map(key => <option key={key} value={key}>{guideNames[key]}</option>)}
       </select></label>
     </div>
     <div className={css.grid}>{shotsFor(guide).map(shot => {
       const image = existing(shot);
       return <button key={shot.id} type="button" className={css.slot}
-        disabled={disabled || (image ? !!appendOnly : images.length >= max)}
+        disabled={!ready || disabled || (image ? !!appendOnly : images.length >= max)}
         onClick={() => { setMessage(''); setOpen(shot); }}>
         {image ? <img src={image} alt="" /> : <Camera size={18} aria-hidden="true" />}
         <span>{shot.label}<small>{image ? (appendOnly ? 'Captured' : 'Retake') : (shot.optional ? 'Optional photo' : 'Take photo')}</small></span>
