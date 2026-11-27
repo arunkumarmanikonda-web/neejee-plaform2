@@ -9,6 +9,7 @@ import {localWardrobePhoto} from '@/lib/outfit-closet';
 import {useCart} from '@/lib/cart-store';
 import {useClientReady} from '@/lib/use-client-ready';
 import {formatINR} from '@/lib/money';
+import {PhotoLayout} from './PhotoLayout';
 import ui from './PairingRoom.module.css';
 
 type Choice={photo?:string;variant?:string};
@@ -31,6 +32,7 @@ export function PairingRoom({board,initialOptions={}}:{board:PairBoard;initialOp
   const [slot,setSlot]=useState<PairSlot>(board.slots[0]);
   const [notice,setNotice]=useState(''),[consent,setConsent]=useState(false),[running,setRunning]=useState(false);
   const [result,setResult]=useState(''),[adding,setAdding]=useState(false);
+  const output=useRef<HTMLElement>(null);
   const worker=useRef<AbortController|null>(null),lock=useRef(false);
   const active=useRef(true),revision=useRef(0);
   const router=useRouter();
@@ -41,7 +43,12 @@ export function PairingRoom({board,initialOptions={}}:{board:PairBoard;initialOp
   const checkout=lines.length>0;
   const anchorInCart=lines.some(i=>i.productId===anchor.id&&i.variantId===anchor.variant);
   useEffect(()=>{active.current=true;return ()=>{active.current=false;worker.current?.abort();};},[]);
-  useEffect(()=>()=>{if(result)URL.revokeObjectURL(result);},[result]);
+  useEffect(()=>{
+    if(!result)return;
+    output.current?.focus({preventScroll:true});
+    output.current?.scrollIntoView({block:'center',behavior:window.matchMedia('(prefers-reduced-motion: reduce)').matches?'instant':'smooth'});
+    return ()=>URL.revokeObjectURL(result);
+  },[result]);
   function update(change:(old:Draft)=>Draft){
     worker.current?.abort();lock.current=false;setRunning(false);setNotice('');setResult('');
     setDraft(old=>{const next=change(old);drafts.set(key,next);return next;});
@@ -107,7 +114,7 @@ export function PairingRoom({board,initialOptions={}}:{board:PairBoard;initialOp
           {!!(chosen.length||draft.background)&&<div className={ui.refs}>{draft.background&&<figure><img src={draft.background} alt={room?'Your room':'Your photo'}/><figcaption>{room?'Your room':'Your photo'}</figcaption></figure>}
           {chosen.map(s=><figure key={s}><img src={draft.layers[s]?.photo||selection(s)?.image} alt={draft.layers[s]?.photo?'Your '+pairingSlots[s].label:selection(s)?.name}/><figcaption>{draft.layers[s]?.photo?'Your '+pairingSlots[s].label.toLowerCase():selection(s)?.name}</figcaption></figure>)}</div>}
         </div>
-        {result&&<figure className={ui.output}><img src={result} alt={room?'Rendered preview of your styled room':'Rendered preview of your outfit'}/><figcaption>AI styling preview · Colour, scale and fit may vary.</figcaption></figure>}
+        {result&&<figure ref={output} tabIndex={-1} className={ui.output}><img src={result} alt={room?'Rendered preview of your styled room':'Rendered preview of your outfit'}/><figcaption>AI styling preview · Colour, scale and fit may vary.</figcaption></figure>}
       </div>
       <div className={ui.controls}>
         <h2>{room?'What goes with it?':'Wear it with'}</h2><div className={ui.tabs} aria-label="Pairing categories">{board.slots.map(s=><button key={s} aria-pressed={slot===s} onClick={()=>setSlot(s)}>{chosen.includes(s)&&<Check size={13}/>} {pairingSlots[s].label}</button>)}</div>
@@ -124,10 +131,13 @@ export function PairingRoom({board,initialOptions={}}:{board:PairBoard;initialOp
           <p>{room?'Add a photo of your room to place the pieces in your own space.':'Add a full-length photo to see the outfit on you.'} You can also preview the pairing on its own.</p>
           <PhotoInput label={room?'Add my room photo':'Add my photo'} onFile={f=>load(f)}/>
           {draft.background&&<button className={ui.remove} onClick={()=>update(old=>({...old,background:undefined}))}>Remove my photo</button>}
-          <label className={ui.consent}><input type="checkbox" checked={consent} onChange={e=>setConsent(e.target.checked)}/> <span>I have permission to use these photos and send them to Neejee’s image provider to create this preview.</span></label>
+          <label className={ui.consent}><input type="checkbox" checked={consent} onChange={e=>setConsent(e.target.checked)}/> <span>I have permission to use these photos and send them to Neejee’s image providers (fal or Replicate) to create this preview.</span></label>
           <button className={ui.generate} disabled={running||!consent||(!chosen.length&&!draft.background)} onClick={render}>{running?'Creating your preview…':'Create photo preview'} <ArrowRight size={16}/></button>
         </div>
         <p role="status" aria-live="polite" className={ui.notice}>{notice}</p>
+        {(chosen.length>0||draft.background)&&<PhotoLayout background={draft.background} room={room} items={[
+          ...(anchor.image?[{id:anchor.id,name:anchor.name,src:anchor.image}]:[]),
+          ...chosen.map(s=>({id:s,name:selection(s)?.name||'Your '+pairingSlots[s].label.toLowerCase(),src:draft.layers[s]?.photo||selection(s)!.image}))]}/>}
         {checkout&&<Link href="/checkout" className={ui.checkout}>Continue to checkout <ArrowRight size={16}/></Link>}
       </div>
     </div>
