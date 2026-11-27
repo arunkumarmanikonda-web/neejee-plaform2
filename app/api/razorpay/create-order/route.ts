@@ -21,7 +21,8 @@ export async function POST(request: Request) {
 
     const { keyId, keySecret } = razorpayCredentials();
     if (!keyId || !keySecret) {
-      console.error('[razorpay.create-order] credentials not configured');
+      const missing = [!keyId && 'RAZORPAY_KEY_ID', !keySecret && 'RAZORPAY_KEY_SECRET'].filter(Boolean);
+      console.error('[razorpay.create-order] Missing payment configuration:', missing.join(', '));
       return NextResponse.json({ error: 'Payment service is temporarily unavailable' }, { status: 503 });
     }
     const rzp = new Razorpay({ key_id: keyId, key_secret: keySecret });
