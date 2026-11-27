@@ -16,7 +16,7 @@ const headers = {'Cache-Control':'private, no-store'};
 
 export async function GET(request: Request) {
   if (!recoveryAuthorized(request)) return NextResponse.json({error:'Unauthorized'},{status:401,headers});
-  const storeId=process.env.RECOVERY_STORE_ID, key=process.env.RECOVERY_ARCHIVE_KEY;
+  const storeId=process.env.RECOVERY_STORE_ID, key=readCredential(process.env.RECOVERY_ARCHIVE_KEY);
   const missing = [readCredential(process.env.VERCEL_ENV) !== 'production' && 'production target',
     !storeId && 'store connection', !key && 'encryption key'].filter(Boolean);
   if (missing.length) return NextResponse.json({verified:false,stage:'configuration',reason:missing.join(', ')},{status:503,headers});

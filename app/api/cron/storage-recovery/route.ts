@@ -28,7 +28,7 @@ export async function GET(req: Request) {
   if (!recoveryAuthorized(req))
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401, ...noStore });
   const storeId = process.env.RECOVERY_STORE_ID;
-  const key = process.env.RECOVERY_ARCHIVE_KEY;
+  const key = readCredential(process.env.RECOVERY_ARCHIVE_KEY);
   const serviceKey = readCredential(process.env.SUPABASE_SERVICE_ROLE_KEY);
   const { getStorageOrigin } = await import('@/lib/storage');
   const origin = getStorageOrigin();
