@@ -17,7 +17,7 @@ const edit = z.object({
   title: z.string().trim().min(1).max(240), slug: z.string().trim().min(1).max(240),
   status: z.enum(['DRAFT','PREVIEW','PUBLISHED','ARCHIVED']),
   config: z.object({brandName:shortText, includeFounderNotes:z.boolean(), includeClosingPage:z.boolean(),coverImage:shortText.nullable()}).partial(),
-  selection: z.object({productIds:z.array(z.string().max(240)).max(500), categorySlug:shortText.nullable(),categoryPath:shortText.nullable(),limit:z.number().int().positive().nullable()}).partial(),
+  selection: z.object({productIds:z.array(z.string().max(240)).max(500), categorySlug:shortText.nullable(),categoryPath:shortText.nullable(),limit:z.number().int().nonnegative().nullable()}).partial(),
   copy:copyFields,
 }).partial();
 
@@ -29,7 +29,7 @@ export async function GET(_req: Request, ctx: Context) {
 export async function PATCH(req: Request, ctx: Context) {
   if (!requireRole(await getSession(),editors)) return denied();
   const input = edit.safeParse(await req.json().catch(()=>null));
-  if (!input.success) return NextResponse.json({error:'Check the catalogue fields and try again.'},{status:400});
+  if (!input.success) return NextResponse.json({error:'Check the catalogue field: '+input.error.issues[0].path.join('.')},{status:400});
   const {id} = await ctx.params;
   try {
     const saved = await updateCatalogueProject(id,input.data);

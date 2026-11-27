@@ -38,6 +38,7 @@ function asBoolean(value: unknown, fallback = false): boolean {
 }
 
 function asNumber(value: unknown, fallback: number | null = null): number | null {
+  if (value == null || value === '') return fallback;
   const num = Number(value);
   return Number.isFinite(num) ? num : fallback;
 }

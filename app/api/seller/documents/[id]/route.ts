@@ -2,7 +2,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getSession } from '@/lib/auth';
-import { requireSellerContext } from '@/lib/seller-auth-helpers';
+import { canEditFinance,requireSellerContext } from '@/lib/seller-auth-helpers';
 import { prismaErrorToHttp } from '@/lib/prisma-errors';
 
 export const dynamic = 'force-dynamic';
@@ -14,6 +14,7 @@ export async function DELETE(_req: Request, props: { params: Promise<{ id: strin
   const gate = await requireSellerContext(session);
   if (!gate.ok) return NextResponse.json({ error: gate.error }, { status: gate.status });
 
+  if (!canEditFinance(gate.ctx)) return NextResponse.json({error:'Document access requires finance permissions.'},{status:403});
   try {
     const doc = await prisma.sellerDocument.findUnique({ where: { id: params.id } });
     if (!doc || doc.sellerId !== gate.ctx.seller.id) {

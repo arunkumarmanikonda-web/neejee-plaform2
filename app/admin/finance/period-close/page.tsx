@@ -24,6 +24,7 @@ export default function PeriodClosePage() {
   const [locks, setLocks] = useState<LockRow[]>([]);
   const [check, setCheck] = useState<any>(null);
   const [gstr, setGstr]   = useState<any>(null);
+  const [gstrError,setGstrError] = useState('');
   const [busy, setBusy]   = useState(false);
   const [err, setErr]     = useState('');
   const [msg, setMsg]     = useState('');
@@ -39,15 +40,22 @@ export default function PeriodClosePage() {
     } catch (e: any) { setErr(e.message); } finally { setBusy(false); }
   };
 
-  const loadGstr = async () => {
-    try {
-      const r = await fetch(`/api/admin/finance/gstr-3b?month=${selectedMonth}`);
-      const d = await r.json();
-      if (r.ok) setGstr(d);
-    } catch { /* ignore */ }
-  };
-
-  useEffect(() => { loadCheck(); loadGstr(); /* eslint-disable-next-line */ }, [selectedMonth]);
+  useEffect(() => { loadCheck(); /* eslint-disable-next-line */ }, [selectedMonth]);
+  useEffect(() => {
+    const controller=new AbortController();
+    setGstr(null);setGstrError('');
+    async function loadSummary() {
+      try {
+        const r=await fetch('/api/admin/finance/gstr-3b?month='+encodeURIComponent(selectedMonth),{signal:controller.signal});
+        if (!r.ok) throw Error('The tax summary could not load. Reload to try again.');
+        const result=await r.json();if(!controller.signal.aborted)setGstr(result);
+      } catch {
+        if(!controller.signal.aborted)setGstrError('The tax summary could not load. Reload to try again.');
+      }
+    }
+    void loadSummary();
+    return ()=>controller.abort();
+  },[selectedMonth]);
 
   const closePeriod = async (force = false) => {
     if (!confirm(`Lock ${selectedMonth}? After locking, no new entries can be posted to that month without an admin reopen.`)) return;
@@ -189,7 +197,7 @@ export default function PeriodClosePage() {
             </a>
           </div>
           {!gstr ? (
-            <p className="text-mitti text-sm">Loading…</p>
+            <p role="status" className="text-mitti text-sm">{gstrError || 'Loading…'}</p>
           ) : (
             <div className="text-sm">
               <table className="w-full">

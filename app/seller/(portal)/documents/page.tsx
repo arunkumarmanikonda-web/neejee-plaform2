@@ -50,22 +50,8 @@ export default function DocumentsPage() {
     try {
       const fd = new FormData();
       fd.append('file', file);
-      fd.append('folder', 'sellers/documents');
-      const uR = await fetch('/api/admin/upload', { method: 'POST', body: fd });
-      const uJ = await uR.json();
-      if (!uR.ok) throw new Error(uJ.error || 'Upload failed');
-      const file0 = uJ.files?.[0] || uJ;
-      const r = await fetch('/api/seller/documents', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          docType: pickedType,
-          fileName: file0.name || file.name,
-          fileUrl: file0.url,
-          fileSize: file0.size || file.size,
-          mimeType: file.type,
-        }),
-      });
+      fd.append('docType', pickedType);
+      const r = await fetch('/api/seller/documents', { method: 'POST', body: fd });
       const j = await r.json();
       if (!r.ok) throw new Error(j.error);
       setPickedType('');
@@ -116,7 +102,7 @@ export default function DocumentsPage() {
               ? <><Loader2 className="w-5 h-5 animate-spin inline mr-2" />Uploading…</>
               : <><Upload className="w-5 h-5 inline mr-2 text-banarasi" /><span className="text-sm">Drop file or click to browse</span></>
             }
-            <input ref={inputRef} type="file" hidden accept="image/*,application/pdf"
+            <input ref={inputRef} type="file" hidden accept="image/jpeg,image/png,image/webp,application/pdf"
               onChange={e => e.target.files?.[0] && upload(e.target.files[0])} />
           </div>
         </div>
