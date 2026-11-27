@@ -27,7 +27,9 @@ export function Pitari({ showLauncher = true }: { showLauncher?: boolean } = {})
     setPending(question);
     setInput('');
     try {
-      const res = await fetch('/api/pitari',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:question,piece:piece.current}),signal:AbortSignal.timeout(15000)});
+      const locationSlug=window.location.pathname.match(/^\/products\/([^/]+)\/?$/)?.[1];
+      const variant=locationSlug===piece.current ? new URLSearchParams(window.location.search).get('variant') : undefined;
+      const res = await fetch('/api/pitari',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:question,piece:piece.current,variant}),signal:AbortSignal.timeout(15000)});
       const answer: PitariReply = await res.json();
       if (typeof answer.text !== 'string' || !Array.isArray(answer.links)) throw Error();
       if (answer.piece) piece.current=answer.piece;
@@ -60,12 +62,12 @@ export function Pitari({ showLauncher = true }: { showLauncher?: boolean } = {})
           <div><h2 id="pitari-heading">Ask Sakhi</h2></div>
           <button autoFocus aria-label="Close shopping help" onClick={()=>dialog.current?.close()}><X size={22}/></button></header>
         <div className={styles.history} role="log" aria-live="polite" aria-relevant="additions text">
-          <p className={styles.welcome}>Looking for something in particular? Ask me about a piece, what comes with it, or when it can reach you.</p>
+          <p className={styles.welcome}>Tell me a colour, craft or budget. If you’ve chosen a piece, ask me about its fabric or how to style it.</p>
           {turns.map((t,i)=><div className={styles.turn} key={i}><b>{t.question}</b><p>{t.answer.text}</p>
             {t.answer.links.map(link=><Link key={link.href} href={link.href} onClick={()=>dialog.current?.close()}>{link.label}</Link>)}</div>)}
           {pending && <div className={styles.turn}><b>{pending}</b><p>Checking the shop…</p></div>}<div ref={end}/>
         </div>
-        <Link href="/help/contact" className="px-4 py-2 underline font-ui text-sm">Contact the Neejee team</Link>
+        <Link href="/help/contact" className={styles.contact}>Contact the Neejee team</Link>
         <div className={styles.prompts}>{(activeProduct ? ["What comes with this piece?", "Where is it from?", "How do I care for it?"] : pitariTopics).map(q=><button key={q} disabled={!!pending} onClick={()=>void ask(q)}>{q}</button>)}</div>
         <form onSubmit={e=>{e.preventDefault();void ask(input);}}>
           <input aria-label="Your shopping question" placeholder="Ask about a piece…" maxLength={320} value={input} onChange={e=>setInput(e.target.value)}/>

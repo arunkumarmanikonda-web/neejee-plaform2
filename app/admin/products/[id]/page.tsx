@@ -11,6 +11,7 @@ import { Trash2, Plus, Save, Archive } from 'lucide-react';
 
 const STATUSES = ['DRAFT', 'PENDING_QC', 'ACTIVE', 'ARCHIVED', 'REJECTED'];
 import { AiCopyButton } from '@/components/admin/AiCopyButton';
+import { ProductIntakeStatus } from '@/components/admin/ProductIntakeStatus';
 import AiPhotoStudio from '@/components/admin/AiPhotoStudio';
 import VariantImageManager from '@/components/admin/VariantImageManager';
 import AiDraftAllButton from '@/components/admin/AiDraftAllButton';
@@ -353,6 +354,7 @@ export default function AdminProductEdit() {
         </div>
       </div>
       <div className="madder-divider mt-4"></div>
+      {product.id.startsWith('njp_') && <ProductIntakeStatus productId={product.id} openStudio={()=>setTab('IMAGES')} />}
 
       {error && <p className="mt-4 font-ui text-sm text-madder bg-madder/10 p-3">{error}</p>}
       {success && <p className="mt-4 font-ui text-sm text-neem bg-neem/10 p-3">{success}</p>}

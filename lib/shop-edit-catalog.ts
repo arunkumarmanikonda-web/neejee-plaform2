@@ -8,7 +8,7 @@ import { type Edit } from '@/lib/shop-edits';
 export function editProductWhere(edit:Edit):Prisma.ProductWhereInput {
   return {
     status:'ACTIVE', takedownAt:null, catalogueExclude:false, catalogueImageApproved:true,
-    catalogueStockVisibility:{in:['IN_STOCK_ONLY','HIDE_STOCK','SHOW_ALL']},
+    catalogueStockVisibility:{in:['IN_STOCK_ONLY','LOW_STOCK_BADGE','HIDE_STOCK','SHOW_ALL','SHOW_EXACT']},
     sellingPrice:{gt:0}, variants:{some:{inventory:{gt:0}}},
     OR:[{cataloguePreferredImage:{not:''}},{images:{isEmpty:false}},{variants:{some:{inventory:{gt:0},images:{isEmpty:false}}}}],
     category:{active:true,hidden:false,OR:[

@@ -12,9 +12,8 @@ import { BagPairing, useBagSarees } from '@/components/shop/BagPairing';
 import { useClientReady } from '@/lib/use-client-ready';
 import { useCart } from '@/lib/cart-store';
 import { formatINR } from '@/lib/money';
-import { Plus, Minus, X, Gift, Truck, Tag } from 'lucide-react';
+import { Plus, Minus, X, Gift, Tag } from 'lucide-react';
 
-const FREE_SHIPPING_THRESHOLD_PAISE = 250000;
 
 export const dynamic = 'force-dynamic';
 
@@ -42,12 +41,8 @@ function ShopBag({sampleCount}: {sampleCount: number}) {
   const sarees=useBagSarees(ready?items.map(i=>i.productId):[]);
   const sub = itemsSubtotal();
   const wrap = giftWrapPaise();
-  const couponApplied = couponCode && couponDiscount > 0;
+  const couponApplied = !!couponCode;
   const grand = total();
-
-  const progressPct = Math.min(100, (sub / FREE_SHIPPING_THRESHOLD_PAISE) * 100);
-  const shippingFree = sub >= FREE_SHIPPING_THRESHOLD_PAISE;
-  const remaining = Math.max(0, FREE_SHIPPING_THRESHOLD_PAISE - sub);
 
   const tryApplyCoupon = async () => {
     setCouponMsg('');
@@ -61,7 +56,7 @@ function ShopBag({sampleCount}: {sampleCount: number}) {
       const d = await res.json();
       if (!res.ok) throw new Error(d.error || 'Invalid coupon');
       applyCoupon(d.code, d.discountPaise);
-      setCouponMsg(`✓ ${d.code} applied — ${formatINR(d.discountPaise)} off`);
+      setCouponMsg(d.freeShipping ? `✓ ${d.code} applied for free shipping` : `✓ ${d.code} applied · ${formatINR(d.discountPaise)} off`);
       setCouponInput('');
     } catch (e: any) {
       setCouponMsg('✗ ' + e.message);
@@ -97,26 +92,12 @@ function ShopBag({sampleCount}: {sampleCount: number}) {
       <section className="max-w-8xl mx-auto px-6 lg:px-12 py-10">
         <HouseHeading title="Your bag" stage="The pieces you chose"/>
         <p className="font-italic italic text-mitti mt-2">{items.length} piece{items.length > 1 ? 's' : ''} · {items.reduce((s, i) => s + i.quantity, 0)} item{items.reduce((s, i) => s + i.quantity, 0) > 1 ? 's' : ''}</p>
-        <Link href="/checkout" className="nj-mobile-checkout">Checkout · {formatINR(grand)}</Link>
+        <Link href="/checkout" className="nj-mobile-checkout">Continue to checkout</Link>
         {sampleCount > 0 && <Link href="/cart?bag=sample" className="nj-text-link">View sample pieces ({sampleCount})</Link>}
         <div className="madder-divider mt-4"></div>
 
         <div className="grid lg:grid-cols-[1fr_400px] gap-10 mt-10">
           <div>
-            <div className="bg-beige p-5 mb-6">
-              <div className="flex items-center gap-3">
-                <Truck className="w-5 h-5 text-madder" />
-                {shippingFree ? (
-                  <p className="font-italic italic text-kohl text-sm">✓ You&apos;ve unlocked free shipping.</p>
-                ) : (
-                  <p className="font-italic italic text-kohl text-sm">Add <strong>{formatINR(remaining)}</strong> more for free shipping.</p>
-                )}
-              </div>
-              <div className="mt-3 h-1 bg-ivory rounded-full overflow-hidden">
-                <div className="h-full bg-madder transition-all" style={{ width: `${progressPct}%` }} />
-              </div>
-            </div>
-
             <div className="space-y-6">
               {items.map(item => (
                 <div key={`${item.productId}-${item.variantId || ''}`} className="grid grid-cols-[100px_1fr_auto] gap-4 pb-6 border-b border-mitti/15">
@@ -186,12 +167,12 @@ function ShopBag({sampleCount}: {sampleCount: number}) {
               <div className="space-y-2 font-ui text-sm">
                 <Row label="Subtotal" value={formatINR(sub)} />
                 {wrap > 0 && <Row label="Sandook gift wrap" value={formatINR(wrap)} />}
-                {couponApplied && <Row label={`Coupon · ${couponCode}`} value={`- ${formatINR(couponDiscount)}`} color="text-neem" />}
-                <Row label="Shipping" value={shippingFree ? 'Free' : 'Calculated at checkout'} />
+                {couponApplied && couponDiscount > 0 && <Row label={`Coupon · ${couponCode}`} value={`- ${formatINR(couponDiscount)}`} color="text-neem" />}
+                <Row label="Shipping" value="Calculated for your pincode at checkout" />
                 <Row label="GST" value="Inclusive" small />
               </div>
               <div className="border-t border-mitti/20 mt-4 pt-4 flex items-baseline justify-between">
-                <span className="font-display text-lg">Total</span>
+                <span className="font-display text-lg">Total before delivery</span>
                 <span className="font-display text-2xl text-kohl">{formatINR(grand)}</span>
               </div>
 

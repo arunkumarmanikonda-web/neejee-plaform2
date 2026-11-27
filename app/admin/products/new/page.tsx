@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { PriceInput } from '@/components/admin/PriceInput';
@@ -22,6 +22,8 @@ export default function AdminNewProduct() {
   const router = useRouter();
   const [categories, setCategories] = useState<any[]>([]);
   const [categoryPick, setCategoryPick] = useState<CategoryPickerValue>(null);
+  const requestKey = useRef('');
+  const [generatePhotos, setGeneratePhotos] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [skuEditable, setSkuEditable] = useState(false);
@@ -166,6 +168,8 @@ export default function AdminNewProduct() {
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (saving) return;
+    if (!requestKey.current) requestKey.current = crypto.randomUUID();
     setSaving(true);
     setError('');
 
@@ -173,7 +177,7 @@ export default function AdminNewProduct() {
       const res = await fetch('/api/admin/products', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(brief),
+        body: JSON.stringify({...brief, creationKey:requestKey.current, generateCreatives:generatePhotos && form.images.length > 0}),
       });
 
       const data = await res.json();
@@ -221,10 +225,10 @@ export default function AdminNewProduct() {
             <p className="label text-madder mb-4">BASIC INFO</p>
 
             <Field
-              label="Working name or shop title"
+              label="Working name or shop title (optional)"
               value={form.name}
               onChange={(v: string) => setForm((f: any) => ({ ...f, name: v }))}
-              required
+              help="Leave blank to generate a title from the category and recorded piece details."
             />
 
             <div className="mb-4">
@@ -428,8 +432,12 @@ export default function AdminNewProduct() {
               max={10}
             />
             <p className="font-ui text-[11px] text-mitti mt-2">
-              First uploaded image is used as the default catalogue preferred image unless you override it below.
+              The first photo is the default catalogue image.
             </p>
+            <label className="flex items-start gap-2 mt-4 text-sm">
+              <input type="checkbox" checked={generatePhotos} onChange={e=>setGeneratePhotos(e.target.checked)} />
+              <span>Generate two styled photo options from these originals when I create the product.</span>
+            </label>
           </div>
         </div>
 

@@ -1,3 +1,6 @@
+import { creationProductId, intakeJobId, intakeReferences } from '@/lib/catalog/creation-intake';
+import { storagePathFromPublicUrl } from '@/lib/storage';
+import { detectStrategy } from '@/lib/ai-photo-studio/category-strategies';
 import { authorNewProduct, saveCreationFacts } from '@/lib/catalog/narrative-service';
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
@@ -386,8 +389,18 @@ export async function POST(request: Request) {
   try {
     const body = await request.json();
 
-    if (!normalizeText(body.name)) {
-      return NextResponse.json({ error: 'Missing field: name' }, { status: 400 });
+    const productId = user && creationProductId(user.id, body.creationKey);
+    if (body.creationKey !== undefined && !productId) return NextResponse.json({error:'Invalid creation key.'},{status:400});
+    const replay = async () => {
+      if (!productId) return null;
+      const product = await prisma.product.findUnique({where:{id:productId}});
+      return product ? NextResponse.json({success:true,product}) : null;
+    };
+    const previous = await replay();
+    if (previous) return previous;
+    const refs = body.generateCreatives === true ? intakeReferences(body.images, storagePathFromPublicUrl) : [];
+    if (body.generateCreatives === true && (!productId || !refs.length)) {
+      return NextResponse.json({error:'Attach a product photograph from the console to generate creative options.'},{status:400});
     }
 
     if (body.mrp === undefined || body.mrp === null || body.mrp === '') {
@@ -413,6 +426,7 @@ export async function POST(request: Request) {
     }
 
     const {draft} = await authorNewProduct(body);
+    if (!normalizeText(draft.name)) return NextResponse.json({error:'Add a working name for this product type so its listing has a title.'},{status:400});
     Object.assign(body,draft);
     let slug = await buildUniqueSlug(String(body.name), body.slug);
     let sku = await buildSku(body);
@@ -425,13 +439,24 @@ export async function POST(request: Request) {
       try {
         const data: any = buildCreateData(body, slug, sku);
         createdProduct = await prisma.$transaction(async tx=>{
-          const item=await tx.product.create({data});
+          const item=await tx.product.create({data: productId ? {...data,id:productId} : data});
+          if (refs.length && user) {
+            const category=await tx.category.findUnique({where:{id:item.categoryId},select:{name:true,slug:true,path:true}});
+            const strategy=detectStrategy({categoryName:[category?.name,category?.path].filter(Boolean).join(' '),categorySlug:category?.slug,
+              productName:item.name,craft:item.craft});
+            await tx.aiPhotoJob.create({data:{id:intakeJobId(item.id),productId:item.id,sourceImageUrls:refs,categorySlug:category?.slug,
+              strategy,requestedByUserId:user.id,status:'QUEUED',variantCount:2,modelArchetype:'mixed',stylePreset:'editorial'}});
+          }
           await saveCreationFacts(tx,item.id,body.pieceFacts);
           return item;
         });
         break;
       } catch (error: any) {
         lastError = error;
+        if (productId && error?.code === 'P2002') {
+          const existing = await replay();
+          if (existing) return existing;
+        }
 
         const target = error?.meta?.target;
         const targetText = Array.isArray(target) ? target.join(',') : String(target || '');

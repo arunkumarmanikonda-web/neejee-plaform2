@@ -43,8 +43,8 @@ export async function GET(request: Request) {
         AND: [
           {
             OR: [
-              { catalogueStockVisibility: { in: ['SHOW_ALL', 'HIDE_STOCK'] } },
-              { catalogueStockVisibility: 'IN_STOCK_ONLY', variants: { some: { inventory: { gt: 0 } } } },
+              { catalogueStockVisibility: { in: ['SHOW_ALL', 'SHOW_EXACT', 'HIDE_STOCK'] } },
+              { catalogueStockVisibility: { in: ['IN_STOCK_ONLY', 'LOW_STOCK_BADGE'] }, variants: { some: { inventory: { gt: 0 } } } },
             ],
           },
           {

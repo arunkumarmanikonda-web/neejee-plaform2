@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { getStyleAccessories } from '@/lib/style-accessories';
-import { allAccessoriesPresent, getEditorialPiece, readStyling } from '@/lib/stylebook';
+import { allAccessoriesPresent, getEditorialPiece, readStyling, stockStyling } from '@/lib/stylebook';
 import { homeSlots } from '@/lib/outfit-closet';
 import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
@@ -20,7 +20,8 @@ export async function StudioPage({mode,query}:{mode:StudioMode;query:StudioQuery
   const page=Number.parseInt(query.page||'1',10);
   const shelf=await studioShelf(mode,Number.isFinite(page)?page:1);
   const selectedKey=typeof query.product==='string'?query.product.slice(0,200):'';
-  const styling=mirror ? readStyling(query) : null;
+  const requestedStyle=mirror ? readStyling(query) : null;
+  const styling=selectedKey && requestedStyle ? stockStyling(requestedStyle) : requestedStyle;
   const study=styling && !selectedKey ? getEditorialPiece(styling) : null;
   const selected=study || (selectedKey ? shelf.pieces.find(p=>p.id===selectedKey||p.slug===selectedKey) || await findStudioPiece(mode,selectedKey) : null);
   const accessories=styling?await getStyleAccessories([styling.shoe,styling.jewel,styling.blouse||'none'],true):[];

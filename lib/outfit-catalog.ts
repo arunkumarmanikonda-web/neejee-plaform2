@@ -1,3 +1,4 @@
+import { fittingReferences } from './ai/fitting-references';
 import type { Prisma } from '@prisma/client';
 import { unstable_cache } from 'next/cache';
 import { prisma } from '@/lib/prisma';
@@ -17,11 +18,11 @@ async function garmentFor(key:string, variant:string, study:boolean):Promise<Gar
     return {id:'look-'+s.id,name:s.name,image:s.image,slug:s.id,study:s.id,variant:'study-'+s.id,mirror:true,description:s.detail,colour:s.shade,hex:s.swatch,occasion:editorialLooks.find(x=>x.id===s.id)?.occasion};
   }
   const p=await prisma.product.findFirst({where:{AND:[sareeWhere,{id:key}]},select:{id:true,slug:true,name:true,poeticLine:true,description:true,technique:true,material:true,region:true,craft:true,occasion:true,
-    aiTryOnEligible:true,images:true,cataloguePreferredImage:true,variants:{where:{inventory:{gt:0}},select:{id:true,color:true,colorHex:true,images:true,material:true}}}});
+    aiTryOnEligible:true,images:true,cataloguePreferredImage:true,_count:{select:{variants:true}},variants:{where:{inventory:{gt:0}},select:{id:true,color:true,colorHex:true,images:true,material:true}}}});
   if(!p) return null;
   const v=variant?p.variants.find(x=>x.id===variant):p.variants.length===1?p.variants[0]:null;
   if(!v) return null;
-  const image=v.images[0]||(new Set(p.variants.map(x=>x.color)).size<=1 ? p.cataloguePreferredImage||p.images[0] : '');
+  const image=fittingReferences(v.images,p.images,p.cataloguePreferredImage,p._count.variants).primary;
   return {id:p.id,name:p.name,slug:p.slug,variant:v.id,mirror:!!image&&p.aiTryOnEligible,image:image||'',colour:v.color,hex:v.colorHex,description:[p.poeticLine,p.description].filter(Boolean).join(' ').slice(0,500),
     material:v.material||p.material,craft:p.craft,region:p.region,technique:p.technique,occasion:p.occasion};
 }

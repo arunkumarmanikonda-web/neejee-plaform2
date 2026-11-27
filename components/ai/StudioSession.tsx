@@ -20,6 +20,8 @@ export function StudioSession({mode,piece,initialVariant,signedIn,configured,sty
   const mirror=mode==='mirror';
   const router=useRouter();
   const variant=piece.variants.find(v=>v.id===initialVariant) || (piece.variants.length===1?piece.variants[0]:undefined);
+  const missingVariantPhoto = mirror && !!variant && !variant.image;
+  const displayedImage = missingVariantPhoto ? null : variant?.image || piece.image;
   const fittingLink=(id?:string)=>styling ? lookUrl('/ai/mirror',styling,editorial?undefined:piece.slug,editorial?undefined:id) : studioHref(mode,piece.slug,id);
   const bagUrl=fromBag==='sample'?'/cart?bag=sample':'/cart';
   const bagQuery=fromBag?'&fromBag='+fromBag+(ownSlots.length?'&own='+ownSlots.join(','):''):'';
@@ -56,7 +58,7 @@ export function StudioSession({mode,piece,initialVariant,signedIn,configured,sty
     cachedPhoto.current='';setError('');setFile(next);setConsent(false);
   }
   async function generate() {
-    if (!file || !variant || !consent || pending.current || !signedIn || !configured || missing) return;
+    if (!file || !variant || missingVariantPhoto || !consent || pending.current || !signedIn || !configured || missing) return;
     pending.current=true;
     const abort=new AbortController();
     controller.current=abort;
@@ -90,7 +92,7 @@ export function StudioSession({mode,piece,initialVariant,signedIn,configured,sty
   }
   return <div className={styles.workspace}>
     <aside className={styles.piece}>
-      <img src={variant?.image || piece.image} alt={piece.name}/>
+      {displayedImage && <img src={displayedImage} alt={piece.name}/>}
       <div><p className={styles.eyebrow}>Your selection</p><h2>{piece.name}</h2><p>{editorial?'Editorial styling study':formatINR(piece.sellingPrice)}</p>
         {styling&&<div className={styles.selectedAcc}>{selectedAccessories(styling,accessories).map(a=><figure key={a.id}><img src={a.image} alt=""/><figcaption>{a.name}</figcaption></figure>)}</div>}
         {ownSlots.length>0&&<div className={styles.selectedAcc}>{ownSlots.map(slot=>personal[slot]?<figure key={slot}><img src={personal[slot]} alt={'Your own '+slotNames[slot]}/><figcaption>Your {slotNames[slot].toLowerCase()}</figcaption></figure>:null)}</div>}
@@ -111,7 +113,7 @@ export function StudioSession({mode,piece,initialVariant,signedIn,configured,sty
           <select value={initialVariant} disabled={!!status} onChange={e=>router.replace(fittingLink(e.target.value),{scroll:false})}>
             <option value="">Choose an option</option>{piece.variants.map((v,i)=><option key={v.id} value={v.id}>{[v.color,v.size].filter(Boolean).join(' / ') || 'Option '+(i+1)}</option>)}</select></label>}
         {missing && <p className={styles.notice}>Re-select your personal item photo in this tab. <Link href={bagUrl}>Return to my bag</Link></p>}
-        {!configured ? <p className={styles.notice}>{process.env.NEXT_PUBLIC_VERCEL_ENV==='preview'?'Personal photo rendering is off in this review.':'Personal photo rendering is temporarily unavailable.'} <Link href={fromBag?bagUrl:editing||'/products/'+piece.slug}>{fromBag?'Back to my bag':editorial?'Back to my look':'View the piece'}</Link></p> :
+        {missingVariantPhoto ? <p className={styles.notice}>A fitting photograph for this colour or size is not available yet. <Link href={fromBag?bagUrl:'/products/'+piece.slug}>{fromBag?'Back to my bag':'View the piece'}</Link></p> : !configured ? <p className={styles.notice}>{process.env.NEXT_PUBLIC_VERCEL_ENV==='preview'?'Personal photo rendering is off in this review.':'Personal photo rendering is temporarily unavailable.'} <Link href={fromBag?bagUrl:editing||'/products/'+piece.slug}>{fromBag?'Back to my bag':editorial?'Back to my look':'View the piece'}</Link></p> :
           !signedIn ? <><p className={styles.note}>Sign in to add your photo. We’ll keep this piece selected.</p>
             <Link className={styles.primary} href={'/login?next='+encodeURIComponent(back)}>Sign in to add a photo</Link></> :
             <><label className={styles.field}>{file?'Change your photo':'Choose a photo'}<input disabled={!!status} type="file" accept="image/jpeg,image/png,image/webp" onChange={e=>selectPhoto(e.target.files?.[0])}/></label>
@@ -123,7 +125,7 @@ export function StudioSession({mode,piece,initialVariant,signedIn,configured,sty
               {error && <p role="alert" className={styles.notice}>{error}</p>}</>}
       </>}
       {mirror && !configured && !fromBag && <SampleFitting/>}
-      {!fromBag && <PhotoPair productImage={variant?.image || piece.image} name={piece.name} wearable={mirror}/>}
+      {!fromBag && displayedImage && <PhotoPair productImage={displayedImage} name={piece.name} wearable={mirror}/>}
     </section>
   </div>;
 }

@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
 import { Bookmark, Check, Maximize2, Play, Sparkles, X } from 'lucide-react';
-import { allAccessoriesPresent, defaultStyling, editorialLooks, editorialOptions, lookUrl, type Slot,type StyleOption, type Styling } from '@/lib/stylebook';
+import { allAccessoriesPresent, defaultStyling, editorialLooks, editorialOptions, lookUrl, stockStyling, type Slot,type StyleOption, type Styling } from '@/lib/stylebook';
 import type { CounterCloth } from '@/lib/counter';
 import styles from './Lookbook.module.css';
 
@@ -31,13 +31,14 @@ export function Lookbook({initial,personalMirror,items=[],accessories=[],product
   const name=garment?.name||look.name;
   const suppliedFilm=garment?.video && (/^https?:\/\//.test(garment.video) || /^\/(?!\/)/.test(garment.video)) ? garment.video:undefined;
   const film=garment?suppliedFilm:(look.id==='sage'?'/brand/lookbook/sage-drape.mp4':undefined);
-  const options=[...accessories,...editorialOptions];
+  const options=garment ? accessories : [...accessories,...editorialOptions];
+  const fittingChoice = garment ? stockStyling(choice) : choice;
   const shoe=options.find(item=>item.id===choice.shoe && item.slot==='shoe');
   const blouse=options.find(item=>item.id===choice.blouse && item.slot==='blouse');
   const jewel=options.find(item=>item.id===choice.jewel && item.slot==='jewel');
-  const allPresent=allAccessoriesPresent(choice,accessories);
-  const address=lookUrl('/looks',choice,garment?.slug,garment?.id.slice(2));
-  const mirror=lookUrl('/ai/mirror',choice,garment?.slug,garment?.id.slice(2));
+  const allPresent=allAccessoriesPresent(fittingChoice,accessories);
+  const address=lookUrl('/looks',fittingChoice,garment?.slug,garment?.id.slice(2));
+  const mirror=lookUrl('/ai/mirror',fittingChoice,garment?.slug,garment?.id.slice(2));
   useEffect(()=>{
     try {const prior=localStorage.getItem(savedKey);if(prior?.startsWith('/looks?'))setRestore(prior);}catch{}
   },[]);
@@ -99,8 +100,8 @@ export function Lookbook({initial,personalMirror,items=[],accessories=[],product
       <div className={styles.trayLayout}><div>
         <div className={styles.tabs} role="group" aria-label="Choose accessory type"><button aria-pressed={picking==='blouse'} onClick={()=>setPicking('blouse')}>Blouses</button><button aria-pressed={picking==='shoe'} onClick={()=>setPicking('shoe')}>Juttis</button><button aria-pressed={picking==='jewel'} onClick={()=>setPicking('jewel')}>Jewellery</button></div>
         <div className={styles.options}>{options.filter(item=>item.slot===picking).map(item=><button key={item.id} onClick={()=>changeAccessory(item.id)} aria-pressed={choice[picking]===item.id}><span><img src={item.image} alt="" loading="lazy"/>{choice[picking]===item.id&&<b><Check size={15}/></b>}</span>{item.name}{item.price&&<small className={styles.optionPrice}>{item.price}</small>}</button>)}</div>
-        <button className={styles.skip} aria-pressed={choice[picking]==='none'} onClick={()=>changeAccessory('none')}>Leave out {picking==='blouse'?'the blouse':picking==='shoe'?'the juttis':'the jewellery'}</button>
-        {(custom.current.blouse||custom.current.shoe||custom.current.jewel)&&<button className={styles.reset} onClick={useSuggestedPair}>Restore suggested pairing</button>}
+        <button className={styles.skip} aria-pressed={fittingChoice[picking]==='none'} onClick={()=>changeAccessory('none')}>Leave out {picking==='blouse'?'the blouse':picking==='shoe'?'the juttis':'the jewellery'}</button>
+        {!garment&&(custom.current.blouse||custom.current.shoe||custom.current.jewel)&&<button className={styles.reset} onClick={useSuggestedPair}>Restore suggested pairing</button>}
       </div><aside className={styles.summary}><div className={styles.composition} aria-label="Your outfit laid out together">
           <img className={styles.garmentThumb} src={image} alt={name} loading="lazy"/>
           {[shoe,jewel].map((item,i)=>item?<img key={item.id} src={item.image} alt={item.name} loading="lazy"/>:<span key={i}>{i?'No jewellery selected':'No jutti selected'}</span>)}

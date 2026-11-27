@@ -38,6 +38,12 @@ export function readStyling(value:unknown): Styling | null {
   if(blouse!==undefined && blouse!=='none' && !isAccessorySku(blouse) && !blouses.some(b=>b.id===blouse)) return null;
   return {look:look!,shoe:shoe!,jewel:jewel!,...(blouse?{blouse}:{})};
 }
+/** Editorial sample ids are useful for a study. A shop SKU can use only stock ids or the customer's own items. */
+export function stockStyling(style: Styling): Styling {
+  return {...style, shoe:isAccessorySku(style.shoe) ? style.shoe : 'none',
+    jewel:isAccessorySku(style.jewel) ? style.jewel : 'none',
+    ...(style.blouse ? {blouse:isAccessorySku(style.blouse) ? style.blouse : 'none'} : {})};
+}
 export function defaultStyling(id?:string):Styling {
   const look=editorialLooks.find(item=>item.id===id)||editorialLooks[0];
   return {look:look.id,shoe:look.shoe,jewel:look.jewel};

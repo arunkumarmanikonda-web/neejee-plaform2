@@ -19,12 +19,12 @@ const merch:Prisma.ProductWhereInput = {status:'ACTIVE',takedownAt:null,catalogu
 const select = {id:true,images:true,color:true,colorHex:true,material:true,size:true,sellingPrice:true,product:{select:{
   id:true,slug:true,name:true,craft:true,region:true,occasion:true,material:true,technique:true,poeticLine:true,images:true,cataloguePreferredImage:true,
   category:{select:{slug:true,path:true}},mrp:true,sellingPrice:true,salePrice:true,saleStartsAt:true,saleEndsAt:true,
-  variants:{select:{color:true},where:{inventory:{gt:0}}},
+  _count:{select:{variants:true}},
 }}} satisfies Prisma.VariantSelect;
 type Row = Prisma.VariantGetPayload<{select:typeof select}>;
 function option(v:Row):StyleOption[] {
   const p=v.product;
-  const image=v.images.find(Boolean)||(new Set(p.variants.map(x=>x.color)).size<=1?(p.cataloguePreferredImage||p.images.find(Boolean)):undefined);
+  const image=v.images.find(Boolean)||(p._count.variants===1?(p.cataloguePreferredImage||p.images.find(Boolean)):undefined);
   const price=v.sellingPrice??buildPricing(p).effectivePrice;
   if(!image||price<=0) return [];
   const path=[p.category.path,p.category.slug].join(' ').toLowerCase();

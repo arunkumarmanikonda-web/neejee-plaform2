@@ -57,7 +57,7 @@ export async function POST(request: Request) {
         throw error;
       }
 
-      const totalPaise = Number(data?.pricing?.total || snapshot.subtotal);
+      const totalPaise = Number(data?.pricing?.total ?? snapshot.subtotal);
       if (!Number.isInteger(totalPaise) || totalPaise <= 0) {
         return NextResponse.json({ error: 'Invalid cart total' }, { status: 400 });
       }
@@ -81,13 +81,16 @@ export async function POST(request: Request) {
         notes: { snapshotId: snapshot.id, email: snapshot.email },
       });
 
-      await prisma.abandonedCart.update({
-        where: { id: snapshot.id },
+      const claim = await prisma.abandonedCart.updateMany({
+        where: { id: snapshot.id, razorpayOrderId:null, recoveredOrderId:null },
         data: { razorpayOrderId: rzpOrder.id } as any,
       });
 
+      const linked = claim.count ? rzpOrder.id : (await prisma.abandonedCart.findUnique({where:{id:snapshot.id},select:{razorpayOrderId:true,recoveredOrderId:true}}));
+      const linkedId = typeof linked==='string' ? linked : (linked?.recoveredOrderId ? null : linked?.razorpayOrderId);
+      if (!linkedId) return NextResponse.json({error:'Checkout already changed. Reload the order status.'},{status:409});
       return NextResponse.json({
-        razorpayOrderId: rzpOrder.id,
+        razorpayOrderId: linkedId,
         amount: rzpOrder.amount,
         currency: rzpOrder.currency,
         keyId,
@@ -99,7 +102,7 @@ export async function POST(request: Request) {
     if (orderNumber) {
       const order = await prisma.order.findUnique({ where: { orderNumber } });
       if (!order) return NextResponse.json({ error: 'Order not found' }, { status: 404 });
-      if (order.paymentStatus === 'PAID') return NextResponse.json({ error: 'Already paid' }, { status: 409 });
+      if (['PAID','REFUNDED','PARTIALLY_REFUNDED'].includes(order.paymentStatus) || ['CANCELLED','CANCELLED_BUG','REFUNDED','RETURNED'].includes(order.status)) return NextResponse.json({ error: 'Already paid' }, { status: 409 });
 
       if (order.razorpayOrderId) {
         return NextResponse.json({
@@ -119,13 +122,16 @@ export async function POST(request: Request) {
         notes: { neejeeOrderId: order.id, orderNumber: order.orderNumber },
       });
 
-      await prisma.order.update({
-        where: { id: order.id },
+      const claim = await prisma.order.updateMany({
+        where: { id: order.id, razorpayOrderId:null, paymentStatus:{in:['PENDING','FAILED']} },
         data: { razorpayOrderId: rzpOrder.id },
       });
 
+      const linked = claim.count ? rzpOrder.id : (await prisma.order.findUnique({where:{id:order.id},select:{razorpayOrderId:true,paymentStatus:true}}));
+      const linkedId = typeof linked==='string' ? linked : (linked && ['PENDING','FAILED'].includes(linked.paymentStatus) ? linked.razorpayOrderId : null);
+      if (!linkedId) return NextResponse.json({error:'Order already changed. Reload the order status.'},{status:409});
       return NextResponse.json({
-        razorpayOrderId: rzpOrder.id,
+        razorpayOrderId: linkedId,
         amount: rzpOrder.amount,
         currency: rzpOrder.currency,
         keyId,

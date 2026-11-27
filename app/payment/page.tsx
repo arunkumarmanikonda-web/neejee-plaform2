@@ -96,7 +96,9 @@ function PaymentInner() {
   const finalizePayment = async (verifyBody: VerifyBody, automaticAttempts = 2) => {
     setPendingVerification(verifyBody);
     setTerminalState('finalizing');
-    setStatusMessage('Payment received. Confirming your order…');
+    const receiptKey = 'neejee_payment_receipt_' + (verifyBody.snapshotId || verifyBody.orderNumber);
+    try { sessionStorage.setItem(receiptKey,JSON.stringify(verifyBody)); } catch {}
+    setStatusMessage('Checking the payment with Razorpay…');
     setError('');
 
     for (let attempt = 0; attempt <= automaticAttempts; attempt++) {
@@ -108,7 +110,19 @@ function PaymentInner() {
         });
         const data = await response.json().catch(() => ({}));
 
-        if (response.ok) {
+        if (data?.code === 'PAYMENT_CAPTURE_PENDING') {
+          if (attempt < automaticAttempts) {
+            setStatusMessage('Waiting for Razorpay to confirm capture…');
+            await new Promise(resolve => setTimeout(resolve, 1600 * (attempt+1)));
+            continue;
+          }
+          setTerminalState('finalizing');
+          setStatusMessage('Your bank has responded. Check confirmation again here. Please make only one payment.');
+          setLoading(false);
+          return;
+        }
+        if (response.ok && data.success === true) {
+          try { sessionStorage.removeItem(receiptKey); } catch {}
           try { clear(); } catch {}
           try { sessionStorage.removeItem('neejee_checkout_snapshot'); } catch {}
           const newOrderNumber = data?.order?.orderNumber || orderNumber;
@@ -166,6 +180,24 @@ function PaymentInner() {
       }
     }
   };
+
+  useEffect(() => {
+    const checkoutKey = snapshotId || orderNumber;
+    if (!checkoutKey || captured.current) return;
+    try {
+      const raw=sessionStorage.getItem('neejee_payment_receipt_'+checkoutKey);
+      if (!raw) return;
+      const receipt=JSON.parse(raw);
+      if (!receipt.razorpay_order_id || !receipt.razorpay_payment_id || !receipt.razorpay_signature ||
+          (snapshotId ? receipt.snapshotId!==snapshotId : receipt.orderNumber!==orderNumber)) return;
+      captured.current=true;
+      setPaymentCaptured(true);
+      setLoading(true);
+      void finalizePayment(receipt);
+    } catch {}
+    // A Razorpay callback is resumed once for its original snapshot.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  },[snapshotId,orderNumber]);
 
   const startPayment = async () => {
     if (captured.current || opening.current || !info) return;
@@ -268,7 +300,7 @@ function PaymentInner() {
             <div className="flex items-start gap-3">
               {terminalState === 'finalizing' ? <ShieldCheck className="w-5 h-5 text-madder mt-0.5" /> : <Check className="w-5 h-5 text-neem mt-0.5" />}
               <div>
-                <p className="font-display text-lg text-kohl">{paymentCaptured ? 'Payment received.' : 'Payment status'}</p>
+                <p className="font-display text-lg text-kohl">Payment status</p>
                 <p className="font-ui text-sm text-mitti mt-1">{statusMessage}</p>
               </div>
             </div>

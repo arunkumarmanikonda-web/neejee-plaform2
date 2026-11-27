@@ -28,6 +28,14 @@
     {
       "path": "/api/cron/store-keeper",
       "schedule": "27 * * * *"
+    },
+    {
+      "path": "/api/cron/catalogue-photos",
+      "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/cron/notification-retries",
+      "schedule": "*/10 * * * *"
     }
   ]
 }

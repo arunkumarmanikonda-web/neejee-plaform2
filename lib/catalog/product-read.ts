@@ -829,6 +829,7 @@ function buildIdentity(source: UnknownRecord): ProductReadIdentity {
     active: asBoolean(source.active) ?? asBoolean(source.enabled) ?? true,
     enabled: asBoolean(source.enabled) ?? asBoolean(source.active) ?? true,
     published: asBoolean(source.published) ?? true,
+    description: pickDescription(source),
   };
 }
 
@@ -857,6 +858,9 @@ function buildCategory(
     null;
 
   return {
+    id: getStringFromRecord(source.category, ['id']) ?? getStringFromRecord(leafCategory, ['id']),
+    slug: getStringFromRecord(source.category, ['slug']) ?? getStringFromRecord(leafCategory, ['slug']),
+    parentId: getStringFromRecord(source.category, ['parentId']),
     path,
     level,
     breadcrumb,
@@ -1103,6 +1107,13 @@ export function buildProductReadModel(
     mirrorEligible: ai.mirrorEligible,
 
     policies,
+    fulfilment: {
+      mode: asString(source.fulfilmentMode) ?? 'IN_STOCK',
+      depositPercent: asNumber(source.depositPercent),
+      releaseDate: asDate(source.releaseDate),
+      editionSize: asNumber(source.editionSize),
+      editionSold: asNumber(source.editionSold) ?? 0,
+    },
     purchase: policies,
     commerce: policies,
     codEligible: policies.codEligible,

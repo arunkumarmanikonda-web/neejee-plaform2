@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
 import { User, Package, Heart, MapPin, Sparkles, LogOut, Ticket, Gem } from 'lucide-react';
+import AddressBook from '@/components/account/AddressBook';
 import { PhoneInput } from '@/components/ui/PhoneInput';
 
 type SessionUser = {
@@ -146,7 +147,7 @@ export default function AccountPage() {
             {tab === 'loyalty' && <LoyaltyTab />}
             {tab === 'wishlist' && <WishlistTab />}
             {tab === 'codes' && <CodesTab />}
-            {tab === 'addresses' && <AddressesTab user={user} />}
+            {tab === 'addresses' && <AddressBook />}
             {tab === 'ai' && <AiTab />}
             {tab === 'profile' && <ProfileTab user={user} onUpdate={(u) => setUser(u)} />}
           </div>
@@ -378,19 +379,6 @@ function LoyaltyTab() {
           </ul>
         )}
       </div>
-    </div>
-  );
-}
-
-function AddressesTab({ user }: { user: SessionUser }) {
-  return (
-    <div>
-      <h2 className="font-display text-2xl text-kohl mb-6">Addresses</h2>
-      <div className="bg-beige p-6">
-        <p className="label text-madder">NO DEFAULT ADDRESS YET</p>
-        <p className="font-italic italic text-mitti mt-2">Add an address during your next checkout — we'll save it here.</p>
-      </div>
-      <button className="btn-primary mt-6">+ ADD NEW ADDRESS</button>
     </div>
   );
 }

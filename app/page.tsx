@@ -28,10 +28,10 @@ function publicProductWhere(): Prisma.ProductWhereInput {
     takedownAt: null,
     catalogueExclude: false,
     OR: [
-      { catalogueStockVisibility: { in: ['SHOW_ALL', 'HIDE_STOCK'] } },
+      { catalogueStockVisibility: { in: ['SHOW_ALL', 'SHOW_EXACT', 'HIDE_STOCK'] } },
       {
         AND: [
-          { catalogueStockVisibility: 'IN_STOCK_ONLY' },
+          { catalogueStockVisibility: { in: ['IN_STOCK_ONLY', 'LOW_STOCK_BADGE'] } },
           { variants: { some: { inventory: { gt: 0 } } } },
         ],
       },

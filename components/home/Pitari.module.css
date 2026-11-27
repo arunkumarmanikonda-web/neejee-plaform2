@@ -9,7 +9,7 @@
 .history {overflow:auto;min-height:4rem;overscroll-behavior:contain;padding:1rem 1.2rem;font:1rem/1.55 var(--font-ui),sans-serif}
 .welcome {font-family:var(--font-display),Georgia,serif;font-size:1.32rem;line-height:1.35}
 .turn {margin:1.15rem 0 0}.turn b {display:block;width:fit-content;margin:0 0 .6rem auto;border-radius:.65rem .65rem 0 .65rem;background:#e9dcbe;padding:.4rem .7rem;font-weight:500}.turn p {white-space:pre-line}
-.turn a {display:block;color:#843b31;text-decoration:underline;text-underline-offset:3px;margin:.4rem 0}
+.turn a {display:block;width:fit-content;color:#702f29;background:#f3e7d3;border-radius:.25rem;padding:.4rem .6rem;margin:.4rem 0;text-decoration:none}.contact{width:fit-content;margin:.35rem 1rem;color:#702f29;font:600 .82rem/1.5 var(--font-ui),sans-serif}.turn a:focus-visible,.contact:focus-visible{outline:2px solid currentColor;outline-offset:2px}
 .prompts {padding:.55rem 1rem}.prompts button {font-size:.875rem;min-height:2.35rem;border:1px solid #ab8b69;padding:.25rem .55rem;border-radius:1rem}
 .panel form {margin:.3rem 1rem 1rem;display:flex;border:1px solid #8b6e52;background:white}.panel input {min-width:0;flex:1;font:1rem var(--font-ui),sans-serif;padding:.8rem;background:white;color:#261c16}
 .panel form button {padding:.85rem;background:#514735;color:white}.panel button:disabled{opacity:.55}

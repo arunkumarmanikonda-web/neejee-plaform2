@@ -12,6 +12,8 @@
 //   - It's significantly better at preserving the reference than text-only
 //   - It still respects aspect ratio + composition prompts
 
+import { intakePrefix, reviewedImages } from '@/lib/catalog/creation-intake';
+import { uploadFile } from '@/lib/storage';
 import { prisma } from '@/lib/prisma';
 import { falRun } from '@/lib/ai';
 import { STRATEGIES, type StrategyKey } from './category-strategies';
@@ -30,11 +32,45 @@ export type RunJobResult = {
   firstError?: string;
 };
 
-/**
- * Run a queued AiPhotoJob. Idempotent-ish: if called twice, you'll get
- * additional variants (which is fine — admin picks the best).
- */
+// Stock photos are fetched only from provider-owned image hosts, then retained with the SKU.
+async function storeIntakeImage(raw: string, productId: string, jobId: string, index: number) {
+  const url = new URL(raw);
+  if (url.protocol !== 'https:' || !(url.hostname === 'fal.media' || url.hostname.endsWith('.fal.media'))) {
+    throw new Error('The provider returned an unrecognised image host.');
+  }
+  const response = await fetch(url, {redirect:'error', signal:AbortSignal.timeout(30000)});
+  if (!response.ok || !response.body) throw new Error('The generated photograph could not be downloaded.');
+  const reader=response.body.getReader(), chunks:Uint8Array[]=[];
+  let bytes=0;
+  try {
+    while (true) {
+      const part=await reader.read();
+      if (part.done) break;
+      bytes+=part.value.byteLength;
+      if (bytes>15*1024*1024) { await reader.cancel(); throw new Error('Generated photograph exceeds the file limit.'); }
+      chunks.push(part.value);
+    }
+  } finally { reader.releaseLock(); }
+  const jpeg=Buffer.concat(chunks);
+  if (jpeg.length<4 || jpeg[0]!==255 || jpeg[1]!==216 || jpeg.at(-2)!==255 || jpeg.at(-1)!==217) {
+    throw new Error('The generated image is not a complete JPEG.');
+  }
+  return (await uploadFile('products/'+productId+'/creatives/'+jobId+'-'+index+'.jpg',jpeg,'image/jpeg')).url;
+}
+
+// Both the editor and the scheduled worker may see a queued job. Only one can claim it.
 export async function runAiPhotoJob(jobId: string): Promise<RunJobResult> {
+  const claim = await prisma.aiPhotoJob.updateMany({where:{id:jobId,status:'QUEUED'},
+    data:{status:'RUNNING',startedAt:new Date(),completedAt:null,errorMessage:null}});
+  if (!claim.count) return {ok:false,variantCount:0,failedCount:0,firstError:'Already claimed or finished'};
+  try { return await generateClaimedJob(jobId); }
+  catch (error) {
+    const message=error instanceof Error ? error.message.slice(0,500) : 'Photo generation did not finish.';
+    await prisma.aiPhotoJob.updateMany({where:{id:jobId,status:'RUNNING'},data:{status:'FAILED',completedAt:new Date(),errorMessage:message}});
+    return {ok:false,variantCount:0,failedCount:1,firstError:message};
+  }
+}
+async function generateClaimedJob(jobId: string): Promise<RunJobResult> {
   const job = await prisma.aiPhotoJob.findUnique({
     where: { id: jobId },
     include: {
@@ -44,9 +80,6 @@ export async function runAiPhotoJob(jobId: string): Promise<RunJobResult> {
     },
   });
   if (!job) throw new Error('Job not found');
-  if (job.status === 'RUNNING') {
-    return { ok: false, variantCount: 0, failedCount: 0, firstError: 'Job already running' };
-  }
   if (!job.sourceImageUrls || job.sourceImageUrls.length === 0) {
     await prisma.aiPhotoJob.update({
       where: { id: jobId },
@@ -72,10 +105,6 @@ export async function runAiPhotoJob(jobId: string): Promise<RunJobResult> {
     scenes[scenes.length - 1] = strategy.scaleShot;
   }
 
-  await prisma.aiPhotoJob.update({
-    where: { id: jobId },
-    data: { status: 'RUNNING', startedAt: new Date() },
-  });
 
   const productLabel = job.product?.name || 'craft product';
   const craft = job.product?.craft || job.product?.category?.name || null;
@@ -93,7 +122,7 @@ export async function runAiPhotoJob(jobId: string): Promise<RunJobResult> {
 
   // Generate all scenes in parallel
   const results = await Promise.all(
-    scenes.map(async scene => {
+    scenes.map(async (scene, index) => {
       const effectiveModel = scene.modelOverride ?? job.modelArchetype ?? 'warm';
       // Merge any per-variant anchor into the regeneration-feedback channel,
       // which buildFullPrompt already weaves into the tail of the prompt.
@@ -111,66 +140,46 @@ export async function runAiPhotoJob(jobId: string): Promise<RunJobResult> {
         regenerationFeedback: combinedFeedback || null,
       });
 
-      const r = await falRun({
-        endpoint: FAL_ENDPOINT,
-        input: {
-          prompt,
-          // Multi-reference: pass ALL source images so the model has full design context
-          image_urls: job.sourceImageUrls,
-          num_images: 1,
-          aspect_ratio: scene.aspectRatio,
-          output_format: 'jpeg',
-          resolution: '2K',
-          // safety_tolerance: '4' is default
-        },
-        timeoutMs: 180_000,
-      });
+      try {
+        const r = await falRun({
+          endpoint: FAL_ENDPOINT,
+          input: {
+            prompt,
+            // Multi-reference: pass ALL source images so the model has full design context
+            image_urls: job.sourceImageUrls,
+            num_images: 1,
+            aspect_ratio: scene.aspectRatio,
+            output_format: 'jpeg',
+            resolution: '2K',
+            // safety_tolerance: '4' is default
+          },
+          timeoutMs: 180_000,
+        });
 
-      const url: string | undefined = r.data?.images?.[0]?.url;
-      return { scene, ok: r.ok && !!url, url, error: r.error, prompt };
+        let url: string | undefined = r.data?.images?.[0]?.url;
+        if (r.ok && url && jobId.startsWith(intakePrefix) && job.productId) {
+          url=await storeIntakeImage(url,job.productId,jobId,index);
+        }
+        return { scene, ok: r.ok && !!url, url, error: r.error, prompt };
+      } catch (error) {
+        return {scene,ok:false,url:undefined,error:error instanceof Error ? error.message : 'Photo generation failed.',prompt};
+      }
     })
   );
 
-  // Save the prompt used (first scene's preserve-header is the same for all — we save the first)
-  await prisma.aiPhotoJob.update({
-    where: { id: jobId },
-    data: { imagePrompt: results[0]?.prompt?.slice(0, 4000) || null },
+  const generated = results.flatMap(r => r.ok && r.url ? [{
+    jobId, url:r.url, sceneType:r.scene.sceneType, sceneNote:r.scene.sceneNote, decision:'PENDING' as const,
+  }] : []);
+  const failed = results.filter(result=>!result.ok);
+  const firstError = failed[0]?.error || (failed.length ? 'The provider could not render this scene.' : undefined);
+  await prisma.$transaction(async tx => {
+    if (generated.length) await tx.aiPhotoVariant.createMany({data:generated});
+    await tx.aiPhotoJob.update({where:{id:jobId},data:{
+      imagePrompt:results[0]?.prompt?.slice(0,4000) || null,
+      status:generated.length ? 'COMPLETED' : 'FAILED', completedAt:new Date(), errorMessage:firstError || null,
+    }});
   });
-
-  let succeeded = 0;
-  let failed = 0;
-  let firstError: string | undefined;
-
-  for (const r of results) {
-    if (r.ok && r.url) {
-      await prisma.aiPhotoVariant.create({
-        data: {
-          jobId,
-          url: r.url,
-          sceneType: r.scene.sceneType,
-          sceneNote: r.scene.sceneNote,
-          decision: 'PENDING',
-        },
-      });
-      succeeded++;
-    } else {
-      failed++;
-      if (!firstError) firstError = r.error || 'Unknown error';
-    }
-  }
-
-  // Final status
-  const finalStatus = succeeded > 0 ? 'COMPLETED' : 'FAILED';
-  await prisma.aiPhotoJob.update({
-    where: { id: jobId },
-    data: {
-      status: finalStatus,
-      completedAt: new Date(),
-      errorMessage: finalStatus === 'FAILED' ? firstError || 'All variants failed' : null,
-    },
-  });
-
-  return { ok: succeeded > 0, variantCount: succeeded, failedCount: failed, firstError };
+  return {ok:!!generated.length,variantCount:generated.length,failedCount:failed.length,firstError};
 }
 
 /**
@@ -199,6 +208,7 @@ export async function reapplyApprovedVariantsToProduct(jobId: string) {
   });
   if (!job) throw new Error('Job not found');
   if (!job.productId || !job.product) throw new Error('Job has no product attached');
+  const targetProductId = job.productId;
   if (job.variants.length === 0) throw new Error('No APPROVED variants found on this job. Select and apply variants first.');
 
   // Use the same ordering rule as the initial apply
@@ -214,7 +224,7 @@ export async function reapplyApprovedVariantsToProduct(jobId: string) {
     return 0;
   });
 
-  const newImageUrls = sorted.map(v => v.url);
+  const newImageUrls = reviewedImages(job.id, sorted.map(v => v.url), job.sourceImageUrls);
 
   // Variant-scoped job → write to Variant.images. Otherwise → Product.images.
   if (job.variantId && job.variant) {
@@ -255,6 +265,7 @@ export async function applyApprovedVariantsToProduct(jobId: string, approvedVari
   });
   if (!job) throw new Error('Job not found');
   if (!job.productId || !job.product) throw new Error('Job has no product attached');
+  const targetProductId = job.productId;
 
   const approvedVariants = job.variants.filter(v => approvedVariantIds.includes(v.id));
   if (approvedVariants.length === 0) throw new Error('No variants selected');
@@ -263,45 +274,48 @@ export async function applyApprovedVariantsToProduct(jobId: string, approvedVari
   const sceneOrder: Record<string, number> = { hero: 0, lifestyle: 1, detail: 2, scale: 3 };
   approvedVariants.sort((a, b) => (sceneOrder[a.sceneType] ?? 9) - (sceneOrder[b.sceneType] ?? 9));
 
-  const newImageUrls = approvedVariants.map(v => v.url);
+  if (approvedVariants.length !== new Set(approvedVariantIds).size) throw new Error('An image does not belong to this photo job.');
+  const newImageUrls = reviewedImages(job.id, approvedVariants.map(v => v.url), job.sourceImageUrls);
 
-  // Variant-scoped → write to Variant.images. Otherwise → Product.images.
-  if (job.variantId && job.variant) {
-    await prisma.variant.update({
-      where: { id: job.variantId },
-      data: { images: newImageUrls },
-    });
-  } else {
-    await prisma.product.update({
-      where: { id: job.productId },
-      data: { images: newImageUrls },
-    });
-  }
+  await prisma.$transaction(async tx => {
+    // Variant-scoped → write to Variant.images. Otherwise → Product.images.
+    if (job.variantId && job.variant) {
+      await tx.variant.update({
+        where: { id: job.variantId },
+        data: { images: newImageUrls },
+      });
+    } else {
+      await tx.product.update({
+        where: { id: targetProductId },
+        data: { images: newImageUrls },
+      });
+    }
 
-  // Mark approved variants
-  const now = new Date();
-  await prisma.aiPhotoVariant.updateMany({
-    where: { id: { in: approvedVariantIds } },
-    data: { decision: 'APPROVED', decidedAt: now, decidedByUserId: actorUserId },
+    // Mark approved variants
+    const now = new Date();
+    await tx.aiPhotoVariant.updateMany({
+      where: { jobId, id: { in: approvedVariants.map(v=>v.id) } },
+      data: { decision: 'APPROVED', decidedAt: now, decidedByUserId: actorUserId },
+    });
+    // Reject the rest
+    const rejectedIds = job.variants
+      .filter(v => !approvedVariantIds.includes(v.id) && v.decision === 'PENDING')
+      .map(v => v.id);
+    if (rejectedIds.length > 0) {
+      await tx.aiPhotoVariant.updateMany({
+        where: { id: { in: rejectedIds } },
+        data: { decision: 'REJECTED', decidedAt: now, decidedByUserId: actorUserId },
+      });
+    }
+
+    // Set productImageIndex for approved (in order)
+    for (let i = 0; i < approvedVariants.length; i++) {
+      await tx.aiPhotoVariant.update({
+        where: { id: approvedVariants[i].id },
+        data: { productImageIndex: i },
+      });
+    }
   });
-  // Reject the rest
-  const rejectedIds = job.variants
-    .filter(v => !approvedVariantIds.includes(v.id) && v.decision === 'PENDING')
-    .map(v => v.id);
-  if (rejectedIds.length > 0) {
-    await prisma.aiPhotoVariant.updateMany({
-      where: { id: { in: rejectedIds } },
-      data: { decision: 'REJECTED', decidedAt: now, decidedByUserId: actorUserId },
-    });
-  }
-
-  // Set productImageIndex for approved (in order)
-  for (let i = 0; i < approvedVariants.length; i++) {
-    await prisma.aiPhotoVariant.update({
-      where: { id: approvedVariants[i].id },
-      data: { productImageIndex: i },
-    });
-  }
 
   return {
     applied: approvedVariants.length,

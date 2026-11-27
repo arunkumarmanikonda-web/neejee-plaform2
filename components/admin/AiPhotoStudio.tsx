@@ -72,8 +72,8 @@ const STRATEGY_OPTIONS = [
   { value: 'GENERIC_LIFESTYLE',           label: 'Generic — clean studio + lifestyle' },
 ];
 
-export default function AiPhotoStudio({ productId, productName, categoryName, categorySlug, onApplied }: AiPhotoStudioProps) {
-  const [sourceUrls, setSourceUrls] = useState<string[]>([]);
+export default function AiPhotoStudio({ productId, productName, categoryName, categorySlug, initialImages, onApplied }: AiPhotoStudioProps) {
+  const [sourceUrls, setSourceUrls] = useState<string[]>(() => (initialImages || []).filter(url=>!url.includes('/creatives/')).slice(0,10));
   const [uploading, setUploading] = useState(false);
   const [modelArchetype, setModelArchetype] = useState('mixed');
   const [stylePreset, setStylePreset] = useState('editorial');

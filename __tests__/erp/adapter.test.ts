@@ -48,13 +48,12 @@ describe('getErpAdapter', () => {
     assert.equal(adapter.kind, 'mock');
   });
 
-  it('throws for real adapter until implemented', () => {
+  it('requires bridge credentials before constructing a real adapter', t => {
     process.env.ERP_ADAPTER = 'real';
-
-    assert.throws(
-      () => getErpAdapter(),
-      /Real ERP adapter not implemented yet/
-    );
+    const original=process.env.ERP_API_TOKEN;
+    delete process.env.ERP_API_TOKEN;
+    try { assert.throws(() => getErpAdapter(), /Set ERP_API_ORIGIN and ERP_API_TOKEN/); }
+    finally { if (original!==undefined) process.env.ERP_API_TOKEN=original; }
   });
 });
 

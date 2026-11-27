@@ -17,6 +17,8 @@
 
 import { NextResponse } from 'next/server';
 import crypto from 'crypto';
+import { captureState, fetchRefundedPaise } from '@/lib/payments/razorpay-settlement';
+import { POST as verifyCheckout } from '@/app/api/razorpay/verify/route';
 import { prisma } from '@/lib/prisma';
 
 export const dynamic = 'force-dynamic';
@@ -64,7 +66,7 @@ async function findSnapshotForGatewayRefs(snapshotId?: string | null, razorpayOr
         razorpayOrderId: true,
       },
     });
-    if (byId) return byId;
+    if (byId && (!razorpayOrderId || byId.razorpayOrderId===razorpayOrderId)) return byId;
   }
 
   if (razorpayOrderId) {
@@ -159,46 +161,27 @@ async function reconcileCapturedPayment(payment: any) {
     return { skipped: 'order_not_found' };
   }
 
-  const sameRefs =
-    order.razorpayPaymentId === paymentId && order.razorpayOrderId === razorpayOrderId;
-
-  if (order.paymentStatus === 'PAID' && sameRefs) {
-    return { idempotent: true, id: order.id, orderNumber: order.orderNumber };
+  if (!paymentId || !razorpayOrderId || order.razorpayOrderId !== razorpayOrderId ||
+      captureState(payment,paymentId,razorpayOrderId,order.total)!=='captured') {
+    return {conflict:'captured_payment_details_mismatch',id:order.id};
   }
-
-  if (
-    order.paymentStatus === 'PAID' &&
-    (
-      (paymentId && order.razorpayPaymentId && order.razorpayPaymentId !== paymentId) ||
-      (razorpayOrderId && order.razorpayOrderId && order.razorpayOrderId !== razorpayOrderId)
-    )
-  ) {
-    return {
-      conflict: 'payment_already_recorded_with_different_gateway_refs',
-      id: order.id,
-      orderNumber: order.orderNumber,
-    };
+  if (['PAID','REFUNDED','PARTIALLY_REFUNDED'].includes(order.paymentStatus)) {
+    return order.razorpayPaymentId === paymentId
+      ? {idempotent:true,id:order.id}
+      : {conflict:'different_settled_payment',id:order.id};
   }
-
-  const updated = await prisma.order.update({
-    where: { id: order.id },
-    data: {
-      paymentStatus: 'PAID',
-      razorpayPaymentId: paymentId || order.razorpayPaymentId,
-      razorpayOrderId: razorpayOrderId || order.razorpayOrderId,
-      status: order.status === 'PLACED' ? 'CONFIRMED' : order.status,
-    },
-    select: {
-      id: true,
-      orderNumber: true,
-      paymentStatus: true,
-      status: true,
-      razorpayPaymentId: true,
-      razorpayOrderId: true,
-    },
+  if (['CANCELLED','CANCELLED_BUG','REFUNDED','RETURNED'].includes(order.status)) {
+    return {conflict:'captured_payment_for_closed_order',id:order.id};
+  }
+  const changed = await prisma.$transaction(async tx => {
+    const changed = await tx.order.updateMany({
+      where:{id:order.id,razorpayOrderId,paymentStatus:{in:['PENDING','FAILED']},status:{notIn:['CANCELLED','CANCELLED_BUG','REFUNDED','RETURNED']}},
+      data:{paymentStatus:'PAID',razorpayPaymentId:paymentId},
+    });
+    if (changed.count) await tx.order.updateMany({where:{id:order.id,status:'PLACED'},data:{status:'CONFIRMED'}});
+    return changed;
   });
-
-  return { ok: true, order: updated };
+  return {ok:true,id:order.id,idempotent:!changed.count};
 }
 
 async function recoverCapturedSnapshot(payment: any, requestUrl: string) {
@@ -206,18 +189,16 @@ async function recoverCapturedSnapshot(payment: any, requestUrl: string) {
   const paymentId = asNonEmptyString(payment?.id);
   const razorpayOrderId = asNonEmptyString(payment?.order_id);
 
-  if (!snapshotId || !paymentId || !razorpayOrderId) {
+  // Checkout notes may remain on the gateway order instead of the payment.
+  // The gateway order ID persisted before checkout is the authoritative binding.
+  if (!paymentId || !razorpayOrderId) {
     return { skipped: 'snapshot_gateway_refs_missing' };
   }
 
   const snapshot = await findSnapshotForGatewayRefs(snapshotId, razorpayOrderId);
   if (!snapshot) return { skipped: 'snapshot_not_found' };
 
-  if (snapshot.recoveredOrderId) {
-    return { idempotent: true, snapshotId: snapshot.id, orderId: snapshot.recoveredOrderId };
-  }
-
-  if (snapshot.razorpayOrderId && snapshot.razorpayOrderId !== razorpayOrderId) {
+  if (snapshot.razorpayOrderId !== razorpayOrderId) {
     return {
       conflict: 'snapshot_gateway_order_mismatch',
       snapshotId: snapshot.id,
@@ -254,7 +235,7 @@ async function recoverCapturedSnapshot(payment: any, requestUrl: string) {
 
   let response: Response;
   try {
-    response = await fetch(verifyUrl, {
+    response = await verifyCheckout(new Request(verifyUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -267,7 +248,7 @@ async function recoverCapturedSnapshot(payment: any, requestUrl: string) {
         snapshotId: snapshot.id,
       }),
       cache: 'no-store',
-    });
+    }));
   } catch (error: any) {
     await prisma.abandonedCart.update({
       where: { id: snapshot.id },
@@ -282,6 +263,7 @@ async function recoverCapturedSnapshot(payment: any, requestUrl: string) {
 
   const result = await response.json().catch(() => ({}));
 
+  if (result?.code==='PAYMENT_CAPTURE_PENDING') throw new Error('Capture verification pending; retry webhook.');
   // 409 from the verifier can be the intentional, already-initiated integrity
   // refund path. Acknowledge the gateway event rather than repeatedly asking
   // Razorpay to deliver the same capture event.
@@ -329,12 +311,12 @@ async function reconcileFailedPayment(payment: any) {
   const snapshot = await findSnapshotForGatewayRefs(snapshotId, razorpayOrderId);
   let snapshotResult: any = { skipped: 'snapshot_not_found' };
 
-  if (snapshot) {
+  if (snapshot && !snapshot.recoveredOrderId && snapshot.razorpayOrderId===razorpayOrderId) {
     if (snapshot.lastSeenStep === 'payment_failed') {
       snapshotResult = { idempotent: true, id: snapshot.id };
     } else {
-      await prisma.abandonedCart.update({
-        where: { id: snapshot.id },
+      await prisma.abandonedCart.updateMany({
+        where: { id: snapshot.id, recoveredOrderId:null, razorpayOrderId },
         data: { lastSeenStep: 'payment_failed' } as any,
       });
       snapshotResult = { ok: true, id: snapshot.id };
@@ -349,52 +331,14 @@ async function reconcileFailedPayment(payment: any) {
     };
   }
 
-  if (order.paymentStatus === 'PAID') {
-    return {
-      snapshot: snapshotResult,
-      order: {
-        skipped: 'order_already_paid',
-        id: order.id,
-        orderNumber: order.orderNumber,
-      },
-    };
+  if (!razorpayOrderId || !paymentId || order.razorpayOrderId!==razorpayOrderId) {
+    return {snapshot:snapshotResult,order:{skipped:'gateway_order_mismatch'}};
   }
-
-  const sameRefs =
-    (order.razorpayPaymentId || null) === (paymentId || null) &&
-    (order.razorpayOrderId || null) === (razorpayOrderId || null);
-
-  if (order.paymentStatus === 'FAILED' && sameRefs) {
-    return {
-      snapshot: snapshotResult,
-      order: {
-        idempotent: true,
-        id: order.id,
-        orderNumber: order.orderNumber,
-      },
-    };
-  }
-
-  const updated = await prisma.order.update({
-    where: { id: order.id },
-    data: {
-      paymentStatus: 'FAILED',
-      razorpayPaymentId: paymentId || order.razorpayPaymentId,
-      razorpayOrderId: razorpayOrderId || order.razorpayOrderId,
-    },
-    select: {
-      id: true,
-      orderNumber: true,
-      paymentStatus: true,
-      razorpayPaymentId: true,
-      razorpayOrderId: true,
-    },
+  const changed=await prisma.order.updateMany({
+    where:{id:order.id,razorpayOrderId,paymentStatus:{in:['PENDING','FAILED']}},
+    data:{paymentStatus:'FAILED',razorpayPaymentId:paymentId},
   });
-
-  return {
-    snapshot: snapshotResult,
-    order: { ok: true, order: updated },
-  };
+  return {snapshot:snapshotResult,order:{id:order.id,changed:!!changed.count}};
 }
 
 async function reconcileRefundProcessed(refund: any, payment: any) {
@@ -402,61 +346,18 @@ async function reconcileRefundProcessed(refund: any, payment: any) {
   const paymentId =
     asNonEmptyString(refund?.payment_id) || asNonEmptyString(payment?.id);
   const razorpayOrderId = asNonEmptyString(payment?.order_id);
-  const refundAmount = typeof refund?.amount === 'number' ? refund.amount : 0;
-
-  const order = await findOrderByGatewayRefs(paymentId, razorpayOrderId);
-  if (!order) {
-    return {
-      skipped: 'order_not_found',
-      refundId,
-      paymentId,
-    };
-  }
-
-  const nextPaymentStatus =
-    refundAmount > 0 && refundAmount < order.total
-      ? 'PARTIALLY_REFUNDED'
-      : 'REFUNDED';
-
-  if (order.paymentStatus === nextPaymentStatus) {
-    return {
-      idempotent: true,
-      id: order.id,
-      orderNumber: order.orderNumber,
-      paymentStatus: order.paymentStatus,
-      refundId,
-    };
-  }
-
-  if (order.paymentStatus === 'REFUNDED' && nextPaymentStatus === 'PARTIALLY_REFUNDED') {
-    return {
-      idempotent: true,
-      id: order.id,
-      orderNumber: order.orderNumber,
-      paymentStatus: order.paymentStatus,
-      refundId,
-    };
-  }
-
-  const updated = await prisma.order.update({
-    where: { id: order.id },
-    data: {
-      paymentStatus: nextPaymentStatus,
-    },
-    select: {
-      id: true,
-      orderNumber: true,
-      paymentStatus: true,
-      razorpayPaymentId: true,
-      razorpayOrderId: true,
-    },
+  if (!refundId || !paymentId || refund?.status!=='processed') return {skipped:'missing_processed_refund'};
+  const order = await findOrderByGatewayRefs(paymentId,razorpayOrderId);
+  if (!order || order.razorpayPaymentId!==paymentId) return {skipped:'settled_payment_not_found'};
+  if (order.paymentStatus === 'REFUNDED') return {idempotent:true,id:order.id};
+  const total=await fetchRefundedPaise(paymentId,refund);
+  if (total<=0 || total>order.total) throw new Error('Refund total outside order amount');
+  const full=total===order.total;
+  const updated=await prisma.order.updateMany({
+    where:{id:order.id,razorpayPaymentId:paymentId,paymentStatus:full?{not:'REFUNDED'}:{in:['PENDING','FAILED','PAID']}},
+    data:{paymentStatus:full?'REFUNDED':'PARTIALLY_REFUNDED'},
   });
-
-  return {
-    ok: true,
-    refundId,
-    order: updated,
-  };
+  return {ok:true,refundId,id:order.id,idempotent:!updated.count};
 }
 
 export async function POST(req: Request) {

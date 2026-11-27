@@ -2,7 +2,9 @@
 // consume all checkout reservations, and materialize the paid NEEJEE Order atomically.
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { orderShippingAddress } from '@/lib/checkout/order-shipping-address';
 import crypto from 'crypto';
+import { captureState, fetchGatewayPayment } from '@/lib/payments/razorpay-settlement';
 import { generateOrderNumber } from '@/lib/utils';
 import {
   consumeInventoryReservation,
@@ -86,6 +88,22 @@ function refundResponse(reason: IntegrityRefundReason, refundId?: string | null)
   }, { status: 409 });
 }
 
+async function confirmCapture(paymentId: string, orderId: string, total: number) {
+  try {
+    const payment = await fetchGatewayPayment(paymentId);
+    const result = captureState(payment, paymentId, orderId, total);
+    if (result === 'captured') return null;
+    if (result === 'pending') return NextResponse.json({
+      code:'PAYMENT_CAPTURE_PENDING', message:'Your bank has responded. We are waiting for Razorpay to confirm capture.',
+    }, {status:202});
+    return NextResponse.json({
+      code:'PAYMENT_REVIEW', error:'This payment needs a status check. Please keep your payment reference.',
+    }, {status:409});
+  } catch {
+    return NextResponse.json({code:'PAYMENT_CAPTURE_PENDING', message:'Payment confirmation is temporarily unavailable.'},{status:503});
+  }
+}
+
 export async function POST(request: Request) {
   try {
     const body = await request.json();
@@ -139,25 +157,11 @@ export async function POST(request: Request) {
         }, { status: 409 });
       }
 
-      if (snapshot.recoveredOrderId) {
-        const existing = await prisma.order.findUnique({ where: { id: snapshot.recoveredOrderId } });
-        return NextResponse.json({ success: true, order: existing, idempotent: true });
-      }
-
-      const existingByGatewayRef = await prisma.order.findFirst({
-        where: {
-          OR: [
-            { razorpayPaymentId: razorpay_payment_id },
-            { razorpayOrderId: razorpay_order_id },
-          ],
-        },
-      });
-      if (existingByGatewayRef) {
-        await prisma.abandonedCart.update({
-          where: { id: snapshot.id },
-          data: { recoveredOrderId: existingByGatewayRef.id, recoveredAt: new Date() },
-        }).catch(() => {});
-        return NextResponse.json({ success: true, order: existingByGatewayRef, idempotent: true });
+      // Historical recovery jobs also linked unrelated carts from the same email.
+      // Only a matching gateway pair proves this particular checkout was settled.
+      const settled = await prisma.order.findFirst({where:{razorpayOrderId:razorpay_order_id,razorpayPaymentId:razorpay_payment_id}});
+      if (settled && ['PAID','REFUNDED','PARTIALLY_REFUNDED'].includes(settled.paymentStatus)) {
+        return NextResponse.json({success:true,order:{orderNumber:settled.orderNumber},idempotent:true});
       }
 
       const data: any = snapshot.itemsJson ? JSON.parse(snapshot.itemsJson) : {};
@@ -173,14 +177,26 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: 'A paid item is not mapped to a purchasable variant', code: 'PRODUCT_UNAVAILABLE' }, { status: 409 });
       }
 
+      const captureIssue = await confirmCapture(razorpay_payment_id,razorpay_order_id,Number(data.pricing?.total ?? snapshot.subtotal));
+      if (captureIssue) return captureIssue;
       const contact = data.contact || {};
       const address = data.address || {};
       const pricing = data.pricing || {};
       const session = data.session || null;
 
       let order: any;
+      let replay = false;
       try {
         order = await prisma.$transaction(async (tx: any) => {
+          // A callback and its webhook can settle the same capture concurrently.
+          // Keep the order, inventory changes and confirmation events single-use.
+          await tx.$queryRaw`SELECT id FROM public."AbandonedCart" WHERE id = ${snapshot.id} FOR UPDATE`;
+          const concurrent = await tx.order.findFirst({where:{razorpayOrderId:razorpay_order_id}});
+          if (concurrent) {
+            if (concurrent.razorpayPaymentId !== razorpay_payment_id) throw new Error('GATEWAY_ORDER_ALREADY_SETTLED');
+            replay = true;
+            return concurrent;
+          }
           // Rollout compatibility: pre-reservation snapshots can still finalize
           // against genuinely unreserved stock.
           try {
@@ -190,24 +206,10 @@ export async function POST(request: Request) {
             await consumeUnreservedInventory(tx, inventoryItems);
           }
 
-          let addressId: string | null = null;
-          if (session?.id) {
-            const addr = await tx.address.create({
-              data: {
-                userId: session.id,
-                name: address.name,
-                phone: contact.phone,
-                line1: address.line1,
-                line2: address.line2 || null,
-                city: address.city,
-                state: address.state,
-                pincode: address.pincode,
-                country: 'IN',
-              },
-            });
-            addressId = addr.id;
-          }
-
+          const { id: addressId } = await tx.address.create({
+            data: orderShippingAddress(session?.id, address, contact.phone),
+            select: { id: true },
+          });
           const created = await tx.order.create({
             data: {
               orderNumber: generateOrderNumber(),
@@ -358,9 +360,14 @@ export async function POST(request: Request) {
         }, { status: 503 });
       }
 
+      if (replay) return NextResponse.json({success:true,order:{orderNumber:order.orderNumber},idempotent:true});
       await prisma.abandonedCart.updateMany({
         where: {
           email: snapshot.email,
+          // Only marketing carts may be linked implicitly. Active checkout holds
+          // store their own independent settlement record, even for the same email.
+          OR:[{paymentMethodPicked:null},{paymentMethodPicked:{not:'PREPAID'}}],
+          razorpayOrderId:null,
           recoveredOrderId: null,
           optedOut: false,
           id: { not: snapshot.id },
@@ -410,7 +417,7 @@ export async function POST(request: Request) {
         console.warn('[verify] confirmation notification failed:', e.message);
       }
 
-      return NextResponse.json({ success: true, order });
+      return NextResponse.json({ success: true, order:{orderNumber:order.orderNumber} });
     }
 
     // Legacy path retained only for older clients. A valid signature must also
@@ -425,27 +432,30 @@ export async function POST(request: Request) {
       }, { status: 409 });
     }
 
-    if (
-      existingLegacyOrder.paymentStatus === 'PAID' &&
-      existingLegacyOrder.razorpayPaymentId === razorpay_payment_id
-    ) {
-      return NextResponse.json({ success: true, order: existingLegacyOrder, idempotent: true });
+    if (['PAID','PARTIALLY_REFUNDED','REFUNDED'].includes(existingLegacyOrder.paymentStatus)) {
+      if (existingLegacyOrder.razorpayPaymentId === razorpay_payment_id) return NextResponse.json({
+        success:true,order:{orderNumber:existingLegacyOrder.orderNumber},idempotent:true,
+      });
+      return NextResponse.json({error:'This order already has a payment.',code:'PAYMENT_REVIEW'},{status:409});
     }
-    if (existingLegacyOrder.paymentStatus === 'PAID') {
-      return NextResponse.json({
-        error: 'Order is already paid with a different payment reference',
-        code: 'LEGACY_PAYMENT_ALREADY_RECORDED',
-      }, { status: 409 });
-    }
-
-    const order = await prisma.order.update({
-      where: { orderNumber: orderNumber! },
-      data: {
-        paymentStatus: 'PAID',
-        razorpayPaymentId: razorpay_payment_id,
-        status: 'CONFIRMED',
-      },
+    const issue = await confirmCapture(razorpay_payment_id,razorpay_order_id,existingLegacyOrder.total);
+    if (issue) return issue;
+    const order = await prisma.$transaction(async tx => {
+      const changed = await tx.order.updateMany({
+        where:{id:existingLegacyOrder.id,razorpayOrderId:razorpay_order_id,paymentStatus:{in:['PENDING','FAILED']},status:{notIn:['CANCELLED','CANCELLED_BUG','REFUNDED','RETURNED']}},
+        data:{paymentStatus:'PAID',razorpayPaymentId:razorpay_payment_id},
+      });
+      if (!changed.count) return null;
+      await tx.order.updateMany({where:{id:existingLegacyOrder.id,status:'PLACED'},data:{status:'CONFIRMED'}});
+      return tx.order.findUnique({where:{id:existingLegacyOrder.id}});
     });
+    if (!order) {
+      const current=await prisma.order.findUnique({where:{id:existingLegacyOrder.id}});
+      if (current && current.razorpayPaymentId===razorpay_payment_id && ['PAID','PARTIALLY_REFUNDED','REFUNDED'].includes(current.paymentStatus)) {
+        return NextResponse.json({success:true,order:{orderNumber:current.orderNumber},idempotent:true});
+      }
+      return NextResponse.json({error:'This order needs a payment status check.',code:'PAYMENT_REVIEW'},{status:409});
+    }
 
     try {
       const { postOrderToInvoice } = await import('@/lib/finance/post-order');
@@ -488,7 +498,7 @@ export async function POST(request: Request) {
       console.warn('[verify legacy] confirmation email failed:', e.message);
     }
 
-    return NextResponse.json({ success: true, order });
+    return NextResponse.json({ success: true, order:{orderNumber:order.orderNumber} });
   } catch (error: any) {
     console.error('[razorpay.verify]', error);
     return NextResponse.json({ error: 'Payment verification failed' }, { status: 500 });

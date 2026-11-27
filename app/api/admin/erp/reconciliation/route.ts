@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { getSession, requireRole } from '@/lib/auth';
 import { readStockFeed } from '@/lib/erp/reconciliation/feed';
 import { parseStockSheet } from '@/lib/erp/reconciliation/stock-sheet';
+import { ErpReadError } from '@/lib/erp/adapter/http';
 import { getErpAdapter } from '@/lib/erp/adapter';
 import {
   ERP_RECONCILIATION_VERSION,
@@ -67,30 +68,26 @@ export async function GET(request: Request) {
       status: 'ALL',
     });
 
-    const priceEntries = await Promise.all(
-      erpProducts.map(async (product) => {
-        const price = await adapter.getPriceBySku(product.sku);
-        return [product.sku.trim().toUpperCase(), price] as const;
-      })
-    );
-
-    const stockEntries = await Promise.all(
-      erpProducts.map(async (product) => {
-        const stock = await adapter.getStockBySku(product.sku);
-        return [product.sku.trim().toUpperCase(), stock] as const;
-      })
-    );
+    // A large product list must not open thousands of connections at once.
+    const prices: Record<string,Awaited<ReturnType<typeof adapter.getPriceBySku>>> = Object.create(null);
+    const stocks: Record<string,Awaited<ReturnType<typeof adapter.getStockBySku>>> = Object.create(null);
+    for (let offset=0;offset<erpProducts.length;offset+=6) {
+      await Promise.all(erpProducts.slice(offset,offset+6).map(async product => {
+        const sku=product.sku.trim().toUpperCase();
+        [prices[sku],stocks[sku]]=await Promise.all([adapter.getPriceBySku(sku),adapter.getStockBySku(sku)]);
+      }));
+    }
 
     const response = createErpReconciliationResponse({
       generatedAt: new Date().toISOString(),
-      adapterKind: adapter.kind,
+      adapterKind: adapter.kind === 'real' ? 'Verified ERP bridge read' : adapter.kind,
       filter,
       limit,
       platformRows: buildPlatformReconciliationRows(platformProducts),
       erpRows: buildErpReconciliationRows(
         erpProducts,
-        Object.fromEntries(priceEntries),
-        Object.fromEntries(stockEntries)
+        prices,
+        stocks
       ),
     });
 
@@ -116,7 +113,7 @@ export async function GET(request: Request) {
         },
         items: [],
       },
-      { status: 500 }
+      { status: error instanceof ErpReadError ? (error.retryable ? 503 : 502) : 500 }
     );
   }
 }

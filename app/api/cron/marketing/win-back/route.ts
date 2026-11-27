@@ -7,6 +7,7 @@
 // Each user is contacted at most once every 60 days via User.lastWinBackAt
 // (added in SPRINT_9_29).
 
+import { cronAuthorized } from '@/lib/cron/authorize';
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { sendEmail } from '@/lib/email';
@@ -21,16 +22,8 @@ const DORMANT_DAYS_MIN = 90;     // dormant ≥ 90 days
 const DORMANT_DAYS_MAX = 365;    // …but not lost (> 1 year = different campaign)
 const REPEAT_COOLDOWN_DAYS = 60; // don't pester same user twice in 60 days
 
-function isAuthorized(req: Request): boolean {
-  const expected = process.env.CRON_SECRET;
-  if (!expected) return true;
-  const auth = req.headers.get('authorization') || '';
-  const qsKey = new URL(req.url).searchParams.get('key') || '';
-  return auth === `Bearer ${expected}` || qsKey === expected;
-}
-
 export async function GET(req: Request) {
-  if (!isAuthorized(req)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  if (!cronAuthorized(req, true)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   const now = new Date();
   const dormantCutoff = new Date(now.getTime() - DORMANT_DAYS_MIN * 86_400_000);
