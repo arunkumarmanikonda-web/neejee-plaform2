@@ -43,9 +43,7 @@ Open http://localhost:3000
 
 Visit http://localhost:3000/login
 
-In dev mode, these are pre-wired:
-- **Admin**: `admin@neejee.com` / `admin123` → access `/admin`
-- **Customer**: `demo@neejee.com` / `neejee123` → access `/account`
+Set distinct local `NEEJEE_SEED_ADMIN_PASSWORD` and `NEEJEE_SEED_CUSTOMER_PASSWORD` values of at least 16 characters before running `npm run seed`. Use those values for the local admin and customer demo accounts. Existing accounts keep their passwords.
 
 ## What works out of the box (no setup):
 

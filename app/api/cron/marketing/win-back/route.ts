@@ -23,7 +23,7 @@ const DORMANT_DAYS_MAX = 365;    // …but not lost (> 1 year = different campai
 const REPEAT_COOLDOWN_DAYS = 60; // don't pester same user twice in 60 days
 
 export async function GET(req: Request) {
-  if (!cronAuthorized(req, true)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  if (!cronAuthorized(req)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   const now = new Date();
   const dormantCutoff = new Date(now.getTime() - DORMANT_DAYS_MIN * 86_400_000);

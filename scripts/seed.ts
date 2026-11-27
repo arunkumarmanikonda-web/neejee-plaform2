@@ -3,7 +3,7 @@
 // Requires: DATABASE_URL set, prisma db push done first
 //
 // This populates the DB with 12 products, 6 artisans, 10 categories, 3 stories,
-// and a demo admin (admin@neejee.com / admin123) and customer (demo@neejee.com / neejee123).
+// and local demo accounts. Run only against a loopback database.
 
 import { PrismaClient } from '@prisma/client';
 import { products, categories, artisans, stories } from '../lib/data';
@@ -12,11 +12,20 @@ import bcrypt from 'bcryptjs';
 const prisma = new PrismaClient();
 
 async function main() {
+  const databaseHost = new URL(process.env.DATABASE_URL || '').hostname;
+  if (process.env.NODE_ENV === 'production' || process.env.VERCEL || !['localhost', '127.0.0.1', '[::1]'].includes(databaseHost)) {
+    throw new Error('Demo seeding requires a local database outside a hosted deployment.');
+  }
+  const adminPassword = process.env.NEEJEE_SEED_ADMIN_PASSWORD || '';
+  const customerPassword = process.env.NEEJEE_SEED_CUSTOMER_PASSWORD || '';
+  if (adminPassword.length < 16 || customerPassword.length < 16 || adminPassword === customerPassword) {
+    throw new Error('Set distinct local seed passwords of at least 16 characters for the admin and customer.');
+  }
   console.log('🌿 Seeding NEEJEE database...\n');
 
   // ============ ADMIN USERS ============
-  const adminHash = await bcrypt.hash('admin123', 12);
-  const customerHash = await bcrypt.hash('neejee123', 12);
+  const adminHash = await bcrypt.hash(adminPassword, 12);
+  const customerHash = await bcrypt.hash(customerPassword, 12);
 
   await prisma.user.upsert({
     where: { email: 'admin@neejee.com' },
@@ -28,7 +37,6 @@ async function main() {
     update: {},
     create: { email: 'demo@neejee.com', name: 'Aanya M.', passwordHash: customerHash, role: 'CUSTOMER' },
   });
-  console.log('✓ Users seeded (admin@neejee.com / admin123, demo@neejee.com / neejee123)');
 
   // ============ CATEGORIES ============
   for (const cat of categories) {
@@ -116,9 +124,6 @@ async function main() {
   console.log('✓ Coupons seeded');
 
   console.log('\n🎉 Seed complete!\n');
-  console.log('Sign in at /login with:');
-  console.log('  Admin    → admin@neejee.com / admin123');
-  console.log('  Customer → demo@neejee.com / neejee123\n');
 }
 
 main().catch(e => { console.error(e); process.exit(1); }).finally(() => prisma.$disconnect());

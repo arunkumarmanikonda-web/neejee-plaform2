@@ -106,8 +106,11 @@ export default function AiSummaryPage() {
               </div>
               <div className="prose prose-sm max-w-none text-mitti whitespace-pre-line">
                 {s.narrative.split('\n\n').map((p, i) => (
-                  <p key={i} className="my-2"
-                    dangerouslySetInnerHTML={{ __html: p.replace(/\*\*(.+?)\*\*/g, '<strong class="text-kohl">$1</strong>') }} />
+                  <p key={i} className="my-2">
+                    {p.split(/(\*\*.+?\*\*)/g).map((text, index) => (
+                      index % 2 ? <strong key={index} className="text-kohl">{text.slice(2, -2)}</strong> : text
+                    ))}
+                  </p>
                 ))}
               </div>
             </div>

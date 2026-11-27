@@ -174,20 +174,21 @@ export default function AdminSettingsPage() {
       const json = text ? JSON.parse(text) : {};
       if (!res.ok) throw new Error(json?.error || `Save failed (${res.status})`);
 
+      const saved = new Set<string>(json.updated || []);
       const secretKeys = new Set(
         (data?.fields || []).filter((field) => field.secret).map((field) => field.key),
       );
 
       setForm((prev) => {
         const next = { ...prev };
-        for (const key of keys) {
+        for (const key of saved) {
           if (secretKeys.has(key) && (payload[key] || '').trim()) next[key] = '';
         }
         return next;
       });
       setOriginal((prev) => {
         const next = { ...prev };
-        for (const key of keys) {
+        for (const key of saved) {
           next[key] = secretKeys.has(key) ? '' : (payload[key] || '');
         }
         return next;
@@ -197,7 +198,7 @@ export default function AdminSettingsPage() {
         return {
           ...prev,
           fields: prev.fields.map((field) => {
-            if (!Object.prototype.hasOwnProperty.call(payload, field.key)) return field;
+            if (!saved.has(field.key)) return field;
             const entered = (payload[field.key] || '').trim();
             if (!entered) return field;
             return {
@@ -209,7 +210,8 @@ export default function AdminSettingsPage() {
           }),
         };
       });
-      setNotice(json?.note || 'Saved to Vercel.');
+      if (saved.size) setNotice('Saved to Production. Redeploy to apply the changes.');
+      if (json.failed?.length) setError(json.failed.map((item: {key:string; error:string}) => `${item.key} · ${item.error}`).join(' '));
     } catch (e: any) {
       setError(e?.message || 'Save failed.');
     } finally {

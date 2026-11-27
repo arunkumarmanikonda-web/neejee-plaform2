@@ -4,7 +4,6 @@
 //
 // Vercel cron entry: { path: '/api/cron/commission-billing', schedule: '0 3 * * 1' }
 //
-// Manual trigger:   curl 'https://www.neejee.com/api/cron/commission-billing?key=<CRON_SECRET>'
 
 import { cronAuthorized } from '@/lib/cron/authorize';
 import { NextResponse } from 'next/server';
@@ -15,7 +14,7 @@ export const runtime = 'nodejs';
 export const maxDuration = 60;
 
 export async function GET(request: Request) {
-  if (!cronAuthorized(request, true)) {
+  if (!cronAuthorized(request)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
   const url = new URL(request.url);
