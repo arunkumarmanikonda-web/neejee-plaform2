@@ -25,7 +25,7 @@ export async function dumpDatabase(dir: string) {
       const local = ['localhost','127.0.0.1'].includes(url.hostname) && process.env.VERCEL_ENV !== 'production';
       const pgEnv = {PGHOST:url.hostname, PGPORT:url.port || '5432', PGUSER:decodeURIComponent(url.username),
         PGDATABASE:decodeURIComponent(url.pathname.slice(1) || 'postgres'), PGPASSFILE:passwordFile, PGCONNECT_TIMEOUT:'7',
-        PGAPPNAME:'neejee_readonly_recovery', PGOPTIONS:'-c default_transaction_read_only=on',
+        PGAPPNAME:'neejee_readonly_recovery',
         PGSSLMODE:local ? 'disable' : 'verify-full', PGSSLROOTCERT:ca};
       const binary = await pgTool('pg_dump',['--no-password','--format=custom','--inserts','--compress=gzip:6',
         '--lock-wait-timeout=5s',...appSchemas.map(x=>'--schema='+x)], pgEnv);
@@ -76,7 +76,7 @@ export async function rehearseDatabase(archive: Buffer, dir: string) {
       (SELECT count(*)::int FROM public."Order") orders, (SELECT count(*)::int FROM public."User") users,
       (SELECT count(*)::int FROM pg_tables WHERE schemaname='private') models`);
     const counts = result.rows[0];
-    if (!counts.tables || !counts.models || counts.secured !== counts.tables) throw new Error('Restored access control check failed');
+    if (!counts.tables || !counts.models || counts.secured !== counts.tables) throw new Error(`Restored access control check failed (public tables ${counts.tables}, secured ${counts.secured}, private tables ${counts.models})`);
     return counts;
   } finally { await db.close(); }
 }
