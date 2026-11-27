@@ -35,6 +35,7 @@ export async function GET(_request: Request, props: { params: Promise<{ token: s
   const document = await prisma.sellerDocument.findFirst({
     where: { fileUrl },
     select: {
+      sellerId: true,
       fileName: true,
       fileUrl: true,
       mimeType: true,
@@ -46,7 +47,7 @@ export async function GET(_request: Request, props: { params: Promise<{ token: s
   }
 
   const objectPath = privateSellerDocumentPathFromUrl(document.fileUrl);
-  if (!objectPath || !objectPath.startsWith(STORAGE_PREFIX)) {
+  if (!objectPath || !(objectPath.startsWith(STORAGE_PREFIX)||objectPath.startsWith('seller-documents/'+document.sellerId+'/'))) {
     return NextResponse.json({ error: 'Invalid document reference' }, { status: 400 });
   }
 

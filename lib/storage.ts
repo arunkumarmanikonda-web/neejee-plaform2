@@ -180,10 +180,18 @@ function resolveDeleteTarget(fileRef: string): { bucket: string; path: string } 
 
 /** Delete a file from local Supabase Storage. Missing objects are already deleted. */
 export async function deleteFile(fileRef: string): Promise<void> {
-  if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
-    throw new Error('Supabase storage not configured');
-  }
-  const { bucket, path } = resolveDeleteTarget(fileRef);
+  const {bucket,path}=resolveDeleteTarget(fileRef);
+  return deleteStoredObject(bucket,path);
+}
+
+export async function deletePrivateSellerFile(filePath:string):Promise<void> {
+  const path=safeObjectPath(filePath);
+  if (!path||!path.startsWith('seller-documents/')) throw Error('Invalid private document path');
+  return deleteStoredObject(PRIVATE_SELLER_STORAGE_BUCKET,path);
+}
+
+async function deleteStoredObject(bucket:string,path:string):Promise<void> {
+  if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) throw Error('Supabase storage not configured');
   const delUrl = `${SUPABASE_URL}/storage/v1/object/${encodeURIComponent(bucket)}/${path}`;
   const res = await fetch(delUrl, {
     method: 'DELETE',

@@ -7,6 +7,7 @@ import { prisma } from '@/lib/prisma';
 import { getSession } from '@/lib/auth';
 import { requireSellerContext, canEditInventory } from '@/lib/seller-auth-helpers';
 import { prismaErrorToHttp } from '@/lib/prisma-errors';
+import { sellerInventoryPath } from '@/lib/seller-private-files';
 import { getSellerAgreementUploadGate } from '@/lib/agreement-upload-guard';
 
 export const dynamic = 'force-dynamic';
@@ -72,6 +73,10 @@ export async function POST(req: Request) {
         { error: `submissionType required: one of ${Array.from(ALLOWED_TYPES).join(', ')}` },
         { status: 400 }
       );
+    }
+
+    if (sourceFileUrl && !sellerInventoryPath(String(sourceFileUrl),gate.ctx.seller.id)) {
+      return NextResponse.json({error:'Upload a spreadsheet for your studio before submitting.'},{status:400});
     }
 
     if (!proposedData || typeof proposedData !== 'object') {

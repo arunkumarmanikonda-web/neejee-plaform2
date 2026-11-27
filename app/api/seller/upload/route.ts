@@ -1,7 +1,9 @@
 // Seller-authenticated upload endpoint (for product images, studio assets, inventory spreadsheets)
 import { NextResponse } from 'next/server';
-import { requireApprovedSeller } from '@/lib/seller-context';
-import { uploadFile, makeUploadPath, storageConfigured } from '@/lib/storage';
+import { getSession,requireRole } from '@/lib/auth';
+import { requireSellerContext,canEditInventory } from '@/lib/seller-auth-helpers';
+import { uploadPrivateSellerDocument, uploadFile, makeUploadPath, storageConfigured } from '@/lib/storage';
+import { sellerFileUrl } from '@/lib/seller-private-files';
 import { getSellerAgreementUploadGate } from '@/lib/agreement-upload-guard';
 
 export const dynamic = 'force-dynamic';
@@ -17,17 +19,14 @@ const INVENTORY_DOC_TYPES = new Set([
 const MAX_IMAGE_SIZE = 4 * 1024 * 1024;
 const MAX_DOC_SIZE = 15 * 1024 * 1024;
 
-const ENFORCED_FOLDERS = [
-  'seller-products',
-  'seller-inventory',
-  'seller-inventory-files',
-  'inventory-submissions',
-];
-
 export async function POST(request: Request) {
-  const ctx = await requireApprovedSeller();
-  if (!ctx.ok) return NextResponse.json({ error: ctx.error }, { status: ctx.status });
-
+  const user=await getSession(),admin=requireRole(user,['ADMIN','SUPER_ADMIN']);
+  const gate=admin?null:await requireSellerContext(user);
+  if (gate && !gate.ok) return NextResponse.json({error:gate.error},{status:gate.status});
+  const seller=gate?.ok?gate.ctx:null;
+  if (seller && (!canEditInventory(seller)||seller.seller.kycStatus!=='APPROVED')) {
+    return NextResponse.json({error:'Approved inventory access is required.'},{status:403});
+  }
   if (!storageConfigured()) {
     return NextResponse.json({ error: 'Storage not configured' }, { status: 500 });
   }
@@ -36,24 +35,13 @@ export async function POST(request: Request) {
     const form = await request.formData();
     const folder = (form.get('folder') as string | null) || 'seller-products';
 
-    if (!ctx.isAdmin && ctx.seller) {
-      const normalizedFolder = String(folder || '').toLowerCase();
-      const shouldEnforceAgreement = ENFORCED_FOLDERS.some(prefix =>
-        normalizedFolder.startsWith(prefix)
-      );
-
-      if (shouldEnforceAgreement) {
-        const agreementGate = await getSellerAgreementUploadGate(ctx.seller.id);
-        if (agreementGate.blocked) {
-          return NextResponse.json(
-            { error: agreementGate.message, code: agreementGate.code, agreementGate },
-            { status: 423 }
-          );
-        }
-      }
+    const bulk=folder === 'sellers/bulk-uploads';
+    if (!bulk && folder !== 'seller-products') return NextResponse.json({error:'Choose a supported upload destination.'},{status:400});
+    if (seller) {
+      const agreementGate=await getSellerAgreementUploadGate(seller.seller.id);
+      if (agreementGate.blocked) return NextResponse.json({error:agreementGate.message,code:agreementGate.code},{status:423});
     }
-
-    const sellerId = ctx.seller?.id || 'admin';
+    const sellerId=seller?.seller.id||'admin';
 
     const files: File[] = [];
     form.getAll('files').forEach(f => {
@@ -72,7 +60,7 @@ export async function POST(request: Request) {
       const isImage = IMAGE_TYPES.has(file.type);
       const isInventoryDoc = INVENTORY_DOC_TYPES.has(file.type);
 
-      if (!isImage && !isInventoryDoc) {
+      if (bulk ? !isInventoryDoc : !isImage) {
         return NextResponse.json(
           {
             error:
@@ -93,10 +81,12 @@ export async function POST(request: Request) {
         );
       }
 
-      const safeFolder = `${folder.replace(/[^a-z0-9\-/]/gi, '_')}/${sellerId}`;
+      const safeFolder = (bulk?'seller-inventory-files':'seller-products')+'/'+sellerId;
       const path = makeUploadPath(safeFolder, file.name || 'upload.bin');
       const buf = Buffer.from(await file.arrayBuffer());
-      const { url } = await uploadFile(path, buf, file.type);
+      const { url } = bulk
+        ? {url:sellerFileUrl((await uploadPrivateSellerDocument(path,buf,file.type)).path)}
+        : await uploadFile(path, buf, file.type);
       results.push({ url, path });
     }
 
