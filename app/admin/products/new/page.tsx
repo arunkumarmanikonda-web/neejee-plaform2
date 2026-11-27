@@ -413,12 +413,15 @@ export default function AdminNewProduct() {
           <div className="bg-beige p-6">
             <p className="label text-madder mb-4">IMAGES</p>
             <ImageUploader
+              captureCategory={[categoryName, categoryPath].filter(Boolean).join(" ")}
               images={form.images}
               onChange={(imgs: string[]) =>
                 setForm((f: any) => ({
                   ...f,
                   images: imgs,
-                  cataloguePreferredImage: f.cataloguePreferredImage || imgs[0] || '',
+                  cataloguePreferredImage: f.images.includes(f.cataloguePreferredImage) && !imgs.includes(f.cataloguePreferredImage)
+                    ? imgs[Math.max(0, f.images.indexOf(f.cataloguePreferredImage))] || imgs[0] || ''
+                    : f.cataloguePreferredImage || imgs[0] || '',
                 }))
               }
               folder="products/new"

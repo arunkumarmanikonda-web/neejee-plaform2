@@ -447,8 +447,13 @@ export default function AdminProductEdit() {
           {tab === 'IMAGES' && (
             <div className="bg-beige p-6 space-y-6">
               <ImageUploader
+                captureCategory={categories.find(c => c.id === form.categoryId)?.name || product.category?.name || ''}
                 images={form.images}
-                onChange={(imgs: string[]) => setForm((f: any) => ({...f, images: imgs}))}
+                onChange={(imgs: string[]) => setForm((f: any) => ({
+                  ...f, images: imgs, cataloguePreferredImage: f.images.includes(f.cataloguePreferredImage) && !imgs.includes(f.cataloguePreferredImage)
+                    ? imgs[f.images.indexOf(f.cataloguePreferredImage)] || imgs[0] || ''
+                    : f.cataloguePreferredImage,
+                }))}
                 folder={`products/${product.id}`}
                 max={10}
               />
