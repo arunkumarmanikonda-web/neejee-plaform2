@@ -11,7 +11,7 @@ import { restoreFiles, sealFiles } from '@/lib/recovery/storage-archive';
 export const runtime='nodejs';
 export const preferredRegion='sin1';
 export const dynamic='force-dynamic';
-export const maxDuration=180;
+export const maxDuration=480;
 const headers = {'Cache-Control':'private, no-store'};
 
 export async function GET(request: Request) {
