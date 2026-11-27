@@ -52,6 +52,7 @@ async function localPathStillNeeded(
 }
 
 async function runRetention() {
+  await prisma.$executeRaw`delete from private.guest_style_job where expires_at<=now()`;
   if (!storageConfigured()) {
     return NextResponse.json(
       { error: 'storage not configured' },

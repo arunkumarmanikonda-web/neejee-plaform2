@@ -1,15 +1,16 @@
 import {createHash,randomBytes} from 'node:crypto';
 import sharp from 'sharp';
-import {NextRequest,NextResponse} from 'next/server';
+import {after,NextRequest,NextResponse} from 'next/server';
 import {z} from 'zod';
 import {prisma} from '@/lib/prisma';
 import {guestRenderingConfigured,GuestRenderError,guestRenderResult,startGuestRender} from '@/lib/ai/guest-style-service';
+import {openAiStyleAvailable,finishOpenAiStyle} from '@/lib/ai/guest-style-openai';
 import {getPairBoard} from '@/lib/pairing-catalog';
 import {pairingSlots,type PairSlot} from '@/lib/pairing';
 
 export const dynamic='force-dynamic';
 export const runtime='nodejs';
-export const maxDuration=60;
+export const maxDuration=240;
 const cookie='nj_style_guest';
 const headers={'Cache-Control':'private, no-store','Referrer-Policy':'no-referrer'};
 const json=(data:unknown,status=200)=>NextResponse.json(data,{status,headers});
@@ -56,7 +57,7 @@ export async function POST(req:NextRequest){
   if(!sameShopOrigin(req) || !req.headers.get('content-type')?.includes('application/json'))return json({error:'Open the styling page again.'},403);
   const identity=owner(req);
   if(!identity)return json({error:'Enable this site’s cookies to create a rendered preview.'},401);
-  if(!guestRenderingConfigured())return json({error:'Photo rendering is unavailable. Your styling board and checkout are ready.'},503);
+  if(!guestRenderingConfigured()&&!openAiStyleAvailable())return json({error:'Photo rendering is unavailable. Your styling board and checkout are ready.'},503);
   const data=await readInput(req).catch(()=>null);
   if(!data||(!data.background&&!data.layers.length)||new Set(data.layers.map(i=>i.slot)).size!==data.layers.length)return json({error:'Choose a photo or a pairing and confirm permission.'},400);
   try {
@@ -94,6 +95,11 @@ export async function POST(req:NextRequest){
       await prisma.$executeRaw`update private.guest_style_job set state='queued',provider_id=${providerId} where owner_hash=${identity} and id=${data.id}::uuid`;
       return json({id:data.id},202);
     }catch(e){
+      if(e instanceof GuestRenderError&&e.issues.every(i=>i.retryable)&&openAiStyleAvailable()){
+        await prisma.$executeRaw`update private.guest_style_job set state='queued',provider_id='openai-edit',failure_code=${e.message||null} where owner_hash=${identity} and id=${data.id}::uuid`;
+        after(()=>finishOpenAiStyle(identity,data.id,prompt,refs));
+        return json({id:data.id},202);
+      }
       const code=e instanceof GuestRenderError?e.message.slice(0,120):'job_record';
       await prisma.$executeRaw`update private.guest_style_job set state='failed',failure_code=${code} where owner_hash=${identity} and id=${data.id}::uuid`;
       return json({error:'Photo rendering is unavailable right now. You can arrange these pieces on your photo below.'},502);
@@ -110,6 +116,12 @@ export async function GET(req:NextRequest) {
     const row=await job(identity,id!);if(!row)return json({error:'This preview has expired.'},404);
     if(row.state==='failed'||(row.state==='pending'&&row.old))return json({error:'The preview could not be completed.'},502);
     if(!row.provider_id)return json({pending:true},202);
+    if(row.provider_id==='openai-edit'){
+      const [result]=await prisma.$queryRaw<{image:Uint8Array|null;stale:boolean}[]>`select result_jpeg as image,created_at < now()-interval '4 minutes' as stale from private.guest_style_job where owner_hash=${identity} and id=${id}::uuid and expires_at>now()`;
+      if(result?.image)return new Response(new Uint8Array(result.image),{headers:{...headers,'Content-Type':'image/jpeg','X-Content-Type-Options':'nosniff'}});
+      if(!result||result.stale)return json({error:'The render took too long. You can use the photo arrangement instead.'},504);
+      return json({pending:true},202);
+    }
     const media=await guestRenderResult(row.provider_id);
     if(!media)return json({pending:true},202);
     return new Response(media.body,{headers:{...headers,'X-Content-Type-Options':'nosniff','Content-Type':media.headers.get('content-type')!}});
