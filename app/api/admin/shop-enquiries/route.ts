@@ -6,7 +6,15 @@ async function handle(req:Request,native:boolean){
   const user=await getSession();
   if(!user||!requireRole(user,['ADMIN','SUPER_ADMIN'])) return NextResponse.json({error:'Staff access required.'},{status:user?403:401});
   const origin = req.headers.get('origin');
-  if (origin && new URL(req.url).origin !== origin) return NextResponse.json({error:'Invalid request origin.'},{status:403});
+  if (origin) {
+    let sameOrigin = false;
+    try {
+      const sender = new URL(origin), target = new URL(req.url);
+      sameOrigin = sender.origin === target.origin || (sender.host === req.headers.get('host') &&
+        (sender.protocol === 'https:' || (process.env.NODE_ENV !== 'production' && sender.protocol === 'http:')));
+    } catch {}
+    if (!sameOrigin) return NextResponse.json({error:'Invalid request origin.'},{status:403});
+  }
   const body=native?await req.formData().then(data=>Object.fromEntries(data)).catch(()=>null):await req.json().catch(()=>null);
   const input=z.object({id:z.string().uuid()}).safeParse(body);
   if(!input.success) return NextResponse.json({error:'Invalid reference.'},{status:400});
