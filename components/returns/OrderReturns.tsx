@@ -6,7 +6,7 @@ import { RETURN_REASONS, type ReturnReason } from '@/lib/returns/request';
 
 type Line = {
   id: string; name: string; variant: string; quantity: number; policy: string | null;
-  reasons: ReturnReason[]; request: { reference: string; status: string; message: string | null } | null;
+  reasons: ReturnReason[]; request: { reference: string; status: string; message: string | null; customerReply: string | null } | null;
 };
 type Order = { status: string; items: Line[] };
 
@@ -66,7 +66,7 @@ export function OrderReturns({ orderNumber }: { orderNumber: string }) {
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || 'Unable to send your reply.');
       pendingReply.current = null; form.reset();
-      setNotice('Your reply has been added to the request.');
+      setNotice('Your reply has been added to the request.'); setRevision(n => n + 1);
     } catch (err) { setError(err instanceof Error ? err.message : 'Unable to send your reply.'); }
     finally { setBusy(false); }
   }
@@ -86,6 +86,7 @@ export function OrderReturns({ orderNumber }: { orderNumber: string }) {
           {item.request ? <div className="mt-3 text-sm"><p className="font-medium">Request {label(item.request.status)}</p>
             <p className="break-all">Reference · {item.request.reference}</p>
             {item.request.message && <p className="mt-2 whitespace-pre-line">{item.request.message}</p>}
+            {item.request.customerReply && <p className="mt-2 whitespace-pre-line">Your latest reply · {item.request.customerReply}</p>}
             {!['RESOLVED','REJECTED','WITHDRAWN'].includes(item.request.status) && <form onSubmit={e => reply(e, item)} className="mt-4">
               <label>Reply to the team<textarea name="reply" required maxLength={2000} rows={2} className={field} /></label>
               <button className="btn-secondary mt-2" disabled={busy}>Send reply</button>

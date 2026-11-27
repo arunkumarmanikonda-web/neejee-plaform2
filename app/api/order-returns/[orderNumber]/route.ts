@@ -11,6 +11,20 @@ type Context = { params: { orderNumber: string } };
 const json = (body: object, status = 200) => NextResponse.json(body, { status, headers: { 'Cache-Control': 'private, no-store' } });
 const hidden = () => json({ error: 'Open the order in your account or look it up again.' }, 404);
 
+function sameOrigin(req: NextRequest) {
+  if (req.headers.get('sec-fetch-site') === 'cross-site') return false;
+  const origin = req.headers.get('origin');
+  if (!origin || origin === req.nextUrl.origin) return true;
+  // Next can reconstruct its internal URL with localhost on a trusted reverse proxy.
+  // The incoming Host retains the actual public host, including a development port.
+  try {
+    const source = new URL(origin);
+    const protocol = (req.headers.get('x-forwarded-proto')?.split(',')[0] || req.nextUrl.protocol).trim().replace(/:$/, '');
+    return source.host === req.headers.get('host') && source.protocol === protocol + ':';
+  } catch { return false; }
+}
+
+
 async function buyerOrder(req: NextRequest, number: string) {
   if (!number || number.length > 80) return null;
   const [session, order] = await Promise.all([
@@ -37,8 +51,8 @@ export async function GET(req: NextRequest, { params }: Context) {
   const cases = await prisma.dispute.findMany({
     where: { orderId: order.id, resourceType: 'ORDER', id: { in: order.items.map(line => returnCaseId(line.id)) } },
     select: { id: true, status: true, resolutionNote: true, events: {
-      where: { type: 'COMMENT', actorRole: 'ADMIN', body: { startsWith: CUSTOMER_UPDATE_PREFIX } },
-      orderBy: { createdAt: 'desc' }, take: 1, select: { body: true },
+      where: { type: 'COMMENT', OR: [ { actorRole: 'CUSTOMER' }, { actorRole: 'ADMIN', body: { startsWith: CUSTOMER_UPDATE_PREFIX } } ] },
+      orderBy: { createdAt: 'desc' }, take: 20, select: { actorRole: true, body: true },
     } },
   });
   return json({
@@ -49,14 +63,15 @@ export async function GET(req: NextRequest, { params }: Context) {
         id: line.id, name: line.product.name, variant: [line.variant?.color, line.variant?.size].filter(Boolean).join(' · '),
         quantity: line.quantity, policy: line.product.returnPolicy, reasons: availableReasons(order.status, line.product.returnEligible),
         request: dispute ? { reference: dispute.id, status: dispute.status,
-          message: dispute.status === 'RESOLVED' ? dispute.resolutionNote : dispute.events[0]?.body?.slice(CUSTOMER_UPDATE_PREFIX.length) || null } : null,
+          customerReply: dispute.events.find(event => event.actorRole === 'CUSTOMER')?.body || null,
+          message: dispute.status === 'RESOLVED' ? dispute.resolutionNote : dispute.events.find(event => event.actorRole === 'ADMIN')?.body?.slice(CUSTOMER_UPDATE_PREFIX.length) || null } : null,
       };
     }),
   });
 }
 
 export async function POST(req: NextRequest, { params }: Context) {
-  if (req.headers.get('origin') && req.headers.get('origin') !== req.nextUrl.origin) {
+  if (!sameOrigin(req)) {
     return json({ error: 'Open this order in the store to send a request.' }, 403);
   }
   const order = await buyerOrder(req, params.orderNumber);
@@ -102,7 +117,7 @@ export async function POST(req: NextRequest, { params }: Context) {
 }
 
 export async function PATCH(req: NextRequest, { params }: Context) {
-  if (req.headers.get('origin') && req.headers.get('origin') !== req.nextUrl.origin) {
+  if (!sameOrigin(req)) {
     return json({ error: 'Open this order in the store to send a reply.' }, 403);
   }
   const order = await buyerOrder(req, params.orderNumber);
@@ -129,6 +144,12 @@ export async function PATCH(req: NextRequest, { params }: Context) {
       id: replyId, disputeId: id, actorUserId: order.userId ?? `guest:${order.id}`,
       actorRole: 'CUSTOMER', type: 'COMMENT', body: message,
     } });
+    if (locked[0].status === 'AWAITING_CUSTOMER') {
+      await tx.dispute.update({ where: { id }, data: { status: 'UNDER_REVIEW' } });
+      await tx.disputeEvent.create({ data: { disputeId: id, type: 'STATUS_CHANGED',
+        actorUserId: order.userId ?? `guest:${order.id}`, actorRole: 'CUSTOMER',
+        fromStatus: 'AWAITING_CUSTOMER', toStatus: 'UNDER_REVIEW', body: 'Customer replied' } });
+    }
     return 'sent';
   });
   if (result === 'missing') return hidden();
