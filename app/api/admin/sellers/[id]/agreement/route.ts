@@ -38,7 +38,8 @@ function extractSellerAddress(summary: any) {
   return direct || compact([line1, line2, city, state, pincode]).join(', ');
 }
 
-export async function GET(request: Request, { params }: { params: { id: string } }) {
+export async function GET(request: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const url = new URL(request.url);
   const token = url.searchParams.get('token') || '';
   const expectedPublicToken = process.env.AGREEMENT_PUBLIC_TOKEN || '';

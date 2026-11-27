@@ -5,7 +5,8 @@ import AgreementPrintClientV2 from './AgreementPrintClientV2';
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
-export default async function AgreementStandalonePage({ params }: { params: { id: string } }) {
+export default async function AgreementStandalonePage(props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const user = await getSession();
   if (!user) {
     redirect('/login');

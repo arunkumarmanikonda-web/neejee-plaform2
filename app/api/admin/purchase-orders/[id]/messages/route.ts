@@ -21,7 +21,8 @@ async function gate() {
   return { session };
 }
 
-export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(_req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const g = await gate();
   if (g.error) return g.error;
   const messages = await prisma.poMessage.findMany({
@@ -32,7 +33,8 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
   return NextResponse.json({ messages });
 }
 
-export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const g = await gate();
   if (g.error) return g.error;
   try {

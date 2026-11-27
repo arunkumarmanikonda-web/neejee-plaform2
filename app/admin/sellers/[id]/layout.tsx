@@ -1,12 +1,17 @@
 import Link from 'next/link';
 
-export default function AdminSellerLayout({
-  children,
-  params,
-}: {
-  children: React.ReactNode;
-  params: { id: string };
-}) {
+export default async function AdminSellerLayout(
+  props: {
+    children: React.ReactNode;
+    params: Promise<{ id: string }>;
+  }
+) {
+  const params = await props.params;
+
+  const {
+    children
+  } = props;
+
   return (
     <div>
       <div className="flex justify-end mb-4">

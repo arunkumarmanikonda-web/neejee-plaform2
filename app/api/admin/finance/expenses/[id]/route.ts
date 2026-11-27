@@ -8,7 +8,8 @@ import { prismaErrorToHttp } from '@/lib/prisma-errors';
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
-export async function GET(_req: Request, { params }: { params: { id: string } }) {
+export async function GET(_req: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const session = await getSession();
   const gate = requireFinancePerm(session, 'finance.read');
   if (!gate.ok) return NextResponse.json({ error: gate.error }, { status: gate.status });
@@ -31,7 +32,8 @@ const EDITABLE = [
   'vendorId', 'vendorNameSnapshot', 'invoiceNumber', 'receiptUrl', 'orderId', 'notes',
 ] as const;
 
-export async function PATCH(req: Request, { params }: { params: { id: string } }) {
+export async function PATCH(req: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const session = await getSession();
   const gate = requireFinancePerm(session, 'finance.write');
   if (!gate.ok) return NextResponse.json({ error: gate.error }, { status: gate.status });
@@ -75,7 +77,8 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   }
 }
 
-export async function DELETE(_req: Request, { params }: { params: { id: string } }) {
+export async function DELETE(_req: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const session = await getSession();
   const gate = requireFinancePerm(session, 'finance.write');
   if (!gate.ok) return NextResponse.json({ error: gate.error }, { status: gate.status });

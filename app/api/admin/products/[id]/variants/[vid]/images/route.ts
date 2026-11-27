@@ -4,7 +4,7 @@ import { prisma } from '@/lib/prisma';
 import { applyGalleryChange, parseGalleryChange, retryGalleryWrite } from '@/lib/catalog/variant-gallery';
 
 export const dynamic = 'force-dynamic';
-type Context = { params: { id:string; vid:string } };
+type Context = { params: Promise<{ id:string; vid:string }> };
 const select = {id:true, productId:true, images:true} as const;
 const missing = () => NextResponse.json({error:'Variant not found'}, {status:404});
 
@@ -14,14 +14,16 @@ async function checkEditor() {
   return NextResponse.json({error:'Unauthorized'}, {status:user ? 403 : 401});
 }
 
-export async function GET(_request:Request, {params}:Context) {
+export async function GET(_request:Request, props:Context) {
+  const params = await props.params;
   const denied = await checkEditor();
   if (denied) return denied;
   const variant = await prisma.variant.findFirst({where:{id:params.vid, productId:params.id}, select});
   return variant ? NextResponse.json({ok:true, variantId:variant.id, productId:variant.productId, images:variant.images || []}) : missing();
 }
 
-async function update(request:Request, {params}:Context, remove:boolean) {
+async function update(request:Request, context:Context, remove:boolean) {
+  const params = await context.params;
   const denied = await checkEditor();
   if (denied) return denied;
   const change = parseGalleryChange(await request.json().catch(() => null), remove);

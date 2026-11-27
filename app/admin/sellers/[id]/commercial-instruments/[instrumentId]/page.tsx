@@ -14,11 +14,12 @@ function dateLabel(value?: Date | string | null) {
   return date.toLocaleDateString('en-IN', { day: '2-digit', month: 'long', year: 'numeric' });
 }
 
-export default async function CommercialInstrumentRecordPage({
-  params,
-}: {
-  params: { id: string; instrumentId: string };
-}) {
+export default async function CommercialInstrumentRecordPage(
+  props: {
+    params: Promise<{ id: string; instrumentId: string }>;
+  }
+) {
+  const params = await props.params;
   const user = await getSession();
   if (!user) redirect(`/login?next=/admin/sellers/${params.id}/commercial-instruments/${params.instrumentId}`);
   if (!requireRole(user, ['ADMIN', 'SUPER_ADMIN'])) redirect('/admin');

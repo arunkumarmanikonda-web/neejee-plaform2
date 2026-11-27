@@ -7,7 +7,7 @@ import { runAiPhotoJob } from '@/lib/ai-photo-studio/generate';
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 export const maxDuration = 300;
-type Context = {params: {id: string}};
+type Context = {params: Promise<{id: string}>};
 
 async function requestJob(productId: string) {
   const user = await getSession();
@@ -20,12 +20,14 @@ async function requestJob(productId: string) {
   });
   return {job:job?.productId === productId ? job : null,canReview:['SUPER_ADMIN','ADMIN'].includes(user.role)};
 }
-export async function GET(_request: Request, {params}: Context) {
+export async function GET(_request: Request, props: Context) {
+  const params = await props.params;
   const result = await requestJob(params.id);
   if (result.error) return result.error;
   return NextResponse.json({job:result.job,canReview:result.canReview});
 }
-export async function POST(request: Request, {params}: Context) {
+export async function POST(request: Request, props: Context) {
+  const params = await props.params;
   const result = await requestJob(params.id);
   if (result.error) return result.error;
   const job = result.job;
@@ -36,5 +38,5 @@ export async function POST(request: Request, {params}: Context) {
       data:{status:'QUEUED',startedAt:null,completedAt:null,errorMessage:null}});
   }
   await runAiPhotoJob(job.id);
-  return GET(request,{params});
+  return GET(request,props);
 }

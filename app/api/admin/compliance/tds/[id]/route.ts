@@ -25,7 +25,8 @@ async function gate(write = false) {
   return { session };
 }
 
-export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const g = await gate(false);
   if (g.error) return g.error;
   const url = new URL(req.url);
@@ -64,7 +65,8 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
   return NextResponse.json({ certificate: cert });
 }
 
-export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
+export async function PATCH(req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const g = await gate(true);
   if (g.error) return g.error;
   try {
@@ -95,7 +97,8 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   }
 }
 
-export async function DELETE(_req: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(_req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const g = await gate(true);
   if (g.error) return g.error;
   const cert = await prisma.tdsCertificate.findUnique({ where: { id: params.id } });

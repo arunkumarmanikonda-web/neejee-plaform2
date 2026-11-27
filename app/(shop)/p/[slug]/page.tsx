@@ -5,12 +5,13 @@ import { redirect } from 'next/navigation';
 export const dynamic = 'force-dynamic';
 
 type PageProps = {
-  params: {
+  params: Promise<{
     slug: string | string[];
-  };
+  }>;
 };
 
-export default async function ShortProductRedirectPage({ params }: PageProps) {
+export default async function ShortProductRedirectPage(props: PageProps) {
+  const params = await props.params;
   const slug = Array.isArray(params.slug) ? params.slug[0] : params.slug;
 
   if (!slug || !slug.trim()) {

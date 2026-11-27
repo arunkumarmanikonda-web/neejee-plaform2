@@ -1,3 +1,5 @@
+import { canOpenAdminPage } from '@/lib/admin/shop-access';
+import { AdminNavLink } from '@/components/admin/AdminNavLink';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import type { LucideIcon } from 'lucide-react';
@@ -87,6 +89,7 @@ const NAV_GROUPS: NavGroup[] = [
     label: 'OPERATIONS',
     items: [
       { href: '/admin', label: 'Overview', icon: LayoutDashboard },
+      { href: '/admin/enquiries', label:'Fashion enquiries',icon:Mail },
       { href: '/admin/orders', label: 'Orders', icon: ShoppingBag },
       { href: '/admin/disputes', label: 'Disputes', icon: MessageSquareWarning },
       { href: '/admin/customers', label: 'Customers', icon: Users },
@@ -223,14 +226,14 @@ function AdminNavigation({
             <p className="label text-banarasi mb-2">{g.label}</p>
             <div className="space-y-1">
               {g.items.map((item) => (
-                <Link
+                <AdminNavLink
                   key={item.href}
                   href={item.href}
                   className="flex items-center gap-3 px-3 py-2 rounded text-beige/80 hover:bg-mitti/40 hover:text-ivory transition-colors"
                 >
                   <item.icon className="w-4 h-4 shrink-0" />
                   <span>{item.label}</span>
-                </Link>
+                </AdminNavLink>
               ))}
             </div>
           </div>
@@ -281,7 +284,9 @@ export default async function AdminLayout({
   }
 
   const canSeeFinance = hasFinancePerm(user, 'finance.read');
-  const navGroups = NAV_GROUPS.filter((group) => !group.financeOnly || canSeeFinance);
+  const navGroups = NAV_GROUPS.filter((group) => !group.financeOnly || canSeeFinance)
+    .map(group=>({...group,items:group.items.filter(item=>canOpenAdminPage(user.role,item.href))}))
+    .filter(group=>group.items.length > 0);
   const displayName = user.name?.trim() || user.email.split('@')[0];
   const roleLabel = user.role.replace(/_/g, ' ');
   const navProps = { navGroups, displayName, roleLabel, email: user.email, canSeeFinance };

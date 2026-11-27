@@ -187,7 +187,7 @@ export async function POST(request: Request) {
 
     if (isPrivilegedRole(role) && admin2FAEnabled()) {
       if (!user.phone) {
-        clearAdminMfaChallenge();
+        await clearAdminMfaChallenge();
         return NextResponse.json(
           { error: 'Admin account does not have a phone number configured' },
           { status: 400 },
@@ -239,14 +239,14 @@ export async function POST(request: Request) {
             });
           }
 
-          clearAdminMfaChallenge();
+          await clearAdminMfaChallenge();
           return NextResponse.json(
             { error: error.message || 'Unable to send the security code right now.' },
             { status: error.status || 500 },
           );
         }
 
-        clearAdminMfaChallenge();
+        await clearAdminMfaChallenge();
         console.error('[auth/login] admin 2FA request failed', error);
 
         return NextResponse.json(

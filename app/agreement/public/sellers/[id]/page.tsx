@@ -10,13 +10,14 @@ export const metadata = {
   },
 };
 
-export default async function PublicAgreementPage({
-  params,
-  searchParams,
-}: {
-  params: { id: string };
-  searchParams?: { token?: string };
-}) {
+export default async function PublicAgreementPage(
+  props: {
+    params: Promise<{ id: string }>;
+    searchParams?: Promise<{ token?: string }>;
+  }
+) {
+  const searchParams = await props.searchParams;
+  const params = await props.params;
   const token = String(searchParams?.token || '');
   const qs = token ? `?token=${encodeURIComponent(token)}` : '';
 

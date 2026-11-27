@@ -5,21 +5,23 @@ import { prisma } from '@/lib/prisma';
 import { notesPageType, notesSlug, notesTemplate, readPieceFacts } from '@/lib/catalog/piece-notes';
 
 export const dynamic = 'force-dynamic';
-type Context = {params:{id:string}};
+type Context = {params: Promise<{id:string}>};
 const conflict = () => NextResponse.json({error:'The notes changed. Reload them before saving.'},{status:409});
 async function check(id:string) {
   const user = await getSession();
   if (!requireRole(user,['ADMIN','SUPER_ADMIN','CONTENT_EDITOR'])) return NextResponse.json({error:'Sign in as a catalogue editor.'},{status:403});
-  if (!await prisma.product.findUnique({where:{id},select:{id:true}})) return NextResponse.json({error:'Piece not found.'},{status:404});
+  if (!(await prisma.product.findUnique({where:{id},select:{id:true}}))) return NextResponse.json({error:'Piece not found.'},{status:404});
   return {user};
 }
-export async function GET(_req:Request,{params}:Context) {
+export async function GET(_req:Request, props:Context) {
+  const params = await props.params;
   const denied = await check(params.id);
   if (denied instanceof NextResponse) return denied;
   const page = await prisma.cmsPage.findFirst({where:{slug:notesSlug(params.id),pageType:notesPageType,template:notesTemplate},select:{sections:true,updatedAt:true}});
   return NextResponse.json({facts:readPieceFacts(page?.sections),version:page?.updatedAt.toISOString()??null});
 }
-export async function PATCH(req:Request,{params}:Context) {
+export async function PATCH(req:Request, props:Context) {
+  const params = await props.params;
   const denied = await check(params.id);
   if (denied instanceof NextResponse) return denied;
   const body = await req.json().catch(()=>null);

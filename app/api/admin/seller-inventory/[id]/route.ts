@@ -15,7 +15,8 @@ import { prismaErrorToHttp } from '@/lib/prisma-errors';
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
-export async function GET(_req: Request, { params }: { params: { id: string } }) {
+export async function GET(_req: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const session = await getSession();
   if (!requireRole(session, ['ADMIN', 'SUPER_ADMIN', 'CONTENT_EDITOR', 'QC_TEAM'])) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
@@ -36,7 +37,8 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
   }
 }
 
-export async function PATCH(req: Request, { params }: { params: { id: string } }) {
+export async function PATCH(req: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const session = await getSession();
   if (!requireRole(session, ['ADMIN', 'SUPER_ADMIN', 'CONTENT_EDITOR'])) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });

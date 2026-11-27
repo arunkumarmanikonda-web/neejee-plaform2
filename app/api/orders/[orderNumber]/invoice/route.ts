@@ -2,7 +2,7 @@ import { prisma } from '@/lib/prisma';
 import { getSession } from '@/lib/auth';
 import { renderInvoiceHtml } from '@/lib/finance/render-invoice-html';
 import { InvoiceStateReviewError } from '@/lib/finance/gst-state';
-import { invoiceTokenFor } from '@/lib/finance/invoice-token';
+import { verifyInvoiceToken } from '@/lib/finance/invoice-token';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -53,7 +53,8 @@ async function enrichInvoiceLines(inv: any) {
   };
 }
 
-export async function GET(req: Request, { params }: { params: { orderNumber: string } }) {
+export async function GET(req: Request, props: { params: Promise<{ orderNumber: string }> }) {
+  const params = await props.params;
   const session = await getSession();
   const url = new URL(req.url);
   const token = url.searchParams.get('token') || '';
@@ -72,7 +73,7 @@ export async function GET(req: Request, { params }: { params: { orderNumber: str
 
   const isOwner = !!(session?.id && order.userId && session.id === order.userId);
   const isAdmin = !!(session?.role && ['ADMIN', 'SUPER_ADMIN', 'FINANCE'].includes(session.role));
-  const hasValidToken = !!(token && token === invoiceTokenFor(order.id));
+  const hasValidToken = verifyInvoiceToken(order.id, token);
 
   if (!isOwner && !isAdmin && !hasValidToken) {
     return new Response(

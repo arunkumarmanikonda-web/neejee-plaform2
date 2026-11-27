@@ -5,7 +5,8 @@ import { prisma } from '@/lib/prisma';
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
-export async function GET(_request: Request, { params }: { params: { slug: string } }) {
+export async function GET(_request: Request, props: { params: Promise<{ slug: string }> }) {
+  const params = await props.params;
   const drop = await prisma.drop.findUnique({ where: { slug: params.slug } });
   if (!drop) return NextResponse.json({ error: 'Drop not found' }, { status: 404 });
   if (drop.status === 'DRAFT') {

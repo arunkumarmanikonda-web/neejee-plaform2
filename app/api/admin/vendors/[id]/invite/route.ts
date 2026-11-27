@@ -21,7 +21,8 @@ function productionBaseUrl(): string {
   return 'https://www.neejee.com';
 }
 
-export async function POST(_req: Request, { params }: { params: { id: string } }) {
+export async function POST(_req: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const session = await getSession();
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   if (!['ADMIN', 'SUPER_ADMIN'].includes(session.role)) {

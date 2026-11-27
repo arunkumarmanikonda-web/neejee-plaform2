@@ -17,7 +17,8 @@ async function vendorGate() {
   return { session, vendor };
 }
 
-export async function GET(_req: Request, { params }: { params: { id: string } }) {
+export async function GET(_req: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const g = await vendorGate();
   if ('error' in g) return NextResponse.json({ error: g.error }, { status: g.status });
   const po = await prisma.purchaseOrder.findFirst({
@@ -32,7 +33,8 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
 //   { transition: 'CONFIRMED' }
 //   { transition: 'DISPATCHED', trackingNumber, trackingUrl, vendorInvoiceNumber, vendorInvoiceUrl }
 //   { vendorInvoiceUrl, vendorInvoiceNumber, trackingNumber, trackingUrl } — update only
-export async function PATCH(request: Request, { params }: { params: { id: string } }) {
+export async function PATCH(request: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const g = await vendorGate();
   if ('error' in g) return NextResponse.json({ error: g.error }, { status: g.status });
   const po = await prisma.purchaseOrder.findFirst({

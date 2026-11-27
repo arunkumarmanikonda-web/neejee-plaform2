@@ -17,7 +17,8 @@ export const runtime = 'nodejs';
 
 const ADMIN_ROLES = ['ADMIN', 'SUPER_ADMIN'];
 
-export async function POST(_req: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(_req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const session = await getSession();
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   if (!ADMIN_ROLES.includes(session.role)) {

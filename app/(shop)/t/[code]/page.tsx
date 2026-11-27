@@ -9,7 +9,8 @@ import { prisma } from '@/lib/prisma';
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
-export default async function ShipmentShortRedirect({ params }: { params: { code: string } }) {
+export default async function ShipmentShortRedirect(props: { params: Promise<{ code: string }> }) {
+  const params = await props.params;
   const code = decodeURIComponent(params.code);
 
   try {

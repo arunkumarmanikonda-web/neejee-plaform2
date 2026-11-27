@@ -7,7 +7,8 @@ import { getSession, requireRole } from '@/lib/auth';
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
-export async function GET(_: Request, { params }: { params: { slug: string } }) {
+export async function GET(_: Request, props: { params: Promise<{ slug: string }> }) {
+  const params = await props.params;
   const user = await getSession();
   if (!requireRole(user, ['ADMIN', 'SUPER_ADMIN', 'CONTENT_EDITOR'])) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });

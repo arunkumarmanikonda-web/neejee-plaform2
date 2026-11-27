@@ -16,10 +16,8 @@ export const runtime = 'nodejs';
 
 const ROUTE_READ_MODEL_VERSION = 'phase1.public.product.v2';
 
-export async function GET(
-  _request: Request,
-  { params }: { params: { slug: string } }
-) {
+export async function GET(_request: Request, props: { params: Promise<{ slug: string }> }) {
+  const params = await props.params;
   try {
     const row = await prisma.product.findFirst({
       where: {

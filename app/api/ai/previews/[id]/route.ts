@@ -25,14 +25,14 @@ async function pathStillReferenced(previewId: string, url: string): Promise<bool
 
 export async function DELETE(
   _request: Request,
-  context: { params: Promise<{ id: string }> | { id: string } },
+  context: { params: Promise<Promise<{ id: string }> | { id: string }> },
 ) {
   const session = await getSession();
   if (!session) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const params = await Promise.resolve(context.params);
+  const params = await Promise.resolve((await context.params));
   const previewId = String(params?.id || '').trim();
   if (!previewId) {
     return NextResponse.json({ error: 'Preview id is required' }, { status: 400 });

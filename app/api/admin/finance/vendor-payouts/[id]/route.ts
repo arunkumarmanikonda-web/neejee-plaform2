@@ -13,7 +13,8 @@ import { fetchPayoutStatus } from '@/lib/razorpayx';
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
-export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(_req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const user = await getSession();
   if (!requireRole(user, ['ADMIN', 'SUPER_ADMIN', 'FINANCE', 'FINANCE_OPERATOR'])) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -26,7 +27,8 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
   return NextResponse.json({ payout });
 }
 
-export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const user = await getSession();
   if (!requireRole(user, ['ADMIN', 'SUPER_ADMIN', 'FINANCE'])) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -78,7 +80,8 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   }
 }
 
-export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
+export async function PATCH(req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const user = await getSession();
   if (!requireRole(user, ['ADMIN', 'SUPER_ADMIN', 'FINANCE'])) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -101,7 +104,8 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   }
 }
 
-export async function DELETE(_req: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(_req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const user = await getSession();
   if (!requireRole(user, ['ADMIN', 'SUPER_ADMIN'])) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });

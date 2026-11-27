@@ -11,7 +11,8 @@ import { requireFinancePerm } from '@/lib/finance/roles';
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
-export async function GET(_req: Request, { params }: { params: { vendorId: string } }) {
+export async function GET(_req: Request, props: { params: Promise<{ vendorId: string }> }) {
+  const params = await props.params;
   const session = await getSession();
   const gate = requireFinancePerm(session, 'finance.read');
   if (!gate.ok) return NextResponse.json({ error: gate.error }, { status: gate.status });
@@ -165,7 +166,8 @@ export async function GET(_req: Request, { params }: { params: { vendorId: strin
 }
 
 // v23.40.8 — Update vendor service category from the ledger page.
-export async function PATCH(req: Request, { params }: { params: { vendorId: string } }) {
+export async function PATCH(req: Request, props: { params: Promise<{ vendorId: string }> }) {
+  const params = await props.params;
   const session = await getSession();
   const gate = requireFinancePerm(session, 'finance.write');
   if (!gate.ok) return NextResponse.json({ error: gate.error }, { status: gate.status });

@@ -194,10 +194,11 @@ export async function PATCH(request: Request) {
     });
 
     await setSessionCookie({
+      ...session,
       id: updated.id,
       email: updated.email,
       name: updated.name || session.name || 'User',
-      role: updated.role as any,
+      role: session.role,
     });
 
     return NextResponse.json({

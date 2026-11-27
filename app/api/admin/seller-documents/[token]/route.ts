@@ -19,10 +19,8 @@ function safeDownloadName(value: string): string {
   return cleaned || 'seller-document';
 }
 
-export async function GET(
-  _request: Request,
-  { params }: { params: { token: string } },
-) {
+export async function GET(_request: Request, props: { params: Promise<{ token: string }> }) {
+  const params = await props.params;
   const user = await getSession();
   if (!requireRole(user, ['ADMIN', 'SUPER_ADMIN'])) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });

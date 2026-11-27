@@ -13,7 +13,8 @@ export const runtime = 'nodejs';
 
 const ROLES = ['ADMIN', 'SUPER_ADMIN', 'FINANCE'];
 
-export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const session = await getSession();
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   if (!ROLES.includes(session.role)) {

@@ -20,7 +20,8 @@ export const maxDuration = 120;
 
 const MAX_FILE_MB = 20;
 
-export async function POST(req: Request, { params }: { params: { id: string } }) {
+export async function POST(req: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const session = await getSession();
   const gate = requireFinancePerm(session, 'finance.write');
   if (!gate.ok) return NextResponse.json({ error: gate.error }, { status: gate.status });

@@ -1,4 +1,7 @@
 import { NextResponse } from 'next/server';
+import { studies } from '@/lib/shop-studies';
+import { studyTextiles } from '@/lib/study-textiles';
+import { normalizeSareeText } from '@/lib/saree-vocabulary';
 import { prisma } from '@/lib/prisma';
 
 export const dynamic = 'force-dynamic';
@@ -126,7 +129,14 @@ export async function GET(request: Request) {
       };
     });
 
-    const response = NextResponse.json({ results, count: results.length, query: q, source: 'catalogue' });
+    const words = normalizeSareeText(q).split(/\s+/).filter(Boolean);
+    const enquiries = studies.filter(piece => {
+      const textile = studyTextiles[piece.id];
+      const text = normalizeSareeText([piece.group, piece.group === 'suits' ? 'suit sets' : 'saree', piece.name, piece.alias, piece.shade,
+        textile?.region, ...(textile?.traditionIds || []), ...(textile?.searchNames || [])].join(' '));
+      return words.length > 0 && words.every(word => text.includes(word));
+    }).map(({id,name,shade,group,image})=>({id,name,shade,group,image}));
+    const response = NextResponse.json({ results, enquiries, count: results.length, query: q, source: 'catalogue' });
     response.headers.set('Cache-Control', 'public, s-maxage=30, stale-while-revalidate=120');
     return response;
   } catch (error: any) {

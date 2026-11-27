@@ -14,7 +14,8 @@ import { randomBytes } from 'crypto';
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
-export async function GET(_req: Request, { params }: { params: { id: string } }) {
+export async function GET(_req: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const session = await getSession();
   const gate = requireFinancePerm(session, 'finance.read');
   if (!gate.ok) return NextResponse.json({ error: gate.error }, { status: gate.status });
@@ -26,7 +27,8 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
   return NextResponse.json({ settlements });
 }
 
-export async function POST(req: Request, { params }: { params: { id: string } }) {
+export async function POST(req: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const session = await getSession();
   const gate = requireFinancePerm(session, 'finance.write');
   if (!gate.ok) return NextResponse.json({ error: gate.error }, { status: gate.status });

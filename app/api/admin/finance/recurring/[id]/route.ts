@@ -10,7 +10,8 @@ export const runtime = 'nodejs';
 
 const EDITABLE = ['name', 'amountPaise', 'gstPaise', 'frequency', 'dayOfMonth', 'dueOffsetDays', 'active', 'nextRunDate', 'vendorNameSnapshot'] as const;
 
-export async function PATCH(req: Request, { params }: { params: { id: string } }) {
+export async function PATCH(req: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const session = await getSession();
   const gate = requireFinancePerm(session, 'finance.admin');
   if (!gate.ok) return NextResponse.json({ error: gate.error }, { status: gate.status });
@@ -38,7 +39,8 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   }
 }
 
-export async function DELETE(_req: Request, { params }: { params: { id: string } }) {
+export async function DELETE(_req: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const session = await getSession();
   const gate = requireFinancePerm(session, 'finance.admin');
   if (!gate.ok) return NextResponse.json({ error: gate.error }, { status: gate.status });

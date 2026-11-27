@@ -1,9 +1,10 @@
 'use client';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState, use } from 'react';
 import Link from 'next/link';
 import { Loader2, ArrowLeft, Check, X, MessageSquare, Upload } from 'lucide-react';
 
-export default function ReviewSubmissionPage({ params }: { params: { id: string } }) {
+export default function ReviewSubmissionPage(props: { params: Promise<{ id: string }> }) {
+  const params = use(props.params);
   const [sub, setSub] = useState<any>(null);
   const [categories, setCategories] = useState<any[]>([]);
   const [overrides, setOverrides] = useState<any>({});

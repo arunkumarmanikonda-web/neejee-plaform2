@@ -5,7 +5,8 @@ import { verifyRecoveryRef } from '@/lib/recovery/link';
 
 export const dynamic = 'force-dynamic';
 
-export default async function OptOutPage({ searchParams }: { searchParams: { cart?: string } }) {
+export default async function OptOutPage(props: { searchParams: Promise<{ cart?: string }> }) {
+  const searchParams = await props.searchParams;
   const recoveryRef = searchParams?.cart;
   let result: 'done' | 'not-found' | 'no-id' | 'expired' = 'no-id';
 

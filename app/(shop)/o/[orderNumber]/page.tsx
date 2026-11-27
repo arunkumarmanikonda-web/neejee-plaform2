@@ -6,6 +6,7 @@ import { redirect } from 'next/navigation';
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
-export default function OrderShortRedirect({ params }: { params: { orderNumber: string } }) {
+export default async function OrderShortRedirect(props: { params: Promise<{ orderNumber: string }> }) {
+  const params = await props.params;
   redirect(`/orders/${encodeURIComponent(params.orderNumber)}`);
 }

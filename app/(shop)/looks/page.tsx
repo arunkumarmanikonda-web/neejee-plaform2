@@ -9,7 +9,8 @@ import { getCounterStock } from '@/lib/counter-shop';
 
 export const dynamic='force-dynamic';
 export const metadata={title:'Saree styling ideas · Blouses, juttis & jewellery | Neejee',alternates:{canonical:'/looks'}};
-export default async function Page({searchParams:q}:{searchParams:Record<string,string|undefined>}) {
+export default async function Page(props:{searchParams:Promise<Record<string,string|undefined>>}) {
+  const q = await props.searchParams;
   const selected=readStyling(q)||defaultStyling(q.look);
   const variant=typeof q.variant==='string'?q.variant.slice(0,100):'';
   const product=typeof q.product==='string'?q.product.slice(0,180):'';

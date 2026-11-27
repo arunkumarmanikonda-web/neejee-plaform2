@@ -14,7 +14,7 @@ function isAllowed(user: Awaited<ReturnType<typeof getSession>>) {
 
 export async function GET(
   request: Request,
-  context: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   const user = await getSession();
 
@@ -22,7 +22,7 @@ export async function GET(
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const idOrSlug = context?.params?.id;
+  const idOrSlug = (await context?.params)?.id;
   if (!idOrSlug) {
     return NextResponse.json({ error: 'Project id required' }, { status: 400 });
   }

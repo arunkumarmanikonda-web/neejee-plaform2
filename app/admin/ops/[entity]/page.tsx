@@ -4,12 +4,13 @@ import { getCrudEntityBySlug } from '../_lib/entities';
 export const dynamic = 'force-dynamic';
 
 type PageProps = {
-  params: {
+  params: Promise<{
     entity: string;
-  };
+  }>;
 };
 
-export default function AdminOpsEntityPage({ params }: PageProps) {
+export default async function AdminOpsEntityPage(props: PageProps) {
+  const params = await props.params;
   const entity = getCrudEntityBySlug(params.entity);
 
   if (!entity) {

@@ -1,6 +1,7 @@
 // Guest order lookup: order number + exact checkout email are required before
 // issuing a tokenized invoice URL. Responses intentionally do not reveal which
 // part of the lookup failed.
+import { createHash } from 'node:crypto';
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { issueReturnAccess, RETURN_ACCESS_SECONDS, RETURN_COOKIE } from '@/lib/returns/guest-access';
@@ -19,6 +20,16 @@ export async function POST(req: Request) {
 
     if (!orderNumber || !email || orderNumber.length > 80 || email.length > 320 || !/^\S+@\S+\.\S+$/.test(email)) {
       return NextResponse.json({ error: 'Order number and a valid email are required' }, { status: 400 });
+    }
+
+    const actor = req.headers.get('x-vercel-forwarded-for')?.split(',')[0]?.trim();
+    const key = createHash('sha256').update('neejee-order-lookup:' + (actor || email)).digest('hex');
+    const [limit] = await prisma.$queryRaw<Array<{allowed:boolean;retry_after:number}>>`
+      select allowed, retry_after from private.record_auth_login_failure(${key}, 31, 900, 900)
+    `;
+    if (!limit?.allowed) {
+      return NextResponse.json({error:'Too many lookups. Please try again later.'},
+        {status:429,headers:{'Retry-After':String(Math.max(1,limit?.retry_after || 900))}});
     }
 
     const order = await prisma.order.findFirst({

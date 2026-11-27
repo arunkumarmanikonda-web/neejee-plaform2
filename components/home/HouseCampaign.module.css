@@ -9,7 +9,7 @@
 .copy :is(a,button){pointer-events:auto}
 .department {display:flex;align-items:center;gap:.65rem;margin:0;color:#fff4de;font:550 .9rem/1.45 var(--font-ui),Arial,sans-serif}
 .department a{letter-spacing:.13em;text-transform:uppercase}.department [lang]{font:400 1.28rem/1.2 Georgia,serif}
-.alias {margin:.18rem 0 .38rem;font:italic 500 clamp(5.2rem,9.1vw,11rem)/.96 var(--font-body),Georgia,serif;letter-spacing:-.065em}
+.alias {margin:.18rem 0 .38rem;font:italic 500 clamp(4.8rem,7.4vw,8.9rem)/.96 var(--font-body),Georgia,serif;letter-spacing:-.065em}
 .title {margin:.35rem 0 0;font:500 clamp(1.65rem,2.65vw,3.25rem)/1.08 var(--font-body),Georgia,serif;letter-spacing:-.026em;color:inherit;text-wrap:balance}
 .line,.origin {margin:.62rem 0 0;max-width:39ch;font:400 clamp(.95rem,1.05vw,1.13rem)/1.55 var(--font-ui),Arial,sans-serif;color:#f9edda;overflow-wrap:anywhere}
 .actions {display:flex;flex-wrap:wrap;gap:.6rem;margin:1.3rem 0 .15rem}
@@ -73,3 +73,5 @@
 .viewerTools :is(a,button) {display:inline-flex;align-items:center;justify-content:center;gap:.3rem;min-height:44px;padding:.5rem .8rem;font:550 .84rem/1.3 var(--font-ui),sans-serif;color:#622a32;border:1px solid #b79a7c}
 .viewerTools a {background:#642939;color:white;border-color:#642939}
 .privacy {margin:.65rem 0 0;color:#66554d}
+
+@media(min-width:701px){.portrait img,.fallbackPhoto{mask-image:linear-gradient(to right,transparent,#000 22%)}.portrait::after{background:linear-gradient(90deg,var(--field) 0%,transparent 54%)}}

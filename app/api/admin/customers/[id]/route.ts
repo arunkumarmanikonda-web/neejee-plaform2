@@ -126,10 +126,8 @@ function getPermissions(actor: any) {
   };
 }
 
-export async function GET(
-  _request: Request,
-  { params }: { params: { id: string } }
-) {
+export async function GET(_request: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const actor = await getSession();
   const permissions = getPermissions(actor);
 
@@ -160,10 +158,8 @@ export async function GET(
   }
 }
 
-export async function PATCH(
-  request: Request,
-  { params }: { params: { id: string } }
-) {
+export async function PATCH(request: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const actor = await getSession();
   const permissions = getPermissions(actor);
 

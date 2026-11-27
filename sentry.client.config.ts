@@ -8,7 +8,7 @@ if (dsn) {
     dsn,
     tracesSampleRate: 0.1,           // 10% of requests traced (cost-controlled)
     replaysSessionSampleRate: 0,     // no session replay by default
-    replaysOnErrorSampleRate: 0.5,   // half of errors get a replay snippet
+    replaysOnErrorSampleRate: 0,     // fitting-room and account activity stays out of replays
     debug: false,
     environment: process.env.NEXT_PUBLIC_VERCEL_ENV || 'development',
     // Ignore noisy/expected errors

@@ -20,7 +20,8 @@ async function gate(write = false) {
   return { session };
 }
 
-export async function GET(_req: Request, { params }: { params: { id: string } }) {
+export async function GET(_req: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const g = await gate();
   if ('error' in g) return NextResponse.json({ error: g.error }, { status: g.status });
   const po = await prisma.purchaseOrder.findUnique({
@@ -43,7 +44,8 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
 //   { transition: 'CANCELLED' }
 //   { notes, expectedDate, trackingNumber, trackingUrl, vendorInvoiceNumber, vendorInvoiceUrl }
 //   { lines: [...] } → replace DRAFT lines (only allowed when status=DRAFT)
-export async function PATCH(request: Request, { params }: { params: { id: string } }) {
+export async function PATCH(request: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const g = await gate(true);
   if ('error' in g) return NextResponse.json({ error: g.error }, { status: g.status });
   const po = await prisma.purchaseOrder.findUnique({
