@@ -9,10 +9,16 @@ export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 export const preferredRegion = 'sin1';
 export const maxDuration = 120;
+// These are the two approved production sources, independent of upload defaults.
+const catalogue = 'neejee-media';
+const seller = 'neejee-private-seller-docs';
 const noStore = { headers: { 'Cache-Control': 'private, no-store' } };
 type ObjectRow = { bucket: string; name: string; size: number; mime: string; version: string };
 
 async function inventory(catalogue: string, seller: string) {
+  const buckets = await prisma.$queryRaw<{ id:string }[]>`
+    SELECT id FROM storage.buckets WHERE id IN (${catalogue},${seller})`;
+  if (buckets.length !== 2) throw new Error('Both approved source buckets must exist.');
   const rows = await prisma.$queryRaw<ObjectRow[]>`
     SELECT bucket_id AS bucket, name, (metadata->>'size')::int AS size,
            coalesce(metadata->>'mimetype','application/octet-stream') AS mime,
@@ -36,7 +42,7 @@ export async function GET(req: Request) {
     !storeId && 'store connection', !key && 'encryption key', !serviceKey && 'storage credential', !origin && 'storage origin'].filter(Boolean);
   if (missing.length) return NextResponse.json({ verified:false, stage:'configuration', reason:missing.join(', ') }, { status:503,...noStore });
   const date = new Date().toISOString();
-  const path = 'storage/' + date.slice(0,10) + '.njbackup';
+  const path = 'storage/catalogue-and-sellers/' + date.slice(0,10) + '.njbackup';
   let stage = 'receipt';
   try {
     // A verified receipt is written last. If an earlier run stopped after
@@ -47,8 +53,6 @@ export async function GET(req: Request) {
     let existing = await get(path, { storeId, access: 'private', useCache: false });
     let source: RecoveryFile[] | undefined;
     if (!existing) {
-      const catalogue = process.env.SUPABASE_STORAGE_BUCKET || 'neejee-media';
-      const seller = process.env.SUPABASE_PRIVATE_SELLER_DOCS_BUCKET || 'neejee-private-seller-docs';
       stage = 'source inventory';
       const rows = await inventory(catalogue, seller);
       source = [];
@@ -80,7 +84,9 @@ export async function GET(req: Request) {
     if (source && (source.length !== decoded.files.length || source.some((f,i) =>
       f.bucket !== decoded.files[i].bucket || f.name !== decoded.files[i].name || !f.bytes.equals(decoded.files[i].bytes))))
       throw new Error('Source comparison failed.');
-    const receipt = { verified: true, date: decoded.createdAt, objects: decoded.files.length, bytes: decoded.bytes };
+    const receipt = { verified: true, date: decoded.createdAt, objects: decoded.files.length, bytes: decoded.bytes,
+      catalogue: decoded.files.filter(file => file.bucket === catalogue).length,
+      sellerDocuments: decoded.files.filter(file => file.bucket === seller).length };
     stage = 'receipt write';
     await put(path + '.verified', JSON.stringify(receipt), { storeId, access: 'private', addRandomSuffix: false,
       allowOverwrite: false, contentType: 'application/json', ttlDays: 14 });

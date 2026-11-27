@@ -15,6 +15,7 @@ export async function dumpDatabase(dir: string) {
   await writeFile(ca,[...rootCertificates, supabaseRootCa].join('\n'),{mode:0o600});
   const candidates = [...new Set([process.env.DIRECT_URL, process.env.DATABASE_URL].map(readCredential).filter(Boolean))];
   let failure = 'No database connection is configured';
+  const deadline = Date.now() + 360_000;
   for (const candidate of candidates) {
     try {
       const url = new URL(candidate);
@@ -28,15 +29,21 @@ export async function dumpDatabase(dir: string) {
         PGDATABASE:decodeURIComponent(url.pathname.slice(1) || 'postgres'), PGPASSFILE:passwordFile, PGCONNECT_TIMEOUT:'7',
         PGAPPNAME:'neejee_readonly_recovery',
         PGSSLMODE:local ? 'disable' : 'verify-full', PGSSLROOTCERT:ca};
-      const binary = await pgTool('pg_dump',['--no-password','--format=custom','--inserts','--compress=gzip:6',
-        '--lock-wait-timeout=5s',...appSchemas.map(x=>'--schema='+x)], pgEnv);
+      const remaining = deadline - Date.now();
+      if (remaining < 10_000) break;
+      const binary = await pgTool('pg_dump',['--no-password','--format=custom','--rows-per-insert=200','--compress=gzip:6',
+        '--lock-wait-timeout=5s',...appSchemas.map(x=>'--schema='+x)], pgEnv, remaining);
       if (!binary.subarray(0,5).equals(Buffer.from('PGDMP'))) throw new Error('Invalid archive signature');
       return binary;
     } catch (error) {
       // Do not propagate command lines, host names, connection parameters, SQL or source rows.
       const detail = String((error as {stderr?: unknown})?.stderr || '');
       const systemCode = (error as {code?:string}).code;
-      failure = systemCode === 'EACCES' || systemCode === 'ENOENT' || systemCode === 'ENOEXEC' ? 'Database client unavailable '+systemCode
+      failure = (error as {killed?:boolean}).killed ? 'Database dump time limit reached'
+        : /statement timeout|canceling statement due/i.test(detail) ? 'Database statement time limit reached'
+        : /lock timeout|could not obtain lock/i.test(detail) ? 'Database lock unavailable'
+        : /prepared statement/i.test(detail) ? 'Database pool rejected a prepared statement'
+        : systemCode === 'EACCES' || systemCode === 'ENOENT' || systemCode === 'ENOEXEC' ? 'Database client unavailable '+systemCode
         : /certificate|SSL error/i.test(detail) ? 'Database TLS verification failed'
         : /permission denied/i.test(detail) ? 'Database backup permission denied'
         : /password authentication|no password supplied/i.test(detail) ? 'Database login rejected'
@@ -47,10 +54,10 @@ export async function dumpDatabase(dir: string) {
   throw new Error(failure);
 }
 
-async function pgTool(name: string, args: string[], pgEnv: Record<string,string> = {}) {
+async function pgTool(name: string, args: string[], pgEnv: Record<string,string> = {}, timeout = 55_000) {
   const dir = join(process.cwd(),'.neejee-postgres');
   const {stdout} = await execute(join(dir,'ld-musl-x86_64.so.1'),['--library-path',dir,join(dir,name),...args],
-    {env:{NODE_ENV:process.env.NODE_ENV,LANG:'C',TZ:'UTC',...pgEnv}, encoding:'buffer', maxBuffer:maxBytes, timeout:55000});
+    {env:{NODE_ENV:process.env.NODE_ENV,LANG:'C',TZ:'UTC',...pgEnv}, encoding:'buffer', maxBuffer:maxBytes, timeout});
   return stdout;
 }
 
