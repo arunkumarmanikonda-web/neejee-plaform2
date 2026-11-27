@@ -1,0 +1,59 @@
+[
+  {
+    "file": "postgresql17-client-17.12-r0.apk",
+    "sha256": "421845a93013a57762fe563abc89c48fcce2c022375c74f80fede516fc0cb852",
+    "members": {
+      "usr/libexec/postgresql17/pg_dump": "pg_dump",
+      "usr/libexec/postgresql17/pg_restore": "pg_restore"
+    }
+  },
+  {
+    "file": "musl-1.2.5-r13.apk",
+    "sha256": "359890bc7c4dc5fee7a85192de60a471c987e4664767288578beca60a44db2c8",
+    "members": {
+      "lib/ld-musl-x86_64.so.1": "ld-musl-x86_64.so.1"
+    }
+  },
+  {
+    "file": "libcrypto3-3.5.9-r2.apk",
+    "sha256": "931ac2f8cd696a47221b6317f650eb5e0ed5bf8f04d34ae7b9573027801d3544",
+    "members": {
+      "usr/lib/libcrypto.so.3": "libcrypto.so.3"
+    }
+  },
+  {
+    "file": "lz4-libs-1.10.0-r0.apk",
+    "sha256": "b4f393b9d8ce5a431788b31c899734f84d60a47487a6b833ee8d8012c501fe3f",
+    "members": {
+      "usr/lib/liblz4.so.1.10.0": "liblz4.so.1"
+    }
+  },
+  {
+    "file": "libpq-17.12-r0.apk",
+    "sha256": "5f2bdd5becb19c5c156d1ba4d0b72895998a373d1145abf1cdf24859b9773a8b",
+    "members": {
+      "usr/lib/libpq.so.5.17": "libpq.so.5"
+    }
+  },
+  {
+    "file": "libssl3-3.5.9-r2.apk",
+    "sha256": "678f241a05f34858762790eac31599def62e3963702d13c62b0aa4720681fea1",
+    "members": {
+      "usr/lib/libssl.so.3": "libssl.so.3"
+    }
+  },
+  {
+    "file": "zlib-1.4-r0.apk",
+    "sha256": "a271d6491037f7037010ac98b40f7d2b81c733f425b20294ee771b6ed7571038",
+    "members": {
+      "usr/lib/libz.so.1.4": "libz.so.1"
+    }
+  },
+  {
+    "file": "zstd-libs-1.6.0-r1.apk",
+    "sha256": "104620bbdad7095d3849b79c6b3acdff656c4699b83a6fba79adbe26e1cc65b6",
+    "members": {
+      "usr/lib/libzstd.so.1.6.0": "libzstd.so.1"
+    }
+  }
+]

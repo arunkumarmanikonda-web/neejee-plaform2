@@ -40,3 +40,20 @@ BEGIN
   RETURN NEW;
 END;
 $function$;
+
+-- The pre-migration production baseline includes RLS on existing public tables
+-- and an event trigger for future ones. Prisma's schema export contains neither.
+DO $$
+DECLARE item record;
+BEGIN
+  FOR item IN SELECT schemaname, tablename FROM pg_tables WHERE schemaname = 'public'
+  LOOP
+    EXECUTE format('ALTER TABLE %I.%I ENABLE ROW LEVEL SECURITY', item.schemaname, item.tablename);
+  END LOOP;
+  IF NOT EXISTS (SELECT FROM pg_event_trigger WHERE evtfoid = 'public.rls_auto_enable()'::regprocedure) THEN
+    CREATE EVENT TRIGGER neejee_ci_enable_public_rls ON ddl_command_end
+      WHEN TAG IN ('CREATE TABLE', 'CREATE TABLE AS', 'SELECT INTO')
+      EXECUTE FUNCTION public.rls_auto_enable();
+  END IF;
+END;
+$$;

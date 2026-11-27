@@ -17,9 +17,11 @@
     "db:push": "prisma db push",
     "db:migrate": "prisma migrate dev",
     "db:studio": "prisma studio",
-    "db:reset": "prisma migrate reset --force && npm run seed"
+    "db:reset": "prisma migrate reset --force && npm run seed",
+    "prebuild": "node scripts/recovery/prepare-postgres-client.mjs"
   },
   "dependencies": {
+    "@electric-sql/pglite": "0.6.1",
     "@prisma/client": "^5.20.0",
     "@radix-ui/react-dialog": "^1.1.17",
     "@radix-ui/react-dropdown-menu": "^2.1.18",

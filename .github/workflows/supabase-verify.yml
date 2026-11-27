@@ -58,3 +58,5 @@ jobs:
           trap 'kill "$server" 2>/dev/null || true' EXIT
           curl --retry 30 --retry-delay 2 --retry-all-errors --fail --silent --output /dev/null http://127.0.0.1:3031/cart
           npm test
+          NEEJEE_TEST_DB_BACKUPS=1 node scripts/recovery/prepare-postgres-client.mjs
+          node --import tsx scripts/recovery/verify-database.ts
