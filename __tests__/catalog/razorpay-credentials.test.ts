@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { razorpayCredentials } from '../../lib/payments/razorpay-credentials';
+import { razorpayCredentials, liveCheckoutUnavailable } from '../../lib/payments/razorpay-credentials';
 
 test('checkout can use its published live merchant ID and still requires the private secret', () => {
   const names = ['RAZORPAY_KEY_ID', 'NEXT_PUBLIC_RAZORPAY_KEY_ID', 'RAZORPAY_KEY_SECRET', 'VERCEL_ENV'];
@@ -17,6 +17,13 @@ test('checkout can use its published live merchant ID and still requires the pri
     assert.equal(razorpayCredentials().keyId, '');
     process.env.RAZORPAY_KEY_ID = 'rzp_live_preferred';
     assert.equal(razorpayCredentials().keyId, 'rzp_live_preferred');
+    assert.equal(liveCheckoutUnavailable(), false);
+    process.env.RAZORPAY_KEY_ID = 'rzp_test_preferred';
+    process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID = 'rzp_live_example';
+    assert.equal(liveCheckoutUnavailable(), true);
+    assert.equal(liveCheckoutUnavailable(''), true);
+    process.env.VERCEL_ENV = 'preview';
+    assert.equal(liveCheckoutUnavailable(), false);
   } finally {
     for (const [name, value] of original) {
       if (value === undefined) delete process.env[name];

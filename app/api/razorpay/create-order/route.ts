@@ -1,4 +1,4 @@
-import { razorpayCredentials } from '@/lib/payments/razorpay-credentials';
+import { razorpayCredentials, liveCheckoutUnavailable } from '@/lib/payments/razorpay-credentials';
 // Creates a Razorpay order for a prepaid checkout snapshot.
 // The NEEJEE Order is still materialized only after verified payment.
 import { NextResponse } from 'next/server';
@@ -20,6 +20,10 @@ export async function POST(request: Request) {
     const { snapshotId, orderNumber } = body;
 
     const { keyId, keySecret } = razorpayCredentials();
+    if (keyId && liveCheckoutUnavailable(keyId)) {
+      console.error('[razorpay.create-order] Production checkout requires a live merchant ID');
+      return NextResponse.json({ error: 'Online payments are temporarily unavailable. Your bag is saved.' }, { status: 503 });
+    }
     if (!keyId || !keySecret) {
       const missing = [!keyId && 'RAZORPAY_KEY_ID', !keySecret && 'RAZORPAY_KEY_SECRET'].filter(Boolean);
       console.error('[razorpay.create-order] Missing payment configuration:', missing.join(', '));

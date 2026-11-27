@@ -1,3 +1,4 @@
+import { liveCheckoutUnavailable } from '@/lib/payments/razorpay-credentials';
 // app/api/checkout/route.ts
 // Checkout integrity:
 // - server recomputes price and eligibility
@@ -189,6 +190,13 @@ export async function POST(request: Request) {
     if (body.expectedTotal !== undefined && body.expectedTotal !== total) {
       return NextResponse.json({error:'Your checkout total changed. Review the updated total before placing your order.',code:'QUOTE_CHANGED'}, {status:409});
     }
+    if (payment !== 'COD' && liveCheckoutUnavailable()) {
+      return NextResponse.json({
+        error: 'Online payments are temporarily unavailable. Your bag is saved.',
+        code: 'ONLINE_PAYMENT_UNAVAILABLE',
+      }, { status: 503 });
+    }
+
     const inventoryItems: ReservationItem[] = verifiedItems.map(item => ({ variantId:item.variantId!, quantity:item.quantity }));
 
     if (payment === 'COD') {

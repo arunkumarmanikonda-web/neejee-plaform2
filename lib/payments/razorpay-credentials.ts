@@ -20,3 +20,7 @@ export function razorpayCredentials() {
     keySecret: readCredential(process.env.RAZORPAY_KEY_SECRET),
   };
 }
+
+export function liveCheckoutUnavailable(keyId = razorpayCredentials().keyId) {
+  return process.env.VERCEL_ENV === 'production' && !/^rzp_live_[A-Za-z0-9]+$/.test(keyId);
+}
