@@ -1,4 +1,4 @@
-import { razorpayCredentials } from '@/lib/payments/razorpay-credentials';
+import { razorpayCredentials, liveCheckoutUnavailable } from '@/lib/payments/razorpay-credentials';
 // Razorpay webhook handler.
 //
 // Configure on https://dashboard.razorpay.com/app/webhooks:
@@ -387,6 +387,9 @@ export async function POST(req: Request) {
   const eventName = asNonEmptyString(event?.event) || 'unknown';
 
   try {
+    if (['payment.captured', 'payment.failed', 'refund.processed'].includes(eventName) && liveCheckoutUnavailable()) {
+      return NextResponse.json({ error: 'Live payment configuration required' }, { status: 503 });
+    }
     if (eventName === 'payment.captured') {
       const payment = event?.payload?.payment?.entity;
       if (!payment) {
