@@ -127,10 +127,10 @@ function buildBaseOrderBy(sort: string) {
 function buildPublicListingVisibilityWhere() {
   return {
     OR: [
-      { catalogueStockVisibility: { in: ['SHOW_ALL', 'HIDE_STOCK'] } },
+      { catalogueStockVisibility: { in: ['SHOW_ALL', 'SHOW_EXACT', 'HIDE_STOCK'] } },
       {
         AND: [
-          { catalogueStockVisibility: 'IN_STOCK_ONLY' },
+          { catalogueStockVisibility: { in: ['IN_STOCK_ONLY', 'LOW_STOCK_BADGE'] } },
           { variants: { some: { inventory: { gt: 0 } } } },
         ],
       },
@@ -244,14 +244,14 @@ function mapPublicProduct(read: ReturnType<typeof buildProductReadModel>) {
     title: read.identity.name,
     shortName: read.identity.shortName,
     poeticLine: read.identity.poeticLine,
-    craft: read.craft.craft,
-    region: read.craft.region,
-    state: read.craft.state,
-    cluster: read.craft.cluster,
-    artisanName: read.craft.artisanName,
-    material: read.craft.material,
-    technique: read.craft.technique,
-    occasion: read.craft.occasion,
+    craft: read.craft ?? null,
+    region: read.region ?? null,
+    state: read.state ?? null,
+    cluster: read.cluster ?? null,
+    artisanName: read.artisanName ?? null,
+    material: read.material ?? null,
+    technique: read.technique ?? null,
+    occasion: read.occasion ?? null,
     category: read.category?.slug ?? read.hierarchy.leafCategory?.slug ?? null,
     categoryName: read.category?.name ?? null,
     categoryPath: read.category?.path ?? null,
@@ -332,7 +332,7 @@ export async function GET(request: NextRequest) {
   try {
     let matchedCategory: unknown = null;
     const andClauses: any[] = [
-      { status: 'ACTIVE' },
+      { status: 'ACTIVE', takedownAt: null },
       { catalogueExclude: false },
       buildPublicListingVisibilityWhere(),
     ];

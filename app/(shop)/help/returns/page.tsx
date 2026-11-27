@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import type { Metadata } from 'next';
 import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
@@ -25,16 +26,16 @@ export default function ReturnsPage() {
           <div className="bg-beige p-8">
             <p className="label text-madder mb-3">BEFORE YOU ORDER</p>
             <p>
-              The product page and checkout record are the source of truth for return eligibility. A piece marked non-returnable does not become returnable under a general site statement.
+              Read the piece’s return terms before ordering. If the terms shown now differ from your order confirmation, let the team know when you contact us.
             </p>
           </div>
 
           <div className="bg-beige p-8">
             <p className="label text-madder mb-3">IF YOUR PIECE IS RETURN-ELIGIBLE</p>
             <ol className="space-y-2 list-decimal list-inside">
-              <li>Open the order from your account or use the support details attached to the order.</li>
-              <li>Choose the available return action and provide the requested reason or evidence.</li>
-              <li>We will show the applicable pickup or return instructions for that order.</li>
+              <li>Open your order in <Link className="text-madder" href="/account?tab=orders">My orders</Link>. For a guest purchase, <Link className="text-madder" href="/help/track">look up the order</Link> with your order number and checkout email.</li>
+              <li>Once it shows as delivered, open Returns &amp; help, choose the piece and quantity, and tell us what happened.</li>
+              <li>Keep your request reference. The team reviews the case and posts updates and any return instructions on the order.</li>
               <li>Any approved refund is processed against the verified order and payment record.</li>
             </ol>
           </div>
@@ -49,13 +50,11 @@ export default function ReturnsPage() {
           <div className="bg-beige p-8">
             <p className="label text-madder mb-3">DAMAGED OR INCORRECT DELIVERY</p>
             <p>
-              If an order arrives damaged, materially different from what was ordered, or with an incorrect item, contact NEEJEE support with the order number and clear photographs. These cases are reviewed separately from a change-of-mind return request.
+              For damage or a different piece, choose the matching reason inside the delivered order. Keep any photographs in case our team asks for them. For other delivery issues, contact us with your order number.
             </p>
           </div>
 
-          <p className="font-display italic text-mitti text-center pt-2">
-            We prefer the policy to be visible before the purchase rather than discovered after it.
-          </p>
+          <Link href="/help/contact" className="btn-secondary inline-flex">Contact the team</Link>
         </div>
       </section>
       <Footer />

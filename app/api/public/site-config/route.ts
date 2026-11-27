@@ -11,7 +11,16 @@ export async function GET() {
   const [contact, categories] = await Promise.all([
     getPublicContact().catch(() => null),
     prisma.category.findMany({
-      where: { active: true, parentId: null },
+      where: {
+        active: true, hidden: false,
+        products: { some: {
+          status: 'ACTIVE', takedownAt: null, catalogueExclude: false,
+          OR: [
+            { catalogueStockVisibility: { in: ['SHOW_ALL', 'SHOW_EXACT', 'HIDE_STOCK'] } },
+            { catalogueStockVisibility: { in: ['IN_STOCK_ONLY', 'LOW_STOCK_BADGE'] }, variants: { some: { inventory: { gt: 0 } } } },
+          ],
+        } },
+      },
       orderBy: [{ featured: 'desc' }, { order: 'asc' }, { name: 'asc' }],
       select: { slug: true, name: true },
       take: 7,

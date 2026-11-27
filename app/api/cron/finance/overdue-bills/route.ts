@@ -2,6 +2,7 @@
 // Posts to Slack every morning if any vendor bill is past its due date.
 // Quiet if nothing is overdue.
 
+import { cronAuthorized } from '@/lib/cron/authorize';
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { postSlack, slack } from '@/lib/notifications/slack';
@@ -18,8 +19,7 @@ function daysSince(d: Date): number {
 }
 
 export async function GET(req: Request) {
-  const auth = req.headers.get('authorization') || '';
-  if (process.env.CRON_SECRET && auth !== `Bearer ${process.env.CRON_SECRET}`) {
+  if (!cronAuthorized(req)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 

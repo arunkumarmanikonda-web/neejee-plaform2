@@ -1,3 +1,4 @@
+import { retryAfterMs } from '../retry-policy';
 import type {
   ChannelAdapter,
   ChannelSendResult,
@@ -254,6 +255,8 @@ export const fast2smsAdapter: ChannelAdapter = {
         return {
           ok: false,
           providerResponse: data,
+          rateLimited: res.status === 429,
+          retryAfterMs: retryAfterMs(res.headers.get('retry-after')),
           errorMessage: data?.message?.[0] || data?.message || `HTTP ${res.status}`,
           permanentFailure: res.status === 400 || res.status === 401,
         };

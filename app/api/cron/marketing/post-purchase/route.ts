@@ -7,6 +7,7 @@
 // Tone: founder note, not a hard-sell. Showcases 3 hand-picked items from
 // categories the customer hasn't ordered yet.
 
+import { cronAuthorized } from '@/lib/cron/authorize';
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { sendEmail } from '@/lib/email';
@@ -18,16 +19,8 @@ export const maxDuration = 60;
 const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || 'https://neejee.com';
 const DRIP_DELAY_DAYS = 7;
 
-function isAuthorized(req: Request): boolean {
-  const expected = process.env.CRON_SECRET;
-  if (!expected) return true; // dev mode
-  const auth = req.headers.get('authorization') || '';
-  const qsKey = new URL(req.url).searchParams.get('key') || '';
-  return auth === `Bearer ${expected}` || qsKey === expected;
-}
-
 export async function GET(req: Request) {
-  if (!isAuthorized(req)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  if (!cronAuthorized(req, true)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   const cutoff = new Date(Date.now() - DRIP_DELAY_DAYS * 86_400_000);
 

@@ -1,32 +1,48 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { Suspense, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
+import { useSampleBag, sampleShopping } from '@/lib/sample-bag';
+import { SampleShopping } from '@/components/shop/SampleShopping';
+import { HouseHeading } from '@/components/checkout/HouseHeading';
 import Link from 'next/link';
 import Image from 'next/image';
 import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
-import { CompleteTheLook } from '@/components/product/CompleteTheLook';
+import { BagPairing, useBagSarees } from '@/components/shop/BagPairing';
+import { useClientReady } from '@/lib/use-client-ready';
 import { useCart } from '@/lib/cart-store';
 import { formatINR } from '@/lib/money';
-import { Plus, Minus, X, Gift, Truck, Tag } from 'lucide-react';
+import { Plus, Minus, X, Gift, Tag } from 'lucide-react';
 
-const FREE_SHIPPING_THRESHOLD_PAISE = 250000;
 
 export const dynamic = 'force-dynamic';
 
 export default function CartPage() {
+  return <Suspense fallback={<p role="status">Opening your bag…</p>}><BagRoute/></Suspense>;
+}
+
+function BagRoute() {
+  const ready = useClientReady();
+  const sample = useSampleBag();
+  const liveCount = useCart(s => s.itemCount());
+  const explicitSample = useSearchParams().get('bag') === 'sample';
+  const sampleCount = Object.values(sample).reduce((n,qty)=>n+qty,0);
+  if (!ready) return <><Header shop/><main className="nj-order-page" aria-busy="true">Opening your bag…</main><Footer/></>;
+  if (sampleShopping && (explicitSample || (!liveCount && sampleCount > 0))) return <SampleShopping liveCount={liveCount}/>;
+  return <ShopBag sampleCount={sampleCount}/>;
+}
+function ShopBag({sampleCount}: {sampleCount: number}) {
   const { items, removeItem, updateQuantity, itemsSubtotal, giftWrap, setGiftWrap, personalNote, setPersonalNote, couponCode, couponDiscount, applyCoupon, removeCoupon, giftWrapPaise, total } = useCart();
   const [couponInput, setCouponInput] = useState('');
   const [couponMsg, setCouponMsg] = useState('');
   const [applyingCoupon, setApplyingCoupon] = useState(false);
 
+  const ready = useClientReady();
+  const sarees=useBagSarees(ready?items.map(i=>i.productId):[]);
   const sub = itemsSubtotal();
   const wrap = giftWrapPaise();
-  const couponApplied = couponCode && couponDiscount > 0;
+  const couponApplied = !!couponCode;
   const grand = total();
-
-  const progressPct = Math.min(100, (sub / FREE_SHIPPING_THRESHOLD_PAISE) * 100);
-  const shippingFree = sub >= FREE_SHIPPING_THRESHOLD_PAISE;
-  const remaining = Math.max(0, FREE_SHIPPING_THRESHOLD_PAISE - sub);
 
   const tryApplyCoupon = async () => {
     setCouponMsg('');
@@ -40,7 +56,7 @@ export default function CartPage() {
       const d = await res.json();
       if (!res.ok) throw new Error(d.error || 'Invalid coupon');
       applyCoupon(d.code, d.discountPaise);
-      setCouponMsg(`✓ ${d.code} applied — ${formatINR(d.discountPaise)} off`);
+      setCouponMsg(d.freeShipping ? `✓ ${d.code} applied for free shipping` : `✓ ${d.code} applied · ${formatINR(d.discountPaise)} off`);
       setCouponInput('');
     } catch (e: any) {
       setCouponMsg('✗ ' + e.message);
@@ -49,18 +65,20 @@ export default function CartPage() {
     }
   };
 
+  if (!ready) return <><Header shop/><main className="max-w-3xl mx-auto px-6 py-20" aria-busy="true">Opening your bag…</main><Footer/></>;
+
   if (items.length === 0) {
     return (
       <>
-        <Header />
+        <Header shop/>
         <section className="max-w-3xl mx-auto px-6 py-24 text-center">
-          <p className="label text-madder">YOUR TRUNK</p>
+          <p className="label text-madder">YOUR BAG</p>
           <h1 className="font-display text-4xl text-kohl mt-3">Empty for now.</h1>
-          <p className="font-italic italic text-mitti mt-3">A trunk filled is a trunk loved. Start with the Founder&apos;s Edit.</p>
+          <p className="font-italic italic text-mitti mt-3">Explore the sarees, suits and objects in Nidhi’s edit.</p>
           <div className="madder-divider mx-auto mt-6"></div>
           <div className="mt-10 flex gap-3 justify-center">
             <Link href="/" className="btn-primary">SHOP THE EDIT</Link>
-            <Link href="/categories/women-sarees" className="btn-outline">EXPLORE SAREES</Link>
+            <Link href="/edits/sarees" className="btn-outline">EXPLORE SAREES</Link>
           </div>
         </section>
         <Footer />
@@ -70,29 +88,16 @@ export default function CartPage() {
 
   return (
     <>
-      <Header />
+      <Header shop/>
       <section className="max-w-8xl mx-auto px-6 lg:px-12 py-10">
-        <p className="label text-madder">CART</p>
-        <h1 className="font-display text-4xl text-kohl mt-2">Your Trunk</h1>
+        <HouseHeading title="Your bag" stage="The pieces you chose"/>
         <p className="font-italic italic text-mitti mt-2">{items.length} piece{items.length > 1 ? 's' : ''} · {items.reduce((s, i) => s + i.quantity, 0)} item{items.reduce((s, i) => s + i.quantity, 0) > 1 ? 's' : ''}</p>
+        <Link href="/checkout" className="nj-mobile-checkout">Continue to checkout</Link>
+        {sampleCount > 0 && <Link href="/cart?bag=sample" className="nj-text-link">View sample pieces ({sampleCount})</Link>}
         <div className="madder-divider mt-4"></div>
 
         <div className="grid lg:grid-cols-[1fr_400px] gap-10 mt-10">
           <div>
-            <div className="bg-beige p-5 mb-6">
-              <div className="flex items-center gap-3">
-                <Truck className="w-5 h-5 text-madder" />
-                {shippingFree ? (
-                  <p className="font-italic italic text-kohl text-sm">✓ You&apos;ve unlocked free shipping.</p>
-                ) : (
-                  <p className="font-italic italic text-kohl text-sm">Add <strong>{formatINR(remaining)}</strong> more for free shipping.</p>
-                )}
-              </div>
-              <div className="mt-3 h-1 bg-ivory rounded-full overflow-hidden">
-                <div className="h-full bg-madder transition-all" style={{ width: `${progressPct}%` }} />
-              </div>
-            </div>
-
             <div className="space-y-6">
               {items.map(item => (
                 <div key={`${item.productId}-${item.variantId || ''}`} className="grid grid-cols-[100px_1fr_auto] gap-4 pb-6 border-b border-mitti/15">
@@ -124,6 +129,7 @@ export default function CartPage() {
                     </div>
                   </div>
                   <p className="font-display text-lg text-kohl text-right">{formatINR(item.product.sellingPrice * item.quantity)}</p>
+                  {sarees.includes(item.productId)&&<BagPairing name={item.product.name} product={item.productId} variant={item.variantId}/>}
                 </div>
               ))}
             </div>
@@ -156,20 +162,21 @@ export default function CartPage() {
           </div>
 
           <aside className="lg:sticky lg:top-28 lg:self-start">
-            <div className="bg-beige p-8">
+            <div className="nj-order-summary p-8">
               <p className="label text-madder mb-4">ORDER SUMMARY</p>
               <div className="space-y-2 font-ui text-sm">
                 <Row label="Subtotal" value={formatINR(sub)} />
                 {wrap > 0 && <Row label="Sandook gift wrap" value={formatINR(wrap)} />}
-                {couponApplied && <Row label={`Coupon · ${couponCode}`} value={`- ${formatINR(couponDiscount)}`} color="text-neem" />}
-                <Row label="Shipping" value={shippingFree ? 'Free' : 'Calculated at checkout'} />
+                {couponApplied && couponDiscount > 0 && <Row label={`Coupon · ${couponCode}`} value={`- ${formatINR(couponDiscount)}`} color="text-neem" />}
+                <Row label="Shipping" value="Calculated for your pincode at checkout" />
                 <Row label="GST" value="Inclusive" small />
               </div>
               <div className="border-t border-mitti/20 mt-4 pt-4 flex items-baseline justify-between">
-                <span className="font-display text-lg">Total</span>
+                <span className="font-display text-lg">Total before delivery</span>
                 <span className="font-display text-2xl text-kohl">{formatINR(grand)}</span>
               </div>
 
+              <Link href="/checkout" className="btn-primary w-full mt-6 block text-center">Checkout</Link>
               <div className="mt-6 pt-4 border-t border-mitti/20">
                 <p className="label text-mitti mb-2 flex items-center gap-2"><Tag className="w-3 h-3" /> COUPON CODE</p>
                 {couponApplied ? (
@@ -193,7 +200,7 @@ export default function CartPage() {
                 {couponMsg && <p className={`font-ui text-xs mt-2 ${couponMsg.startsWith('✓') ? 'text-neem' : 'text-madder'}`}>{couponMsg}</p>}
               </div>
 
-              <CheckoutCTA />
+
               <Link href="/" className="block text-center font-ui text-xs tracking-widest text-mitti hover:text-madder mt-4">CONTINUE SHOPPING</Link>
             </div>
 
@@ -205,7 +212,7 @@ export default function CartPage() {
         </div>
       </section>
 
-      {items.length > 0 && <CompleteTheLook productId={items[0].productId} limit={4} />}
+
 
       <Footer />
     </>
@@ -217,47 +224,6 @@ function Row({ label, value, color, small }: any) {
     <div className="flex items-baseline justify-between">
       <span className={`text-kohl ${small ? 'text-xs text-mitti' : ''}`}>{label}</span>
       <span className={`font-ui ${color || 'text-kohl'} ${small ? 'text-xs' : ''}`}>{value}</span>
-    </div>
-  );
-}
-
-function CheckoutCTA() {
-  const [me, setMe] = useState<{ email: string } | null>(null);
-  const [checked, setChecked] = useState(false);
-
-  useEffect(() => {
-    fetch('/api/me', { credentials: 'include', cache: 'no-store' })
-      .then(r => r.ok ? r.json() : null)
-      .then(d => {
-        if (d?.email) setMe(d);
-        setChecked(true);
-      })
-      .catch(() => setChecked(true));
-  }, []);
-
-  if (!checked) {
-    return <div className="btn-primary w-full mt-6 block text-center opacity-50 cursor-wait">···</div>;
-  }
-
-  if (me) {
-    return (
-      <Link href="/checkout" className="btn-primary w-full mt-6 block text-center">
-        PROCEED TO CHECKOUT →
-      </Link>
-    );
-  }
-
-  return (
-    <div className="mt-6 space-y-3">
-      <Link href="/checkout" className="btn-primary w-full block text-center">
-        CONTINUE AS GUEST →
-      </Link>
-      <Link href="/login?next=%2Fcheckout" className="btn-outline w-full block text-center">
-        SIGN IN FOR YOUR NEEJEE ACCOUNT
-      </Link>
-      <p className="font-ui text-[10px] leading-relaxed tracking-wide text-mitti/75 text-center mt-2">
-        No account is required to purchase. Sign in for saved addresses, looks, order history, returns and loyalty benefits.
-      </p>
     </div>
   );
 }

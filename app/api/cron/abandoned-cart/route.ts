@@ -4,6 +4,7 @@
 //
 // Secure with `?key=` query param matching CRON_SECRET env var,
 // or with Vercel's built-in `Authorization: Bearer ${CRON_SECRET}` header.
+import { cronAuthorized } from '@/lib/cron/authorize';
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { sendEmail } from '@/lib/email';
@@ -99,11 +100,7 @@ function escapeHtml(s: string): string {
 }
 
 export async function GET(request: Request) {
-  // Auth: support both `?key=` and `Authorization: Bearer`
-  const url = new URL(request.url);
-  const secret = process.env.CRON_SECRET;
-  const provided = url.searchParams.get('key') || (request.headers.get('authorization') || '').replace(/^Bearer\s+/i, '');
-  if (secret && provided !== secret) {
+  if (!cronAuthorized(request, true)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 

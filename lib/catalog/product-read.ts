@@ -829,6 +829,7 @@ function buildIdentity(source: UnknownRecord): ProductReadIdentity {
     active: asBoolean(source.active) ?? asBoolean(source.enabled) ?? true,
     enabled: asBoolean(source.enabled) ?? asBoolean(source.active) ?? true,
     published: asBoolean(source.published) ?? true,
+    description: pickDescription(source),
   };
 }
 
@@ -857,6 +858,9 @@ function buildCategory(
     null;
 
   return {
+    id: getStringFromRecord(source.category, ['id']) ?? getStringFromRecord(leafCategory, ['id']),
+    slug: getStringFromRecord(source.category, ['slug']) ?? getStringFromRecord(leafCategory, ['slug']),
+    parentId: getStringFromRecord(source.category, ['parentId']),
     path,
     level,
     breadcrumb,
@@ -952,12 +956,12 @@ export function buildCatalogueReadiness(
 
 function mapVariant(
   variant: ProductReadVariantSource,
-  _mode?: string,
+  stockVisibility: string,
   now?: Date,
 ): ProductReadVariant {
   const source = isRecord(variant) ? variant : {};
   const pricing = buildPricing(source, now);
-  const stock = deriveStock(source);
+  const stock = deriveStock({ catalogueStockVisibility: stockVisibility, variants: [source] });
   const media = buildMedia(source);
   const badges = buildBadges(source);
   const timestamps = buildTimestamps(source, now);
@@ -994,6 +998,9 @@ function mapVariant(
     material: asString(source.material),
     finish: asString(source.finish),
     size: asString(source.size),
+    sellingPrice: asNumber(source.sellingPrice),
+    mrp: asNumber(source.mrp),
+    inventory: stock.totalInventory,
     active: asBoolean(source.active) ?? asBoolean(source.enabled) ?? true,
     identity,
     pricing,
@@ -1048,43 +1055,8 @@ export function buildProductReadModel(
   };
 
   const variants = toRecordArray<ProductReadVariantSource>(source.variants).map(
-    (variant) => mapVariant(variant, _mode, now),
+    (variant) => mapVariant(variant, stock.stockVisibility, now),
   );
-
-  const normalizedVariants =
-    Array.isArray(variants) &&
-    variants.length === 1 &&
-    (stock?.totalInventory ?? 0) > 0 &&
-    ((variants[0]?.stock?.totalInventory ?? variants[0]?.inventory ?? 0) <= 0)
-      ? variants.map((variant) => ({
-          ...variant,
-          inventory: stock?.totalInventory ?? variant?.inventory ?? 0,
-          stock: {
-            ...(variant?.stock ?? {}),
-            inStock: stock?.inStock ?? variant?.stock?.inStock ?? false,
-            totalInventory:
-              stock?.totalInventory ?? variant?.stock?.totalInventory ?? 0,
-            lowStock: stock?.lowStock ?? variant?.stock?.lowStock ?? false,
-            stockVisibility:
-              stock?.stockVisibility ??
-              variant?.stock?.stockVisibility ??
-              'IN_STOCK_ONLY',
-            availableQuantity:
-              stock?.availableQuantity ?? variant?.stock?.availableQuantity ?? null,
-            showExactQuantity:
-              stock?.showExactQuantity ??
-              variant?.stock?.showExactQuantity ??
-              false,
-            label: stock?.label ?? variant?.stock?.label ?? null,
-            purchasable:
-              stock?.purchasable ?? variant?.stock?.purchasable ?? false,
-            visibleInListing:
-              stock?.visibleInListing ??
-              variant?.stock?.visibleInListing ??
-              true,
-          },
-        }))
-      : variants;
 
   const category = buildCategory(hierarchy, breadcrumbs, source);
 
@@ -1135,6 +1107,13 @@ export function buildProductReadModel(
     mirrorEligible: ai.mirrorEligible,
 
     policies,
+    fulfilment: {
+      mode: asString(source.fulfilmentMode) ?? 'IN_STOCK',
+      depositPercent: asNumber(source.depositPercent),
+      releaseDate: asDate(source.releaseDate),
+      editionSize: asNumber(source.editionSize),
+      editionSold: asNumber(source.editionSold) ?? 0,
+    },
     purchase: policies,
     commerce: policies,
     codEligible: policies.codEligible,
@@ -1186,7 +1165,7 @@ export function buildProductReadModel(
     catalogueStockVisibility: stock.stockVisibility ?? 'IN_STOCK_ONLY',
     catalogueReadiness,
 
-    variants: normalizedVariants,
+    variants,
     createdAt,
     updatedAt,
     timestamps,

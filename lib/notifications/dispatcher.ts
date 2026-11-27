@@ -8,6 +8,8 @@
 //   await dispatchWhatsApp({ event: 'ORDER_SHIPPED', recipient: phone,
 //                            variables: {...}, orderId, userId });
 
+import { retryOrderDispatch } from './retry-worker';
+import { RETRY_NO_CONFIG, RETRY_RATE_LIMIT, retryTime } from './retry-policy';
 import { prisma } from '@/lib/prisma';
 import { fast2smsAdapter } from './channels/fast2sms';
 import { aisensyAdapter } from './channels/aisensy';
@@ -74,8 +76,8 @@ async function dispatchOnChannel(channel: Channel, opts: DispatchOptions) {
       where: { id: row.id },
       data: {
         status: 'failed',
-        errorMessage: `${adapter.name} not configured (env vars missing)`,
-        nextRetryAt: new Date(Date.now() + 60 * 60 * 1000), // retry in 1 hour
+        errorMessage: RETRY_NO_CONFIG,
+        nextRetryAt: retryTime(opts.event,RETRY_NO_CONFIG,1,3,Date.now()),
       } as any,
     });
     return { ok: false, error: `${adapter.name} not configured`, dispatchId: row.id };
@@ -110,18 +112,15 @@ async function dispatchOnChannel(channel: Channel, opts: DispatchOptions) {
     return { ok: true, dispatchId: row.id, providerRequestId: result.providerRequestId };
   }
 
-  // Failure path — schedule retry unless permanent
   const isPermanent = !!result.permanentFailure;
-  const attempt = 1;
-  const nextRetry = isPermanent
-    ? null
-    : new Date(Date.now() + (5 ** attempt) * 60 * 1000); // 5 min, 25 min, 125 min backoff
+  const reason = result.rateLimited ? RETRY_RATE_LIMIT : result.errorMessage;
+  const nextRetry = retryTime(opts.event,result.rateLimited ? RETRY_RATE_LIMIT : undefined,1,3,Date.now(),result.retryAfterMs);
 
   await prisma.notificationDispatch.update({
     where: { id: row.id },
     data: {
       status: 'failed',
-      errorMessage: result.errorMessage,
+      errorMessage: reason,
       providerResponseJson: result.providerResponse as any,
       nextRetryAt: nextRetry,
     } as any,
@@ -184,64 +183,6 @@ export async function dispatchMulti(opts: {
   return results;
 }
 
-// Convenience wrapper for retrying failed dispatches (called by cron)
-export async function retryDispatch(dispatchId: string) {
-  const row = await prisma.notificationDispatch.findUnique({ where: { id: dispatchId } });
-  if (!row || row.status !== 'failed') return { ok: false, skipped: 'not failed' };
-  if (row.attempt >= row.maxAttempts) return { ok: false, skipped: 'max attempts' };
-
-  const adapter = ADAPTERS[row.channel as Channel];
-  if (!adapter || !adapter.isConfigured()) {
-    return { ok: false, skipped: 'adapter not configured' };
-  }
-
-  const variables = (row.payloadJson as any) || {};
-  const dispatch: DispatchRecord = {
-    id: row.id,
-    channel: row.channel as Channel,
-    event: row.event as NotificationEvent,
-    templateName: row.templateName,
-    recipient: row.recipient,
-    userId: row.userId,
-    orderId: row.orderId,
-    cartId: row.cartId,
-    variables,
-    attempt: row.attempt + 1,
-    maxAttempts: row.maxAttempts,
-    status: "queued",
-  };
-
-  const result = await adapter.send(dispatch);
-
-  if (result.ok) {
-    await prisma.notificationDispatch.update({
-      where: { id: row.id },
-      data: {
-        status: 'sent',
-        attempt: row.attempt + 1,
-        providerRequestId: result.providerRequestId || null,
-        providerResponseJson: result.providerResponse as any,
-        sentAt: new Date(),
-        nextRetryAt: null,
-      } as any,
-    });
-    return { ok: true };
-  }
-
-  const nextAttempt = row.attempt + 1;
-  const nextRetry = nextAttempt >= row.maxAttempts || result.permanentFailure
-    ? null
-    : new Date(Date.now() + (5 ** nextAttempt) * 60 * 1000);
-
-  await prisma.notificationDispatch.update({
-    where: { id: row.id },
-    data: {
-      status: 'failed',
-      attempt: nextAttempt,
-      errorMessage: result.errorMessage,
-      providerResponseJson: result.providerResponse as any,
-      nextRetryAt: nextRetry,
-    } as any,
-  });
-  return { ok: false, attempt: nextAttempt };
+export function retryDispatch(dispatchId:string) {
+  return retryOrderDispatch(dispatchId,prisma,ADAPTERS);
 }

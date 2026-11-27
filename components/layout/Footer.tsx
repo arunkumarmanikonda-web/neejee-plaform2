@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { CurrencySwitcher } from '@/components/i18n/CurrencySwitcher';
 import { Instagram } from 'lucide-react';
+import { houseNavigation, editHref } from '@/lib/shop-edits';
 import { NewsletterForm } from '@/components/ui/NewsletterForm';
 import { NeejeeLogo } from '@/components/brand/Logo';
 
@@ -16,7 +17,7 @@ interface PublicContact {
   socialInstagram?: string;
 }
 
-interface FooterCategory { slug: string; name: string }
+
 
 const FALLBACK_CONTACT: PublicContact = {
   email: 'hello@neejee.com',
@@ -28,17 +29,8 @@ const FALLBACK_CONTACT: PublicContact = {
   socialInstagram: '',
 };
 
-const FALLBACK_CATEGORIES: FooterCategory[] = [
-  { slug: 'women-sarees', name: 'Sarees' },
-  { slug: 'accessories-jewellery', name: 'Jewellery' },
-  { slug: 'fragrance', name: 'Fragrance' },
-  { slug: 'home', name: 'Home' },
-  { slug: 'gifting', name: 'Gifting' },
-];
-
 export function Footer() {
   const [contact, setContact] = useState<PublicContact>(FALLBACK_CONTACT);
-  const [categories, setCategories] = useState<FooterCategory[]>(FALLBACK_CATEGORIES);
 
   useEffect(() => {
     let active = true;
@@ -51,7 +43,6 @@ export function Footer() {
       .then(d => {
         if (!active) return;
         if (d.contact) setContact({ ...FALLBACK_CONTACT, ...d.contact });
-        if (Array.isArray(d.categories) && d.categories.length > 0) setCategories(d.categories);
       })
       .catch(() => {});
 
@@ -67,13 +58,13 @@ export function Footer() {
           <NeejeeLogo size="lg" variant="ivory" showTagline />
           <div className="madder-divider mt-6"></div>
           <p className="font-body text-sm text-beige/80 mt-6 max-w-xs leading-relaxed">
-            India&apos;s finest craft, gathered with the patience of a founder who searched for years and found nothing good enough. So she built it.
+            Neejee means personal. The thread that runs through this house is Nidhi’s love of Indian cloth, objects and the hands that make them.
           </p>
-          <p className="font-italic italic text-beige/70 mt-4 text-sm">— Nidhi Chauhan, Founder</p>
+          <p className="font-italic italic text-beige/70 mt-4 text-sm">Nidhi Chauhan, Founder</p>
 
           <div className="mt-8">
-            <p className="label text-madder mb-3">JOIN THE TRUNK</p>
-            <p className="font-italic italic text-beige/70 text-sm mb-3">Founder&apos;s edits, craft stories, early access.</p>
+            <p className="label text-madder mb-3">LETTERS FROM NEEJEE</p>
+            <p className="font-italic italic text-beige/70 text-sm mb-3">Nidhi’s picks, craft stories and early access.</p>
             <NewsletterForm darkMode source="footer" />
           </div>
         </div>
@@ -81,11 +72,15 @@ export function Footer() {
         <div>
           <div className="label text-madder mb-4">SHOP</div>
           <ul className="space-y-2 font-ui text-xs text-beige/80">
-            {categories.map(c => (
-              <li key={c.slug}><Link href={`/categories/${c.slug}`} className="hover:text-ivory">{c.name}</Link></li>
+            <li><Link href="/products" className="hover:text-ivory">Shop all pieces</Link></li>
+            {houseNavigation.map(c => (
+              <li key={c.slug}><Link href={editHref(c.slug)} className="hover:text-ivory">{c.name}</Link></li>
             ))}
-            <li className="pt-2 border-t border-mitti/20 mt-2"><Link href="/ai/mirror" className="hover:text-ivory text-madder">AI Mirror ✦</Link></li>
-            <li><Link href="/ai/gift" className="hover:text-ivory text-madder">Gift Concierge ✦</Link></li>
+            <li><Link href="/looks" className="hover:text-ivory">Saree styling ideas</Link></li>
+            <li><Link href="/counter" className="hover:text-ivory">Compare sarees</Link></li>
+            <li className="pt-2 border-t border-mitti/20 mt-2"><Link href="/ai/mirror" className="hover:text-ivory text-madder">Try on with Aaina</Link></li>
+            <li><Link href="/ai/imagine" className="hover:text-ivory">See décor in my room</Link></li>
+            <li><Link href="/ai/gift" className="hover:text-ivory text-madder">Find a gift</Link></li>
           </ul>
         </div>
 
@@ -105,6 +100,7 @@ export function Footer() {
         <div>
           <div className="label text-madder mb-4">SUPPORT</div>
           <ul className="space-y-2 font-ui text-xs text-beige/80">
+            <li><Link href="/help/install" className="hover:text-ivory">Neejee on your phone</Link></li>
             <li><Link href="/help/shipping" className="hover:text-ivory">Shipping</Link></li>
             <li><Link href="/help/returns" className="hover:text-ivory">Returns</Link></li>
             <li><Link href="/help/track" className="hover:text-ivory">Track Order</Link></li>

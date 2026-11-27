@@ -1,29 +1,14 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { randomUUID } from 'crypto'
-import { writeFile, mkdir } from 'fs/promises'
-import path from 'path'
+import { NextResponse } from 'next/server';
+import { POST as uploadProductImages } from '../upload/route';
 
-export async function POST(req: NextRequest) {
-  const form = await req.formData()
-  const file = form.get('file')
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
 
-  if (!(file instanceof File)) {
-    return NextResponse.json({ error: 'No file uploaded' }, { status: 400 })
-  }
-
-  const bytes = await file.arrayBuffer()
-  const buffer = Buffer.from(bytes)
-
-  const ext = path.extname(file.name) || '.jpg'
-  const filename = `${randomUUID()}${ext}`
-  const dir = path.join(process.cwd(), 'public', 'uploads')
-  await mkdir(dir, { recursive: true })
-
-  const filepath = path.join(dir, filename)
-  await writeFile(filepath, buffer)
-
-  return NextResponse.json({
-    ok: true,
-    url: `/uploads/${filename}`,
-  })
+// The existing variant picker consumes a top-level URL. Delegate verification,
+// image limits and durable storage to the same handler as the camera.
+export async function POST(request: Request) {
+  const response = await uploadProductImages(request);
+  if (!response.ok) return response;
+  const {files} = await response.json();
+  return NextResponse.json({ok:true, url:files[0].url});
 }

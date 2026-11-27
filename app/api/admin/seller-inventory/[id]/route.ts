@@ -1,3 +1,4 @@
+import { authorNewProduct, saveCreationFacts } from '@/lib/catalog/narrative-service';
 // PATCH /api/admin/seller-inventory/{id}
 // body: { action: 'review' | 'needs_info' | 'approve' | 'reject' | 'publish', note?, productOverrides? }
 //
@@ -89,6 +90,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
         break;
 
       case 'publish': {
+        if(sub.status==='PUBLISHED') return NextResponse.json({success:true,submission:sub,publishedProductId:sub.productId});
         // Merge proposed data with admin overrides — admin polish layer.
         const final = { ...data, ...overrides };
 
@@ -110,14 +112,15 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
             }, { status: 400 });
           }
 
-          const created = await prisma.product.create({
+          const {draft}=await authorNewProduct({...final,keepTitle:typeof overrides.name==='string' || final.keepTitle===true});
+          const published=await prisma.$transaction(async tx=>{
+            const claim=await tx.sellerInventorySubmission.updateMany({where:{id:sub.id,publishedAt:null},data:{publishedAt:new Date(),status:'PUBLISHED',reviewedByUserId:session!.id,reviewedAt:new Date()}});
+            if (!claim.count) return null;
+            const created=await tx.product.create({
             data: {
               slug,
               sku,
-              name: final.name || 'Untitled',
-              description: final.description || '',
-              shortName: final.shortName || null,
-              poeticLine: final.poeticLine || null,
+              ...draft,
               sellerId: sub.sellerId,
               ownershipModel: 'MARKETPLACE',
               categoryId: final.categoryId,
@@ -136,8 +139,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
               hsnCode: final.hsnCode || null,
               images: Array.isArray(final.images) ? final.images : [],
               video: final.video || null,
-              story: final.story || null,
-              craftNote: final.craftNote || null,
+
               careInstructions: final.careInstructions || null,
               sustainabilityNote: final.sustainabilityNote || null,
               status: 'ACTIVE',
@@ -145,7 +147,16 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
               returnEligible: final.returnEligible !== false,
             },
           });
-          publishedProductId = created.id;
+            await saveCreationFacts(tx,created.id,final.pieceFacts);
+            return tx.sellerInventorySubmission.update({where:{id:sub.id},data:{productId:created.id}});
+          });
+          if (!published) {
+            const current=await prisma.sellerInventorySubmission.findUniqueOrThrow({where:{id:sub.id}});
+            return NextResponse.json({success:true,submission:current,publishedProductId:current.productId});
+          }
+          updated=published;
+          publishedProductId=published.productId;
+          break;
         } else if (sub.productId) {
           // EDIT_EXISTING / PRICE_UPDATE / INVENTORY_UPDATE / TAKEDOWN_REQUEST
           const editable: any = {};

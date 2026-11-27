@@ -131,6 +131,8 @@ function mapProductToCardData(product: any): ProductCardData {
     slug: String(product?.slug ?? ''),
     name: String(product?.name ?? 'Untitled Product'),
     poeticLine: typeof product?.poeticLine === 'string' ? product.poeticLine : null,
+    technique: product?.technique, material:product?.material, state:product?.state,
+    colours: Array.from(new Set<string>((product?.variants || []).filter((v:any)=>v.inStock && v.color).map((v:any)=>String(v.color)))),
     craft: typeof product?.craft === 'string' ? product.craft : null,
     region: typeof product?.region === 'string' ? product.region : null,
     mrp: typeof product?.mrp === 'number' ? product.mrp : 0,

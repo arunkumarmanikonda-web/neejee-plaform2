@@ -245,21 +245,21 @@ function mapCatalogueProduct(read: ReturnType<typeof buildProductReadModel>) {
 
     content: {
       description: read.identity.description,
-      story: read.craft.story,
-      craftNote: read.craft.craftNote,
-      careInstructions: read.craft.careInstructions,
-      sustainabilityNote: read.craft.sustainabilityNote,
+      story: read.story ?? null,
+      craftNote: read.craftNote ?? null,
+      careInstructions: read.careInstructions ?? null,
+      sustainabilityNote: read.sustainabilityNote ?? null,
     },
 
     attributes: {
-      craft: read.craft.craft,
-      region: read.craft.region,
-      state: read.craft.state,
-      cluster: read.craft.cluster,
-      artisanName: read.craft.artisanName,
-      material: read.craft.material,
-      technique: read.craft.technique,
-      occasion: read.craft.occasion,
+      craft: read.craft ?? null,
+      region: read.region ?? null,
+      state: read.state ?? null,
+      cluster: read.cluster ?? null,
+      artisanName: read.artisanName ?? null,
+      material: read.material ?? null,
+      technique: read.technique ?? null,
+      occasion: read.occasion ?? null,
       badges: read.badges,
     },
 
@@ -292,6 +292,7 @@ function mapCatalogueProduct(read: ReturnType<typeof buildProductReadModel>) {
     catalogueReadiness: read.catalogueReadiness,
     variants: read.variants.map((variant) => ({
       ...variant,
+      inventory: revealExactQuantity ? variant.stock.totalInventory : null,
       stock: {
         ...variant.stock,
         totalInventory: revealExactQuantity ? variant.stock.totalInventory : null,

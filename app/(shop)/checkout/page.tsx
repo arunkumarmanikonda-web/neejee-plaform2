@@ -1,7 +1,10 @@
 'use client';
+import type { SavedAddress } from '@/components/account/AddressBook';
 
-import { Suspense, useState, useEffect } from 'react';
+import { bagIdentity, clearBrowserAttempt, newBrowserAttempt, readBrowserAttempt, recoverCodOrder, type BrowserAttempt } from '@/lib/checkout/cod-browser';
+import { Suspense, useCallback, useId, useState, useEffect, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { HouseHeading } from '@/components/checkout/HouseHeading';
 import Link from 'next/link';
 import Image from 'next/image';
 import { Header } from '@/components/layout/Header';
@@ -16,6 +19,12 @@ export const dynamic = 'force-dynamic';
 const STEPS = ['ADDRESS', 'SHIPPING', 'PAYMENT'] as const;
 type Step = typeof STEPS[number];
 
+type CheckoutQuote = {
+  subtotal:number; wrap:number; rates:{STANDARD:number; EXPRESS:number}; shippingPaise:number;
+  discountPaise:number; pointsRedeemed:number; pointsValuePaise:number; total:number;
+  codAvailable:boolean; lineTotals:number[]; loyalty:{balance:number;maxUsable:number;maxPaiseValue:number} | null;
+};
+
 function CheckoutInner() {
   const router = useRouter();
   const sp = useSearchParams();
@@ -25,7 +34,7 @@ function CheckoutInner() {
     items,
     itemsSubtotal,
     giftWrapPaise,
-    couponDiscount,
+
     couponCode,
     clear,
     giftWrap,
@@ -43,6 +52,19 @@ function CheckoutInner() {
   const [error, setError] = useState('');
   const [me, setMe] = useState<any>(null);
 
+  const [savedAddresses, setSavedAddresses] = useState<SavedAddress[]>([]);
+  const accountId = me?.id;
+  useEffect(() => {
+    setSavedAddresses([]);
+    if (!accountId) return;
+    const ctrl = new AbortController();
+    fetch('/api/account/addresses', { signal:ctrl.signal, cache:'no-store' })
+      .then(res => res.ok ? res.json() : {addresses:[]})
+      .then(data => { if (!ctrl.signal.aborted) setSavedAddresses(data.addresses || []); })
+      .catch(() => {});
+    return () => ctrl.abort();
+  }, [accountId]);
+
   const [contact, setContact] = useState({ email: '', phone: '' });
   const [address, setAddress] = useState({
     name: '',
@@ -57,7 +79,32 @@ function CheckoutInner() {
   const [payment, setPayment] = useState('RAZORPAY');
   const [gstinCustomer, setGstinCustomer] = useState('');
   const [wantGstInvoice, setWantGstInvoice] = useState(false);
-  const [loyaltyPreview, setLoyaltyPreview] = useState<any>(null);
+  const submittingRef = useRef(false);
+  const codAttempt = useRef<BrowserAttempt | null>(null);
+  const [canCheckReceipt, setCanCheckReceipt] = useState(false);
+  const [attemptConflict, setAttemptConflict] = useState(false);
+  const checkReceipt = useCallback(async (signal?: AbortSignal) => {
+    const attempt = codAttempt.current;
+    if (!attempt) return false;
+    const number = await recoverCodOrder(attempt, signal);
+    if (!number || signal?.aborted || codAttempt.current?.key !== attempt.key) return false;
+    if (bagIdentity(useCart.getState().items) === attempt.bag) clear();
+    codAttempt.current = null;
+    clearBrowserAttempt();
+    router.replace(`/order-confirmation?order=${encodeURIComponent(number)}`);
+    return true;
+  }, [clear, router]);
+  useEffect(() => {
+    const stored = readBrowserAttempt();
+    if (!stored) return;
+    codAttempt.current = stored;
+    setCanCheckReceipt(true);
+    const ctrl = new AbortController();
+    void checkReceipt(ctrl.signal).catch(() => {});
+    return () => ctrl.abort();
+  }, [checkReceipt]);
+  const [quoteVersion, setQuoteVersion] = useState(0);
+  const [quoteResult, setQuoteResult] = useState<{key:string; quote?:CheckoutQuote; error?:string} | null>(null);
   const [pointsToRedeem, setPointsToRedeem] = useState(0);
   const [authChecking, setAuthChecking] = useState(true);
 
@@ -141,7 +188,7 @@ function CheckoutInner() {
         }
 
         if (!r.ok || !d?.cart) {
-          setError(d?.message || d?.error || 'This saved trunk is no longer available.');
+          setError(d?.message || d?.error || 'This saved bag is no longer available.');
           setRecovering(false);
           return;
         }
@@ -188,7 +235,7 @@ function CheckoutInner() {
         if (
           cart.discountCode &&
           typeof cart.discountPaise === 'number' &&
-          cart.discountPaise > 0
+          cart.discountPaise >= 0
         ) {
           applyCoupon(cart.discountCode, cart.discountPaise);
         } else {
@@ -213,7 +260,7 @@ function CheckoutInner() {
       })
       .catch(() => {
         if (!active) return;
-        setError('Unable to load saved trunk.');
+        setError('Unable to load saved bag.');
         setRecovering(false);
       });
 
@@ -229,36 +276,38 @@ function CheckoutInner() {
     removeCoupon,
   ]);
 
+  const quoteBody = items.length && /^\d{6}$/.test(address.pincode) && address.state.trim() && !authChecking && !recovering
+    ? JSON.stringify({items:items.map(({productId,variantId,quantity}) => ({productId,variantId,quantity})),
+      address:{state:address.state.trim(),pincode:address.pincode},shipping,giftWrap,couponCode,pointsToRedeem:me ? pointsToRedeem : 0})
+    : '';
+  const quoteKey = JSON.stringify([quoteBody, me?.id || '', quoteVersion]);
+  const quote = quoteResult?.key === quoteKey ? quoteResult.quote : undefined;
+  const quoteError = quoteResult?.key === quoteKey ? quoteResult.error : undefined;
+  const loyaltyPreview = quote?.loyalty;
   useEffect(() => {
-    const subNow = itemsSubtotal();
-    const wrapNow = giftWrapPaise();
-    const shipNow = shipping === 'EXPRESS' ? 25000 : subNow >= 250000 ? 0 : 15000;
-
-    if (!me?.id || subNow === 0) {
-      setLoyaltyPreview(null);
-      setPointsToRedeem(0);
-      return;
-    }
-
-    fetch('/api/loyalty/preview', {
-      method: 'POST',
-      credentials: 'include',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ subtotal: subNow + wrapNow + shipNow - couponDiscount }),
-    })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((d) => setLoyaltyPreview(d?.canRedeem ? d : null))
-      .catch(() => setLoyaltyPreview(null));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [itemsSubtotal, giftWrapPaise, shipping, couponDiscount, me?.id]);
+    if (!quoteBody) return;
+    const controller = new AbortController();
+    const timer = setTimeout(async () => {
+      try {
+        const res = await fetch('/api/checkout/quote', {method:'POST',credentials:'include',cache:'no-store',
+          signal:controller.signal,headers:{'Content-Type':'application/json'},body:quoteBody});
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Unable to calculate delivery.');
+        if (!controller.signal.aborted) setQuoteResult({key:quoteKey,quote:data});
+      } catch (e) {
+        if (!controller.signal.aborted) setQuoteResult({key:quoteKey,error:e instanceof Error ? e.message : 'Unable to calculate delivery.'});
+      }
+    }, 200);
+    return () => { controller.abort(); clearTimeout(timer); };
+  }, [quoteBody,quoteKey]);
 
   if (authChecking || recovering) {
     return (
       <>
-        <Header />
+        <Header shop/>
         <div className="max-w-2xl mx-auto py-32 px-6 text-center">
           <p className="font-italic italic text-mitti">
-            {recovering ? 'Reopening your saved trunk…' : 'Personal moment…'}
+            {recovering ? 'Reopening your saved bag…' : 'Loading your bag…'}
           </p>
         </div>
         <Footer />
@@ -269,9 +318,9 @@ function CheckoutInner() {
   if (recoverId && items.length === 0) {
     return (
       <>
-        <Header />
+        <Header shop/>
         <div className="max-w-2xl mx-auto py-20 px-6 text-center">
-          <h1 className="font-display text-3xl text-kohl">This saved trunk is no longer available.</h1>
+          <h1 className="font-display text-3xl text-kohl">This saved bag is no longer available.</h1>
           {error && <p className="mt-4 font-ui text-sm text-mitti">{error}</p>}
           <Link href="/" className="btn-primary mt-6 inline-block">SHOP THE EDIT</Link>
         </div>
@@ -283,9 +332,9 @@ function CheckoutInner() {
   if (items.length === 0) {
     return (
       <>
-        <Header />
+        <Header shop/>
         <div className="max-w-2xl mx-auto py-20 px-6 text-center">
-          <h1 className="font-display text-3xl text-kohl">Your trunk is empty.</h1>
+          <h1 className="font-display text-3xl text-kohl">Your bag is empty.</h1>
           <Link href="/" className="btn-primary mt-6 inline-block">SHOP THE EDIT</Link>
         </div>
         <Footer />
@@ -293,11 +342,10 @@ function CheckoutInner() {
     );
   }
 
-  const sub = itemsSubtotal();
-  const wrap = giftWrapPaise();
-  const shippingCost = shipping === 'EXPRESS' ? 25000 : sub >= 250000 ? 0 : 15000;
-  const pointsValuePaise = pointsToRedeem * (loyaltyPreview?.redemptionValue || 100);
-  const grand = Math.max(0, sub + wrap + shippingCost - couponDiscount - pointsValuePaise);
+  const sub = quote?.subtotal ?? itemsSubtotal();
+  const wrap = quote?.wrap ?? giftWrapPaise();
+  const pointsValuePaise = quote?.pointsValuePaise || 0;
+  const grand = quote?.total;
   const stepIdx = STEPS.indexOf(step);
 
   const updateGuestPhone = (phone: string) => {
@@ -382,14 +430,19 @@ function CheckoutInner() {
   };
 
   const placeOrder = async () => {
+    if (submittingRef.current || !quote || (payment === 'COD' && !quote.codAvailable)) return;
+    submittingRef.current = true;
     setSubmitting(true);
     setError('');
 
     try {
+      if (payment === 'COD' && !codAttempt.current) {
+        codAttempt.current = readBrowserAttempt() || newBrowserAttempt(bagIdentity(items));
+      }
       const res = await fetch('/api/checkout', {
         method: 'POST',
         credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...(payment === 'COD' && codAttempt.current ? { 'Idempotency-Key': codAttempt.current.key } : {}) },
         body: JSON.stringify({
           items: items.map((i) => ({
             productId: i.productId,
@@ -400,6 +453,7 @@ function CheckoutInner() {
           contact,
           address,
           shipping,
+          expectedTotal: quote.total,
           payment,
           giftWrap,
           personalNote,
@@ -413,6 +467,8 @@ function CheckoutInner() {
 
       const d = await res.json().catch(() => ({}));
       if (!res.ok) {
+        if (d.code === 'COD_ATTEMPT_CONFLICT') setAttemptConflict(true);
+        if (d.code === 'QUOTE_CHANGED') setQuoteVersion(v => v + 1);
         if (!me && (d.code === 'OTP_REQUIRED' || d.code === 'OTP_EXPIRED')) {
           setGuestOtpRequired(true);
           setGuestPhoneVerified(false);
@@ -423,6 +479,7 @@ function CheckoutInner() {
               ? 'Your verification expired. Request a fresh OTP to continue.'
               : 'Verify your mobile number to continue as guest.'
           );
+          submittingRef.current = false;
           setSubmitting(false);
           return;
         }
@@ -430,6 +487,9 @@ function CheckoutInner() {
       }
 
       if (payment === 'COD') {
+        if (!d.orderNumber) throw new Error('We could not confirm the order. Check the earlier submission before trying again.');
+        clearBrowserAttempt();
+        codAttempt.current = null;
         clear();
         router.push(`/order-confirmation?order=${encodeURIComponent(d.orderNumber)}`);
       } else {
@@ -439,6 +499,11 @@ function CheckoutInner() {
         router.push(`/payment?snapshot=${encodeURIComponent(d.snapshotId)}`);
       }
     } catch (e: any) {
+      if (payment === 'COD' && codAttempt.current) {
+        setCanCheckReceipt(true);
+        try { if (await checkReceipt()) return; } catch { /* The same key is retained for retry. */ }
+      }
+      submittingRef.current = false;
       setError(e.message || 'Unable to place order');
       setSubmitting(false);
     }
@@ -446,10 +511,9 @@ function CheckoutInner() {
 
   return (
     <>
-      <Header />
+      <Header shop/>
       <section className="max-w-6xl mx-auto px-6 lg:px-12 py-10">
-        <p className="label text-madder">CHECKOUT</p>
-        <h1 className="font-display text-4xl text-kohl mt-2">Almost yours.</h1>
+        <HouseHeading title="Delivery and payment" stage="Checkout"/>
         <div className="madder-divider mt-4"></div>
 
         {!me && !recoverId && (
@@ -464,7 +528,7 @@ function CheckoutInner() {
 
         {recoverId && (
           <div className="mt-6 bg-beige p-4 border border-mitti/20">
-            <p className="font-display text-lg text-kohl">Your saved trunk is back.</p>
+            <p className="font-display text-lg text-kohl">Your saved bag is back.</p>
             <p className="font-ui text-sm text-mitti mt-1">We restored your saved items and details. Review and continue whenever you’re ready.</p>
           </div>
         )}
@@ -477,13 +541,22 @@ function CheckoutInner() {
               }`}>
                 {i < stepIdx ? <Check className="w-3 h-3" /> : i + 1}
               </div>
-              <span className={i === stepIdx ? 'text-kohl' : 'text-mitti'}>{s}</span>
+              <button type="button" disabled={i >= stepIdx} onClick={()=>setStep(s)} aria-current={i===stepIdx ? "step" : undefined} className={i === stepIdx ? 'text-kohl' : 'text-mitti'}>{s}</button>
               {i < STEPS.length - 1 && <span className="text-mitti">·</span>}
             </div>
           ))}
         </div>
 
         {error && <p className="mt-6 font-ui text-sm text-madder bg-madder/10 p-3">{error}</p>}
+        {canCheckReceipt && <div className="mt-3 flex gap-3 items-center flex-wrap">
+          <button type="button" className="btn-secondary" disabled={submitting} onClick={async () => {
+            try { if (!await checkReceipt()) setError('No confirmed order was found for that submission. You can retry with the same details.'); }
+            catch { setError('Unable to check your earlier order. Please try again.'); }
+          }}>Check earlier COD order</button>
+          {attemptConflict && <button type="button" className="btn-secondary" onClick={() => {
+            clearBrowserAttempt(); codAttempt.current = null; setAttemptConflict(false); setCanCheckReceipt(false); setError('');
+          }}>Start a separate order</button>}
+        </div>}
 
         <div className="grid lg:grid-cols-[1fr_400px] gap-10 mt-10">
           <div className="space-y-6">
@@ -506,6 +579,18 @@ function CheckoutInner() {
                 </div>
 
                 <p className="label text-madder mt-8 mb-4">SHIPPING ADDRESS</p>
+                {savedAddresses.length > 0 && <label className="block mb-4">Use a saved address
+                  <select className="block w-full border p-2 mt-1" value="" onChange={e => {
+                    const selected = savedAddresses.find(item => item.id === e.target.value);
+                    if (!selected) return;
+                    const {name,line1,line2,city,state,pincode,phone} = selected;
+                    setAddress({name,line1,line2:line2 || '',city,state,pincode,country:'India'});
+                    setContact(current => ({...current,phone}));
+                  }}>
+                    <option value="">Choose an address</option>
+                    {savedAddresses.map(item => <option key={item.id} value={item.id}>{item.name} · {item.line1}, {item.city} {item.pincode}</option>)}
+                  </select>
+                </label>}
                 <Input label="Full Name *" value={address.name} onChange={(v: string) => setAddress({ ...address, name: v })} />
                 <Input label="Address Line 1 *" value={address.line1} onChange={(v: string) => setAddress({ ...address, line1: v })} placeholder="Flat / House / Building" />
                 <Input label="Address Line 2" value={address.line2} onChange={(v: string) => setAddress({ ...address, line2: v })} placeholder="Street / Area / Landmark" />
@@ -570,12 +655,12 @@ function CheckoutInner() {
               <div className="bg-beige p-6">
                 <p className="label text-madder mb-4">SHIPPING METHOD</p>
                 <div className="space-y-3">
-                  <ShippingOption value="STANDARD" current={shipping} onSelect={setShipping} label="Standard" sub="4-7 business days" price={sub >= 250000 ? 0 : 15000} />
-                  <ShippingOption value="EXPRESS" current={shipping} onSelect={setShipping} label="Express" sub="2-3 business days · India only" price={25000} />
+                  <ShippingOption value="STANDARD" current={shipping} onSelect={setShipping} label="Standard" sub="4-7 business days" price={quote?.rates.STANDARD} />
+                  <ShippingOption value="EXPRESS" current={shipping} onSelect={setShipping} label="Express" sub="2-3 business days · India only" price={quote?.rates.EXPRESS} />
                 </div>
                 <div className="mt-8 flex justify-between">
                   <button onClick={() => setStep('ADDRESS')} className="font-ui text-xs tracking-widest text-mitti hover:text-madder">← BACK</button>
-                  <button onClick={() => setStep('PAYMENT')} className="btn-primary">CONTINUE TO PAYMENT →</button>
+                  <button onClick={() => setStep('PAYMENT')} disabled={!quote} className="btn-primary disabled:opacity-50">CONTINUE TO PAYMENT →</button>
                 </div>
               </div>
             )}
@@ -585,7 +670,7 @@ function CheckoutInner() {
                 <p className="label text-madder mb-4">PAYMENT METHOD</p>
                 <div className="space-y-3">
                   <PaymentOption value="RAZORPAY" current={payment} onSelect={setPayment} label="UPI / Card / Net Banking / Wallet" sub="Secured by Razorpay" />
-                  <PaymentOption value="COD" current={payment} onSelect={setPayment} label="Cash on Delivery" sub="Available for eligible orders below ₹25,000" disabled={grand > 2500000} />
+                  <PaymentOption value="COD" current={payment} onSelect={setPayment} label="Cash on Delivery" sub="Available for eligible orders up to ₹25,000" disabled={!quote?.codAvailable} />
                 </div>
 
                 {!me && guestOtpRequired && (
@@ -636,10 +721,10 @@ function CheckoutInner() {
                   <button onClick={() => setStep('SHIPPING')} className="font-ui text-xs tracking-widest text-mitti hover:text-madder">← BACK</button>
                   <button
                     onClick={placeOrder}
-                    disabled={submitting || (!me && guestOtpRequired && !guestPhoneVerified)}
+                    disabled={submitting || !quote || (payment === 'COD' && !quote.codAvailable) || (!me && guestOtpRequired && !guestPhoneVerified)}
                     className="btn-primary disabled:opacity-50"
                   >
-                    {submitting ? 'PLACING...' : `PLACE ORDER · ${formatINR(grand)}`}
+                    {submitting ? 'PLACING...' : grand === undefined ? 'PLACE ORDER' : `PLACE ORDER · ${formatINR(grand)}`}
                   </button>
                 </div>
               </div>
@@ -647,11 +732,11 @@ function CheckoutInner() {
           </div>
 
           <aside className="lg:sticky lg:top-28 lg:self-start">
-            <div className="bg-beige p-6">
+            <div className="nj-order-summary p-6">
               <p className="label text-madder mb-4">ORDER ({items.length})</p>
 
               <div className="space-y-4 max-h-72 overflow-y-auto pr-2">
-                {items.map((i) => (
+                {items.map((i,index) => (
                   <div key={`${i.productId}-${i.variantId || ''}`} className="flex gap-3">
                     <div className="w-14 h-16 bg-ivory overflow-hidden flex-shrink-0">
                       {i.product.images?.[0] && (
@@ -661,7 +746,7 @@ function CheckoutInner() {
                     <div className="flex-1 min-w-0">
                       <p className="font-display text-sm truncate">{i.product.name}</p>
                       {i.variantLabel && <p className="font-ui text-[10px] text-mitti">{i.variantLabel}</p>}
-                      <p className="font-ui text-xs text-mitti mt-1">Qty {i.quantity} · {formatINR(i.product.sellingPrice * i.quantity)}</p>
+                      <p className="font-ui text-xs text-mitti mt-1">Qty {i.quantity} · {formatINR(quote?.lineTotals[index] ?? i.product.sellingPrice * i.quantity)}</p>
                     </div>
                   </div>
                 ))}
@@ -670,13 +755,18 @@ function CheckoutInner() {
               <div className="border-t border-mitti/20 mt-4 pt-4 space-y-2 font-ui text-sm">
                 <Row label="Subtotal" value={formatINR(sub)} />
                 {wrap > 0 && <Row label="Gift wrap" value={formatINR(wrap)} />}
-                {couponCode && couponDiscount > 0 && <Row label={`Coupon · ${couponCode}`} value={`- ${formatINR(couponDiscount)}`} color="text-neem" />}
-                <Row label="Shipping" value={shippingCost === 0 ? 'Free' : formatINR(shippingCost)} />
+                {couponCode && quote && quote.discountPaise > 0 && <Row label={`Coupon · ${couponCode}`} value={`- ${formatINR(quote.discountPaise)}`} color="text-neem" />}
+                <Row label="Shipping" value={quote ? (quote.shippingPaise === 0 ? 'Free' : formatINR(quote.shippingPaise)) : (quoteError ? 'Unavailable' : quoteBody ? 'Calculating…' : 'Enter your delivery address')} />
                 <Row label="GST" value="Inclusive" small />
-                {pointsToRedeem > 0 && <Row label={`${pointsToRedeem.toLocaleString('en-IN')} points applied`} value={`- ${formatINR(pointsValuePaise)}`} color="text-madder" />}
+                {quote && quote.pointsRedeemed > 0 && <Row label={`${quote.pointsRedeemed.toLocaleString('en-IN')} points applied`} value={`- ${formatINR(pointsValuePaise)}`} color="text-madder" />}
               </div>
 
-              {loyaltyPreview?.canRedeem && (
+              {quoteError && <div role="alert" className="mt-4 text-sm text-madder">
+                <p>{quoteError}</p><button type="button" onClick={() => setQuoteVersion(v => v + 1)}>Retry quote</button>
+                {couponCode && <button type="button" className="ml-4" onClick={removeCoupon}>Remove coupon</button>}
+                <Link href="/cart" className="ml-4">Review bag</Link>
+              </div>}
+              {loyaltyPreview && (
                 <div className="mt-4 bg-banarasi/10 border border-banarasi/40 p-3">
                   <div className="flex items-center justify-between mb-2">
                     <p className="label text-madder">YOUR POINTS</p>
@@ -685,7 +775,7 @@ function CheckoutInner() {
 
                   {pointsToRedeem > 0 ? (
                     <div className="flex items-center justify-between text-sm">
-                      <span className="text-kohl">{pointsToRedeem.toLocaleString('en-IN')} pts → {formatINR(pointsValuePaise)} off</span>
+                      <span className="text-kohl">{(quote?.pointsRedeemed || 0).toLocaleString('en-IN')} pts → {formatINR(pointsValuePaise)} off</span>
                       <button onClick={() => setPointsToRedeem(0)} className="text-madder text-xs tracking-widest">REMOVE</button>
                     </div>
                   ) : (
@@ -698,7 +788,7 @@ function CheckoutInner() {
 
               <div className="border-t border-mitti/20 mt-4 pt-4 flex items-baseline justify-between">
                 <span className="font-display text-lg">Total</span>
-                <span className="font-display text-2xl">{formatINR(grand)}</span>
+                <span className="font-display text-2xl">{grand === undefined ? 'Pending delivery quote' : formatINR(grand)}</span>
               </div>
             </div>
           </aside>
@@ -714,7 +804,7 @@ export default function CheckoutPage() {
     <Suspense
       fallback={
         <>
-          <Header />
+          <Header shop/>
           <div className="max-w-2xl mx-auto py-32 px-6 text-center">
             <p className="font-italic italic text-mitti">Loading checkout…</p>
           </div>
@@ -728,10 +818,12 @@ export default function CheckoutPage() {
 }
 
 function Input({ label, value, onChange, type = 'text', placeholder, inputMode, mono }: any) {
+  const inputId=useId();
   return (
     <div className="mb-3">
-      <label className="label text-mitti block mb-1">{label}</label>
+      <label htmlFor={inputId} className="label text-mitti block mb-1">{label}</label>
       <input
+        id={inputId}
         type={type}
         value={value}
         onChange={(e) => onChange(e.target.value)}
@@ -753,7 +845,7 @@ function ShippingOption({ value, current, onSelect, label, sub, price }: any) {
           <p className="font-italic italic text-mitti text-xs">{sub}</p>
         </div>
       </div>
-      <span className="font-ui text-sm">{price === 0 ? 'FREE' : formatINR(price)}</span>
+      <span className="font-ui text-sm">{price == null ? 'Pending quote' : price === 0 ? 'Free' : formatINR(price)}</span>
     </label>
   );
 }

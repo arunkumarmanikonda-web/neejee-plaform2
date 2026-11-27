@@ -6,6 +6,7 @@
 //
 // Manual trigger:   curl 'https://www.neejee.com/api/cron/commission-billing?key=<CRON_SECRET>'
 
+import { cronAuthorized } from '@/lib/cron/authorize';
 import { NextResponse } from 'next/server';
 import { runCommissionBilling } from '@/lib/finance/commission-engine';
 
@@ -14,13 +15,10 @@ export const runtime = 'nodejs';
 export const maxDuration = 60;
 
 export async function GET(request: Request) {
-  const url = new URL(request.url);
-  const secret = process.env.CRON_SECRET;
-  const provided = url.searchParams.get('key') ||
-    (request.headers.get('authorization') || '').replace(/^Bearer\s+/i, '');
-  if (secret && provided !== secret) {
+  if (!cronAuthorized(request, true)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
+  const url = new URL(request.url);
 
   // Default window: last 7 days
   const toDate   = new Date();

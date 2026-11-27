@@ -43,8 +43,8 @@ function matchesZone(
   return null;
 }
 
-export async function resolveShipping(input: ShippingResolveInput): Promise<ShippingResolveResult> {
-  const { pincode, state, subtotalPaise, mode } = input;
+export async function resolveShippingOptions(input: Omit<ShippingResolveInput, 'mode'>) {
+  const { pincode, state, subtotalPaise } = input;
 
   let zones: any[] = [];
   try {
@@ -52,9 +52,9 @@ export async function resolveShipping(input: ShippingResolveInput): Promise<Ship
       where: { active: true },
       orderBy: [{ priority: 'desc' }, { createdAt: 'asc' }],
     });
-  } catch {
-    // ShippingZone table may not exist yet — fall back gracefully
-    zones = [];
+  } catch (error) {
+    // Older installations can use the legacy schedule before the zone table exists.
+    if ((error as {code?:string} | null)?.code !== 'P2021') throw error;
   }
 
   // 1) Try non-default zones first, in priority order
@@ -80,30 +80,36 @@ export async function resolveShipping(input: ShippingResolveInput): Promise<Ship
   if (!matched) {
     const free = subtotalPaise >= LEGACY_FREE_ABOVE_PAISE;
     return {
-      shippingPaise: free ? 0 : (mode === 'EXPRESS' ? LEGACY_EXPRESS_PAISE : LEGACY_STANDARD_PAISE),
+      rates: { STANDARD: free ? 0 : LEGACY_STANDARD_PAISE, EXPRESS: free ? 0 : LEGACY_EXPRESS_PAISE },
       inclusive: false,
       freeAboveSubtotalPaise: LEGACY_FREE_ABOVE_PAISE,
       zoneId: null,
       zoneName: 'Legacy fallback',
-      reason: 'legacy',
+      reason: 'legacy' as const,
     };
   }
 
   // Compute final shipping paise from the matched zone
   const isFree = subtotalPaise >= matched.freeAboveSubtotalPaise;
-  let shippingPaise = isFree ? 0 : (mode === 'EXPRESS' ? matched.expressPaise : matched.standardPaise);
-
-  // Inclusive zones absorb the cost — customer pays 0, brand books the cost internally
-  if (matched.inclusive) shippingPaise = 0;
+  const waived = isFree || Boolean(matched.inclusive);
+  const rates = {
+    STANDARD: waived ? 0 : Number(matched.standardPaise),
+    EXPRESS: waived ? 0 : Number(matched.expressPaise),
+  };
 
   return {
-    shippingPaise,
+    rates,
     inclusive: !!matched.inclusive,
     freeAboveSubtotalPaise: matched.freeAboveSubtotalPaise,
     zoneId: matched.id,
     zoneName: matched.name,
-    reason: matchedReason || 'default',
+    reason: matchedReason || ('default' as const),
   };
+}
+
+export async function resolveShipping(input: ShippingResolveInput): Promise<ShippingResolveResult> {
+  const { rates, ...matched } = await resolveShippingOptions(input);
+  return { ...matched, shippingPaise: rates[input.mode] };
 }
 
 // Helper used by the admin UI: round any rupee value to the nearest ₹50

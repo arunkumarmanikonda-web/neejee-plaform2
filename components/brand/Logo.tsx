@@ -1,4 +1,3 @@
-import Image from 'next/image';
 import { NEEJEE_TAGLINE } from '@/lib/brand';
 
 type Props = {
@@ -8,26 +7,30 @@ type Props = {
   showTagline?: boolean;
 };
 
-const SIZE_MAP = { sm: 88, md: 132, lg: 180, xl: 260 };
-const COMPACT_ASPECT = 1425 / 285;
-const FULL_ASPECT = 1425 / 415;
+const SIZE_MAP = { sm: 94, md: 192, lg: 190, xl: 260 };
+const COMPACT_ASPECT = 688 / 114;
+const FULL_ASPECT = 688 / 163;
 
-/** Canonical NEEJEE identity traced from the owner-approved artwork. */
+/** Neejee’s bindi wordmark. */
 export function NeejeeLogo({ className = '', size = 'md', variant = 'default', showTagline = false }: Props) {
   const width = SIZE_MAP[size];
   const aspect = showTagline ? FULL_ASPECT : COMPACT_ASPECT;
   const height = Math.round(width / aspect);
-  const src = showTagline ? '/brand/neejee-logo.svg' : '/brand/neejee-logo-compact.svg';
+  const file = '/brand/identity/' + (showTagline ? 'lockup' : 'compact') + (variant === 'ivory' ? '-reverse' : '') + '.svg?v=bindi';
+
+  // The primary signature travels with the page, including saved and printed pages.
+  const src = showTagline && variant === 'default' ? process.env.NEEJEE_SIGNATURE_SRC || file : file;
 
   return (
-    <Image
+    <img
       className={className}
       src={src}
-      alt={showTagline ? `NEEJEE — ${NEEJEE_TAGLINE}` : 'NEEJEE'}
+      alt={showTagline ? `NEEJEE. ${NEEJEE_TAGLINE}` : 'NEEJEE'}
       width={width}
       height={height}
       draggable={false}
-      priority={size === 'lg' || size === 'xl'}
+      loading="eager"
+      decoding="sync"
       style={{
         display: 'block',
         width,
@@ -36,8 +39,6 @@ export function NeejeeLogo({ className = '', size = 'md', variant = 'default', s
         objectFit: 'contain',
         flexShrink: 0,
         userSelect: 'none',
-        backgroundColor: variant === 'ivory' ? '#F8F2E9' : undefined,
-        padding: variant === 'ivory' ? '10px 12px' : undefined,
       }}
     />
   );

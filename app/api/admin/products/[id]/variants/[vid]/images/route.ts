@@ -1,129 +1,45 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
+import { NextResponse } from 'next/server';
+import { getSession, requireRole } from '@/lib/auth';
+import { prisma } from '@/lib/prisma';
+import { applyGalleryChange, parseGalleryChange, retryGalleryWrite } from '@/lib/catalog/variant-gallery';
 
-type Body = {
-  images?: string[]
-  mode?: 'append' | 'replace'
+export const dynamic = 'force-dynamic';
+type Context = { params: { id:string; vid:string } };
+const select = {id:true, productId:true, images:true} as const;
+const missing = () => NextResponse.json({error:'Variant not found'}, {status:404});
+
+async function checkEditor() {
+  const user = await getSession();
+  if (requireRole(user,['ADMIN','SUPER_ADMIN','CONTENT_EDITOR'])) return null;
+  return NextResponse.json({error:'Unauthorized'}, {status:user ? 403 : 401});
 }
 
-export async function GET(
-  _req: NextRequest,
-  { params }: { params: Promise<{ id: string; vid: string }> }
-) {
-  const { id, vid } = await params
+export async function GET(_request:Request, {params}:Context) {
+  const denied = await checkEditor();
+  if (denied) return denied;
+  const variant = await prisma.variant.findFirst({where:{id:params.vid, productId:params.id}, select});
+  return variant ? NextResponse.json({ok:true, variantId:variant.id, productId:variant.productId, images:variant.images || []}) : missing();
+}
 
-  const variant = await prisma.variant.findFirst({
-    where: {
-      id: vid,
-      productId: id,
-    },
-    select: {
-      id: true,
-      productId: true,
-      images: true,
-    },
-  })
-
-  if (!variant) {
-    return NextResponse.json({ error: 'Variant not found' }, { status: 404 })
+async function update(request:Request, {params}:Context, remove:boolean) {
+  const denied = await checkEditor();
+  if (denied) return denied;
+  const change = parseGalleryChange(await request.json().catch(() => null), remove);
+  if (!change) return NextResponse.json({error:'Invalid gallery change'}, {status:400});
+  try {
+    const variant = await retryGalleryWrite(() => prisma.$transaction(async tx => {
+      const current = await tx.variant.findFirst({where:{id:params.vid, productId:params.id}, select});
+      if (!current) return null;
+      const images = applyGalleryChange(current.images || [], change);
+      return tx.variant.update({where:{id:current.id}, data:{images}, select});
+    }, {isolationLevel:'Serializable'}));
+    return variant ? NextResponse.json({ok:true, variantId:variant.id, productId:variant.productId, images:variant.images}) : missing();
+  } catch (error) {
+    if (error && typeof error === 'object' && 'code' in error && error.code === 'P2034')
+      return NextResponse.json({error:'This gallery changed while saving. Please retry.'}, {status:409});
+    throw error;
   }
-
-  return NextResponse.json({
-    ok: true,
-    variantId: variant.id,
-    productId: variant.productId,
-    images: variant.images ?? [],
-  })
 }
 
-export async function POST(
-  req: NextRequest,
-  { params }: { params: Promise<{ id: string; vid: string }> }
-) {
-  const { id, vid } = await params
-  const body = (await req.json()) as Body
-
-  const incoming = Array.isArray(body.images) ? body.images.filter(Boolean) : []
-  const mode = body.mode === 'replace' ? 'replace' : 'append'
-
-  const existing = await prisma.variant.findFirst({
-    where: {
-      id: vid,
-      productId: id,
-    },
-    select: {
-      id: true,
-      productId: true,
-      images: true,
-    },
-  })
-
-  if (!existing) {
-    return NextResponse.json({ error: 'Variant not found' }, { status: 404 })
-  }
-
-  const nextImages =
-    mode === 'replace'
-      ? [...new Set(incoming)]
-      : [...new Set([...(existing.images ?? []), ...incoming])]
-
-  const updated = await prisma.variant.update({
-    where: { id: vid },
-    data: { images: nextImages },
-    select: {
-      id: true,
-      productId: true,
-      images: true,
-    },
-  })
-
-  return NextResponse.json({
-    ok: true,
-    variantId: updated.id,
-    productId: updated.productId,
-    images: updated.images ?? [],
-  })
-}
-
-export async function DELETE(
-  req: NextRequest,
-  { params }: { params: Promise<{ id: string; vid: string }> }
-) {
-  const { id, vid } = await params
-  const { image } = await req.json()
-
-  const existing = await prisma.variant.findFirst({
-    where: {
-      id: vid,
-      productId: id,
-    },
-    select: {
-      id: true,
-      productId: true,
-      images: true,
-    },
-  })
-
-  if (!existing) {
-    return NextResponse.json({ error: 'Variant not found' }, { status: 404 })
-  }
-
-  const nextImages = (existing.images ?? []).filter((x) => x !== image)
-
-  const updated = await prisma.variant.update({
-    where: { id: vid },
-    data: { images: nextImages },
-    select: {
-      id: true,
-      productId: true,
-      images: true,
-    },
-  })
-
-  return NextResponse.json({
-    ok: true,
-    variantId: updated.id,
-    productId: updated.productId,
-    images: updated.images ?? [],
-  })
-}
+export async function POST(request:Request, context:Context) { return update(request, context, false); }
+export async function DELETE(request:Request, context:Context) { return update(request, context, true); }

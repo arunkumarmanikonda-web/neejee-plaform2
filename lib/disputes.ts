@@ -187,7 +187,9 @@ export async function changeDisputeStatus(args: {
   note?: string;
   resolutionAmountPaise?: number;
 }) {
-  const dispute = await prisma.dispute.findUnique({ where: { id: args.disputeId } });
+  const dispute = await prisma.dispute.findUnique({
+    where: { id: args.disputeId }, include: { order: { select: { orderNumber: true } } },
+  });
   if (!dispute) throw new Error('Dispute not found');
   const from = dispute.status;
   const isResolution = args.toStatus === 'RESOLVED';
@@ -223,7 +225,7 @@ export async function changeDisputeStatus(args: {
       notify({
         event: ev,
         userId: dispute.customerUserId,
-        data: { disputeId: dispute.id, title: dispute.title, fromStatus: from, toStatus: args.toStatus, link: `/account/disputes/${dispute.id}` },
+        data: { disputeId: dispute.id, title: dispute.title, fromStatus: from, toStatus: args.toStatus, link: dispute.id.startsWith('return-') && dispute.order ? `/orders/${encodeURIComponent(dispute.order.orderNumber)}#order-returns` : '/account/disputes' },
         context: { type: 'DISPUTE', id: dispute.id },
       } as any).catch(() => {});
     }

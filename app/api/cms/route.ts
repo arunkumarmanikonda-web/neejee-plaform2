@@ -1,4 +1,7 @@
 import { NextResponse } from 'next/server';
+import { editorialTemplates } from '@/lib/public-editorial';
+import { getSession } from '@/lib/auth';
+import { isSectionVisibleNow, type Section } from '@/lib/cms-sections';
 import { prisma } from '@/lib/prisma';
 
 export const dynamic = 'force-dynamic';
@@ -33,12 +36,16 @@ export async function GET(request: Request) {
       },
     });
 
-    if (!page || page.status !== 'PUBLISHED') {
+    if (!page || page.status !== 'PUBLISHED' || !['page','journal','lookbook'].includes(page.pageType) || !editorialTemplates.includes(page.template)) {
       return NextResponse.json({ error: 'Page not found' }, { status: 404 });
     }
 
-    const response = NextResponse.json({ page });
-    response.headers.set('Cache-Control', 'public, s-maxage=60, stale-while-revalidate=300');
+    const blocks = Array.isArray(page.sections) ? page.sections as unknown as Section[] : [];
+    const contextual = blocks.some(s=>s?.visibility?.audience && s.visibility.audience!=='all');
+    const signedIn = contextual && !!(await getSession());
+    const sections=blocks.filter(s=>s && isSectionVisibleNow(s) && (s.visibility?.audience!=='signed-in' || signedIn) && (s.visibility?.audience!=='guest' || !signedIn));
+    const response = NextResponse.json({ page:{...page,sections} });
+    response.headers.set('Cache-Control', 'private, no-store');
     return response;
   } catch (error: any) {
     console.error('[cms.public] failed', { message: error?.message });

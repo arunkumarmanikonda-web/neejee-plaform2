@@ -2,6 +2,7 @@
 // Sends a Slack message with top overdue customers + bucket breakdown.
 // Same data the /admin/finance/customer-ledger page shows.
 
+import { cronAuthorized } from '@/lib/cron/authorize';
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { postSlack, slack } from '@/lib/notifications/slack';
@@ -16,11 +17,7 @@ function fmtINR(paise: number): string {
 }
 
 export async function GET(req: Request) {
-  // Vercel cron secret check — same pattern as existing crons
-  const auth = req.headers.get('authorization') || '';
-  const expected = `Bearer ${process.env.CRON_SECRET || ''}`;
-  if (process.env.CRON_SECRET && auth !== expected) {
-    // Allow unauthenticated only when CRON_SECRET unset (dev)
+  if (!cronAuthorized(req)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 

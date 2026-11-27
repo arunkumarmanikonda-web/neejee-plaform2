@@ -79,6 +79,8 @@ export interface SendResult {
   recipient?: string;
   providerResponse?: any;
   permanentFailure?: boolean;
+  rateLimited?: boolean;
+  retryAfterMs?: number;
   status?: string;
   providerId?: any;
   [key: string]: any;

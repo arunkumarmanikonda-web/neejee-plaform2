@@ -7,10 +7,12 @@
 // - prepaid Order is still created only after verified Razorpay signature
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { orderShippingAddress } from '@/lib/checkout/order-shipping-address';
+import { codAttemptKey, codRequestHash, confirmedCodOrder, findCodAttempt } from '@/lib/checkout/cod-attempt';
 import { getSession } from '@/lib/auth';
-import { generateOrderNumber, calculateGST } from '@/lib/utils';
+import { generateOrderNumber } from '@/lib/utils';
 import { sendEmail, orderPlacedEmail } from '@/lib/email';
-import { resolveShipping } from '@/lib/shipping/resolve';
+import { calculateCheckoutPricing, CheckoutPricingError } from '@/lib/checkout/pricing';
 import {
   consumeUnreservedInventory,
   reserveInventory,
@@ -26,11 +28,9 @@ import {
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
-const GIFT_WRAP_PAISE = 15000;
-const MAX_LINE_QUANTITY = 50;
-const COD_MAX_PAISE = 2500000;
 
 function safeCheckoutFailure(error: any) {
+  if (error instanceof CheckoutPricingError) return NextResponse.json(error.detail, {status:error.status});
   const message = String(error?.message || '');
   if (
     message.includes('INSUFFICIENT_INVENTORY') ||
@@ -81,6 +81,16 @@ function safeCheckoutFailure(error: any) {
 }
 
 export async function POST(request: Request) {
+  let attempt: { key: string; hash: string } | null = null;
+  async function replay() {
+    if (!attempt) return null;
+    const existing = await findCodAttempt(attempt.key);
+    if (!existing) return null;
+    if (existing.codRequestHash !== attempt.hash) {
+      return NextResponse.json({ error: 'This checkout has already been used with different details. Check the earlier order before starting another.', code: 'COD_ATTEMPT_CONFLICT' }, { status: 409 });
+    }
+    return NextResponse.json(confirmedCodOrder(existing));
+  }
   try {
     const body = await request.json();
     const {
@@ -106,6 +116,14 @@ export async function POST(request: Request) {
     }
 
     const guestSession = await getSession();
+    const header = request.headers.get('Idempotency-Key');
+    if (payment === 'COD' && header !== null) {
+      const key = codAttemptKey(header);
+      if (!key) return NextResponse.json({ error: 'Invalid checkout attempt.' }, { status: 400 });
+      attempt = { key, hash: codRequestHash(body, guestSession?.id) };
+      const confirmed = await replay();
+      if (confirmed) return confirmed;
+    }
     if (process.env.CHECKOUT_OTP_REQUIRED === 'true' && !guestSession) {
       if (!phoneVerified || !contact?.phone) {
         return NextResponse.json({
@@ -148,6 +166,12 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Invalid pincode' }, { status: 400 });
     }
 
+    try {
+      orderShippingAddress(guestSession?.id, address, contact.phone);
+    } catch {
+      return NextResponse.json({ error: 'Enter a complete delivery address and mobile number.' }, { status: 400 });
+    }
+
     const session = guestSession;
     const attribution = {
       utmSource: utm?.source || null,
@@ -159,190 +183,16 @@ export async function POST(request: Request) {
       landingPage: utm?.landingPage || null,
     };
 
-    let subtotal = 0;
-    let allCodEligible = true;
-    const verifiedItems: Array<{
-      productId: string;
-      variantId: string | null;
-      quantity: number;
-      price: number;
-      total: number;
-      name: string;
-      craft?: string | null;
-      region?: string | null;
-    }> = [];
-
-    for (const rawItem of items) {
-      const productId = String(rawItem?.productId || '').trim();
-      const quantity = Number(rawItem?.quantity);
-      if (!productId || !Number.isInteger(quantity) || quantity < 1 || quantity > MAX_LINE_QUANTITY) {
-        return NextResponse.json({ error: 'Invalid cart quantity' }, { status: 400 });
-      }
-
-      const product: any = await prisma.product.findUnique({
-        where: { id: productId },
-        include: { variants: true },
-      });
-      if (!product) {
-        return NextResponse.json({ error: 'A selected product could not be found' }, { status: 400 });
-      }
-      if (product.status !== 'ACTIVE') {
-        return NextResponse.json({ error: `${product.name} is currently unavailable` }, { status: 409 });
-      }
-      if (product.codEligible === false) allCodEligible = false;
-
-      const now = new Date();
-      let price = Number(product.sellingPrice || 0);
-      if (
-        product.salePrice &&
-        (!product.saleStartsAt || product.saleStartsAt <= now) &&
-        (!product.saleEndsAt || product.saleEndsAt >= now)
-      ) {
-        price = Number(product.salePrice);
-      }
-      if (!Number.isInteger(price) || price < 0) {
-        return NextResponse.json({ error: `${product.name} has invalid pricing` }, { status: 409 });
-      }
-
-      let variantId: string | null = null;
-      if (rawItem.variantId) {
-        const variant = product.variants.find((v: any) => v.id === rawItem.variantId);
-        if (!variant) return NextResponse.json({ error: 'Selected variant not found' }, { status: 409 });
-        if (variant.inventory < quantity) {
-          return NextResponse.json({ error: `Only ${variant.inventory} left of ${product.name}`, code: 'INVENTORY_CHANGED' }, { status: 409 });
-        }
-        variantId = variant.id;
-        if (variant.sellingPrice != null) price = Number(variant.sellingPrice);
-      } else if (product.variants.length > 0) {
-        const availableVariants = product.variants.filter((v: any) => v.inventory >= quantity);
-        if (availableVariants.length !== 1) {
-          return NextResponse.json({
-            error: availableVariants.length === 0
-              ? `Out of stock: ${product.name}`
-              : `Please choose the exact option for ${product.name}`,
-            code: availableVariants.length === 0 ? 'INVENTORY_CHANGED' : 'VARIANT_REQUIRED',
-          }, { status: 409 });
-        }
-        variantId = availableVariants[0].id;
-        if (availableVariants[0].sellingPrice != null) price = Number(availableVariants[0].sellingPrice);
-      } else {
-        return NextResponse.json({
-          error: `${product.name} is not configured with a purchasable variant`,
-          code: 'PRODUCT_UNAVAILABLE',
-        }, { status: 409 });
-      }
-
-      const lineTotal = price * quantity;
-      subtotal += lineTotal;
-      verifiedItems.push({
-        productId: product.id,
-        variantId,
-        quantity,
-        price,
-        total: lineTotal,
-        name: product.name,
-        craft: product.craft || null,
-        region: product.region || null,
-      });
+    const pricing = await calculateCheckoutPricing({items, address, shipping, giftWrap, couponCode, pointsToRedeem}, session);
+    const {subtotal, wrap, shippingPaise, discountPaise, appliedCouponId, pointsRedeemed, pointsValuePaise,
+      total, tax, allCodEligible, codAvailable, verifiedItems} = pricing;
+    if (body.expectedTotal !== undefined && body.expectedTotal !== total) {
+      return NextResponse.json({error:'Your checkout total changed. Review the updated total before placing your order.',code:'QUOTE_CHANGED'}, {status:409});
     }
-
-    const inventoryItems: ReservationItem[] = verifiedItems.map((item) => ({
-      variantId: item.variantId!,
-      quantity: item.quantity,
-    }));
-
-    const wrap = giftWrap ? GIFT_WRAP_PAISE : 0;
-    const shippingResolved = await resolveShipping({
-      pincode: address.pincode,
-      state: address.state,
-      subtotalPaise: subtotal,
-      mode: shipping === 'EXPRESS' ? 'EXPRESS' : 'STANDARD',
-    });
-    let shippingPaise = shippingResolved.shippingPaise;
-
-    let discountPaise = 0;
-    let appliedCouponId: string | null = null;
-    if (couponCode) {
-      const normalizedCouponCode = String(couponCode).toUpperCase().trim();
-      const coupon = await prisma.coupon.findUnique({ where: { code: normalizedCouponCode } });
-      if (!coupon) {
-        return NextResponse.json({ error: 'Coupon not found', code: 'COUPON_NOT_FOUND' }, { status: 400 });
-      }
-      if (!coupon.active) {
-        return NextResponse.json({ error: 'Coupon is inactive', code: 'COUPON_INACTIVE' }, { status: 400 });
-      }
-
-      const now = new Date();
-      if (coupon.validFrom && coupon.validFrom > now) {
-        return NextResponse.json({ error: 'Coupon not yet active', code: 'COUPON_NOT_YET_ACTIVE' }, { status: 400 });
-      }
-      if (coupon.validTo && coupon.validTo < now) {
-        return NextResponse.json({ error: 'Coupon has expired', code: 'COUPON_EXPIRED' }, { status: 400 });
-      }
-      if (coupon.maxUses != null && coupon.usedCount >= coupon.maxUses) {
-        return NextResponse.json({ error: 'Coupon usage limit reached', code: 'COUPON_USAGE_LIMIT' }, { status: 409 });
-      }
-      if (coupon.minCart != null && subtotal < coupon.minCart) {
-        return NextResponse.json({
-          error: `Minimum cart of ₹${(coupon.minCart / 100).toLocaleString('en-IN')} required`,
-          code: 'COUPON_MIN_CART',
-        }, { status: 400 });
-      }
-      if (coupon.userId) {
-        if (!session?.id) {
-          return NextResponse.json({ error: 'Please sign in to use this code', code: 'COUPON_SIGN_IN_REQUIRED' }, { status: 401 });
-        }
-        if (coupon.userId !== session.id) {
-          return NextResponse.json({ error: 'This code belongs to another account', code: 'COUPON_WRONG_USER' }, { status: 403 });
-        }
-      }
-      if (coupon.perUserOnce) {
-        if (!session?.id) {
-          return NextResponse.json({ error: 'Please sign in to use this one-time code', code: 'COUPON_SIGN_IN_REQUIRED' }, { status: 401 });
-        }
-        const used = await prisma.couponRedemption.findUnique({
-          where: { couponId_userId: { couponId: coupon.id, userId: session.id } },
-        }).catch(() => null);
-        if (used) {
-          return NextResponse.json({ error: 'You have already used this code', code: 'COUPON_ALREADY_USED' }, { status: 400 });
-        }
-      }
-
-      if (coupon.type === 'PERCENT') {
-        discountPaise = Math.round((subtotal * coupon.value) / 100);
-        if (coupon.maxDiscount && discountPaise > coupon.maxDiscount) discountPaise = coupon.maxDiscount;
-      } else if (coupon.type === 'FLAT') {
-        discountPaise = Math.min(coupon.value, subtotal);
-      } else if (coupon.type === 'FREE_SHIPPING') {
-        shippingPaise = 0;
-      }
-      appliedCouponId = coupon.id;
-    }
-
-    let pointsRedeemed = 0;
-    let pointsValuePaise = 0;
-    if (pointsToRedeem && pointsToRedeem > 0 && session) {
-      const { getCurrentBalance, getSettings } = await import('@/lib/loyalty');
-      const [bal, lset] = await Promise.all([getCurrentBalance(session.id), getSettings()]);
-      const subtotalForCap = subtotal + wrap + shippingPaise - discountPaise;
-      const maxPaise = Math.floor(subtotalForCap * lset.maxRedemptionPct / 100);
-      const maxPointsByCap = Math.floor(maxPaise / lset.redemptionValue);
-      const requested = Math.max(0, parseInt(pointsToRedeem) || 0);
-      pointsRedeemed = Math.min(requested, bal, maxPointsByCap);
-      if (pointsRedeemed >= lset.minRedemption) {
-        pointsValuePaise = pointsRedeemed * lset.redemptionValue;
-      } else {
-        pointsRedeemed = 0;
-        pointsValuePaise = 0;
-      }
-    }
-
-    const totalBeforeTax = subtotal + wrap + shippingPaise - discountPaise - pointsValuePaise;
-    const tax = calculateGST(totalBeforeTax, 5);
-    const total = totalBeforeTax;
+    const inventoryItems: ReservationItem[] = verifiedItems.map(item => ({ variantId:item.variantId!, quantity:item.quantity }));
 
     if (payment === 'COD') {
-      if (!allCodEligible || total > COD_MAX_PAISE) {
+      if (!codAvailable) {
         return NextResponse.json({
           error: !allCodEligible
             ? 'Cash on Delivery is not available for one or more selected pieces.'
@@ -352,29 +202,14 @@ export async function POST(request: Request) {
       }
 
       const order = await prisma.$transaction(async (tx: any) => {
-        await consumeUnreservedInventory(tx, inventoryItems);
-
-        let addressId: string | null = null;
-        if (session) {
-          const addr = await tx.address.create({
-            data: {
-              userId: session.id,
-              name: address.name,
-              phone: contact.phone,
-              line1: address.line1,
-              line2: address.line2 || null,
-              city: address.city,
-              state: address.state,
-              pincode: address.pincode,
-              country: 'IN',
-            },
-          });
-          addressId = addr.id;
-        }
-
+        const { id: addressId } = await tx.address.create({
+          data: orderShippingAddress(session?.id, address, contact.phone),
+          select: { id: true },
+        });
         const created = await tx.order.create({
           data: {
             orderNumber: generateOrderNumber(),
+            ...(attempt ? { codAttemptKey: attempt.key, codRequestHash: attempt.hash } : {}),
             userId: session?.id || null,
             addressId,
             guestEmail: session ? null : normalizedEmail,
@@ -382,6 +217,7 @@ export async function POST(request: Request) {
             subtotal,
             shipping: shippingPaise,
             tax,
+            checkoutTaxSnapshot: pricing.checkoutTaxSnapshot,
             discount: discountPaise,
             total,
             pointsRedeemed,
@@ -405,6 +241,7 @@ export async function POST(request: Request) {
           },
         });
 
+        await consumeUnreservedInventory(tx, inventoryItems);
         if (appliedCouponId) {
           await redeemCouponNow(tx, {
             couponId: appliedCouponId,
@@ -427,6 +264,8 @@ export async function POST(request: Request) {
       prisma.abandonedCart.updateMany({
         where: {
           email: normalizedEmail,
+          OR:[{paymentMethodPicked:null},{paymentMethodPicked:{not:'PREPAID'}}],
+          razorpayOrderId:null,
           recoveredOrderId: null,
           optedOut: false,
         },
@@ -470,14 +309,7 @@ export async function POST(request: Request) {
         }).catch(() => {});
       }
 
-      return NextResponse.json({
-        success: true,
-        orderNumber: order.orderNumber,
-        orderId: order.id,
-        total,
-        paymentMethod: 'COD',
-        next: 'confirmation',
-      });
+      return NextResponse.json(confirmedCodOrder(order));
     }
 
     const snapshotJson = JSON.stringify({
@@ -490,6 +322,7 @@ export async function POST(request: Request) {
         tax,
         discount: discountPaise,
         wrap,
+        checkoutTaxSnapshot: pricing.checkoutTaxSnapshot,
         pointsRedeemed,
         pointsValuePaise,
         total,
@@ -549,6 +382,12 @@ export async function POST(request: Request) {
       reservationExpiresAt: reservation?.expiresAt || null,
     });
   } catch (error: any) {
+    // An overlapping placement can commit between the first read and pricing, or
+    // while this transaction waits on the unique attempt key. Its receipt wins.
+    if (attempt) {
+      try { const confirmed = await replay(); if (confirmed) return confirmed; }
+      catch { /* Surface the original checkout failure. */ }
+    }
     console.error('[checkout] error:', error);
     return safeCheckoutFailure(error);
   }

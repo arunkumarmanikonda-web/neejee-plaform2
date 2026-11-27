@@ -1,25 +1,37 @@
-// NEEJEE Homepage — pre-Phase-2-fidelity visual composition with current live-data safeguards.
 import Link from 'next/link';
 import { prisma } from '@/lib/prisma';
 import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
-import { ProductCard, type ProductCardData } from '@/components/product/ProductCard';
+import { CatalogueGrid, ProductCard, type ProductCardData } from '@/components/product/ProductCard';
+import { editLead, homeEditPieces } from '@/lib/shop-edit-catalog';
+import { shopEdits } from '@/lib/shop-edits';
+import { HomePrint, homeStudyIds } from '@/components/home/HomePrint';
+import { HouseCampaign } from '@/components/home/HouseCampaign';
+import { StudyShelf } from '@/components/shop/StudyShelf';
+import { previewPricingEnabled } from '@/lib/shop-studies';
+import { getPublicContact } from '@/lib/public-contact';
+import { StudioDoors } from '@/components/home/StudioDoors';
+import { studioHref } from '@/lib/studio';
 import { HeroCarousel } from '@/components/home/HeroCarousel';
-import { NewsletterForm } from '@/components/ui/NewsletterForm';
-import { Sparkles, ShieldCheck, Truck, RotateCcw, LockKeyhole } from 'lucide-react';
+import { resolveMedia } from '@/lib/catalog/media-read';
+import { buildPricing } from '@/lib/catalog/pricing-read';
+import { formatINR } from '@/lib/money';
+import type { Prisma } from '@prisma/client';
+
 
 export const revalidate = 60;
 export const runtime = 'nodejs';
 
-function publicProductWhere(): any {
+function publicProductWhere(): Prisma.ProductWhereInput {
   return {
     status: 'ACTIVE',
+    takedownAt: null,
     catalogueExclude: false,
     OR: [
-      { catalogueStockVisibility: { in: ['SHOW_ALL', 'HIDE_STOCK'] } },
+      { catalogueStockVisibility: { in: ['SHOW_ALL', 'SHOW_EXACT', 'HIDE_STOCK'] } },
       {
         AND: [
-          { catalogueStockVisibility: 'IN_STOCK_ONLY' },
+          { catalogueStockVisibility: { in: ['IN_STOCK_ONLY', 'LOW_STOCK_BADGE'] } },
           { variants: { some: { inventory: { gt: 0 } } } },
         ],
       },
@@ -33,53 +45,43 @@ async function getHomeData() {
     const publicWhere = publicProductWhere();
 
     // Keep reads sequential for the intentionally small production serverless pool.
-    const founderEdit = await prisma.product.findMany({
-      where: {
-        AND: [
-          publicWhere,
-          {
-            OR: [
-              { catalogueFeatured: true },
-              { catalogueEditorial: true },
-              { badges: { has: "FOUNDER'S EDIT" } },
-              { badges: { has: 'FOUNDERS_EDIT' } },
-            ],
-          },
-        ],
-      },
-      take: 6,
-      orderBy: [{ catalogueFeatured: 'desc' }, { catalogueEditorial: 'desc' }, { createdAt: 'desc' }],
-      include: { variants: { select: { inventory: true, images: true } } },
+    const media = { variants: { select: { id: true, inventory: true, images: true, color:true } } } as const;
+    const curated: Prisma.ProductWhereInput = { OR: [
+      { cataloguePinHero: true }, { catalogueFeatured: true }, { catalogueEditorial: true },
+      { badges: { hasSome: ["FOUNDER'S EDIT", 'FOUNDERS_EDIT'] } },
+    ] };
+    const lead = await prisma.product.findFirst({
+      where: { AND: [
+        publicWhere,
+        { catalogueImageApproved: true, sellingPrice: { gt: 0 }, variants: { some: { inventory: { gt: 0 } } } },
+        { OR: [
+          { cataloguePreferredImage: { not: '' } }, { images: { isEmpty: false } },
+          { variants: { some: { images: { isEmpty: false } } } },
+        ] },
+      ] },
+      orderBy: [{ cataloguePinHero: 'desc' }, { catalogueFeatured: 'desc' }, { catalogueEditorial: 'desc' }, { createdAt: 'desc' }, { id: 'asc' }],
+      include: media,
     });
 
-    const newArrivals = await prisma.product.findMany({
-      where: publicWhere,
+    const edit = await prisma.product.findMany({
+      where: { AND: [publicWhere, curated] },
+      orderBy: [
+        { cataloguePinHero: 'desc' }, { catalogueFeatured: 'desc' },
+        { catalogueEditorial: 'desc' }, { createdAt: 'desc' }, { id: 'asc' },
+      ],
       take: 8,
-      orderBy: { createdAt: 'desc' },
-      include: { variants: { select: { inventory: true, images: true } } },
+      include: media,
     });
 
-    const allActive = await prisma.product.findMany({
+    const arrivals = await prisma.product.findMany({
       where: publicWhere,
-      take: 4,
-      orderBy: { createdAt: 'asc' },
-      include: { variants: { select: { inventory: true, images: true } } },
+      take: 12,
+      orderBy: [{ createdAt: 'desc' }, { id: 'asc' }],
+      include: media,
     });
 
-    const categories = await prisma.category.findMany({
-      where: {
-        active: true,
-        hidden: false,
-        products: { some: publicWhere },
-      },
-      select: {
-        id: true,
-        slug: true,
-        name: true,
-        products: { where: publicWhere, select: { id: true }, take: 1 },
-      },
-      take: 8,
-    });
+    const saree = await editLead(shopEdits[0]);
+    const suit = await editLead(shopEdits[1]);
 
     const heroBanner = await prisma.banner.findMany({
       where: {
@@ -91,6 +93,7 @@ async function getHomeData() {
         ],
       },
       orderBy: { order: 'asc' },
+      select: { id: true, title: true, subtitle: true, image: true, ctaText: true, ctaUrl: true },
     }).catch((e: any) => {
       console.warn('[home] Hero banner query failed:', e.message);
       return [];
@@ -145,50 +148,41 @@ async function getHomeData() {
       }
     }
 
-    const mapCard = (p: any): ProductCardData => {
-      let imgs: string[] = Array.isArray(p.images) ? p.images.filter(Boolean) : [];
-      if (imgs.length === 0 && Array.isArray(p.variants)) {
-        for (const v of p.variants) {
-          if (Array.isArray(v?.images) && v.images.length > 0) {
-            imgs = v.images.filter(Boolean);
-            if (imgs.length > 0) break;
-          }
-        }
-      }
+    type HomeProduct = (typeof arrivals)[number];
+    const mapCard = (p: HomeProduct): ProductCardData => ({
+      id:p.id,slug:p.slug,name:p.name,shortName:p.shortName,poeticLine:p.poeticLine,
+      technique:p.technique,state:p.state,colours:[...new Set(p.variants.flatMap(v=>v.color && v.inventory>0?[v.color]:[]))],
+      material:p.material, craft:p.craft, region:p.region, mrp:p.mrp, sellingPrice: p.sellingPrice,
+      salePrice: p.salePrice, saleStartsAt: p.saleStartsAt, saleEndsAt: p.saleEndsAt,
+      images: resolveMedia(p).gallery,
+      badges: p.badges, aiTryOnEligible: p.aiTryOnEligible,
+      inventory: p.catalogueStockVisibility === 'SHOW_ALL'
+        ? p.variants.reduce((sum, v) => sum + v.inventory, 0)
+        : null,
+    });
 
-      return {
-        id: p.id,
-        slug: p.slug,
-        name: p.name,
-        poeticLine: p.poeticLine,
-        craft: p.craft,
-        region: p.region,
-        mrp: p.mrp,
-        sellingPrice: p.sellingPrice,
-        salePrice: p.salePrice,
-        saleStartsAt: p.saleStartsAt,
-        saleEndsAt: p.saleEndsAt,
-        images: imgs,
-        badges: Array.isArray(p.badges) ? p.badges : [],
-        aiTryOnEligible: !!p.aiTryOnEligible,
-        inventory: p.catalogueStockVisibility === 'SHOW_ALL'
-          ? p.variants.reduce((sum: number, v: any) => sum + (v.inventory || 0), 0)
-          : null,
-      };
-    };
-
-    const founderRaw = founderEdit.length > 0 ? founderEdit : allActive;
-    const founder = founderRaw.map(mapCard);
-    const founderIds = new Set(founder.map((p) => p.id));
-    const distinctNewArrivals = newArrivals.map(mapCard).filter((p) => !founderIds.has(p.id));
-    const primaryCat = categories.find((c: any) => /sare|women|textile/i.test(c.name + c.slug)) || categories[0];
-
+    const picture = lead && resolveMedia(lead).approvedPrimaryImage;
+    const spotlight = lead && picture ? {
+      title: lead.name,
+      name: lead.name,
+      image: picture,
+      gallery: [...new Set([picture,...resolveMedia(lead).approvedGallery])].slice(0,6),
+      material: lead.material,
+      roomHref: lead.aiRoomEligible ? studioHref('imagine',lead.slug) : null,
+      mirrorHref: lead.aiTryOnEligible ? studioHref('mirror',lead.slug) : null,
+      slug: lead.slug,
+      subtitle: lead.poeticLine,
+      origin: [lead.region, lead.state].filter((v,i,values)=>v && values.indexOf(v)===i).join(', '),
+      price: formatINR(buildPricing(lead).effectivePrice),
+      href: `/products/${encodeURIComponent(lead.slug)}`,
+      curated: edit.some(p => p.id === lead.id),
+    } : null;
+    const founder = edit.filter(p => p.id !== (spotlight && lead?.id)).slice(0, 4).map(mapCard);
+    const shown = new Set([spotlight && lead?.id, ...founder.map(p => p.id)]);
     return {
-      founder,
-      newArrivals: distinctNewArrivals,
-      categories,
-      primaryCatSlug: primaryCat?.slug || 'women-sarees',
-      heroBanners: heroBanner as any[],
+      spotlight, spotlightCard: spotlight && lead ? mapCard(lead) : null, founder, saree, suit,
+      newArrivals: arrivals.filter(p => !shown.has(p.id)).slice(0, 4).map(mapCard),
+      heroBanners: heroBanner,
       founderNoteTitle,
       founderNoteBody,
       founderNoteAlign,
@@ -197,171 +191,150 @@ async function getHomeData() {
   } catch (e: any) {
     console.warn('[home] DB query failed:', e.message);
     return {
+      spotlight: null, spotlightCard: null,
       founder: [],
       newArrivals: [],
-      categories: [],
+      saree:null, suit:null,
       heroBanners: [],
       founderNoteTitle: null,
       founderNoteBody: null,
       founderNoteAlign: 'center' as const,
       journalEntries: [],
-      error: e.message,
     };
   }
 }
 
 export default async function HomePage() {
   const data = await getHomeData();
-
+  const fashion = await homeEditPieces(shopEdits[3]).catch(() => []);
+  const moreFashion = fashion.filter(p=>p.slug!==data.saree?.slug).slice(0,4) || [];
+  const {email} = await getPublicContact();
   return (
     <>
-      <Header />
+      <Header shop/>
+      <main className="house-front">
+        <HouseCampaign lead={data.saree} preview={previewPricingEnabled()} email={email}/>
+        {(!fashion.length || moreFashion.length>0) && <div className="nj-market house-shelf" style={{paddingBottom:'1rem'}}>
+          {fashion.length ? <section className="nj-shelf"><div className="nj-shelf-head"><h2>Sarees <em>&amp; suit sets</em></h2><Link className="nj-text-link" href="/edits/clothing">Shop the collection</Link></div><CatalogueGrid textiles products={moreFashion.map(p=>({...p,images:p.cover?[p.cover,...p.images.filter(i=>i!==p.cover)]:p.images}))}/></section> :
+            <StudyShelf home ids={homeStudyIds} preview={previewPricingEnabled()} email={email}/>}
+        </div>}
+        <StudioDoors roomPiece={data.spotlight?.roomHref ? data.spotlight.slug : undefined} wearable={data.saree?.mirror ? data.saree.slug : data.suit?.mirror ? data.suit.slug : undefined}/>
+        {(data.heroBanners.length>0) && <HeroCarousel banners={data.heroBanners} spotlight={data.spotlight}/>}
 
-      <HeroCarousel banners={data.heroBanners || []} primaryCatSlug={data.primaryCatSlug || 'women-sarees'} />
-
-      <section className="bg-beige border-y border-mitti/20">
-        <div className="max-w-8xl mx-auto px-6 lg:px-12 py-6 grid grid-cols-2 md:grid-cols-4 gap-4">
-          {[
-            { icon: ShieldCheck, label: 'FOUNDER-VERIFIED', sub: 'Curated before publication' },
-            { icon: Truck, label: 'FREE SHIPPING', sub: 'Above ₹2,500 across India' },
-            { icon: RotateCcw, label: 'RETURNS', sub: 'Product-specific eligibility' },
-            { icon: LockKeyhole, label: 'SECURE CHECKOUT', sub: 'Server-verified orders' },
-          ].map((item) => (
-            <div key={item.label} className="flex items-center gap-3">
-              <item.icon className="w-6 h-6 text-madder flex-shrink-0" />
-              <div>
-                <p className="font-ui text-[10px] tracking-widest text-kohl">{item.label}</p>
-                <p className="font-italic italic text-mitti text-sm">{item.sub}</p>
-              </div>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {data.founder.length > 0 && (
-        <section className="max-w-8xl mx-auto px-6 lg:px-12 py-20">
-          <div className="flex items-baseline justify-between mb-10">
-            <div>
-              <p className="label text-madder">THE FIRST EDIT</p>
-              <h2 className="font-display text-4xl lg:text-5xl text-kohl mt-2">Founder&apos;s Edit</h2>
-              <p className="font-italic italic text-mitti mt-2">Personally chosen · Limited edit</p>
-            </div>
-            <Link href={`/categories/${data.primaryCatSlug || 'women-sarees'}`} className="font-ui text-xs tracking-widest text-madder hover:underline">VIEW ALL →</Link>
-          </div>
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 lg:gap-8">
-            {data.founder.slice(0, 4).map((p) => <ProductCard key={p.id} product={p} />)}
-          </div>
-        </section>
-      )}
-
-      {data.founderNoteBody && (
-        <section className="bg-beige py-16 md:py-24">
-          <div className="max-w-3xl mx-auto px-6">
-            {data.founderNoteTitle && (
-              <h2 className="font-display text-3xl md:text-4xl text-kohl mb-10 text-center">{data.founderNoteTitle}</h2>
-            )}
-            {(() => {
-              const paragraphs = data.founderNoteBody.split(/\n\s*\n/).map((p) => p.trim()).filter(Boolean);
-              let signature: string | null = null;
-              const last = paragraphs[paragraphs.length - 1];
-              if (last && last.length < 60 && !last.endsWith('.') && !last.includes('\n')) {
-                signature = last;
-                paragraphs.pop();
-              }
-              const alignClass = data.founderNoteAlign === 'justify' ? 'text-justify' : data.founderNoteAlign === 'left' ? 'text-left' : 'text-center';
-              return (
-                <>
-                  <div className={`font-body text-kohl/80 text-[15px] md:text-base leading-[1.85] space-y-5 ${alignClass}`} style={{ textAlign: data.founderNoteAlign || 'center' }}>
-                    {paragraphs.map((p, i) => <p key={i}>{p}</p>)}
-                  </div>
-                  {signature && (
-                    <div className="mt-10 pt-6 border-t border-madder/20 flex justify-center">
-                      <p className="font-display italic text-mitti text-lg">{signature}</p>
-                    </div>
-                  )}
-                </>
-              );
-            })()}
-          </div>
-        </section>
-      )}
-
-      {data.newArrivals.length > 0 && (
-        <section className="bg-beige py-20">
-          <div className="max-w-8xl mx-auto px-6 lg:px-12">
+        {(data.founder.length > 0 || (data.spotlight && !data.heroBanners.length)) && (
+          <section className="max-w-8xl mx-auto px-6 lg:px-12 py-20">
             <div className="flex items-baseline justify-between mb-10">
               <div>
-                <p className="label text-madder">NEW IN</p>
-                <h2 className="font-display text-4xl text-kohl mt-2">Just arrived</h2>
+                <h2 className="font-display text-4xl lg:text-5xl text-kohl mt-2">Nidhi’s picks</h2>
               </div>
-              <Link href={`/categories/${data.primaryCatSlug || 'women-sarees'}?sort=newest`} className="font-ui text-xs tracking-widest text-madder hover:underline">BROWSE ALL →</Link>
+              <Link href="/products" className="font-ui text-xs tracking-widest text-madder">SHOP ALL PIECES</Link>
             </div>
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 lg:gap-8">
-              {data.newArrivals.slice(0, 4).map((p) => <ProductCard key={p.id} product={p} />)}
+              {data.spotlight && !data.heroBanners.length && data.spotlightCard && <ProductCard product={data.spotlightCard}/>}
+              {data.founder.slice(0, 4).map((p) => <ProductCard key={p.id} product={p} />)}
             </div>
-          </div>
-        </section>
-      )}
+          </section>
+        )}
 
-      <section className="max-w-8xl mx-auto px-6 lg:px-12 py-20">
-        <div className="bg-kohl text-ivory p-10 lg:p-16 relative overflow-hidden">
-          <div className="grid lg:grid-cols-2 gap-10 items-center">
-            <div>
-              <p className="label text-banarasi flex items-center gap-2"><Sparkles className="w-4 h-4" /> NEEJEE AI</p>
-              <h2 className="font-display text-4xl lg:text-5xl mt-4">See it on you.<br />See it in your home.</h2>
-              <p className="font-italic italic text-beige/80 text-lg mt-4 max-w-md">Mirror, Space and Gift Concierge bring personal discovery into the NEEJEE world.</p>
-              <div className="mt-8 flex flex-wrap gap-4">
-                <Link href="/ai/mirror" className="btn-primary">TRY THE MIRROR</Link>
-                <Link href="/ai/gift" className="font-ui text-xs tracking-widest text-ivory hover:text-banarasi self-center underline underline-offset-4">GIFT CONCIERGE →</Link>
+
+        <div className="house-letter">
+          <figure><img src="/brand/journey-loom.webp" loading="lazy" alt="Coloured bobbins at a handloom in Varanasi"/><figcaption>Varanasi, 2011 · <a href="https://commons.wikimedia.org/wiki/File:Silk_Looms,_Varanasi.jpg">Dan Ruth</a> · <a href="https://creativecommons.org/licenses/by/2.0/">CC BY 2.0</a> · cropped</figcaption></figure>
+          <div>
+        {data.founderNoteBody ? (
+          <section id="founder-letter" className="scroll-mt-24 bg-beige py-12 md:py-16">
+            <div className="max-w-3xl mx-auto px-6">
+              {data.founderNoteTitle && (
+                <h2 className="font-display text-3xl md:text-4xl text-kohl mb-10 text-center">{data.founderNoteTitle}</h2>
+              )}
+              {(() => {
+                const paragraphs = data.founderNoteBody.split(/\n\s*\n/).map((p) => p.trim()).filter(Boolean);
+                let signature: string | null = null;
+                const last = paragraphs[paragraphs.length - 1];
+                if (last && last.length < 60 && !last.endsWith('.') && !last.includes('\n')) {
+                  signature = last;
+                  paragraphs.pop();
+                }
+                const alignClass = data.founderNoteAlign === 'justify' ? 'text-justify' : data.founderNoteAlign === 'left' ? 'text-left' : 'text-center';
+                return (
+                  <>
+                    <div className={`font-body text-kohl/80 text-[15px] md:text-base leading-[1.85] space-y-5 ${alignClass}`} style={{ textAlign: data.founderNoteAlign || 'center' }}>
+                      {paragraphs.slice(0, 1).map((p, i) => <p key={i}>{p}</p>)}
+                      {paragraphs.length > 1 && (
+                        <details>
+                          <summary className="cursor-pointer text-madder">Read the full founder’s letter</summary>
+                          <div className="space-y-5 mt-5">{paragraphs.slice(1).map((p, i) => <p key={i}>{p}</p>)}</div>
+                        </details>
+                      )}
+                    </div>
+                    {signature && (
+                      <div className="mt-10 pt-6 border-t border-madder/20 flex justify-center">
+                        <p className="font-display italic text-mitti text-lg">{signature}</p>
+                      </div>
+                    )}
+                  </>
+                );
+              })()}
+            </div>
+          </section>
+        ) : <section id="founder-letter" className="max-w-3xl scroll-mt-24 mx-auto px-6 py-12"><h2 className="font-display text-3xl">A letter from Nidhi</h2><p className="mt-3">In her letter, Nidhi remembers Ramji bhai and the fourteen days he spent weaving a saree in Banaras.</p><Link href="/about" className="nj-text-link">Read the founder’s story</Link></section>}
+
+
+        </div></div>
+
+        {data.newArrivals.length > 0 && (
+          <section className="bg-beige py-20">
+            <div className="max-w-8xl mx-auto px-6 lg:px-12">
+              <div className="flex items-baseline justify-between mb-10">
+                <div>
+                    <h2 className="font-display text-4xl text-kohl mt-2">Just arrived</h2>
+                </div>
+                <Link href="/products?sort=newest" className="font-ui text-xs tracking-widest text-madder">SHOP ALL PIECES</Link>
+              </div>
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 lg:gap-8">
+                {data.newArrivals.slice(0, 4).map((p) => <ProductCard key={p.id} product={p} />)}
               </div>
             </div>
-            <div className="grid grid-cols-3 gap-3">
-              {['Mirror', 'Space', 'Gift'].map((label) => (
-                <div key={label} className="aspect-square bg-mitti/30 flex items-center justify-center">
-                  <p className="font-display text-lg text-banarasi">{label}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      </section>
+          </section>
+        )}
 
-      {data.journalEntries.length > 0 && (
-        <section className="bg-beige py-20">
-          <div className="max-w-8xl mx-auto px-6 lg:px-12">
-            <div className="text-center mb-12">
-              <p className="label text-madder">STORIES</p>
-              <h2 className="font-display text-4xl text-kohl mt-2">From the Journal</h2>
+        {data.journalEntries.length > 0 && (
+          <section className="bg-beige py-20">
+            <div className="max-w-8xl mx-auto px-6 lg:px-12">
+              <div className="text-center mb-12">
+                <p className="label text-madder">STORIES</p>
+                <h2 className="font-display text-4xl text-kohl mt-2">From the Journal</h2>
+              </div>
+              <div className="grid md:grid-cols-3 gap-6 lg:gap-8">
+                {data.journalEntries.map((entry) => (
+                  <Link key={entry.id} href={`/journal/${entry.slug}`} className="group">
+                    <div className="aspect-[4/3] bg-ivory overflow-hidden">
+                      {entry.coverImage ? (
+                        // CMS media providers are not guaranteed to exist in next/image remotePatterns.
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={entry.coverImage} alt={entry.title} loading="lazy" decoding="async" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />
+                      ) : (
+                        <div className="w-full h-full bg-ivory" />
+                      )}
+                    </div>
+                    <h3 className="font-display text-xl text-kohl mt-4 group-hover:text-madder transition-colors">{entry.title}</h3>
+                    {entry.excerpt && <p className="font-italic italic text-mitti text-sm mt-2">{entry.excerpt}</p>}
+                    <p className="font-ui text-xs tracking-widest text-madder mt-3">READ →</p>
+                  </Link>
+                ))}
+              </div>
             </div>
-            <div className="grid md:grid-cols-3 gap-6 lg:gap-8">
-              {data.journalEntries.map((entry) => (
-                <Link key={entry.id} href={`/p/${entry.slug}`} className="group">
-                  <div className="aspect-[4/3] bg-ivory overflow-hidden">
-                    {entry.coverImage ? (
-                      // CMS media providers are not guaranteed to exist in next/image remotePatterns.
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={entry.coverImage} alt={entry.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />
-                    ) : (
-                      <div className="w-full h-full bg-ivory" />
-                    )}
-                  </div>
-                  <h3 className="font-display text-xl text-kohl mt-4 group-hover:text-madder transition-colors">{entry.title}</h3>
-                  {entry.excerpt && <p className="font-italic italic text-mitti text-sm mt-2">{entry.excerpt}</p>}
-                  <p className="font-ui text-xs tracking-widest text-madder mt-3">READ →</p>
-                </Link>
-              ))}
-            </div>
-          </div>
-        </section>
-      )}
+          </section>
+        )}
 
-      <section className="max-w-3xl mx-auto px-6 py-20 text-center">
-        <p className="label text-madder">STAY IN THE TRUNK</p>
-        <h2 className="font-display text-3xl text-kohl mt-3">Get our limited drops first.</h2>
-        <p className="font-italic italic text-mitti mt-3 mb-8">Founder&apos;s edits, craft stories and early access.</p>
-        <div className="max-w-md mx-auto"><NewsletterForm source="homepage" /></div>
-      </section>
-
+        <nav aria-label="Delivery and returns" className="max-w-8xl mx-auto px-6 lg:px-12 py-6 border-b border-mitti/20 flex flex-wrap gap-x-8 gap-y-3 font-ui text-sm">
+          <Link className="nj-text-link" href="/help/shipping">Shipping and delivery</Link>
+          <Link className="nj-text-link" href="/help/returns">Returns by product</Link>
+          <Link className="nj-text-link" href="/help/track">Track your order</Link>
+        </nav>
+        <HomePrint lead={data.saree} fashion={fashion.length ? moreFashion : null}
+          curated={data.spotlightCard ? [data.spotlightCard, ...data.founder] : data.founder}
+          arrivals={data.newArrivals} founderNote={data.founderNoteBody} preview={previewPricingEnabled()}/>
+      </main>
       <Footer />
     </>
   );

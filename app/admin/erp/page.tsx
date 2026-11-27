@@ -1,3 +1,4 @@
+import { erpSourceSummary } from '@/lib/erp/adapter/resolver';
 import Link from 'next/link';
 
 export const dynamic = 'force-dynamic';
@@ -34,9 +35,7 @@ export default function AdminErpHomePage() {
 
       <div className="mt-6 bg-madder/10 p-4 font-ui text-sm text-madder space-y-2">
         <p>
-          This ERP home page is intentionally lightweight. It acts as the single
-          navigation surface for operational ERP work and points into the detailed
-          pages that already exist in admin.
+          {erpSourceSummary()}
         </p>
         <p>
           Recommended workflow: start with the dashboard for queue health, move to the

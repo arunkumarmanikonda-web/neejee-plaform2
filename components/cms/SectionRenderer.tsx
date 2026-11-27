@@ -212,6 +212,13 @@ export function SectionRenderer({ section }: { section: Section }) {
         {data.excerpt && <p className="font-italic italic text-xl text-mitti leading-relaxed mb-8">{data.excerpt}</p>}
         <div className="madder-divider mb-8" />
         <div className="font-body text-kohl/85 leading-relaxed whitespace-pre-wrap text-lg">{data.body}</div>
+        {Array.isArray(data.storyImages) && data.storyImages.filter(image => typeof image?.url === 'string' && image.url).map((image, i) => (
+          <figure key={i} className="mt-8">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={image.url} alt={image.alt || ''} loading="lazy" className="w-full h-auto" />
+            {image.caption && <figcaption className="mt-2 text-mitti font-body text-lg">{image.caption}</figcaption>}
+          </figure>
+        ))}
       </article>
     );
   }

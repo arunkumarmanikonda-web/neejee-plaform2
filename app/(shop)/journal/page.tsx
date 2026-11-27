@@ -80,7 +80,7 @@ export default async function JournalLanding() {
 
             {featured && (
               <Link
-                href={`/p/${featured.slug}`}
+                href={`/journal/${featured.slug}`}
                 className="block group mb-20 grid md:grid-cols-2 gap-8 items-center"
               >
                 <div className="aspect-[4/3] bg-mitti/10 overflow-hidden">
@@ -114,7 +114,7 @@ export default async function JournalLanding() {
             {rest.length > 0 && (
               <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-12">
                 {rest.map(e => (
-                  <Link key={e.id} href={`/p/${e.slug}`} className="group">
+                  <Link key={e.id} href={`/journal/${e.slug}`} className="group">
                     <div className="aspect-[4/5] bg-mitti/10 overflow-hidden mb-4">
                       {e.coverImage ? (
                         // eslint-disable-next-line @next/next/no-img-element

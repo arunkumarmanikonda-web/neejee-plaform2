@@ -2,6 +2,7 @@
 // Runs on the 1st of every month at 09:00 IST for the previous month.
 // Posts the GSTR-3B summary to Slack so the team has filing data ready.
 
+import { cronAuthorized } from '@/lib/cron/authorize';
 import { NextResponse } from 'next/server';
 import { postSlack, slack } from '@/lib/notifications/slack';
 
@@ -20,8 +21,7 @@ function fmtINR(n: number): string {
 }
 
 export async function GET(req: Request) {
-  const auth = req.headers.get('authorization') || '';
-  if (process.env.CRON_SECRET && auth !== `Bearer ${process.env.CRON_SECRET}`) {
+  if (!cronAuthorized(req)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 

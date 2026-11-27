@@ -69,7 +69,7 @@ export function buyCtaLabel(p: FulfilmentProduct): string {
     return `Reserve with ${pct}% deposit`;
   }
   if (isSoldOut(p)) return 'Sold out';
-  return 'Add to trunk';
+  return 'Add to bag';
 }
 
 /**

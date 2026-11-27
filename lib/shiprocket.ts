@@ -1,5 +1,6 @@
 // Shiprocket integration — token caching, create order, generate AWB
 // Activates when SHIPROCKET_EMAIL and SHIPROCKET_PASSWORD are set.
+import { validAwb,validShipmentId,type Booking,type Waybill } from './shipping/shiprocket-dispatch';
 const SR_BASE = 'https://apiv2.shiprocket.in/v1/external';
 
 let cachedToken: { token: string; expiresAt: number } | null = null;
@@ -17,6 +18,7 @@ async function getToken(): Promise<string | null> {
     const res = await fetch(`${SR_BASE}/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
+      signal: AbortSignal.timeout(9000),
       body: JSON.stringify({
         email: process.env.SHIPROCKET_EMAIL,
         password: process.env.SHIPROCKET_PASSWORD,
@@ -24,7 +26,7 @@ async function getToken(): Promise<string | null> {
     });
     const data = await res.json();
     if (!data.token) {
-      console.warn('[shiprocket] auth failed', data);
+      console.warn('[shiprocket] authentication was rejected');
       return null;
     }
     cachedToken = { token: data.token, expiresAt: Date.now() + 9 * 24 * 60 * 60 * 1000 };
@@ -48,7 +50,10 @@ export interface CreateShipmentArgs {
     pincode: string;
   };
   items: Array<{ name: string; sku: string; quantity: number; pricePaise: number; hsnCode?: string }>;
-  subtotalPaise: number;
+  totalPaise: number;
+  shippingPaise: number;
+  giftWrapPaise: number;
+  discountPaise: number;
   paymentMethod: 'COD' | 'Prepaid';
   weight?: number; // kg, default 0.5
   length?: number; // cm
@@ -56,10 +61,10 @@ export interface CreateShipmentArgs {
   height?: number;
 }
 
-export async function createShipment(args: CreateShipmentArgs) {
+export async function createShipment(args: CreateShipmentArgs):Promise<Booking> {
   const token = await getToken();
   if (!token) {
-    return { ok: false, error: 'Shiprocket not configured', dev: true };
+    return {ok:false,safeToRetry:true,error:'Carrier login failed before the booking was sent.'};
   }
 
   const pickupLocation = process.env.SHIPROCKET_PICKUP_LOCATION || 'Primary';
@@ -82,11 +87,14 @@ export async function createShipment(args: CreateShipmentArgs) {
       name: i.name,
       sku: i.sku,
       units: i.quantity,
-      selling_price: Math.round(i.pricePaise / 100),
+      selling_price: i.pricePaise / 100,
       hsn: i.hsnCode || '',
     })),
     payment_method: args.paymentMethod,
-    sub_total: Math.round(args.subtotalPaise / 100),
+    sub_total: args.totalPaise / 100,
+    shipping_charges: args.shippingPaise / 100,
+    giftwrap_charges: args.giftWrapPaise / 100,
+    total_discount: args.discountPaise / 100,
     length: args.length || 25,
     breadth: args.breadth || 20,
     height: args.height || 10,
@@ -100,53 +108,42 @@ export async function createShipment(args: CreateShipmentArgs) {
         Authorization: `Bearer ${token}`,
         'Content-Type': 'application/json',
       },
+      signal:AbortSignal.timeout(14000),
       body: JSON.stringify(payload),
     });
-    const data = await res.json();
-    if (!res.ok) {
-      return { ok: false, error: data.message || 'Shiprocket create failed', raw: data };
+    const data = await res.json().catch(() => null);
+    if (res.ok && validShipmentId(data?.shipment_id)) {
+      return {ok:true,shipmentId:String(data.shipment_id),carrierOrderId:validShipmentId(data.order_id)?String(data.order_id):null};
     }
-    return {
-      ok: true,
-      shiprocketOrderId: data.order_id,
-      shipmentId: data.shipment_id,
-      status: data.status,
-      raw: data,
-    };
-  } catch (e: any) {
-    return { ok: false, error: e.message };
+    if ([401,403,429].includes(res.status)) {
+      if (res.status===401) cachedToken=null;
+      return {ok:false,safeToRetry:true,error:'The carrier rejected the booking before submission. Check access or retry later.'};
+    }
+    return {ok:false,safeToRetry:false,error:'Booking needs reconciliation. Search Shiprocket for the Neejee order number before trying again.'};
+  } catch {
+    return {ok:false,safeToRetry:false,error:'The carrier did not confirm the booking. Check Shiprocket for the order number.'};
   }
 }
 
-export async function generateAwb(shipmentId: string | number, courierId?: string | number) {
-  const token = await getToken();
-  if (!token) return { ok: false, error: 'Shiprocket not configured' };
-
+export async function generateAwb(shipmentId:string):Promise<Waybill> {
+  const token=await getToken();
+  if (!token) return {ok:false,safeToRetry:true,error:'Shipment saved. Carrier login failed before the waybill request.'};
   try {
-    const res = await fetch(`${SR_BASE}/courier/assign/awb`, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        shipment_id: shipmentId,
-        ...(courierId ? { courier_id: courierId } : {}),
-      }),
+    const res=await fetch(SR_BASE+'/courier/assign/awb',{
+      method:'POST',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},
+      signal:AbortSignal.timeout(14000),body:JSON.stringify({shipment_id:shipmentId}),
     });
-    const data = await res.json();
-    if (!res.ok || !data.awb_assign_status) {
-      return { ok: false, error: data.message || 'AWB generation failed', raw: data };
+    const data=await res.json().catch(()=>null);
+    const details=data?.response?.data;
+    if (res.ok && (data?.awb_assign_status===1 || data?.awb_assign_status==='1' || data?.awb_assign_status===true) && validAwb(details?.awb_code)) {
+      return {ok:true,awb:String(details.awb_code),courier:typeof details.courier_name==='string'?details.courier_name:null};
     }
-    const d = data.response?.data || {};
-    return {
-      ok: true,
-      awb: d.awb_code,
-      courier: d.courier_name,
-      trackingUrl: d.awb_code ? `https://shiprocket.co/tracking/${d.awb_code}` : null,
-      raw: data,
-    };
-  } catch (e: any) {
-    return { ok: false, error: e.message };
+    if ([401,403,429].includes(res.status)) {
+      if (res.status===401) cachedToken=null;
+      return {ok:false,safeToRetry:true,error:'Shipment saved. The carrier rejected the waybill request. Retry this shipment later.'};
+    }
+    return {ok:false,safeToRetry:false,error:'Shipment saved. Check its AWB in Shiprocket, then reconcile the waybill.'};
+  } catch {
+    return {ok:false,safeToRetry:false,error:'Shipment saved. Check whether Shiprocket assigned an AWB before retrying.'};
   }
 }

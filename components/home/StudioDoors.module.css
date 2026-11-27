@@ -1,0 +1,31 @@
+.section{margin:0 auto;max-width:98rem;padding:clamp(2.8rem,6vw,6rem) clamp(1.2rem,5vw,5.5rem) 2.25rem;color:#302920}
+.intro {display:flex;align-items:end;justify-content:space-between;gap:1rem;margin-bottom:1.65rem}
+.intro p,.door p{font:.87rem var(--font-ui),sans-serif;letter-spacing:.03em}.intro p{color:#794533;margin-bottom:.5rem}
+.intro :is(h1,h2),.door h3{font-family:var(--font-display),Georgia,serif;font-weight:400;line-height:1.04;letter-spacing:-.045em}.intro :is(h1,h2){font-size:clamp(2.5rem,5.3vw,5.1rem)}
+.intro>a,.credits a{font:.9rem var(--font-ui),sans-serif;text-decoration:none}
+.doors{display:grid;grid-template-columns:1.12fr 1fr;gap:clamp(.85rem,2.1vw,2rem)}
+.door{display:block;background:#ede7db;overflow:hidden}.door:nth-child(2){background:#f2e5df}.door>img{display:block;width:100%;aspect-ratio:2.25;object-fit:cover}
+.door>div{padding:1.3rem clamp(1.1rem,2.3vw,2.5rem) 1.6rem;position:relative}.door h3{font-size:clamp(2.3rem,3.9vw,4rem);margin:.25rem 0 .6rem}.door span{display:block;font-size:1.15rem;line-height:1.28}.door strong{display:inline-block;font:500 .9rem var(--font-ui),sans-serif;text-decoration:none;margin-top:.85rem}.door:hover strong{text-decoration-thickness:2px}
+.credits{font:.8rem/1.6 var(--font-ui),sans-serif;color:#665b51;margin-top:1rem}.credits summary{cursor:pointer;width:fit-content}.credits a{font:inherit}
+@media(max-width:660px){.intro{align-items:flex-start;flex-direction:column}.doors{grid-template-columns:1fr}.door{display:grid;grid-template-columns:37% 1fr}.door>img{height:100%;min-height:10.4rem;aspect-ratio:auto}.door>div{padding:1.15rem}.door h3{font-size:2.2rem}.door span{font-size:1rem}.section{padding-top:2.25rem}}
+
+.compactDoors{display:grid;grid-template-columns:1fr 1fr;gap:1.2rem}.compactDoors .door{display:block;border-top:1px solid #bbaa91;background:transparent}.compactDoors .door>div{padding:1.05rem 0}.compactDoors .door h3{font-size:2.3rem}
+@media(max-width:660px){.compactDoors{grid-template-columns:1fr;gap:.3rem}}
+.fitting{display:grid;grid-template-columns:1.05fr 1fr;align-items:center;gap:clamp(1.5rem,4vw,5rem);margin:clamp(2rem,4vw,4.5rem) 5%;background:#f1e4cb;color:#422a29;padding:clamp(1.4rem,3vw,3.6rem)}
+.composition{position:relative;min-width:0;height:clamp(18rem,27vw,29rem);isolation:isolate;background:#e1c49d}
+.composition .cloth{display:block;width:81%;height:90%;object-fit:cover;position:absolute;left:4%;top:5%;border:5px solid #fbf2e0;transform:rotate(-3deg);box-shadow:0 4px 12px #56371f35}
+.accessories{position:absolute;right:4%;inset-block:9%;width:33%;display:grid;grid-template-rows:1fr 1fr;gap:.4rem;transform:rotate(3deg)}
+.accessories img{min-height:0;height:100%;width:100%;object-fit:cover;border:4px solid #fbf2e0;background:#fbf2e0}
+.fittingCopy>span{display:flex;align-items:baseline;gap:.6rem;font:500 .9rem var(--font-ui),sans-serif;color:#734b3e}
+.fittingCopy b{font:400 1.25rem Georgia,serif;color:#873438}
+.fittingCopy h2{font:500 clamp(3.6rem,6vw,6.6rem)/1 var(--font-body),serif;color:#752b35;letter-spacing:-.05em;margin:.25rem 0 .5rem}
+.fittingCopy p{font:400 1rem/1.55 var(--font-ui),sans-serif;max-width:32rem}
+.fittingCopy a{display:inline-flex;align-items:center;min-height:44px;padding:.65rem 1.05rem;margin:1rem .7rem 0 0;background:#742d36;color:#fff3df;font:550 .9rem var(--font-ui),sans-serif}
+.fittingCopy .roomLink{background:transparent;color:#5c3c33;padding-inline:0}
+@media(max-width:670px){.fitting{grid-template-columns:1fr;margin:1rem 4.5% 2rem;padding:1rem;gap:1.3rem}.composition{height:14rem}.fittingCopy{padding:0 .25rem .5rem}.fittingCopy h2{font-size:3.8rem}}
+
+.fitting{background:#efd9d4;color:#3e3330;margin:clamp(2rem,4vw,4rem) auto;padding:clamp(1.6rem,4vw,4.5rem) 6%;max-width:1660px;grid-template-columns:1.1fr 1fr}
+.fittingCopy h2{color:#73374a}.fittingCopy a{background:#673447;color:#fff8eb}
+.fitting .composition{background:#e1c2b9}
+.fittingCopy .roomLink{color:#613b44;background:transparent}
+@media(max-width:670px){.fitting{grid-template-columns:1fr;padding:1.15rem 5% 1.7rem;margin-block:1.5rem}}

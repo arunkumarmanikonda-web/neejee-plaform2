@@ -50,7 +50,7 @@ async function waitForAssets(page: Page): Promise<void> {
     const images = Array.from(document.images || []);
     await Promise.all(
       images.map(async (img) => {
-        if (img.complete && img.naturalWidth > 0) {
+        if (img.complete) {
           try {
             if (typeof (img as any).decode === 'function') {
               await (img as any).decode();
@@ -60,10 +60,9 @@ async function waitForAssets(page: Page): Promise<void> {
         }
 
         await new Promise<void>((resolve) => {
-          const done = () => resolve();
-          img.addEventListener('load', done, { once: true });
-          img.addEventListener('error', done, { once: true });
-          setTimeout(done, 10000);
+          img.addEventListener('load', () => resolve(), { once: true });
+          img.addEventListener('error', () => resolve(), { once: true });
+          setTimeout(resolve, 10000);
         });
 
         try {

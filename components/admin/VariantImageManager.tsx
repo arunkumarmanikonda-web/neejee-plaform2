@@ -1,5 +1,6 @@
 'use client'
 
+import GuidedCapture, { uploadShot } from './capture/GuidedCapture'
 import { useMemo, useRef, useState } from 'react'
 
 type Variant = {
@@ -136,6 +137,7 @@ export default function VariantImageManager({
 
         <select
           className="rounded border px-3 py-2"
+          disabled={busy}
           value={selectedVariantId}
           onChange={(e) => setSelectedVariantId(e.target.value)}
         >
@@ -148,6 +150,21 @@ export default function VariantImageManager({
           ))}
         </select>
       </div>
+
+      {selectedVariant && <GuidedCapture key={selectedVariant.id} category={categoryName || productName || ''}
+        images={selectedVariant.images || []} disabled={busy} appendOnly onUse={async file => {
+          const id = selectedVariant.id
+          setBusy(true)
+          try {
+            const url = await uploadShot(file, 'products/' + productId + '/variants/' + id)
+            const res = await fetch('/api/admin/products/' + productId + '/variants/' + id + '/images', {
+              method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({images:[url], mode:'append'}),
+            })
+            const result = await res.json().catch(() => ({}))
+            if (!res.ok || !Array.isArray(result.images)) throw new Error(result.error || 'Could not save this variant photo.')
+            emitImages(id, result.images)
+          } finally { setBusy(false) }
+        }} />}
 
       <div>
         <input

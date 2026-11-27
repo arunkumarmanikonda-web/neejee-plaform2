@@ -144,8 +144,8 @@ export function mapPublicProductDetail(
       material: variant?.material ?? null,
       images: variant?.images ?? variant?.media?.gallery ?? [],
       inventory: revealExactQuantity ? (variant?.stock?.totalInventory ?? variant?.inventory ?? 0) : null,
-      mrp: variant?.mrp ?? variant?.pricing?.mrp ?? null,
-      sellingPrice: variant?.sellingPrice ?? variant?.pricing?.sellingPrice ?? null,
+      mrp: variant.mrp,
+      sellingPrice: variant.sellingPrice,
       salePrice:
         variant?.salePrice ?? variant?.pricing?.salePrice ?? pricing.salePrice ?? null,
       lowStockThreshold: revealExactQuantity ? (variant?.lowStockThreshold ?? null) : null,

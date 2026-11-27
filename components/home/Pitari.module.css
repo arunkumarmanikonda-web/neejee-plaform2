@@ -1,0 +1,16 @@
+.launch {display:inline-flex;align-items:center;gap:.25rem;min-width:2.75rem;min-height:2.75rem;color:#71312e;font-family:var(--font-ui),sans-serif;font-size:.9rem}
+.launch{justify-content:center}
+.dialog {position:fixed;margin:auto 1.25rem 1.25rem auto;width:min(27rem,calc(100% - 2.5rem));max-width:100%;padding:0;border:1px solid #976341;color:#34261c;background:#fcf6ea;box-shadow:0 14px 70px #21190e55;overflow:visible}
+.dialog::backdrop {background:#24180d65}
+.panel {display:flex;flex-direction:column;max-height:min(44rem,88svh);overflow:hidden}
+.panel header {background:#712d2c;color:#fff4de;display:flex;align-items:center;gap:.8rem;padding:.8rem 1rem;border-bottom:4px double #d4ac73}
+.panel header h2 {font-family:var(--font-display),Georgia,serif;font-weight:400;font-size:2rem;line-height:1.05}
+.panel header p {color:#efca96;font-size:.9rem}.panel header button {margin-left:auto;align-self:flex-start;padding:.6rem}
+.history {overflow:auto;min-height:4rem;overscroll-behavior:contain;padding:1rem 1.2rem;font:1rem/1.55 var(--font-ui),sans-serif}
+.welcome {font-family:var(--font-display),Georgia,serif;font-size:1.32rem;line-height:1.35}
+.turn {margin:1.15rem 0 0}.turn b {display:block;width:fit-content;margin:0 0 .6rem auto;border-radius:.65rem .65rem 0 .65rem;background:#e9dcbe;padding:.4rem .7rem;font-weight:500}.turn p {white-space:pre-line}
+.turn a {display:block;width:fit-content;color:#702f29;background:#f3e7d3;border-radius:.25rem;padding:.4rem .6rem;margin:.4rem 0;text-decoration:none}.contact{width:fit-content;margin:.35rem 1rem;color:#702f29;font:600 .82rem/1.5 var(--font-ui),sans-serif}.turn a:focus-visible,.contact:focus-visible{outline:2px solid currentColor;outline-offset:2px}
+.prompts {padding:.55rem 1rem}.prompts button {font-size:.875rem;min-height:2.35rem;border:1px solid #ab8b69;padding:.25rem .55rem;border-radius:1rem}
+.panel form {margin:.3rem 1rem 1rem;display:flex;border:1px solid #8b6e52;background:white}.panel input {min-width:0;flex:1;font:1rem var(--font-ui),sans-serif;padding:.8rem;background:white;color:#261c16}
+.panel form button {padding:.85rem;background:#514735;color:white}.panel button:disabled{opacity:.55}
+@media(max-width:600px){.dialog{margin:auto .5rem .5rem;width:calc(100% - 1rem)}.panel{max-height:85dvh}.launch{min-width:2rem}}

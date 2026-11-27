@@ -1,6 +1,11 @@
+const { readFileSync } = require('node:fs');
+const { join } = require('node:path');
+const signature = readFileSync(join(__dirname, 'public/brand/identity/lockup.svg')).toString('base64');
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  env: { NEEJEE_SIGNATURE_SRC: 'data:image/svg+xml;base64,' + signature, NEXT_PUBLIC_NEEJEE_SAMPLE_SHOP: (process.env.VERCEL_ENV === 'preview' || process.env.NODE_ENV === 'development') ? '1' : '0' },
   images: {
     formats: ['image/avif', 'image/webp'],
     remotePatterns: [
@@ -17,7 +22,7 @@ const nextConfig = {
     ],
     minimumCacheTTL: 60 * 60 * 24,
   },
-  experimental: { optimizePackageImports: ['lucide-react'] },
+  experimental: { outputFileTracingIncludes: { '/api/ai/mirror': ['./public/brand/lookbook/*.webp','./public/brand/bazaar/surkh.webp','./public/brand/bazaar/neel.webp','./public/brand/bazaar/haldi.webp','./public/brand/pairing/*.webp'] }, optimizePackageImports: ['lucide-react'] },
   poweredByHeader: false,
   compress: true,
 
@@ -31,10 +36,11 @@ const nextConfig = {
       // Canonical category aliases. These are based on the active Category.slug
       // values in production; legacy and hierarchical URLs remain valid but do
       // not render duplicate/noindex category pages.
-      { source: '/sarees', destination: '/categories/women-sarees', permanent: true },
-      { source: '/saree', destination: '/categories/women-sarees', permanent: true },
-      { source: '/categories/sarees', destination: '/categories/women-sarees', permanent: true },
-      { source: '/categories/women/sarees', destination: '/categories/women-sarees', permanent: true },
+      { source: '/suits', destination: '/edits/suits', permanent: false },
+      { source: '/sarees', destination: '/edits/sarees', permanent: true },
+      { source: '/saree', destination: '/edits/sarees', permanent: true },
+      { source: '/categories/sarees', destination: '/edits/sarees', permanent: true },
+      { source: '/categories/women/sarees', destination: '/edits/sarees', permanent: true },
       { source: '/jewellery', destination: '/categories/accessories-jewellery', permanent: true },
       { source: '/jewelry', destination: '/categories/accessories-jewellery', permanent: true },
       { source: '/categories/jewellery', destination: '/categories/accessories-jewellery', permanent: true },

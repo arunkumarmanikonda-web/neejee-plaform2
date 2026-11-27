@@ -3,7 +3,7 @@
 'use client';
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { OrderReturns } from '@/components/returns/OrderReturns';
 import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
 import { Package, ArrowRight, Loader2 } from 'lucide-react';
@@ -11,7 +11,7 @@ import { Package, ArrowRight, Loader2 } from 'lucide-react';
 export const dynamic = 'force-dynamic';
 
 export default function TrackOrderPage() {
-  const router = useRouter();
+  const [found, setFound] = useState<{ number: string; invoice: string; guest: boolean } | null>(null);
   const [me, setMe] = useState<any>(null);
   const [loadingMe, setLoadingMe] = useState(true);
   const [orderNumber, setOrderNumber] = useState('');
@@ -29,6 +29,7 @@ export default function TrackOrderPage() {
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    setFound(null);
     const cleanOrder = orderNumber.trim().toUpperCase();
     if (!cleanOrder) {
       setError('Please enter your order number.');
@@ -44,14 +45,14 @@ export default function TrackOrderPage() {
       const res = await fetch('/api/orders/lookup', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ orderNumber: cleanOrder, email: email.trim() }),
+        body: JSON.stringify({ orderNumber: cleanOrder, email: email.trim(), returns: true }),
       });
       const d = await res.json();
       if (!res.ok || !d.url) {
         setError(d.error || 'We could not find that order. Please check your order number and email.');
         return;
       }
-      router.push(d.url);
+      setFound({ number: d.orderNumber, invoice: d.url, guest: d.guestReturnAccess === true });
     } catch (e: any) {
       setError(e?.message || 'Something went wrong. Please try again.');
     } finally {
@@ -72,8 +73,8 @@ export default function TrackOrderPage() {
       <section className="max-w-2xl mx-auto px-6 pb-20">
         {loadingMe ? (
           <div className="text-center text-mitti"><Loader2 className="w-5 h-5 animate-spin inline mr-2" />Loading…</div>
-        ) : me ? (
-          // Signed-in: deep-link to their orders dashboard
+        ) : (<>
+        {me && (
           <div className="bg-beige p-10 text-center">
             <Package className="w-10 h-10 text-madder mx-auto mb-4" />
             <p className="font-display text-2xl text-kohl">You&apos;re signed in as {me.name || me.email}.</p>
@@ -82,8 +83,7 @@ export default function TrackOrderPage() {
               MY ORDERS <ArrowRight className="w-4 h-4" />
             </Link>
           </div>
-        ) : (
-          // Guest: look up by order# + email
+        )}
           <form onSubmit={submit} className="bg-beige p-10 space-y-4">
             <p className="font-display text-2xl text-kohl text-center">Look up your order</p>
             <p className="text-mitti text-sm text-center">Use the order number from your confirmation email.</p>
@@ -117,10 +117,15 @@ export default function TrackOrderPage() {
             </button>
 
             <p className="text-xs text-mitti text-center pt-2 border-t border-mitti/15">
-              Lost your order number? <Link href="/help/contact" className="text-madder underline">Write to us</Link> — we&apos;ll find it for you.
+              Lost your order number? <Link href="/help/contact" className="text-madder">Write to us</Link> — we&apos;ll find it for you.
             </p>
           </form>
-        )}
+          {found && <div aria-live="polite" className="mt-5">
+            <a href={found.invoice} className="btn-secondary inline-flex">View invoice · {found.number}</a>
+            {found.guest ? <OrderReturns orderNumber={found.number} /> :
+              <Link href={`/orders/${encodeURIComponent(found.number)}`} className="btn-secondary ml-2 inline-flex">Open order in my account</Link>}
+          </div>}
+        </>)}
       </section>
       <Footer />
     </>

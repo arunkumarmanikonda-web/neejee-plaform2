@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
+import { OrderDispatch } from '@/components/admin/OrderDispatch';
 import { formatPrice } from '@/lib/utils';
 
 const STATUSES = ['PLACED', 'CONFIRMED', 'PACKED', 'SHIPPED', 'OUT_FOR_DELIVERY', 'DELIVERED', 'CANCELLED'];
@@ -29,9 +30,9 @@ export default function AdminOrderDetailPage() {
   const [saving, setSaving] = useState(false);
   const [tracking, setTracking] = useState({ awbNumber: '', courier: '', trackingUrl: '' });
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (background = false) => {
     if (!orderId) return;
-    setLoading(true); setError('');
+    if (!background) setLoading(true); setError('');
     try {
       const res = await fetch(`/api/admin/orders/${orderId}`);
       const data = await res.json();
@@ -78,7 +79,7 @@ export default function AdminOrderDetailPage() {
     </div>
     <div className="grid grid-cols-3 gap-6 mt-6"><div className="col-span-2 bg-beige p-8"><p className="label text-madder mb-4">ITEMS ({order.items.length})</p><table className="w-full font-ui text-sm"><thead><tr className="border-b border-mitti/20 text-xs text-mitti"><th className="text-left py-2">PRODUCT</th><th>QTY</th><th>PRICE</th><th>TOTAL</th></tr></thead><tbody>{order.items.map((i: any) => <tr key={i.id} className="border-b border-mitti/10"><td className="py-3"><p className="font-display text-base">{i.product?.name || 'Product'}</p><p className="text-xs text-mitti">{i.product?.sku} {i.variant ? `· ${i.variant.size || ''} ${i.variant.color || ''}` : ''}</p></td><td className="text-center">{i.quantity}</td><td className="text-center">{formatPrice(i.price)}</td><td className="text-center font-medium">{formatPrice(i.total)}</td></tr>)}</tbody></table><div className="mt-6 space-y-1 text-sm text-right font-ui"><p>Subtotal: <span className="font-medium ml-2">{formatPrice(order.subtotal)}</span></p><p>Shipping: <span className="font-medium ml-2">{order.shipping > 0 ? formatPrice(order.shipping) : 'FREE'}</span></p>{order.discount > 0 && <p className="text-neem">Discount: <span className="font-medium ml-2">-{formatPrice(order.discount)}</span></p>}<p className="text-xs text-monsoon">GST: <span className="ml-2">{formatPrice(order.tax)}</span></p><p className="font-display text-xl mt-2 text-kohl">Total: <span className="ml-2">{formatPrice(order.total)}</span></p></div></div>
       <div className="space-y-4"><div className="bg-beige p-6"><p className="label text-madder mb-3">CUSTOMER</p><p className="font-display text-lg">{order.user?.name || order.guestName || 'Guest'}</p><p className="text-sm text-monsoon mt-1">{order.user?.email || order.guestEmail}</p>{order.user?.phone && <p className="text-sm text-monsoon">{order.user.phone}</p>}</div>{order.address && <div className="bg-beige p-6"><p className="label text-madder mb-3">SHIP TO</p><p className="font-body text-sm text-kohl/85">{order.address.line1}<br />{order.address.line2 && <>{order.address.line2}<br /></>}{order.address.city}, {order.address.state}<br />{order.address.pincode}, India</p></div>}
-        <div className="bg-beige p-6"><p className="label text-madder mb-3">TRACKING</p><input value={tracking.courier} onChange={e => setTracking({...tracking, courier:e.target.value})} placeholder="Courier (e.g. Delhivery)" className="w-full p-2 bg-ivory border border-mitti/20 font-ui text-xs mt-2" /><input value={tracking.awbNumber} onChange={e => setTracking({...tracking, awbNumber:e.target.value})} placeholder="AWB Number" className="w-full p-2 bg-ivory border border-mitti/20 font-ui text-xs mt-2" /><input value={tracking.trackingUrl} onChange={e => setTracking({...tracking, trackingUrl:e.target.value})} placeholder="Tracking URL" className="w-full p-2 bg-ivory border border-mitti/20 font-ui text-xs mt-2" /><button onClick={() => { void saveTracking(); }} disabled={saving} className="btn-primary text-xs mt-3 w-full disabled:opacity-50">{saving ? 'SAVING...' : 'SAVE TRACKING'}</button><button onClick={async () => { setSaving(true); const res=await fetch(`/api/admin/orders/${order.orderNumber}/shiprocket`,{method:'POST'}); const j=await res.json(); if(res.ok&&j.awb?.ok){alert(`Shiprocket shipment created.\nAWB: ${j.awb.awb}\nCourier: ${j.awb.courier}`); location.reload();} else alert(j.error||'Shiprocket failed. Check env vars.'); setSaving(false); }} disabled={saving} className="text-xs mt-2 w-full py-2 border border-madder text-madder hover:bg-madder hover:text-ivory disabled:opacity-50 tracking-wider">CREATE SHIPROCKET SHIPMENT</button></div>
+        <div className="bg-beige p-6"><p className="label text-madder mb-3">TRACKING</p><input value={tracking.courier} onChange={e => setTracking({...tracking, courier:e.target.value})} placeholder="Courier (e.g. Delhivery)" className="w-full p-2 bg-ivory border border-mitti/20 font-ui text-xs mt-2" /><input value={tracking.awbNumber} onChange={e => setTracking({...tracking, awbNumber:e.target.value})} placeholder="AWB Number" className="w-full p-2 bg-ivory border border-mitti/20 font-ui text-xs mt-2" /><input value={tracking.trackingUrl} onChange={e => setTracking({...tracking, trackingUrl:e.target.value})} placeholder="Tracking URL" className="w-full p-2 bg-ivory border border-mitti/20 font-ui text-xs mt-2" /><button onClick={() => { void saveTracking(); }} disabled={saving} className="btn-primary text-xs mt-3 w-full disabled:opacity-50">{saving ? 'SAVING...' : 'SAVE TRACKING'}</button><OrderDispatch order={order} onChange={() => load(true)} /></div>
       </div>
     </div>
   </>;

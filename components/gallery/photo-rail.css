@@ -1,0 +1,5 @@
+.photo-rail{position:relative;display:flex;align-items:stretch;width:100%;min-width:0;overflow-x:auto;overflow-y:hidden;scroll-snap-type:x mandatory;overscroll-behavior-x:contain;scrollbar-width:none;touch-action:pan-x pan-y pinch-zoom}
+.photo-rail::-webkit-scrollbar{display:none}
+.photo-rail>[data-slide]{position:relative;flex:0 0 100%;width:100%;min-width:0;scroll-snap-align:start;overflow:hidden}
+.photo-rail[data-dragging]{scroll-snap-type:none;cursor:grabbing;user-select:none}
+.photo-rail[data-dragging] *{cursor:grabbing!important;user-select:none}

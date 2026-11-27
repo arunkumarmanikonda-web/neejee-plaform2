@@ -1,6 +1,7 @@
 'use client';
 
 import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
+import { localReturn } from '@/lib/studio';
 import Link from 'next/link';
 import Script from 'next/script';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -24,7 +25,7 @@ type AdminQuickReturn = {
 function LoginInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const nextParam = searchParams?.get('next') || '';
+  const nextParam = localReturn(searchParams?.get('next'));
 
   const [step, setStep] = useState<Step>('identity');
   const [identifier, setIdentifier] = useState('');
@@ -108,6 +109,7 @@ function LoginInner() {
     const normalDest = preferredNext || nextParam || data?.redirect || fallback;
 
     if (data?.forceRedirect || data?.needsProfileCompletion) {
+      if (normalDest.startsWith('/complete-profile?')) return normalDest;
       const nextAfterProfile =
         normalDest && normalDest !== '/complete-profile' ? normalDest : '/account';
 
@@ -741,6 +743,12 @@ Create an account with this number to continue.`);
           </>
         )}
       </div>
+        <p className="font-italic italic text-mitti text-center mt-10">
+          New to NEEJEE?{' '}
+          <Link href={nextParam ? '/signup?next='+encodeURIComponent(nextParam) : '/signup'} className="text-madder underline">
+            Create an account
+          </Link>
+        </p>
     </>
   );
 }
@@ -759,12 +767,7 @@ export default function LoginPage() {
           <LoginInner />
         </Suspense>
 
-        <p className="font-italic italic text-mitti text-center mt-10">
-          New to NEEJEE?{' '}
-          <Link href="/signup" className="text-madder underline">
-            Create your trunk
-          </Link>
-        </p>
+
       </section>
       <Footer />
     </>

@@ -23,8 +23,9 @@ type SeoFieldMeta = {
   placeholder?: string;
 };
 
-const OFFICIAL_PRIMARY_LOGO =
+const LEGACY_UPLOADED_LOGO =
   'https://xjqehwvxscoktfecbwse.supabase.co/storage/v1/object/public/neejee-media/legal-entity/1781352832764-ig1uzl-01_neejee_primary_logo.png';
+const OFFICIAL_SOCIAL_IMAGE = 'https://neejee.com/brand/identity/social-card.png?v=bindi';
 const LEGACY_RECONSTRUCTED_SOCIAL_IMAGE = 'https://neejee.com/brand/neejee-og-1200x630.png';
 const LEGACY_DEFAULT_SOCIAL_IMAGE_ID = 'photo-1610030469983-98e550d6193c';
 
@@ -72,14 +73,14 @@ export const SEO_FIELD_META: Record<SeoFieldKey, SeoFieldMeta> = {
   NEXT_PUBLIC_DEFAULT_META_DESCRIPTION: {
     label: 'Default meta description',
     helper: 'Fallback search description used across the site.',
-    defaultValue: "India's finest craft — hand-woven sarees, oxidised silver, mitti attars, Phulkari dupattas. Personally chosen, founder-verified.",
+    defaultValue: "Discover Neejee’s edit of sarees, suits and a few pieces for the home. Found. Personal.",
     multiline: true,
     placeholder: 'Write the default search description',
   },
   NEXT_PUBLIC_META_KEYWORDS: {
     label: 'Meta keywords',
     helper: 'Comma-separated keyword list for the default metadata footprint.',
-    defaultValue: 'Indian craft, Banarasi saree, Phulkari, handloom, Kanjeevaram, Indian jewellery, attar, Indian luxury',
+    defaultValue: 'Indian fashion, sarees, salwar suits, kurta sets, Indian craft, home décor',
     multiline: true,
     placeholder: 'keyword one, keyword two, keyword three',
   },
@@ -92,14 +93,14 @@ export const SEO_FIELD_META: Record<SeoFieldKey, SeoFieldMeta> = {
   NEXT_PUBLIC_OG_DESCRIPTION: {
     label: 'Open Graph description',
     helper: 'Default Open Graph description for social previews.',
-    defaultValue: "India's finest craft, personally chosen. Hand-woven sarees, oxidised silver, mitti attars.",
+    defaultValue: "Sarees, suits and a few pieces for the home, personally chosen by Neejee.",
     multiline: true,
     placeholder: 'Default OG description',
   },
   NEXT_PUBLIC_OG_IMAGE_URL: {
     label: 'Open Graph image URL',
     helper: 'Absolute image URL for default social preview artwork.',
-    defaultValue: OFFICIAL_PRIMARY_LOGO,
+    defaultValue: OFFICIAL_SOCIAL_IMAGE,
     placeholder: 'https://...',
   },
   NEXT_PUBLIC_TWITTER_TITLE: {
@@ -188,18 +189,19 @@ function normalizeAbsoluteUrl(value: string, fallback: string) {
 }
 
 function canonicalizeSocialImage(value: string) {
-  const normalized = normalizeAbsoluteUrl(value, OFFICIAL_PRIMARY_LOGO);
+  const normalized = normalizeAbsoluteUrl(value, OFFICIAL_SOCIAL_IMAGE);
   try {
     const url = new URL(normalized);
     if (
+      normalized === LEGACY_UPLOADED_LOGO ||
       normalized === LEGACY_RECONSTRUCTED_SOCIAL_IMAGE ||
       (url.hostname === 'neejee.com' && url.pathname === '/brand/neejee-og-1200x630.png') ||
       (url.hostname === 'images.unsplash.com' && url.pathname.includes(LEGACY_DEFAULT_SOCIAL_IMAGE_ID))
     ) {
-      return OFFICIAL_PRIMARY_LOGO;
+      return OFFICIAL_SOCIAL_IMAGE;
     }
   } catch {
-    return OFFICIAL_PRIMARY_LOGO;
+    return OFFICIAL_SOCIAL_IMAGE;
   }
   return normalized;
 }
@@ -262,8 +264,7 @@ export function getRootMetadata(): Metadata {
       images: [
         {
           url: seo.ogImageUrl,
-          width: 2048,
-          height: 1152,
+          ...(seo.ogImageUrl === OFFICIAL_SOCIAL_IMAGE ? { width: 1200, height: 630 } : {}),
           alt: `${seo.siteName} — FOUND. PERSONAL.`,
         },
       ],
@@ -275,8 +276,8 @@ export function getRootMetadata(): Metadata {
       images: [seo.ogImageUrl],
     },
     icons: {
-      icon: [{ url: OFFICIAL_PRIMARY_LOGO, type: 'image/png', sizes: 'any' }],
-      apple: [{ url: OFFICIAL_PRIMARY_LOGO, type: 'image/png', sizes: 'any' }],
+      icon: [{ url: '/brand/identity/favicon.svg?v=bindi', type: 'image/svg+xml', sizes: 'any' }],
+      apple: [{ url: '/brand/identity/apple-touch-icon.png?v=bindi', type: 'image/png', sizes: '180x180' }],
     },
     manifest: '/manifest.json',
     appleWebApp: {

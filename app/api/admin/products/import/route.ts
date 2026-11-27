@@ -1,3 +1,5 @@
+import { draftMerchandise } from '@/lib/catalog/narrative-service';
+import { workbookColours } from '@/lib/catalog/workbook-colours';
 // Bulk-import draft products + variants from a .xlsx workbook.
 // All imported products land as DRAFT \u2014 admin reviews and publishes manually.
 // Variant rows attach to the most recent preceding PRODUCT row (or to an
@@ -53,6 +55,7 @@ export async function POST(request: Request) {
   });
   const catBySlug = new Map(cats.map(c => [c.slug.toLowerCase(), c]));
 
+  const colours=workbookColours(rows);
   const results: RowResult[] = [];
 
   // Tracks the most recently created PRODUCT so VARIANT rows can attach to it
@@ -119,11 +122,12 @@ export async function POST(request: Request) {
           sku = await generateSkuFor(cat.id);
         }
 
-        const slug = await generateSlug(d.name!);
+        const {draft}=await draftMerchandise({...d, description:d.shortDescription, categoryName:cat.name, colours:colours.get(row.rowIndex)}, {useAI:false});
+        const slug = await generateSlug(draft.name);
 
         const created = await prisma.product.create({
           data: {
-            name: d.name!,
+            ...draft,
             slug,
             sku,
             categoryId: cat.id,
@@ -132,7 +136,6 @@ export async function POST(request: Request) {
             material: d.material || null,
             mrp: Math.round((d.mrp || 0) * 100),           // rupees -> paise
             sellingPrice: Math.round((d.sellingPrice || 0) * 100),
-            description: d.shortDescription || '',
             status: 'DRAFT',
             images: [],
             badges: [],

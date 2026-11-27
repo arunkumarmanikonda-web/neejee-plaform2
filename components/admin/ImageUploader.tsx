@@ -1,8 +1,10 @@
 'use client';
 import { useRef, useState } from 'react';
+import GuidedCapture, { uploadShot } from './capture/GuidedCapture';
 import { Upload, X, MoveUp, MoveDown, Loader2 } from 'lucide-react';
 
 interface Props {
+  captureCategory?: string;
   images: string[];
   onChange: (images: string[]) => void;
   folder?: string;
@@ -11,10 +13,24 @@ interface Props {
   endpoint?: string;
 }
 
-export function ImageUploader({ images, onChange, folder = 'products', max = 10, label = 'PRODUCT IMAGES', endpoint = '/api/admin/upload' }: Props) {
+export function ImageUploader({ captureCategory, images, onChange, folder = 'products', max = 10, label = 'PRODUCT IMAGES', endpoint = '/api/admin/upload' }: Props) {
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState('');
+  const latest = useRef(images);
+  latest.current = images;
   const fileRef = useRef<HTMLInputElement>(null);
+
+  async function saveCapture(file: File, previous?: string) {
+    if (!previous && latest.current.length >= max) throw new Error('The image gallery is full.');
+    setUploading(true);
+    try {
+      const url = await uploadShot(file, folder, endpoint);
+      const current = latest.current;
+      if (previous && current.includes(previous)) onChange(current.map(image => image === previous ? url : image));
+      else if (current.length < max) onChange([...current, url]);
+      else throw new Error('The gallery filled up. Remove an image and try again.');
+    } finally { setUploading(false); }
+  }
 
   const upload = async (files: FileList | File[]) => {
     if (!files || files.length === 0) return;
@@ -27,7 +43,7 @@ export function ImageUploader({ images, onChange, folder = 'products', max = 10,
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Upload failed');
       const urls: string[] = data.files.map((f: any) => f.url);
-      const newList = [...images, ...urls].slice(0, max);
+      const newList = [...latest.current, ...urls].slice(0, max);
       onChange(newList);
     } catch (e: any) { setError(e.message); }
     finally { setUploading(false); if (fileRef.current) fileRef.current.value = ''; }
@@ -57,6 +73,8 @@ export function ImageUploader({ images, onChange, folder = 'products', max = 10,
         <p className="label text-mitti">{label}</p>
         <p className="font-ui text-xs text-mitti">{images.length}/{max}</p>
       </div>
+
+      {captureCategory !== undefined && <GuidedCapture category={captureCategory} images={images} max={max} disabled={uploading} onUse={saveCapture} />}
 
       {/* Image grid */}
       {images.length > 0 && (

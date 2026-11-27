@@ -14,6 +14,7 @@
 //
 // "campaignName" must be the template_name we registered with AiSensy.
 
+import { retryAfterMs } from '../retry-policy';
 import type { ChannelAdapter, ChannelSendResult, DispatchRecord, NotificationEvent } from '../types';
 
 const TEMPLATE_NAME_MAP: Partial<Record<NotificationEvent, string | null>> = {
@@ -125,6 +126,8 @@ export const aisensyAdapter: ChannelAdapter = {
         return {
           ok: false,
           providerResponse: data,
+          rateLimited: res.status === 429,
+          retryAfterMs: retryAfterMs(res.headers.get('retry-after')),
           errorMessage: data?.message || data?.error || `HTTP ${res.status}`,
           permanentFailure: res.status === 400 || res.status === 401 || res.status === 403,
         };

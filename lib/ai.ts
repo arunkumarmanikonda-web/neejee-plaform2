@@ -14,7 +14,7 @@ export function aiImageConfigured(): boolean {
 }
 
 export function aiMirrorConfigured(): boolean {
-  return aiImageConfigured();
+  return Boolean(process.env.FAL_KEY);
 }
 
 export function aiTextConfigured(): boolean {
@@ -131,25 +131,31 @@ export async function falSubmitTryOn(
   personImageUrl: string,
   garmentImageUrl: string,
   _garmentType: string = 'auto'
-): Promise<{ ok: boolean; requestId?: string; endpoint?: string; statusUrl?: string; responseUrl?: string; error?: string }> {
-  const key = process.env.FAL_KEY;
-  if (!key) return { ok: false, error: 'FAL_KEY not set' };
-  try {
-    const submit = await fetch(`${FAL_BASE}/${TRYON_ENDPOINT}`, {
-      method: 'POST',
-      headers: { Authorization: `Key ${key}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({
+) {
+  return submitStudioTask(TRYON_ENDPOINT,{
         model_image: personImageUrl,
         garment_image: garmentImageUrl,
         category: 'auto',
-        mode: 'performance',
+        mode: 'balanced',
         garment_photo_type: 'auto',
-        moderation_level: 'permissive',
         num_samples: 1,
         segmentation_free: true,
         output_format: 'jpeg',
-      }),
-    });
+      });
+}
+
+export async function submitRoomPlacement(room:string,piece:string,description:string) {
+  return submitStudioTask('fal-ai/flux-pro/kontext/max/multi',{
+    prompt:'Use the first photograph as the room. Place the object from the second photograph in that room: '+description+'. Preserve its design and colour. Match the perspective and light. Keep all other objects and the framing of the room.',
+    image_urls:[room,piece],num_images:1,output_format:'jpeg',
+  });
+}
+
+export async function submitStudioTask(endpoint:string,input:Record<string,unknown>): Promise<{ ok: boolean; requestId?: string; endpoint?: string; statusUrl?: string; responseUrl?: string; error?: string }> {
+  const key=process.env.FAL_KEY;
+  if(!key)return {ok:false,error:'Image provider unavailable'};
+  try {
+    const submit=await fetch(FAL_BASE+'/'+endpoint,{method:'POST',headers:{Authorization:'Key '+key,'Content-Type':'application/json'},body:JSON.stringify(input),signal:AbortSignal.timeout(18000)});
     const data = await submit.json().catch(() => ({}));
     if (!submit.ok) {
       return { ok: false, error: data?.detail || data?.error || `fal submit failed (${submit.status})` };
@@ -161,7 +167,7 @@ export async function falSubmitTryOn(
     return {
       ok: true,
       requestId,
-      endpoint: TRYON_ENDPOINT,
+      endpoint,
       statusUrl: data.status_url,
       responseUrl: data.response_url,
     };
@@ -245,9 +251,10 @@ interface ChatArgs {
   model?: string;
   temperature?: number;
   jsonMode?: boolean;
+  timeoutMs?: number;
 }
 
-export async function openaiChat({ system, messages, model = 'gpt-4o-mini', temperature = 0.7, jsonMode = false }: ChatArgs): Promise<{ ok: boolean; text?: string; json?: any; error?: string }> {
+export async function openaiChat({ system, messages, model = 'gpt-4o-mini', temperature = 0.7, jsonMode = false, timeoutMs }: ChatArgs): Promise<{ ok: boolean; text?: string; json?: any; error?: string }> {
   const key = process.env.OPENAI_API_KEY;
   if (!key) return { ok: false, error: 'OPENAI_API_KEY not set' };
 
@@ -260,6 +267,7 @@ export async function openaiChat({ system, messages, model = 'gpt-4o-mini', temp
     if (jsonMode) body.response_format = { type: 'json_object' };
 
     const res = await fetch('https://api.openai.com/v1/chat/completions', {
+      ...(timeoutMs && {signal:AbortSignal.timeout(timeoutMs)}),
       method: 'POST',
       headers: {
         Authorization: `Bearer ${key}`,

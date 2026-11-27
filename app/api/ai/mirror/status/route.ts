@@ -1,9 +1,11 @@
 // Poll fal.ai for the current status of a try-on job.
 // Provider URLs are treated as untrusted client input and must remain on approved hosts.
+import { verifyStudioJob } from '@/lib/ai/studio-job';
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getSession } from '@/lib/auth';
-import { uploadFile, makeUploadPath, storageConfigured } from '@/lib/storage';
+import { createPrivateAiMediaUrl } from '@/lib/ai/private-media';
+import { uploadPrivateAiFile, makeUploadPath, storageConfigured } from '@/lib/storage';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -46,13 +48,13 @@ function isAllowedProviderImageUrl(raw: string): boolean {
 }
 
 /** Download an approved provider image and re-upload it to our Supabase bucket. */
-async function rehostImage(providerUrl: string, userId: string): Promise<string> {
+async function rehostImage(providerUrl: string, userId: string, origin:string): Promise<string> {
   if (!isAllowedProviderImageUrl(providerUrl)) {
     throw new Error('AI provider returned an untrusted image URL');
   }
 
   if (!storageConfigured()) {
-    return providerUrl;
+    throw Error('Private photo storage is unavailable');
   }
 
   const res = await fetch(providerUrl, {
@@ -69,8 +71,8 @@ async function rehostImage(providerUrl: string, userId: string): Promise<string>
   const ext = contentType.includes('png') ? 'png' : contentType.includes('webp') ? 'webp' : 'jpg';
   const buf = Buffer.from(await res.arrayBuffer());
   const path = makeUploadPath(`ai-mirror/${userId}`, `mirror-${Date.now()}.${ext}`);
-  const { url } = await uploadFile(path, buf, contentType);
-  return url;
+  await uploadPrivateAiFile(path, buf, contentType);
+  return createPrivateAiMediaUrl(origin,path);
 }
 
 export async function GET(request: Request) {
@@ -104,6 +106,7 @@ export async function GET(request: Request) {
     return NextResponse.json({ done: true, outputUrl: preview.outputImage });
   }
 
+  if (!verifyStudioJob(session.id,url.searchParams)) return NextResponse.json({error:'Please start a new preview.'},{status:400});
   const key = process.env.FAL_KEY;
   if (!key) return NextResponse.json({ error: 'AI provider is not configured' }, { status: 503 });
 
@@ -123,13 +126,13 @@ export async function GET(request: Request) {
     });
     const sJson = await sRes.json().catch(() => ({}));
 
+    /* provider logs can contain private source URLs */
     console.log('[mirror/status] poll result:', {
       requestId: requestId.slice(0, 12) + '...',
       httpStatus: sRes.status,
       falStatus: sJson?.status,
       queuePosition: sJson?.queue_position,
       logsCount: sJson?.logs?.length,
-      lastLog: sJson?.logs?.slice(-1)?.[0]?.message,
       hasResponseUrl: !!sJson?.response_url,
     });
 
@@ -173,7 +176,7 @@ export async function GET(request: Request) {
         }, { status: 502 });
       }
 
-      const durableUrl = await rehostImage(outUrl, session.id);
+      const durableUrl = await rehostImage(outUrl, session.id,url.origin);
       await prisma.aiPreview.update({
         where: { id: previewId },
         data: { outputImage: durableUrl },
@@ -191,7 +194,6 @@ export async function GET(request: Request) {
       done: false,
       status: status || 'IN_PROGRESS',
       queuePosition: sJson?.queue_position,
-      lastLog: sJson?.logs?.slice(-1)?.[0]?.message,
     });
   } catch (e: any) {
     console.error('[mirror/status] exception:', e?.message);

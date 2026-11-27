@@ -1,3 +1,4 @@
+import { draftMerchandise, editorialExtras, savedProductFacts } from '@/lib/catalog/narrative-service';
 // AI Content Assistant ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â admin tool to draft product story, care notes, SEO copy
 // from artisan-supplied metadata.
 import { NextResponse } from 'next/server';
@@ -49,19 +50,19 @@ interface BriefInput {
 }
 
 const FIELD_DIRECTIVES: Record<string, string> = {
-  productName: 'A 2-5 word product name. Evocative, rooted in the craft & region. Often a heritage word, a place, or a sensory descriptor (e.g. "Nizami Begum", "Falaknuma Stack", "Banarasi Aabi"). Return ONLY the name, no quotes, no description.',
+  productName: 'A useful colour, product type and defining feature.',
   craftLabel: 'A clean 1-3 word craft NAME suitable as a facet/filter label (e.g. "Banarasi", "Kalamkari", "Phulkari", "Block Print", "Turkish Mosaic"). Title Case. Return ONLY the label ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â NO sentences, NO punctuation other than spaces, NO description.',
-  shortName: 'A 1-2 word short name used on product cards and small surfaces. Often a single evocative word from the full product name. Return ONLY the short name.',
-  poeticLine: 'A single 6-10 word poetic tagline that lingers. Sensory. No sales words.',
-  description: 'A 30-50 word product description. Tactile, specific, factual. No hyperbole.',
-  story: 'A 90-130 word origin story. Where it was made, by whom, what tradition it lives in. Quiet, reverent.',
+  shortName: 'The supplied short house name.',
+  poeticLine: 'The shopper-facing card caption describing a visible detail.',
+  description: 'Describe the recorded drape, motif or set contents.',
+  story: 'Use only the supplied maker and documented origin.',
   craftNote: 'A 60-90 word note on the craft technique. Specific terminology. Educational, not technical.',
   careInstructions: '4-6 short imperative care lines. Practical, gentle. Format as bullet-style lines, one per line, no leading dash.',
-  sustainabilityNote: 'A 40-70 word note on sustainability ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â hand-loom, natural dyes, slow production, fair wages, low water use, or whichever applies. Specific, never greenwashing.',
+  sustainabilityNote: 'Only a product-specific statement from the merchant.',
   material: 'A 3-10 word factual material descriptor (e.g. "Pure Banarasi katan silk with antique zari"). Return ONLY the material text.',
   technique: 'A 3-10 word factual technique descriptor (e.g. "Hand-loom kadhwa weaving, brocade pallu"). Return ONLY the technique text.',
   occasion: 'A 3-10 word occasion descriptor (e.g. "Wedding, festive evenings, mehendi"). Return ONLY the occasion text.',
-  nameSuggestions: 'Return JSON: { "names": [{ "name": "<2-5 word product name>", "rationale": "<one-line reasoning, 10-20 words>", "seoScore": <0-100>, "angle": "<one of: HERITAGE | ROYAL | SENSORY | CRAFT_TECH | POETIC | SEO_SEARCH | TREND>" }, ...] } with EXACTLY 7 distinct, world-class product name proposals optimised across THREE dimensions:\n  (a) SEO-friendliness ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â includes a high-intent keyword a buyer might type (e.g. "Banarasi katan saree", "hand-painted Kashmiri papier-mÃƒÆ’Ã‚Â¢chÃƒÆ’Ã‚Â© bowl"). seoScore should reflect this.\n  (b) Consumer attractiveness ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â evocative, sensory, easy to say and remember. Avoids generic words ("set", "piece", "item", "product").\n  (c) Current trends ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â align with what discerning Indian craft-buyers search for in 2025-26 (heritage-modern, slow-luxury, regional pride).\nMix exactly these 7 angles (one per item, in this order): HERITAGE (place-name rooted), ROYAL (historical/royal reference), SENSORY (touch/light/colour descriptor), CRAFT_TECH (craft-technique foregrounded), POETIC (quiet poetic word/phrase), SEO_SEARCH (most searchable, high-intent keyword phrasing), TREND (taps current craft-revival trend e.g. heirloom, slow-made, founder-curated).\nFormatting rules: Title Case. 2-5 words. No quotes, no emoji, no punctuation except optional middle-dot. No generic e-commerce names. Every name must feel like NEEJEE could put it on a price tag.',
+  nameSuggestions: 'The descriptive merchandise title supported by the supplied facts.',
   seo: 'Return JSON: { "seoTitle": "<50-60 char title>", "seoDesc": "<150-160 char meta description>" }. SEO-optimised but human, never spammy.',
   returnPolicy: 'A 40-80 word return-policy note for this piece. If the brief indicates returnEligible=true, mention a 7-day window from delivery, unworn/unwashed/un-used condition with original tags, and end with a sentence about us being personally reachable. If returnEligible is false or missing, return ONLY the sentence: "This piece is hand-finished and final-sale. We do not accept returns or refunds on this item. For any concerns please write to us within 48 hours of delivery and we will respond personally." Do not invent a return window for non-returnable pieces.',
   emailSubject: 'A single email subject line, 30-55 characters. Quiet, intriguing, sensory. No exclamation marks, no all-caps, no salesy words like SALE/HURRY/LIMITED. Return only the subject line, no quotes.',
@@ -144,6 +145,26 @@ export async function POST(request: Request) {
 
     if (!isEditorRole && !(isMarketingField && isMarketingRole)) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+    const copyFields = ['productName','shortName','nameSuggestions','poeticLine','description','seo','story','craftNote'];
+    if (copyFields.includes(brief.field)) {
+      const saved=await savedProductFacts(brief.productId);
+      const input={...brief, name:brief.workingName || (brief.name==='PRODUCT_NAME_SUGGESTION' ? '' : brief.name), pieceFacts:{...saved,...brief.pieceFacts}};
+      const {draft,source}=await draftMerchandise(input,{rewrite:true,feedback:brief.feedback});
+      const extras=editorialExtras(input,draft);
+      const response={ok:true,configured:source==='ai',source};
+      if (brief.field==='seo') return NextResponse.json({...response,...extras,json:{seoTitle:extras.seoTitle,seoDesc:extras.seoDesc}});
+      if (brief.field==='nameSuggestions') {
+        const json={names:[{name:draft.name,angle:'DESCRIPTIVE',rationale:'Names the piece using the recorded product details.'}].filter(p=>p.name)};
+        return NextResponse.json({...response,json,data:json});
+      }
+      const fields:Record<string,string>={...draft,...extras,productName:draft.name};
+      return NextResponse.json({...response,text:fields[brief.field]});
+    }
+    if (['material','technique','craftLabel','careInstructions','sustainabilityNote'].includes(brief.field)) {
+      const field=brief.field==='craftLabel' ? 'craft' : brief.field;
+      const recorded=brief[field] || brief.currentValue;
+      return NextResponse.json({ok:true,source:'facts',text:typeof recorded==='string' ? recorded.trim() : '',message:'Enter a confirmed value for this piece.'});
     }
     // For product-centric fields, require a name; otherwise relax
     const productFields = ['poeticLine', 'description', 'story', 'craftNote', 'careInstructions', 'seo', 'returnPolicy'];
@@ -244,20 +265,6 @@ Write only the requested copy. No preamble, no explanation, no quotes around the
 - Additional notes from editor: ${brief.notes || 'none'}
 
 Write only the requested copy. No preamble, no explanation, no quotes around the output.`
-      : brief.field === 'nameSuggestions'
-      ? `Brief for name generation:
-${(brief as any).workingName ? `- Working name from the admin (USE THIS AS THE ANCHOR ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â every suggestion MUST refer to the same piece): "${(brief as any).workingName}"` : `- Working name: (not yet decided)`}
-${(brief as any).description ? `- Description: "${String((brief as any).description).slice(0, 280)}"` : ''}
-- Craft: ${brief.craft || 'unspecified'}
-- Region: ${brief.region || 'unspecified'}
-- Material: ${brief.material || 'unspecified'}
-- Technique: ${brief.technique || 'unspecified'}
-- Occasion: ${brief.occasion || 'unspecified'}
-- Category: ${brief.categoryName || 'unspecified'}
-
-IMPORTANT ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â if a working name is provided, every one of the 7 suggestions MUST describe the SAME piece (e.g. if the working name is "Banarsi silk saree", every suggestion must be a Banarasi silk saree, NOT a Kanchipuram saree, NOT a Madhubani painting, NOT a Khadi shawl). You may improve spelling (Banarsi ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ Banarasi), specificity (add zari/katan), and angle (heritage / royal / sensory ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦) but never switch the underlying craft or category.
-
-Write only the requested JSON, no preamble.`
       : `Brief:
 - Piece: ${brief.name || '(name not yet decided ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â propose one based on craft + region + material)'}
 - Craft: ${brief.craft || 'unspecified'}

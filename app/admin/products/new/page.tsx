@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { PriceInput } from '@/components/admin/PriceInput';
@@ -7,7 +7,7 @@ import { ImageUploader } from '@/components/admin/ImageUploader';
 import { formatINR, discountPct } from '@/lib/money';
 import { RefreshCw, Lock, Pencil } from 'lucide-react';
 import AiDraftAllButton from '@/components/admin/AiDraftAllButton';
-import AiNameSuggester from '@/components/admin/AiNameSuggester';
+import { currentPieceFacts, ProductNarrativePanel } from '@/components/admin/ProductNarrativePanel';
 import CategoryPicker, { CategoryPickerValue } from '@/components/admin/CategoryPicker';
 
 const STATUSES = ['DRAFT', 'PENDING_QC', 'ACTIVE', 'ARCHIVED'] as const;
@@ -22,6 +22,8 @@ export default function AdminNewProduct() {
   const router = useRouter();
   const [categories, setCategories] = useState<any[]>([]);
   const [categoryPick, setCategoryPick] = useState<CategoryPickerValue>(null);
+  const requestKey = useRef('');
+  const [generatePhotos, setGeneratePhotos] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [skuEditable, setSkuEditable] = useState(false);
@@ -31,6 +33,8 @@ export default function AdminNewProduct() {
   const [form, setForm] = useState<any>({
     name: '',
     shortName: '',
+    keepTitle: false,
+    pieceFacts: {},
     sku: '',
     slug: '',
 
@@ -147,7 +151,10 @@ export default function AdminNewProduct() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [form.craft, form.categoryId, skuEditable]);
 
-  const categoryName = categories.find((c: any) => c.id === form.categoryId)?.name || '';
+  const selectedCategory = categories.find((c: any) => c.id === form.categoryId);
+  const categoryName = categoryPick?.label.split(' / ').pop() || selectedCategory?.name || '';
+  const categoryPath = categoryPick?.path || categoryPick?.label || selectedCategory?.path || '';
+  const brief = {...form, categoryName, categoryPath, pieceFacts:currentPieceFacts(form.pieceFacts, categoryName, categoryPath, form.name)};
 
   const effectiveDisplayPrice =
     typeof form.salePrice === 'number' && form.salePrice > 0 && form.salePrice < form.sellingPrice
@@ -161,6 +168,8 @@ export default function AdminNewProduct() {
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (saving) return;
+    if (!requestKey.current) requestKey.current = crypto.randomUUID();
     setSaving(true);
     setError('');
 
@@ -168,7 +177,7 @@ export default function AdminNewProduct() {
       const res = await fetch('/api/admin/products', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form),
+        body: JSON.stringify({...brief, creationKey:requestKey.current, generateCreatives:generatePhotos && form.images.length > 0}),
       });
 
       const data = await res.json();
@@ -180,11 +189,6 @@ export default function AdminNewProduct() {
     }
   };
 
-  const categoryPathPreview = useMemo(() => {
-    if (!categoryPick) return '';
-    return categoryPick.path || categoryPick.slug || categoryPick.label || '';
-  }, [categoryPick]);
-
   return (
     <>
       <Link href="/admin/products" className="label text-mitti hover:text-madder">
@@ -195,13 +199,12 @@ export default function AdminNewProduct() {
         <div>
           <h1 className="font-display text-4xl text-kohl">Add New Product</h1>
           <p className="font-italic italic text-mitti mt-2 max-w-3xl">
-            Create the product once, then enrich merchandising from the same screen:
-            naming, pricing, catalogue curation, AI flags, fulfilment, and return behavior.
+            Choose a category, record the facts about the piece, and review how it will read in the shop.
           </p>
         </div>
 
         <AiDraftAllButton
-          form={{ ...form, categoryName }}
+          form={brief}
           onApply={(draft) => {
             setForm((f: any) => ({ ...f, ...draft }));
           }}
@@ -216,40 +219,44 @@ export default function AdminNewProduct() {
         </p>
       )}
 
-      <form onSubmit={submit} className="mt-8 grid grid-cols-3 gap-6">
-        <div className="col-span-2 space-y-6">
+      <form onSubmit={submit} className="mt-8 grid min-w-0 lg:grid-cols-3 gap-6">
+        <div className="min-w-0 lg:col-span-2 space-y-6">
           <div className="bg-beige p-6">
             <p className="label text-madder mb-4">BASIC INFO</p>
 
-            <AiNameSuggester
-              variant="prominent"
-              brief={{
-                name: form.name,
-                description: form.description,
-                craft: form.craft,
-                region: form.region,
-                cluster: form.cluster,
-                material: form.material,
-                technique: form.technique,
-                occasion: form.occasion,
-                categoryName,
-              }}
-              onApply={(name) => setForm((f: any) => ({ ...f, name }))}
-            />
-
             <Field
-              label="Product Name"
+              label="Working name or shop title (optional)"
               value={form.name}
               onChange={(v: string) => setForm((f: any) => ({ ...f, name: v }))}
-              required
+              help="Leave blank to generate a title from the category and recorded piece details."
             />
 
-            <Field
-              label="Short Name"
-              value={form.shortName}
-              onChange={(v: string) => setForm((f: any) => ({ ...f, shortName: v }))}
-              help="Used in compact cards and merchandising surfaces"
-            />
+            <div className="mb-4">
+              <p className="label text-madder mb-4">CATEGORY *</p>
+              <CategoryPicker
+                value={categoryPick}
+                onChange={(v) => {
+                  setCategoryPick(v);
+                  setForm((f: any) => ({ ...f, categoryId: v?.id || '' }));
+                }}
+                required
+                productContext={{
+                  name: form.name,
+                  description: form.description,
+                  craft: form.craft,
+                  region: form.region,
+                  material: form.material,
+                }}
+              />
+              {categoryPath && (
+                <p className="text-[11px] text-mitti mt-2 font-ui">
+                  Path: <span className="font-mono">{categoryPath}</span>
+                </p>
+              )}
+              <p className="text-[11px] text-mitti mt-2 font-italic italic">
+                Type to search and resolve the right leaf category before creation.
+              </p>
+            </div>
 
             <div className="mb-3">
               <label className="label text-mitti block mb-1">
@@ -269,7 +276,7 @@ export default function AdminNewProduct() {
                       : (form.categoryId || form.craft ? 'NEE-XXX-0001' : 'Pick category or craft first')
                   }
                   readOnly={!skuEditable}
-                  className={`flex-1 p-2 border border-mitti/20 font-ui font-mono text-sm ${
+                  className={`min-w-0 flex-1 p-2 border border-mitti/20 font-ui font-mono text-sm ${
                     skuEditable ? 'bg-ivory' : 'bg-beige text-mitti'
                   }`}
                 />
@@ -340,16 +347,9 @@ export default function AdminNewProduct() {
               help="Auto-generated from name until you manually edit it"
             />
 
-            <Field
-              label="Poetic Line"
-              value={form.poeticLine}
-              onChange={(v: string) => setForm((f: any) => ({ ...f, poeticLine: v }))}
-              help="One-line tagline under the title"
-            />
-
-            <div className="grid grid-cols-2 gap-3 mt-3">
-              <Field label="Craft" value={form.craft} onChange={(v: string) => setForm((f: any) => ({ ...f, craft: v }))} />
-              <Field label="Region" value={form.region} onChange={(v: string) => setForm((f: any) => ({ ...f, region: v }))} />
+            <div className="grid sm:grid-cols-2 gap-3 mt-3">
+              <Field label="Confirmed craft" value={form.craft} onChange={(v: string) => setForm((f: any) => ({ ...f, craft: v }))} />
+              <Field label="Origin (where made)" value={form.region} onChange={(v: string) => setForm((f: any) => ({ ...f, region: v }))} />
               <Field label="State" value={form.state} onChange={(v: string) => setForm((f: any) => ({ ...f, state: v }))} />
               <Field label="Cluster" value={form.cluster} onChange={(v: string) => setForm((f: any) => ({ ...f, cluster: v }))} />
               <Field label="Artisan Name" value={form.artisanName} onChange={(v: string) => setForm((f: any) => ({ ...f, artisanName: v }))} />
@@ -358,14 +358,11 @@ export default function AdminNewProduct() {
               <Field label="Occasion" value={form.occasion} onChange={(v: string) => setForm((f: any) => ({ ...f, occasion: v }))} />
             </div>
 
-            <Field
-              label="Description"
-              value={form.description}
-              onChange={(v: string) => setForm((f: any) => ({ ...f, description: v }))}
-              multiline
-              rows={4}
-            />
           </div>
+
+          <ProductNarrativePanel form={form} categoryName={categoryName} categoryPath={categoryPath}
+            image={form.cataloguePreferredImage || form.images[0]} price={effectiveDisplayPrice}
+            onChange={patch=>setForm((previous:any)=>({...previous,...patch}))}/>
 
           <div className="bg-beige p-6">
             <p className="label text-madder mb-4">STORY & SEO</p>
@@ -420,51 +417,31 @@ export default function AdminNewProduct() {
           <div className="bg-beige p-6">
             <p className="label text-madder mb-4">IMAGES</p>
             <ImageUploader
+              captureCategory={[categoryName, categoryPath].filter(Boolean).join(" ")}
               images={form.images}
               onChange={(imgs: string[]) =>
                 setForm((f: any) => ({
                   ...f,
                   images: imgs,
-                  cataloguePreferredImage: f.cataloguePreferredImage || imgs[0] || '',
+                  cataloguePreferredImage: f.images.includes(f.cataloguePreferredImage) && !imgs.includes(f.cataloguePreferredImage)
+                    ? imgs[Math.max(0, f.images.indexOf(f.cataloguePreferredImage))] || imgs[0] || ''
+                    : f.cataloguePreferredImage || imgs[0] || '',
                 }))
               }
               folder="products/new"
               max={10}
             />
             <p className="font-ui text-[11px] text-mitti mt-2">
-              First uploaded image is used as the default catalogue preferred image unless you override it below.
+              The first photo is the default catalogue image.
             </p>
+            <label className="flex items-start gap-2 mt-4 text-sm">
+              <input type="checkbox" checked={generatePhotos} onChange={e=>setGeneratePhotos(e.target.checked)} />
+              <span>Generate two styled photo options from these originals when I create the product.</span>
+            </label>
           </div>
         </div>
 
         <div className="space-y-6">
-          <div className="bg-beige p-6">
-            <p className="label text-madder mb-4">CATEGORY *</p>
-            <CategoryPicker
-              value={categoryPick}
-              onChange={(v) => {
-                setCategoryPick(v);
-                setForm((f: any) => ({ ...f, categoryId: v?.id || '' }));
-              }}
-              required
-              productContext={{
-                name: form.name,
-                description: form.description,
-                craft: form.craft,
-                region: form.region,
-                material: form.material,
-              }}
-            />
-            {categoryPathPreview && (
-              <p className="text-[11px] text-mitti mt-2 font-ui">
-                Path: <span className="font-mono">{categoryPathPreview}</span>
-              </p>
-            )}
-            <p className="text-[11px] text-mitti mt-2 font-italic italic">
-              Type to search and resolve the right leaf category before creation.
-            </p>
-          </div>
-
           <div className="bg-beige p-6">
             <p className="label text-madder mb-4">PRICING</p>
 

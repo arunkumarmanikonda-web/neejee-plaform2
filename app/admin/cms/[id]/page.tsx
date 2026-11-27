@@ -18,6 +18,8 @@ export default function CMSEditor() {
   const [sections, setSections] = useState<Section[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [publishTime, setPublishTime] = useState('');
+  const [saveError, setSaveError] = useState('');
   const [showAdd, setShowAdd] = useState(false);
   const [seoOpen, setSeoOpen] = useState(false);
   const [editorialOpen, setEditorialOpen] = useState(false);
@@ -80,35 +82,29 @@ export default function CMSEditor() {
     setShowAdd(false);
   };
 
-  const save = async (newStatus?: string) => {
+  const saveMeta = async (changes: Record<string, unknown>) => {
     setSaving(true);
-    const body: any = { sections };
-    if (newStatus) body.status = newStatus;
-    const res = await fetch(`/api/admin/cms/${id}`, {
-      method: 'PATCH',
-      credentials: 'include',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    });
-    const j = await res.json();
-    if (j.page) {
-      setPage(j.page);
+    setSaveError('');
+    try {
+      const res = await fetch(`/api/admin/cms/${id}`, {
+        method: 'PATCH', credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...changes, expectedUpdatedAt: page.updatedAt }),
+      });
+      const result = await res.json();
+      if (!res.ok || !result.page) throw new Error(result.error || 'Could not save the page.');
+      setPage(result.page);
+      setPublishTime('');
+    } catch (error) {
+      setSaveError(error instanceof Error ? error.message : 'Could not save the page.');
+    } finally {
+      setSaving(false);
     }
-    setSaving(false);
   };
 
-  const saveMeta = async (changes: Record<string, any>) => {
-    setSaving(true);
-    const res = await fetch(`/api/admin/cms/${id}`, {
-      method: 'PATCH',
-      credentials: 'include',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(changes),
-    });
-    const j = await res.json();
-    if (j.page) setPage(j.page);
-    setSaving(false);
-  };
+  const save = (status?: string) => saveMeta({ sections, ...(status && { status }) });
+  const scheduled = page?.status === 'PREVIEW' && page?.scheduledAt;
+  const publicPath = `/${page?.pageType === 'journal' ? 'journal' : 'pages'}/${page?.slug}`;
 
   if (loading) return <p className="text-mitti p-12 text-center font-italic italic">Loading…</p>;
   if (!page) return <p className="text-madder p-12 text-center">Page not found.</p>;
@@ -128,19 +124,19 @@ export default function CMSEditor() {
             <ArrowLeft className="w-3 h-3" /> ALL PAGES
           </Link>
           <h1 className="font-display text-3xl text-kohl mt-2">{page.title}</h1>
-          <p className="text-mitti text-sm mt-1 font-mono">/p/{page.slug}</p>
+          <p className="text-mitti text-sm mt-1 font-mono">{publicPath}</p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           <span className={`text-xs px-2 py-1 tracking-wider ${
             page.status === 'PUBLISHED' ? 'bg-neem/20 text-neem' : 'bg-mitti/20 text-mitti'
-          }`}>{page.status}</span>
+          }`}>{scheduled ? 'SCHEDULED' : page.status}</span>
           {page.status === 'PUBLISHED' && (
-            <Link href={`/p/${page.slug}`} target="_blank" className="text-xs px-3 py-2 border border-mitti/30 hover:bg-beige flex items-center gap-1">
+            <Link href={publicPath} target="_blank" className="text-xs px-3 py-2 border border-mitti/30 hover:bg-beige flex items-center gap-1">
               <Eye className="w-3 h-3" /> VIEW LIVE
             </Link>
           )}
           <button onClick={() => save()} disabled={saving} className="text-xs px-3 py-2 border border-kohl hover:bg-kohl hover:text-ivory flex items-center gap-1 disabled:opacity-50">
-            <Save className="w-3 h-3" /> {saving ? 'SAVING' : 'SAVE DRAFT'}
+            <Save className="w-3 h-3" /> {saving ? 'SAVING' : 'SAVE CHANGES'}
           </button>
           {page.status !== 'PUBLISHED' ? (
             <button onClick={() => save('PUBLISHED')} disabled={saving} className="text-xs px-4 py-2 bg-madder text-ivory hover:bg-madder/90 disabled:opacity-50 tracking-wider">PUBLISH</button>
@@ -150,6 +146,24 @@ export default function CMSEditor() {
         </div>
       </div>
       <div className="madder-divider mt-4"></div>
+
+      {saveError && <p role="alert" className="text-madder mt-3">{saveError}</p>}
+      {page.pageType === 'journal' && ['DRAFT', 'PREVIEW'].includes(page.status) && (
+        <div className="mt-4 p-4 border border-mitti/25 space-y-3">
+          {scheduled && <p role="status">Scheduled for {new Date(page.scheduledAt).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })}.</p>}
+          <form className="flex items-end flex-wrap gap-3" onSubmit={e => {
+            e.preventDefault();
+            void saveMeta({ sections, scheduledAt: new Date(publishTime).toISOString() });
+          }}>
+            <label className="text-sm">Publication time ({Intl.DateTimeFormat().resolvedOptions().timeZone})
+              <input type="datetime-local" required value={publishTime} onChange={e => setPublishTime(e.target.value)} className="block p-2 mt-1 border border-mitti/30 bg-ivory" />
+            </label>
+            <button disabled={saving || !publishTime} className="btn-primary disabled:opacity-50">{scheduled ? 'Reschedule' : 'Schedule publication'}</button>
+            {scheduled && <button type="button" disabled={saving} onClick={() => void saveMeta({ scheduledAt: null })} className="underline">Cancel schedule</button>}
+          </form>
+          <p className="text-sm text-mitti">Approved entries go live within five minutes of the selected time.</p>
+        </div>
+      )}
 
       {/* Editorial panel */}
       <div className="mt-4">
