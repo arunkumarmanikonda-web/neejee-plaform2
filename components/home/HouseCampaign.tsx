@@ -106,13 +106,14 @@ function CampaignPortrait() {
   </picture>;
 }
 
-export function HouseCampaign({lead,preview,email}: {lead:Lead;preview:boolean;email:string}) {
+export function HouseCampaign({lead,preview,email,secondary=false}: {lead:Lead;preview:boolean;email:string;secondary?:boolean}) {
   const [selected,setSelected] = useState(0);
   const [inspection,setInspection] = useState<number|null>(null);
   const trigger = useRef<HTMLElement|null>(null);
   const router = useRouter();
   const stock = lead?.cover ? featuredStock(lead) : null;
   const piece = stock || editorial[selected];
+  const Title = secondary ? 'h2' : 'h1';
   const canSample = !stock && preview && sampleShopping;
   const campaignPortrait = !stock && piece.id==='surkh';
   const detailIndex = piece.photos.length>1 ? 1 : 0;
@@ -135,7 +136,7 @@ export function HouseCampaign({lead,preview,email}: {lead:Lead;preview:boolean;e
           {piece.alias && <p className={styles.alias}>{piece.alias}</p>}
         </div>
         <div className={styles.details}>
-          <h1 aria-live="polite" className={styles.title}>{piece.name}</h1>
+          <Title aria-live="polite" className={styles.title}>{piece.name}</Title>
           {piece.description && <p className={styles.line}>{piece.description}</p>}
           {stock && piece.region && <p className={styles.origin}>{piece.region}</p>}
           <div className={styles.actions}>

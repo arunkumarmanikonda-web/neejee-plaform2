@@ -54,7 +54,7 @@ async function getHomeData() {
     const lead = await prisma.product.findFirst({
       where: { AND: [
         publicWhere,
-        { catalogueImageApproved: true, sellingPrice: { gt: 0 }, variants: { some: { inventory: { gt: 0 } } } },
+        { category:{active:true,hidden:false}, OR:[{catalogueCtaMode:'SHOP_NOW'},{catalogueCtaMode:null}], catalogueImageApproved: true, sellingPrice: { gt: 0 }, variants: { some: { inventory: { gt: 0 } } } },
         { OR: [
           { cataloguePreferredImage: { not: '' } }, { images: { isEmpty: false } },
           { variants: { some: { images: { isEmpty: false } } } },
@@ -215,7 +215,7 @@ export default async function HomePage() {
       <Header shop/>
       <main className="house-front">
         {!data.saree && data.spotlightCard && <StockFeature piece={data.spotlightCard}/>}
-        <HouseCampaign lead={data.saree} preview={previewPricingEnabled()} email={email}/>
+        <HouseCampaign secondary={!data.saree && !!data.spotlightCard} lead={data.saree} preview={previewPricingEnabled()} email={email}/>
         {(!fashion.length || moreFashion.length>0) && <div className="nj-market house-shelf" style={{paddingBottom:'1rem'}}>
           {fashion.length ? <section className="nj-shelf"><div className="nj-shelf-head"><h2>Sarees <em>&amp; suit sets</em></h2><Link className="nj-text-link" href="/edits/clothing">Shop the collection</Link></div><CatalogueGrid textiles products={moreFashion.map(p=>({...p,images:p.cover?[p.cover,...p.images.filter(i=>i!==p.cover)]:p.images}))}/></section> :
             <StudyShelf home ids={homeStudyIds} preview={previewPricingEnabled()} email={email}/>}

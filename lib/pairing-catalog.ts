@@ -17,7 +17,7 @@ const fields={id:true,slug:true,name:true,category:{select:{slug:true,path:true}
 type Row=Prisma.ProductGetPayload<{select:typeof fields}>;
 type Variant=Row['variants'][number];
 function piece(p:Row,v:Variant):PairPiece {
-  return {id:p.id,slug:p.slug,variant:v.id,name:p.name,image:v.images.find(Boolean)||(p._count.variants===1?(p.cataloguePreferredImage||p.images.find(Boolean)):'')||'',
+  return {id:p.id,slug:p.slug,variant:v.id,name:p.name,image:v.images.find(Boolean)||((p._count.variants===1 || p.variants.every(other=>v.color===other.color))?(p.cataloguePreferredImage||p.images.find(Boolean)):'')||'',
     price:v.sellingPrice??buildPricing(p).effectivePrice,option:[v.color,v.size,v.material].filter(Boolean).join(' · ')};
 }
 const toneFamilies=[['red','vermilio','wine','maroon','madder'],['blue','indigo','navy'],['green','sage','pistach','olive'],['yellow','turmeric','gold','brass','mustard'],['ivory','cream','pearl','white'],['brown','tan','wood','copper']];
