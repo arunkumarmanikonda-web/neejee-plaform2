@@ -1,3 +1,4 @@
+import { razorpayCredentials } from '@/lib/payments/razorpay-credentials';
 // Creates a Razorpay order for a prepaid checkout snapshot.
 // The NEEJEE Order is still materialized only after verified payment.
 import { NextResponse } from 'next/server';
@@ -18,8 +19,7 @@ export async function POST(request: Request) {
     const body = await request.json();
     const { snapshotId, orderNumber } = body;
 
-    const keyId = process.env.RAZORPAY_KEY_ID;
-    const keySecret = process.env.RAZORPAY_KEY_SECRET;
+    const { keyId, keySecret } = razorpayCredentials();
     if (!keyId || !keySecret) {
       console.error('[razorpay.create-order] credentials not configured');
       return NextResponse.json({ error: 'Payment service is temporarily unavailable' }, { status: 503 });
@@ -141,6 +141,13 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ error: 'snapshotId or orderNumber required' }, { status: 400 });
   } catch (error: any) {
+    if (Number(error?.statusCode) === 401) {
+      console.error('[razorpay.create-order] Merchant authentication rejected (401)');
+      return NextResponse.json({
+        code: 'PAYMENT_PROVIDER_UNAVAILABLE',
+        error: 'Online payment is temporarily unavailable. Your bag is saved. Please try again later.',
+      }, { status: 503 });
+    }
     console.error('[razorpay.create-order]', error);
     return NextResponse.json({ error: 'Unable to start payment right now' }, { status: 500 });
   }

@@ -23,12 +23,13 @@ test('several processed partials sum to full; repeats and unprocessed refunds do
 });
 test('gateway reads are authenticated, reject unavailable providers and paginate processed refunds', async context => {
   const oldKey=process.env.RAZORPAY_KEY_ID, oldSecret=process.env.RAZORPAY_KEY_SECRET;
-  process.env.RAZORPAY_KEY_ID='mock'; process.env.RAZORPAY_KEY_SECRET='mock';
+  process.env.RAZORPAY_KEY_ID='  "mock-id"  '; process.env.RAZORPAY_KEY_SECRET='mock-secret\r\n';
   try {
     const paths:string[]=[];
     let fail=false;
     context.mock.method(globalThis,'fetch',async (url:string,init:RequestInit) => {
-      assert.ok((init.headers as Record<string,string>).Authorization.startsWith('Basic '));paths.push(url);
+      assert.equal((init.headers as Record<string,string>).Authorization,'Basic '+Buffer.from('mock-id:mock-secret').toString('base64'));
+      paths.push(url);
       if (fail) return new Response('{}',{status:503});
       if (!url.includes('/refunds')) return Response.json(paid);
       const items = url.includes('skip=100') ? [partial] : Array.from({length:100},(_,i)=>({...partial,id:'pending_'+i,status:'pending'}));

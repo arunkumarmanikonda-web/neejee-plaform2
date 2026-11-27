@@ -1,3 +1,4 @@
+import { razorpayCredentials } from '@/lib/payments/razorpay-credentials';
 // Verify Razorpay signature, bind it to the exact stored gateway order,
 // consume all checkout reservations, and materialize the paid NEEJEE Order atomically.
 import { NextResponse } from 'next/server';
@@ -122,7 +123,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'snapshotId or orderNumber required' }, { status: 400 });
     }
 
-    const secret = process.env.RAZORPAY_KEY_SECRET;
+    const { keySecret: secret } = razorpayCredentials();
     if (!secret) {
       console.error('[razorpay.verify] RAZORPAY_KEY_SECRET is not configured');
       return NextResponse.json({ error: 'Payment verification is temporarily unavailable' }, { status: 503 });

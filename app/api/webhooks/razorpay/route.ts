@@ -1,3 +1,4 @@
+import { razorpayCredentials } from '@/lib/payments/razorpay-credentials';
 // Razorpay webhook handler.
 //
 // Configure on https://dashboard.razorpay.com/app/webhooks:
@@ -214,7 +215,7 @@ async function recoverCapturedSnapshot(payment: any, requestUrl: string) {
     } as any,
   });
 
-  const keySecret = process.env.RAZORPAY_KEY_SECRET;
+  const { keySecret } = razorpayCredentials();
   if (!keySecret) {
     await prisma.abandonedCart.update({
       where: { id: snapshot.id },

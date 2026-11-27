@@ -1,3 +1,4 @@
+import { razorpayCredentials } from './razorpay-credentials';
 type GatewayPayment = {
   id?:string; order_id?:string; status?:string; captured?:boolean; amount?:number; currency?:string; amount_refunded?:number;
 };
@@ -13,7 +14,7 @@ export function captureState(payment:GatewayPayment, paymentId:string, orderId:s
 }
 
 async function gatewayGet<T>(path:string):Promise<T> {
-  const key = process.env.RAZORPAY_KEY_ID, secret = process.env.RAZORPAY_KEY_SECRET;
+  const { keyId: key, keySecret: secret } = razorpayCredentials();
   if (!key || !secret) throw new Error('Payment service unavailable');
   const res = await fetch('https://api.razorpay.com/v1/'+path,{
     headers:{Authorization:'Basic '+Buffer.from(key+':'+secret).toString('base64')},
