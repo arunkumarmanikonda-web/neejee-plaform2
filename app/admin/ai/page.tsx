@@ -83,8 +83,8 @@ export default async function AdminAI(
 
   const falOn = !!process.env.FAL_KEY;
   const replicateOn = !!process.env.REPLICATE_API_TOKEN;
-  const imageOn = falOn || replicateOn;
-  const openaiOn = !!process.env.OPENAI_API_KEY;
+  const openaiOn = Boolean(process.env.OPENAI_API_KEY?.trim());
+  const imageOn = falOn || replicateOn || openaiOn;
   const stats = await getStats();
 
   return (
@@ -103,7 +103,7 @@ export default async function AdminAI(
 
         <div className="flex flex-wrap gap-2">
           <StatusPill active={openaiOn} onText="OpenAI ready" offText="OpenAI missing" />
-          <StatusPill active={imageOn} onText="Image stack ready" offText="Image stack missing" />
+          <StatusPill active={imageOn} onText="Image credentials configured" offText="Image stack missing" />
         </div>
       </div>
 
@@ -239,7 +239,7 @@ export default async function AdminAI(
         <div className="grid md:grid-cols-2 xl:grid-cols-4 gap-4 mt-5">
           <div className={`rounded-xl border p-4 ${openaiOn ? 'border-neem/30 bg-neem/5' : 'border-mitti/20 bg-beige/40'}`}>
             <p className="font-display text-xl text-kohl">OpenAI</p>
-            <p className="text-xs text-mitti mt-2">SEO draft/audit, campaign planning, taxonomy planning, CMS scaffold</p>
+            <p className="text-xs text-mitti mt-2">Editorial copy, catalogue images, marketing creatives and photo previews</p>
             <p className={`text-xs mt-3 tracking-[0.18em] ${openaiOn ? 'text-neem' : 'text-mitti'}`}>{openaiOn ? 'CONFIGURED' : 'MISSING'}</p>
           </div>
           <div className={`rounded-xl border p-4 ${falOn ? 'border-neem/30 bg-neem/5' : 'border-mitti/20 bg-beige/40'}`}>

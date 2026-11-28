@@ -15,7 +15,7 @@
 import { intakePrefix, reviewedImages } from '@/lib/catalog/creation-intake';
 import { uploadFile } from '@/lib/storage';
 import { prisma } from '@/lib/prisma';
-import { falRun } from '@/lib/ai';
+import { runCreativeImages } from '@/lib/ai/creative-images';
 import { STRATEGIES, type StrategyKey } from './category-strategies';
 import { buildFullPrompt } from './preserve-prompts';
 
@@ -141,7 +141,11 @@ async function generateClaimedJob(jobId: string): Promise<RunJobResult> {
       });
 
       try {
-        const r = await falRun({
+        const intake = jobId.startsWith(intakePrefix) && job.productId;
+        const r = await runCreativeImages({
+          folder: 'catalogue-photography',
+          aspect: scene.aspectRatio,
+          objectPath: intake ? 'products/'+job.productId+'/creatives/'+jobId+'-'+index+'.jpg' : undefined,
           endpoint: FAL_ENDPOINT,
           input: {
             prompt,
@@ -157,7 +161,7 @@ async function generateClaimedJob(jobId: string): Promise<RunJobResult> {
         });
 
         let url: string | undefined = r.data?.images?.[0]?.url;
-        if (r.ok && url && jobId.startsWith(intakePrefix) && job.productId) {
+        if (r.ok && url && !r.stored && intake && job.productId) {
           url=await storeIntakeImage(url,job.productId,jobId,index);
         }
         return { scene, ok: r.ok && !!url, url, error: r.error, prompt };

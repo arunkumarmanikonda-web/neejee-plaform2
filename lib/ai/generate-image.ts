@@ -8,7 +8,7 @@
 // After generation, optionally re-hosts the output on Supabase for a permanent URL
 // (fal.ai URLs expire). Returns the permanent URL.
 
-import { falRun } from '@/lib/ai';
+import { runCreativeImages } from './creative-images';
 import { uploadFile, storageConfigured, makeUploadPath } from '@/lib/storage';
 
 export type AspectRatio =
@@ -85,6 +85,9 @@ export async function generateAiImage(args: GenerateImageArgs): Promise<Generate
       num_images: 1,
       safety_tolerance: '5',
     };
+  } else if (args.referenceImageUrls?.length) {
+    endpoint = 'fal-ai/nano-banana-pro/edit';
+    input = { prompt, image_urls: args.referenceImageUrls.slice(0, 4), aspect_ratio: aspect, num_images: 1, output_format: 'jpeg' };
   } else if (model === 'flux-schnell') {
     endpoint = 'fal-ai/flux/schnell';
     input = {
@@ -105,7 +108,7 @@ export async function generateAiImage(args: GenerateImageArgs): Promise<Generate
     };
   }
 
-  const result = await falRun({ endpoint, input, timeoutMs: 120_000 });
+  const result = await runCreativeImages({ endpoint, input, timeoutMs: 120_000, aspect, folder: args.folder || 'ai-generated', filename: args.filenameHint });
   if (!result.ok || !result.data) {
     return { ok: false, model, error: result.error || 'fal generation failed' };
   }
@@ -125,7 +128,7 @@ export async function generateAiImage(args: GenerateImageArgs): Promise<Generate
 
   // Re-host on Supabase for a permanent URL
   let finalUrl = rawUrl;
-  if (storageConfigured()) {
+  if (!result.stored && storageConfigured()) {
     try {
       const fetched = await fetch(rawUrl);
       if (fetched.ok) {

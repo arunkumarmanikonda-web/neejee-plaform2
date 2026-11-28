@@ -7,7 +7,8 @@
 //   3. In parallel, call OpenAI for caption / hashtags / CTA copy
 //   4. Return { variants: [{url}x4], copy: { caption, igCaption, emailSubject, hashtags } }
 
-import { openaiChat, falRun } from '@/lib/ai';
+import { openaiChat } from '@/lib/ai';
+import { runCreativeImages } from '@/lib/ai/creative-images';
 import { prisma } from '@/lib/prisma';
 
 export type StudioFlow = 'single_product' | 'range' | 'offer' | 'generic';
@@ -247,42 +248,19 @@ async function generateImageVariants(
   };
   if (useEdit) baseInput.image_urls = refUrls;
 
-  // First try: one call with num_images
-  const single = await falRun({
-    endpoint,
-    input: baseInput,
-    timeoutMs: 180_000,
-  });
-  if (!single.ok) {
-    console.error(`[studio] ${endpoint} single call failed:`, single.error);
+  const request = { endpoint, input: baseInput, timeoutMs: 180_000, aspect: ASPECT_BY_FORMAT[format], folder: 'marketing-studio' };
+  const result = await runCreativeImages(request);
+  const images: Array<{ url?: string }> = result.data?.images || [];
+  const variants = images.slice(0, count).flatMap((image, index) => image.url ? [{ url: image.url, index }] : []);
+  if (result.ok && !result.stored && variants.length < count) {
+    const remainder = await Promise.all(Array.from({ length: count - variants.length }, () =>
+      runCreativeImages({ ...request, input: { ...baseInput, num_images: 1 } })));
+    for (const extra of remainder) {
+      const url = extra.data?.images?.[0]?.url;
+      if (url) variants.push({ url, index: variants.length });
+    }
   }
-  const images: any[] = single.data?.images || [];
-  if (images.length >= count) {
-    return {
-      variants: images.slice(0, count).map((img, i) => ({ url: img.url, index: i })),
-    };
-  }
-
-  // Fallback: top up with parallel single-image calls (same endpoint, same refs)
-  const need = count - images.length;
-  const promises = Array.from({ length: need }, (_, i) =>
-    falRun({
-      endpoint,
-      input: { ...baseInput, num_images: 1 },
-      timeoutMs: 120_000,
-    }).then(r => ({ ok: r.ok, url: r.data?.images?.[0]?.url, index: images.length + i, err: r.error }))
-  );
-  const extra = await Promise.all(promises);
-  const merged: Array<{ url: string; index: number }> = [
-    ...images.map((img, i) => ({ url: img.url, index: i })),
-    ...extra.filter(r => r.ok && r.url).map(r => ({ url: r.url as string, index: r.index })),
-  ];
-
-  const errorMsg = !single.ok
-    ? single.error
-    : extra.find(r => !r.ok)?.err || (merged.length === 0 ? `${endpoint} returned no images` : undefined);
-
-  return { variants: merged, error: errorMsg };
+  return { variants, error: result.error || (variants.length < count ? 'The provider returned fewer images than requested.' : undefined) };
 }
 
 /** Generate copy via OpenAI. Returns the full copy bundle. */
@@ -426,26 +404,24 @@ export async function runMarketingStudio(req: StudioRequest): Promise<StudioResu
   const pairResultsP = Promise.all(limitedPairs.map(async (p, idx) => {
     const prompt = await buildPromptForPair(req, productNames, p.format, p.style, productImageUrls.length > 0);
     const r = await generateImageVariants(prompt, p.format, perPair, productImageUrls);
-    return r.variants.map((v, vIdx) => ({
+    return { prompt, error: r.error, variants: r.variants.map((v, vIdx) => ({
       url: v.url,
       index: idx * perPair + vIdx,
       format: p.format,
       style: p.style,
-      aspectRatio: falAspectRatio(p.format),
-    }));
+      aspectRatio: ASPECT_BY_FORMAT[p.format],
+    })) };
   }));
   const copyP = generateCopy(req, productNames);
   const [pairResults, copy] = await Promise.all([pairResultsP, copyP]);
-  const allVariants: StudioVariant[] = pairResults.flat();
-
-  // Representative prompt for diagnostics (first pair)
-  const repPrompt = await buildPromptForPair(req, productNames, limitedPairs[0].format, limitedPairs[0].style, productImageUrls.length > 0);
+  const allVariants: StudioVariant[] = pairResults.flatMap(pair => pair.variants);
 
   return {
     variants: allVariants,
     copy,
-    imagePrompt: repPrompt,
+    imagePrompt: pairResults[0]?.prompt || '',
     diagnostics: {
+      imageError: pairResults.find(pair => pair.error)?.error,
       productNames,
       flow: req.flow,
       formats,

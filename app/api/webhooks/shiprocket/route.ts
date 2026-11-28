@@ -37,7 +37,8 @@ export async function POST(req: Request) {
   }
 
   try {
-    const body = await req.json();
+    const body = await req.json().catch(() => null);
+    if (!body || typeof body !== 'object' || Array.isArray(body)) return NextResponse.json({ error: 'Invalid tracking event' }, { status: 400 });
     const awb = String(body?.awb || body?.awb_code || '').trim();
     const shiprocketStatus = String(body?.current_status || body?.status || '').trim().toUpperCase();
     const ourStatus = SHIPROCKET_STATUS_MAP[shiprocketStatus];
@@ -64,7 +65,7 @@ export async function POST(req: Request) {
     const nextIdx = progress.indexOf(ourStatus);
 
     if (order.status === ourStatus) return NextResponse.json({ ok: true, idempotent: true });
-    if (nextIdx >= 0 && currentIdx > nextIdx) {
+    if (currentIdx < 0 || (nextIdx >= 0 && currentIdx > nextIdx)) {
       return NextResponse.json({ ok: true, ignored: true });
     }
     // A delivery confirmation is terminal for courier progression. Do not let a
@@ -80,7 +81,10 @@ export async function POST(req: Request) {
     }
     if (ourStatus === 'DELIVERED' && !order.deliveredAt) updateData.deliveredAt = new Date();
 
-    await prisma.order.update({ where: { id: order.id }, data: updateData });
+    const changed = await prisma.order.updateMany({
+      where: { id: order.id, status: order.status, awbNumber: awb }, data: updateData,
+    });
+    if (!changed.count) return NextResponse.json({ error: 'Order changed. Retry this tracking event.' }, { status: 503 });
 
     const event = EVENT_MAP[ourStatus];
     if (event) {
@@ -102,8 +106,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: true, status: ourStatus });
   } catch (error: any) {
     console.warn('[webhooks.shiprocket] processing failed:', error?.message);
-    // Acknowledge authenticated provider traffic to avoid retry storms.
-    return NextResponse.json({ ok: true, suppressed: true });
+    return NextResponse.json({ error: 'Tracking event could not be recorded. Retry later.' }, { status: 503 });
   }
 }
 

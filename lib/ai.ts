@@ -10,11 +10,11 @@
 //   Set OPENAI_API_KEY in env to activate.
 
 export function aiImageConfigured(): boolean {
-  return Boolean(process.env.FAL_KEY || process.env.REPLICATE_API_TOKEN);
+  return Boolean(process.env.FAL_KEY?.trim() || process.env.OPENAI_API_KEY?.trim());
 }
 
 export function aiMirrorConfigured(): boolean {
-  return Boolean(process.env.FAL_KEY);
+  return Boolean(process.env.FAL_KEY?.trim() || process.env.OPENAI_API_KEY?.trim());
 }
 
 export function aiTextConfigured(): boolean {
@@ -26,29 +26,35 @@ export function aiTextConfigured(): boolean {
 
 const FAL_BASE = 'https://queue.fal.run';
 
+function queueUrl(raw: string): string {
+  const url = new URL(raw);
+  if (url.origin !== FAL_BASE || url.username || url.password) throw new Error('Invalid image provider job URL');
+  return url.href;
+}
+
 interface FalRunArgs {
   endpoint: string;        // e.g. "fal-ai/fashn/tryon/v1.5"
   input: Record<string, any>;
   timeoutMs?: number;      // total wait
 }
 
-export async function falRun({ endpoint, input, timeoutMs = 90_000 }: FalRunArgs): Promise<{ ok: boolean; data?: any; error?: string }> {
+export async function falRun({ endpoint, input, timeoutMs = 90_000 }: FalRunArgs): Promise<{ ok: boolean; data?: any; error?: string; credentialRejected?: boolean }> {
   const key = process.env.FAL_KEY;
-  if (!key) return { ok: false, error: 'FAL_KEY not set' };
+  if (!key) return { ok: false, error: 'FAL_KEY not set', credentialRejected: true };
 
   try {
     // 1. Submit
     const submit = await fetch(`${FAL_BASE}/${endpoint}`, {
-      method: 'POST',
+      method: 'POST', redirect: 'error', signal: AbortSignal.timeout(18000),
       headers: {
         Authorization: `Key ${key}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(input),
     });
-    const submitData = await submit.json();
+    const submitData = await submit.json().catch(() => ({}));
     if (!submit.ok) {
-      return { ok: false, error: submitData?.detail || submitData?.error || `fal submit failed (${submit.status})` };
+      return { ok: false, credentialRejected: submit.status === 401 || submit.status === 402, error: 'Image provider declined the request (HTTP ' + submit.status + ').' };
     }
 
     const requestId: string | undefined = submitData.request_id;
@@ -66,13 +72,15 @@ export async function falRun({ endpoint, input, timeoutMs = 90_000 }: FalRunArgs
 
     while (Date.now() - startedAt < timeoutMs) {
       await new Promise(r => setTimeout(r, 2000));
-      const sRes = await fetch(statusUrl, { headers: { Authorization: `Key ${key}` } });
+      const sRes = await fetch(queueUrl(statusUrl), { redirect: 'error', signal: AbortSignal.timeout(15000), headers: { Authorization: `Key ${key}` } });
       const sJson = await sRes.json().catch(() => ({}));
+      if (!sRes.ok) return { ok: false, error: 'Image status check failed (' + sRes.status + ')' };
       const status = sJson.status as string | undefined;
       if (status === 'COMPLETED') {
         const resultUrl = sJson.response_url || submitData.response_url || `${FAL_BASE}/${endpoint}/requests/${requestId}`;
-        const rRes = await fetch(resultUrl, { headers: { Authorization: `Key ${key}` } });
+        const rRes = await fetch(queueUrl(resultUrl), { redirect: 'error', signal: AbortSignal.timeout(15000), headers: { Authorization: `Key ${key}` } });
         const rJson = await rRes.json().catch(() => ({}));
+        if (!rRes.ok) return { ok: false, error: 'Image retrieval failed (' + rRes.status + ')' };
         // fal sometimes marks a request COMPLETED but the body is actually an error envelope.
         // Detect this and surface the message instead of treating empty `detail` as success.
         if (!rJson.images && !rJson.image && !rJson.output && (rJson.detail || rJson.error || rJson.message)) {
@@ -151,14 +159,14 @@ export async function submitRoomPlacement(room:string,piece:string,description:s
   });
 }
 
-export async function submitStudioTask(endpoint:string,input:Record<string,unknown>): Promise<{ ok: boolean; requestId?: string; endpoint?: string; statusUrl?: string; responseUrl?: string; error?: string }> {
+export async function submitStudioTask(endpoint:string,input:Record<string,unknown>): Promise<{ ok: boolean; requestId?: string; endpoint?: string; statusUrl?: string; responseUrl?: string; error?: string; credentialRejected?: boolean }> {
   const key=process.env.FAL_KEY;
-  if(!key)return {ok:false,error:'Image provider unavailable'};
+  if(!key)return {ok:false,error:'Image provider unavailable',credentialRejected:true};
   try {
     const submit=await fetch(FAL_BASE+'/'+endpoint,{method:'POST',headers:{Authorization:'Key '+key,'Content-Type':'application/json'},body:JSON.stringify(input),signal:AbortSignal.timeout(18000)});
     const data = await submit.json().catch(() => ({}));
     if (!submit.ok) {
-      return { ok: false, error: data?.detail || data?.error || `fal submit failed (${submit.status})` };
+      return { ok: false, credentialRejected: submit.status === 401 || submit.status === 402, error: data?.detail || data?.error || `fal submit failed (${submit.status})` };
     }
     const requestId: string | undefined = data.request_id;
     if (!requestId) {
@@ -396,7 +404,7 @@ export async function jewelleryTryOn(
   jewelleryImageUrl: string,
   jewelleryType: JewelleryType,
   productName: string
-): Promise<{ ok: boolean; outputUrl?: string; error?: string }> {
+): Promise<{ ok: boolean; outputUrl?: string; jpeg?: Buffer; error?: string }> {
 
   const placementPrompts: Record<Exclude<JewelleryType, 'auto'>, string> = {
     earrings: `Place these ${productName} earrings on the person in image 1, hanging naturally from both earlobes. Keep the person's face, hair, skin tone, and clothing completely unchanged. The earrings should match the perspective and lighting of the portrait. Render the earrings with realistic shadow, sparkle, and shimmer on metal/stones. Both earlobes must show identical matching earrings. High-detail photographic quality.`,
@@ -423,7 +431,12 @@ export async function jewelleryTryOn(
     },
     timeoutMs: 120_000,
   });
-  if (!r.ok) return { ok: false, error: r.error };
+  if (r.credentialRejected && process.env.OPENAI_API_KEY?.trim()) {
+    const { makeStyleImage } = await import('./ai/openai-image');
+    const jpeg = await makeStyleImage(prompt, [personImageUrl, jewelleryImageUrl], '3:4');
+    return { ok: true, jpeg };
+  }
+  if (!r.ok) return { ok: false, error: 'The image service could not complete this preview.' };
 
   // fal-ai/flux-pro/kontext/max/multi returns { images: [{ url, content_type }], seed, has_nsfw_concepts, prompt }
   // Exhaustive fallback parsing for shape drift across model versions.
@@ -446,7 +459,7 @@ export async function jewelleryTryOn(
     d?.url;
 
   if (!url) {
-    console.warn('[jewelleryTryOn] No image URL. Full response sample:', JSON.stringify(d).slice(0, 800));
+    console.warn('[jewelleryTryOn] Provider returned no image.');
     return {
       ok: false,
       error: `AI completed but returned no usable image. The fal response shape was unexpected (keys: ${Object.keys(d || {}).join(', ')}). Try again — if this persists, the model may be temporarily down.`,

@@ -7,8 +7,9 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getSession } from '@/lib/auth';
 import { aiMirrorConfigured, falSubmitTryOn, submitRoomPlacement } from '@/lib/ai';
-import { verifyPrivateAiMediaRequest } from './private-media';
-import { privateStudioReadUrl,storageConfigured } from '@/lib/storage';
+import { makeStyleImage, openAiStyleAvailable } from './openai-image';
+import { createPrivateAiMediaUrl, verifyPrivateAiMediaRequest } from './private-media';
+import { privateStudioReadUrl, storageConfigured, makeUploadPath, uploadPrivateAiFile, deleteFile } from '@/lib/storage';
 import { findStudioPiece } from '@/lib/studio-catalog';
 import type { StudioMode } from '@/lib/studio';
 
@@ -46,13 +47,35 @@ export async function submitStudio(request:Request,mode:StudioMode) {
     const fabricDetails = ('fabricDetails' in option ? option.fabricDetails : undefined) || [];
     const input=await privateStudioReadUrl(proof.path);
     const styled = styling && (study || selectedAccessories(styling,accessories).length || Object.keys(own).length);
-    const submit=styled || fabricDetails.length
-      ? await submitStudioTask('fal-ai/nano-banana-2/edit',await buildStyledInput(input,study?study.image:reference,styling,accessories,request.url,own,fabricDetails))
-      : mirror?await falSubmitTryOn(input,reference):
-      await submitRoomPlacement(input,reference,[piece.craft,piece.material,piece.name,option.color].filter(Boolean).join(' '));
-    if(!submit.ok || !submit.requestId || !submit.endpoint)return NextResponse.json({error:'The studio could not start the preview. Please try again.'},{status:502});
-    const pending=await prisma.aiPreview.create({data:{userId:session.id,type:mirror?'MIRROR':'SPACE',sourceImage:canonicalSource,
-      productIds:[...new Set([...(study?[]:[piece.id]),...accessories.map(item=>item.productId).filter((id):id is string=>!!id)])],consentLogged:true,deleteAt:new Date(Date.now()+30*86400000)}});
+    const styledInput = styled || fabricDetails.length
+      ? await buildStyledInput(input, study ? study.image : reference, styling, accessories, request.url, own, fabricDetails)
+      : null;
+    const description = [piece.craft, piece.material, piece.name, option.color].filter(Boolean).join(' ');
+    const submit = styledInput ? await submitStudioTask('fal-ai/nano-banana-2/edit', styledInput)
+      : mirror ? await falSubmitTryOn(input, reference) : await submitRoomPlacement(input, reference, description);
+    const preview = {
+      userId: session.id, type: mirror ? 'MIRROR' as const : 'SPACE' as const, sourceImage: canonicalSource,
+      productIds: [...new Set([...(study ? [] : [piece.id]), ...accessories.map(item => item.productId).filter((id): id is string => !!id)])],
+      consentLogged: true, deleteAt: new Date(Date.now() + 30 * 86400000),
+    };
+    if (submit.credentialRejected && openAiStyleAvailable()) {
+      const prompt = styledInput?.prompt || (mirror
+        ? 'Dress the person in image 1 in the exact garment from image 2. Preserve their appearance, pose and surroundings, and the colour, motifs and drape of the garment.'
+        : 'Place the exact object from image 2 in the room from image 1. Match the existing perspective and lighting and preserve the room. Object: ' + description);
+      const jpg = await makeStyleImage(prompt, styledInput?.image_urls || [input, reference]);
+      const path = makeUploadPath((mirror ? 'ai-mirror/' : 'ai-space/') + session.id, 'preview.jpg');
+      const outputUrl = createPrivateAiMediaUrl(new URL(request.url).origin, path);
+      await uploadPrivateAiFile(path, jpg, 'image/jpeg');
+      try {
+        const saved = await prisma.aiPreview.create({ data: { ...preview, outputImage: outputUrl } });
+        return NextResponse.json({ ok: true, done: true, configured: true, previewId: saved.id, outputUrl });
+      } catch (error) {
+        await deleteFile('private-ai:' + path).catch(() => {});
+        throw error;
+      }
+    }
+    if (!submit.ok || !submit.requestId || !submit.endpoint) return NextResponse.json({error:'The studio could not start the preview. Please try again.'},{status:502});
+    const pending = await prisma.aiPreview.create({ data: preview });
     const query=new URLSearchParams({id:submit.requestId,previewId:pending.id,endpoint:submit.endpoint});
     if(submit.statusUrl)query.set('statusUrl',submit.statusUrl);
     if(submit.responseUrl)query.set('responseUrl',submit.responseUrl);

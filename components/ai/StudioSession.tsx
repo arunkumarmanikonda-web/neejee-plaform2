@@ -124,7 +124,7 @@ export function StudioSession({mode,piece,initialVariant,signedIn,configured,sty
             <><label className={styles.field}>{file?'Change your photo':'Choose a photo'}<input disabled={!!status} type="file" accept="image/jpeg,image/png,image/webp" onChange={e=>selectPhoto(e.target.files?.[0])}/></label>
               {photo && <img className={styles.inputPhoto} src={photo} alt={mirror?'Your fitting photo':'Your room photo'}/>}
               <p className={styles.note}>JPG, PNG or WebP, up to 15 MB. Your photo uploads when you request the preview.</p>
-              {file && <label className={styles.consent}><input type="checkbox" disabled={!!status} checked={consent} onChange={e=>setConsent(e.target.checked)}/>I agree to send my photo{ownSlots.length?' and the personal item photos shown here':''} for AI processing to create this fitting.</label>}
+              {file && <label className={styles.consent}><input type="checkbox" disabled={!!status} checked={consent} onChange={e=>setConsent(e.target.checked)}/>I agree to send my photo{ownSlots.length?' and the personal item photos shown here':''} to fal.ai or OpenAI to create this preview.</label>}
               <button className={styles.primary} onClick={generate} disabled={!file||!variant||!consent||!!status||missing}>Create my preview</button>
               {status && <p role="status" className={styles.note}>{status}</p>}
               {error && <p role="alert" className={styles.notice}>{error}</p>}</>}

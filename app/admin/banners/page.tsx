@@ -102,7 +102,7 @@ export default function AdminBanners() {
         <div className="bg-haldi/15 border border-haldi p-3 text-xs text-kohl">
           <strong>AI not fully configured.</strong>{' '}
           {!aiStatus?.text?.configured && <span>OpenAI text generation is OFF (set <code>OPENAI_API_KEY</code> in Vercel env vars). </span>}
-          {!aiStatus?.image?.configured && <span>fal.ai image generation is OFF (set <code>FAL_KEY</code> in Vercel env vars). </span>}
+          {!aiStatus?.image?.configured && <span>Image generation needs fal.ai or OpenAI with media storage. </span>}
           {!aiStatus?.storage?.configured && <span>Media storage needs its Production server key (SUPABASE_SERVICE_ROLE_KEY) to save generated images.</span>}
         </div>
       )}

@@ -1,3 +1,4 @@
+import { generateAiImage } from '@/lib/ai/generate-image';
 import { randomBytes } from 'crypto';
 import { prisma } from '@/lib/prisma';
 import { openaiChat, aiTextConfigured } from '@/lib/ai';
@@ -255,69 +256,8 @@ export async function generateCoverFromPrompt(prompt: string): Promise<string | 
   const cleanPrompt = normalizeString(prompt);
   if (!cleanPrompt) return null;
 
-  const key = process.env.FAL_KEY;
-  if (!key) return null;
-
-  const FAL_BASE = 'https://fal.run';
-
-  try {
-    const submitRes = await fetch(`${FAL_BASE}/fal-ai/flux/schnell`, {
-      method: 'POST',
-      headers: {
-        Authorization: `Key ${key}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        prompt: cleanPrompt,
-        image_size: 'landscape_16_9',
-        num_inference_steps: 4,
-        num_images: 1,
-        enable_safety_checker: false,
-      }),
-    });
-
-    if (!submitRes.ok) return null;
-
-    const submitData: any = await submitRes.json();
-
-    if (submitData?.images?.[0]?.url) {
-      return submitData.images[0].url;
-    }
-
-    const requestId: string | undefined = submitData?.request_id;
-    if (!requestId) return null;
-
-    const deadline = Date.now() + 60_000;
-
-    while (Date.now() < deadline) {
-      await new Promise((r) => setTimeout(r, 2000));
-
-      const sRes = await fetch(`${FAL_BASE}/fal-ai/flux/schnell/requests/${requestId}/status`, {
-        headers: { Authorization: `Key ${key}` },
-      });
-
-      if (!sRes.ok) continue;
-
-      const sJson: any = await sRes.json();
-
-      if (sJson?.status === 'COMPLETED') {
-        const rRes = await fetch(
-          sJson.response_url || `${FAL_BASE}/fal-ai/flux/schnell/requests/${requestId}`,
-          { headers: { Authorization: `Key ${key}` } }
-        );
-        const rJson: any = await rRes.json();
-        return rJson?.images?.[0]?.url || null;
-      }
-
-      if (sJson?.status === 'FAILED' || sJson?.status === 'CANCELED') {
-        return null;
-      }
-    }
-
-    return null;
-  } catch {
-    return null;
-  }
+  const result = await generateAiImage({ prompt: cleanPrompt, model: 'flux-schnell', aspectRatio: '16:9', folder: 'journal-covers' });
+  return result.imageUrl || null;
 }
 
 export async function generateJournalText(opts: {

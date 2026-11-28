@@ -4,7 +4,7 @@ import { dispatchPayment,reviewable } from '@/lib/shipping/shiprocket-dispatch';
 
 type InputOrder={orderNumber:string;status:string;paymentMethod:string|null;paymentStatus:string;awbNumber:string|null;
   shiprocketPaymentMode:string|null;shiprocketShipmentId:string|null;shiprocketStage:string|null;shiprocketClaimedAt:string|null};
-export function OrderDispatch({order,onChange}:{order:InputOrder;onChange:()=>Promise<void>}) {
+export function OrderDispatch({order,onChange,carrierConnected}:{order:InputOrder;carrierConnected:boolean;onChange:()=>Promise<void>}) {
   const [busy,setBusy]=useState(false);
   const [message,setMessage]=useState('');
   const [choice,setChoice]=useState('found');
@@ -41,6 +41,7 @@ export function OrderDispatch({order,onChange}:{order:InputOrder;onChange:()=>Pr
       <label className="flex gap-2 mt-2"><input type="checkbox" checked={checked} onChange={e=>setChecked(e.target.checked)}/>I checked this order and the latest shipment status in Shiprocket.</label>
       <button type="button" className="btn-primary mt-2" disabled={busy||!checked||(paymentReview&&choice==='absent')||(choice==='found'&&!!expectedMode&&carrierMode!==expectedMode)||(choice==='found'&&!(order.shiprocketShipmentId||id).trim())} onClick={()=>void submit(true)}>Save reconciliation</button>
     </details> : order.awbNumber ? <p>AWB {order.awbNumber}</p> : order.shiprocketStage ? <button className="btn-outline" type="button" onClick={()=>void onChange()}>Refresh dispatch status</button> :
+    !carrierConnected ? <p>Enter the courier and waybill above to record a manual dispatch. Connect Shiprocket in Settings to book a shipment here.</p> :
     <button type="button" onClick={()=>void submit()} disabled={!dispatchPayment(order)||busy} className="btn-outline w-full disabled:opacity-50">{busy?'Contacting Shiprocket…':order.shiprocketShipmentId?'Assign AWB to saved shipment':'Book with Shiprocket'}</button>}
     {message && <p role="status">{message}</p>}
   </div>;
