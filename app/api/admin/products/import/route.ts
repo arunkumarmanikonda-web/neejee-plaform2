@@ -8,7 +8,8 @@ import { NextResponse } from 'next/server';
 import { getSession, requireRole } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { parseInventoryWorkbook } from '@/lib/inventory-io';
-import { generateSku, generateSlug } from '@/lib/sku';
+import { createHash } from 'node:crypto';
+import { generateSlug } from '@/lib/sku';
 import { resolveCategory, generateSkuFor, invalidateTreeCache } from '@/lib/taxonomy/resolver';
 
 export const dynamic = 'force-dynamic';
@@ -58,12 +59,22 @@ export async function POST(request: Request) {
   const colours=workbookColours(rows);
   const results: RowResult[] = [];
 
-  // Tracks the most recently created PRODUCT so VARIANT rows can attach to it
-  let currentParent: { id: string; sku: string; name: string } | null = null;
-  // For variants that name an explicit Parent SKU, look up that product on demand
-  const productBySkuCache = new Map<string, { id: string; sku: string; name: string }>();
-
+  type Parent = { id: string; sku: string; name: string };
+  const parents = new Map<number, Parent>();
+  const parentRow = new Map<number, number>();
+  const declared = new Map<string, number>();
+  const productBySkuCache = new Map<string, Parent>();
+  const occurrences = new Map<string, number>();
+  const rowId = (kind: string, key: string) => 'c' + createHash('sha256').update('neejee-inventory-v1/' + kind + '/' + key).digest('hex').slice(0, 24);
+  let preceding = 0;
   for (const row of rows) {
+    if (row.rowType === 'PRODUCT') {
+      preceding = row.rowIndex;
+      if (row.data.sku) declared.set(row.data.sku, (declared.get(row.data.sku) || 0) + 1);
+    } else parentRow.set(row.rowIndex, preceding);
+  }
+  // Resolve product rows first, including explicit references to a later row.
+  for (const row of [...rows.filter(r => r.rowType === 'PRODUCT'), ...rows.filter(r => r.rowType === 'VARIANT')]) {
     // Parsing errors collected at parse time
     if (row.errors.length > 0) {
       results.push({ rowIndex: row.rowIndex, rowType: row.rowType, status: 'error', message: row.errors.join('; ') });
@@ -73,6 +84,25 @@ export async function POST(request: Request) {
     // ─────────── PRODUCT row ───────────
     if (row.rowType === 'PRODUCT') {
       const d = row.data;
+      if (d.sku && declared.get(d.sku)! > 1) {
+        results.push({rowIndex:row.rowIndex,rowType:'PRODUCT',status:'error',message:'This SKU appears on multiple product rows. Give each piece a unique SKU.'});
+        continue;
+      }
+      const identity = d.sku || JSON.stringify(d);
+      const occurrence = (occurrences.get(identity) || 0) + 1;
+      occurrences.set(identity, occurrence);
+      const importId = rowId('product', JSON.stringify([identity, occurrence]));
+      const recordParent = (parent: Parent, status: 'created'|'skipped', message?:string) => {
+        parents.set(row.rowIndex, parent);
+        productBySkuCache.set(parent.sku, parent);
+        results.push({rowIndex:row.rowIndex,rowType:'PRODUCT',status,productId:parent.id,sku:parent.sku,message});
+      };
+      const replay = await prisma.product.findUnique({where:{id:importId},select:{id:true,sku:true,name:true}});
+      if (replay) { recordParent(replay,'skipped','Product already imported. Existing catalogue details were preserved.'); continue; }
+      if (d.sku && await prisma.product.findUnique({where:{sku:d.sku},select:{id:true}})) {
+        results.push({rowIndex:row.rowIndex,rowType:'PRODUCT',status:'error',message:'SKU already exists. Edit the existing product or enter a unique SKU.'});
+        continue;
+      }
       // First try exact slug match (existing behaviour). If that fails, fall back
       // to the AI resolver which can map free-text categories OR auto-create the
       // right sub/leaf using the product's name + craft + material.
@@ -91,8 +121,8 @@ export async function POST(request: Request) {
           },
           allowAi: true,
           allowCreate: true,
-        });
-        if (r.ok && r.categoryId) {
+        }).catch(() => null);
+        if (r?.ok && r.categoryId) {
           cat = { id: r.categoryId, slug: r.slug || '', name: r.name || '' };
           aiCreated = r.created || [];
           // refresh in-memory map
@@ -107,20 +137,11 @@ export async function POST(request: Request) {
           status: 'error',
           message: `Could not resolve category "${d.category}" (AI fallback also failed).`,
         });
-        currentParent = null;
         continue;
       }
 
       try {
-        let sku = (d.sku || '').trim();
-        if (sku) {
-          const dup = await prisma.product.findUnique({ where: { sku } });
-          if (dup) {
-            sku = await generateSkuFor(cat.id);
-          }
-        } else {
-          sku = await generateSkuFor(cat.id);
-        }
+        const sku = d.sku || await generateSkuFor(cat.id);
 
         const {draft}=await draftMerchandise({...d, description:d.shortDescription, categoryName:cat.name, colours:colours.get(row.rowIndex)}, {useAI:false});
         const slug = await generateSlug(draft.name);
@@ -128,6 +149,7 @@ export async function POST(request: Request) {
         const created = await prisma.product.create({
           data: {
             ...draft,
+            id: importId,
             slug,
             sku,
             categoryId: cat.id,
@@ -147,27 +169,18 @@ export async function POST(request: Request) {
           },
         });
 
-        currentParent = { id: created.id, sku: created.sku, name: created.name };
-        productBySkuCache.set(created.sku, currentParent);
-
-        results.push({
-          rowIndex: row.rowIndex,
-          rowType: 'PRODUCT',
-          status: 'created',
-          productId: created.id,
-          sku: created.sku,
-          message: aiCreated.length
-            ? `AI created new sub-category: ${aiCreated.join(', ')}`
-            : undefined,
-        });
+        recordParent(created, 'created', aiCreated.length ? 'Created sub-category: ' + aiCreated.join(', ') : undefined);
       } catch (e: any) {
+        if (e?.code === 'P2002') {
+          const concurrent = await prisma.product.findUnique({where:{id:importId},select:{id:true,sku:true,name:true}});
+          if (concurrent) { recordParent(concurrent,'skipped','Product already imported.'); continue; }
+        }
         results.push({
           rowIndex: row.rowIndex,
           rowType: 'PRODUCT',
           status: 'error',
           message: e.message || 'Unknown error creating product',
         });
-        currentParent = null;
       }
       continue;
     }
@@ -179,7 +192,7 @@ export async function POST(request: Request) {
     let parent: { id: string; sku: string; name: string } | null = null;
     if (d.parentSku) {
       parent = productBySkuCache.get(d.parentSku) || null;
-      if (!parent) {
+      if (!parent && !declared.has(d.parentSku)) {
         const found = await prisma.product.findUnique({
           where: { sku: d.parentSku },
           select: { id: true, sku: true, name: true },
@@ -190,7 +203,7 @@ export async function POST(request: Request) {
         }
       }
     } else {
-      parent = currentParent;
+      parent = parents.get(parentRow.get(row.rowIndex) || 0) || null;
     }
 
     if (!parent) {
@@ -203,6 +216,27 @@ export async function POST(request: Request) {
       continue;
     }
 
+    const size = d.variantSize || null;
+    const color = d.variantColor || null;
+    const material = d.variantMaterial || null;
+    const variantId = rowId('variant', JSON.stringify([parent.id, size, color, material]));
+    const parentId = parent.id;
+    const parentSku = parent.sku;
+    const reportedReplay = (existing: {sku: string; inventory: number; sellingPrice: number | null}) => {
+      const differs = existing.inventory !== (d.variantInventory || 0) ||
+        existing.sellingPrice !== (d.variantPrice ? Math.round(d.variantPrice * 100) : null);
+      results.push({
+        rowIndex: row.rowIndex, rowType: 'VARIANT', status: differs ? 'error' : 'skipped',
+        productId: parentId, sku: parentSku, variantSku: existing.sku,
+        message: differs ? 'This variant exists with different stock or price. Review it in Products.' : 'Variant already exists.',
+      });
+    };
+    // Historical variants have generated IDs. Match the actual options too.
+    const previous = await prisma.variant.findFirst({
+      where: { productId: parentId, size, color, material },
+      select: { sku: true, inventory: true, sellingPrice: true },
+    });
+    if (previous) { reportedReplay(previous); continue; }
     try {
       // Auto-generate a unique variant SKU: {parentSku}-{shortTag}
       const tag = (d.variantSize || d.variantColor || d.variantMaterial || 'var')
@@ -227,6 +261,7 @@ export async function POST(request: Request) {
 
       const created = await prisma.variant.create({
         data: {
+          id: variantId,
           productId: parent.id,
           sku: variantSku,
           size: d.variantSize || null,
@@ -246,6 +281,10 @@ export async function POST(request: Request) {
         variantSku: created.sku,
       });
     } catch (e: any) {
+      if (e?.code === 'P2002') {
+        const concurrent = await prisma.variant.findUnique({where:{id:variantId},select:{sku:true,inventory:true,sellingPrice:true}});
+        if (concurrent) { reportedReplay(concurrent); continue; }
+      }
       results.push({
         rowIndex: row.rowIndex,
         rowType: 'VARIANT',
@@ -267,6 +306,6 @@ export async function POST(request: Request) {
       variantsCreated,
       errored,
     },
-    results,
+    results: results.sort((a,b) => a.rowIndex-b.rowIndex),
   });
 }

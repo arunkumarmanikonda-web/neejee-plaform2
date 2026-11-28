@@ -27,7 +27,7 @@ export const IMPORT_COLUMNS: Array<{
   { key: 'parentSku', header: 'Parent SKU', width: 22, required: false, note: 'For VARIANT rows only. The SKU of the parent product (or leave blank to attach to the most recent PRODUCT row above).', example: '' },
   // Product columns (filled for PRODUCT rows)
   { key: 'name', header: 'Name *', width: 40, required: true, note: 'Product name (required for PRODUCT rows).', example: 'Banarasi Katan silk saree' },
-  { key: 'sku', header: 'SKU (auto if blank)', width: 22, required: false, note: 'Leave blank to auto-generate. Format CAT-CRAFT-XXXX. Acts as unique key for updates.', example: '' },
+  { key: 'sku', header: 'SKU (auto if blank)', width: 22, required: false, note: 'Leave blank to auto-generate. Format CAT-CRAFT-XXXX. Use a distinct SKU for each product. Existing items are edited from Products.', example: '' },
   { key: 'category', header: 'Category (slug OR free text) *', width: 28, required: true, note: 'Slug (e.g. women/sarees/banarasi), single leaf slug (banarasi), or free text (“Banarasi saree”). If no exact match is found, AI auto-resolves it from the product name/craft/material and auto-creates the sub-category if needed.', example: 'women/sarees/banarasi' },
   { key: 'craft', header: 'Craft', width: 22, required: false, note: 'e.g. Banarasi Katan, Kalamkari, Phulkari', example: 'Banarasi Katan' },
   { key: 'region', header: 'Region', width: 20, required: false, note: 'e.g. Varanasi, Uttar Pradesh', example: 'Varanasi' },
@@ -98,21 +98,6 @@ export async function buildTemplateWorkbook(): Promise<Buffer> {
   headerRow.alignment = { vertical: 'middle', horizontal: 'left' };
   headerRow.height = 24;
 
-  // Example rows: 1 product + 3 variants demonstrating the size run
-  const productExample = sheet.addRow(IMPORT_COLUMNS.map(c => c.example || ''));
-  productExample.font = { italic: true, color: { argb: 'FF999999' }, size: 10 };
-
-  // Three variant example rows beneath it
-  const variantExamples = [
-    { rowType: 'VARIANT', variantSize: 'S',  variantInventory: '3' },
-    { rowType: 'VARIANT', variantSize: 'M',  variantInventory: '5' },
-    { rowType: 'VARIANT', variantSize: 'L',  variantInventory: '2' },
-  ];
-  for (const v of variantExamples) {
-    const row = sheet.addRow(IMPORT_COLUMNS.map(c => (v as any)[c.key] || ''));
-    row.font = { italic: true, color: { argb: 'FFAAAAAA' }, size: 10 };
-  }
-
   // A notes sheet
   const notes = wb.addWorksheet('How to use');
   notes.columns = [
@@ -132,6 +117,7 @@ export async function buildTemplateWorkbook(): Promise<Buffer> {
     });
   });
   notes.addRow({});
+  notes.addRow({ col: 'Example size run', req: '', note: 'Enter a PRODUCT row for the piece, followed by VARIANT rows such as S with stock 3, M with stock 5 and L with stock 2. The Products sheet starts empty.' });
   notes.addRow({ col: 'PRODUCT vs VARIANT', req: '', note: 'A PRODUCT row creates a new piece. VARIANT rows beneath it add size/colour/dimension options. Each variant gets its own stock count.' });
   notes.addRow({ col: 'Variants order', req: '', note: 'List variants immediately below their parent PRODUCT row. They will automatically attach to the closest PRODUCT row above (unless you specify Parent SKU).' });
   notes.addRow({ col: 'Suggested sizes by category', req: '', note: 'Clothing: XS / S / M / L / XL / XXL / Free Size. Jewellery: usually just one variant called "One size". Furniture / homewares: use dimensions e.g. "24cm × 18cm × 30cm".' });
@@ -217,7 +203,8 @@ export async function parseInventoryWorkbook(buffer: Buffer | ArrayBuffer): Prom
   IMPORT_COLUMNS.forEach(c => { colMap[c.key] = findCol(c.key); });
 
   const rows: ParsedRow[] = [];
-  const lastRow = sheet.actualRowCount;
+  const lastRow = sheet.rowCount;
+  let legacyExampleStart = -10;
 
   for (let r = 2; r <= lastRow; r++) {
     const row = sheet.getRow(r);
@@ -244,7 +231,7 @@ export async function parseInventoryWorkbook(buffer: Buffer | ArrayBuffer): Prom
       rowType = 'VARIANT';
     } else if (rawRowType === 'PRODUCT') {
       rowType = 'PRODUCT';
-    } else if (!name && (variantSize || variantColor || variantInv != null)) {
+    } else if (!name && (variantSize || variantColor || cellToString(get('variantMaterial')) || cellToString(get('parentSku')) || cellToString(get('variantInventory')))) {
       rowType = 'VARIANT';
     } else if (name) {
       rowType = 'PRODUCT';
@@ -252,19 +239,24 @@ export async function parseInventoryWorkbook(buffer: Buffer | ArrayBuffer): Prom
       continue; // blank row
     }
 
-    // Skip the italic example rows in the template
-    if (rowType === 'PRODUCT' && name === 'Banarasi Katan silk saree' &&
-        cellToString(get('category')) === 'sarees') {
+    // Older downloads contained a styled example block on the import sheet.
+    // Recognise that exact block. An ordinary clothing size is always valid data.
+    const italic = row.getCell(colMap.rowType || 1).font?.italic === true;
+    if (rowType === 'PRODUCT' && italic && IMPORT_COLUMNS.every(col => {
+      const value = cellToString(get(col.key));
+      return value === (col.example || '') || (col.key === 'category' && value === 'sarees');
+    })) {
+      legacyExampleStart = r;
       continue;
     }
-    if (rowType === 'VARIANT' && (variantSize === 'S' || variantSize === 'M' || variantSize === 'L') &&
-        !cellToString(get('parentSku')) && !name) {
-      // The 3 example variant rows in the template that follow the example product
-      continue;
-    }
+    const offset = r - legacyExampleStart - 1;
+    if (offset >= 0 && offset < 3 && italic && IMPORT_COLUMNS.every(col => {
+      const sample: Record<string,string> = {rowType:'VARIANT',variantSize:['S','M','L'][offset],variantInventory:['3','5','2'][offset]};
+      return cellToString(get(col.key)) === (sample[col.key] || '');
+    })) continue;
 
     const errors: string[] = [];
-
+    if (rawRowType && rawRowType !== 'PRODUCT' && rawRowType !== 'VARIANT') errors.push('Row type must be PRODUCT or VARIANT.');
     if (rowType === 'PRODUCT') {
       const data: ParsedRow['data'] = {
         name,
@@ -295,6 +287,8 @@ export async function parseInventoryWorkbook(buffer: Buffer | ArrayBuffer): Prom
         variantInventory: variantInv ?? undefined,
         variantPrice: cellToNumber(get('variantPrice')) ?? undefined,
       };
+      if (cellToString(get('variantInventory')) && (variantInv == null || !Number.isSafeInteger(variantInv) || variantInv < 0 || variantInv > 2147483647)) errors.push('Stock must be a nonnegative whole number.');
+      if (cellToString(get('variantPrice')) && !(Number(data.variantPrice) > 0)) errors.push('Variant price must be greater than zero.');
       if (!data.variantSize && !data.variantColor && !data.variantMaterial) {
         errors.push('Variant row needs at least a size, colour, or material');
       }
