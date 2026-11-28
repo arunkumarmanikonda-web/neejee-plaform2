@@ -27,6 +27,22 @@ function authHeader(): string {
   return 'Basic ' + Buffer.from(`${id}:${secret}`).toString('base64');
 }
 
+export async function checkPayoutAccess() {
+  const {id, secret, account} = payoutCredentials();
+  if (!id || !secret || !account) return {state:'Payout credentials are incomplete'};
+  if (!process.env.RAZORPAYX_WEBHOOK_SECRET?.trim()) return {state:'Awaiting merchant payout webhook setup'};
+  if (process.env.VERCEL_ENV === 'production' && !id.startsWith('rzp_live_')) return {state:'The production payout key is not a live key'};
+  try {
+    const url = new URL(RZP_BASE+'/payouts');
+    url.searchParams.set('account_number',account);
+    url.searchParams.set('count','1');
+    const response = await fetch(url,{headers:{Authorization:authHeader()},redirect:'error',cache:'no-store',signal:AbortSignal.timeout(6500)});
+    if (!response.ok) return {state:'RazorpayX did not grant payout-list access',http:response.status};
+    const data = await response.json();
+    return {state:data?.entity === 'collection' && Array.isArray(data.items) ? 'Read-only payout access confirmed' : 'Unrecognized payout response',http:response.status};
+  } catch { return {state:'RazorpayX did not confirm payout-list access'}; }
+}
+
 export function razorpayxConfigured(): boolean {
   const { id, secret, account } = payoutCredentials();
   const allowedMode = process.env.VERCEL_ENV === 'production' ? id.startsWith('rzp_live_')

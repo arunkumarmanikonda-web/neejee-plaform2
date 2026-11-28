@@ -1,4 +1,5 @@
 import { fast2smsEntityId, fast2smsRoute } from '@/lib/fast2sms-config';
+import { prisma } from '@/lib/prisma';
 import { NextRequest, NextResponse } from 'next/server';
 import { getSession, requireRole } from '@/lib/auth';
 import {
@@ -190,14 +191,16 @@ export async function POST(req: NextRequest) {
     url.searchParams.set('variables_values', variablesValues);
   }
 
-  const providerRes = await fetch(url.toString(), {
-    method: 'GET',
-    headers: {
-      authorization: process.env.FAST2SMS_API_KEY || '',
-    },
-    cache: 'no-store',
-  });
-
+  const testLog = await prisma.notificationLog.create({data:{channel:'SMS',event:'ADMIN_SMS_TEST',contextType:'ADMIN_TEST',recipient:phone,status:'QUEUED'}});
+  let providerRes: Response;
+  try {
+    providerRes = await fetch('https://www.fast2sms.com/dev/bulkV2',{
+      method:'POST',headers:{authorization:process.env.FAST2SMS_API_KEY || '','Content-Type':'application/x-www-form-urlencoded'},
+      body:url.searchParams,cache:'no-store',redirect:'error',signal:AbortSignal.timeout(15000),
+    });
+  } catch {
+    return NextResponse.json({error:'The provider did not confirm the test. Check its send log before another attempt.'},{status:502});
+  }
   const text = await providerRes.text();
   let providerData: any = null;
   try {
@@ -211,9 +214,10 @@ export async function POST(req: NextRequest) {
     providerData?.return === 'false' ||
     providerData?.status === 'error' ||
     providerData?.status === 'ERROR' ||
-    (providerData?.request_id === undefined && !providerRes.ok);
+    !(providerData?.request_id || providerData?.requestId);
 
   if (!providerRes.ok || providerRejected) {
+    await prisma.notificationLog.update({where:{id:testLog.id},data:{status:'FAILED',errorMessage:'Fast2SMS did not confirm acceptance'}});
     return NextResponse.json(
       {
         ok: false,
@@ -233,7 +237,10 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  const requestId=String(providerData.request_id || providerData.requestId);
+  await prisma.notificationLog.update({where:{id:testLog.id},data:{status:'SENT',providerId:requestId}});
   return NextResponse.json({
+    testLogId:testLog.id,
     ok: true,
     configured: true,
     disabled: false,

@@ -20,53 +20,37 @@ export async function POST(req: Request) {
   }
 
   try {
-    const body = await req.json().catch(() => ({}));
-    const statusEntity = body?.entry?.[0]?.changes?.[0]?.value?.statuses?.[0] || null;
-    const status = body?.status || statusEntity?.status || '';
-    const messageId = String(body?.messageId || body?.id || statusEntity?.id || '').trim();
-
-    if (!messageId) return NextResponse.json({ ok: true, ignored: true });
-
-    const statusMap: Record<string, string> = {
-      sent: 'sent',
-      delivered: 'delivered',
-      read: 'read',
-      failed: 'failed',
-      undelivered: 'failed',
-    };
-    const internalStatus = statusMap[String(status).toLowerCase()];
-    if (!internalStatus) return NextResponse.json({ ok: true, ignored: true });
-
-    const providerRecord = {
-      messageId,
-      status: String(status).toLowerCase(),
-      timestamp: body?.timestamp || statusEntity?.timestamp || null,
-      errorCode: body?.error?.code || statusEntity?.errors?.[0]?.code || null,
-      errorTitle: body?.error?.message || statusEntity?.errors?.[0]?.title || null,
-    };
-
-    const updateData: any = {
-      providerResponseJson: providerRecord,
-      status: internalStatus,
-    };
-    if (internalStatus === 'delivered') updateData.deliveredAt = new Date();
-    if (internalStatus === 'read') {
-      updateData.readAt = new Date();
-      updateData.deliveredAt = new Date();
+    const body = await req.json();
+    // WhatsApp can group delivery receipts across entries and changes in one callback.
+    const receipts: any[] = Array.isArray(body?.entry)
+      ? body.entry.flatMap((entry: any) => Array.isArray(entry?.changes)
+        ? entry.changes.flatMap((change: any) => Array.isArray(change?.value?.statuses) ? change.value.statuses : [])
+        : [])
+      : [body];
+    for (const receipt of receipts) {
+      const messageId = String(receipt?.messageId || receipt?.id || '').trim();
+      const raw = String(receipt?.status || '').toLowerCase();
+      const status = raw === 'undelivered' ? 'failed' : raw;
+      if (!messageId || !['sent','delivered','read','failed'].includes(status)) continue;
+      const error = receipt.error || receipt.errors?.[0];
+      const previous = status === 'read' ? ['queued','sent','delivered'] : status === 'sent' ? ['queued'] : ['queued','sent'];
+      const now = new Date();
+      const where = { channel: 'WHATSAPP', providerRequestId: messageId, status: { in: previous } };
+      const data = {
+        status, providerResponseJson: { messageId, status, timestamp: receipt.timestamp || null, errorCode: error?.code || null },
+        ...(status === 'failed' ? { errorMessage: error?.title || error?.message || 'WhatsApp delivery failed' } : {}),
+        ...(status === 'delivered' ? { deliveredAt: now } : {}),
+        ...(status === 'read' ? { readAt: now } : {}),
+      };
+      if (status === 'read') {
+        await prisma.notificationDispatch.updateMany({ where: { ...where, deliveredAt: null }, data: { ...data, deliveredAt: now } });
+      }
+      await prisma.notificationDispatch.updateMany({where, data});
     }
-    if (internalStatus === 'failed') {
-      updateData.errorMessage = providerRecord.errorTitle || 'WhatsApp delivery failed';
-    }
-
-    await prisma.notificationDispatch.updateMany({
-      where: { providerRequestId: messageId },
-      data: updateData,
-    });
-
     return NextResponse.json({ ok: true });
   } catch (error: any) {
-    console.warn('[webhooks.aisensy] processing failed:', error?.message);
-    return NextResponse.json({ ok: true, suppressed: true });
+    console.warn('[webhooks.aisensy] receipt processing failed');
+    return NextResponse.json({ error: 'Retry delivery receipt' }, { status: 503 });
   }
 }
 

@@ -264,19 +264,19 @@ async function sendSmsChannel(r: ResolvedRecipient, args: NotifyArgs, t: { smsTe
 
     const digits = r.phone.replace(/^\+91/, '').replace(/[^\d]/g, '');
     const params = new URLSearchParams({
-      authorization: FAST2SMS_KEY,
       route: 'dlt',
-      sender_id: process.env.FAST2SMS_SENDER_ID || 'NEEJEY',
+      sender_id: tpl.providerSenderId || process.env.FAST2SMS_SENDER_ID || 'NEEJEY',
       message: tpl.templateId,
       variables_values: varValues,
       numbers: digits,
     });
-    const res = await fetch(`https://www.fast2sms.com/dev/bulkV2?${params.toString()}`);
+    if (tpl.providerEntityId) params.set('entity_id',tpl.providerEntityId);
+    const res = await fetch('https://www.fast2sms.com/dev/bulkV2',{method:'POST',headers:{authorization:FAST2SMS_KEY,'Content-Type':'application/x-www-form-urlencoded'},body:params,redirect:'error',signal:AbortSignal.timeout(15000)});
     const body = await res.json().catch(() => ({}));
-    if (res.ok && body?.return !== false) {
+    if (res.ok && body?.return === true && body?.request_id) {
       await prisma.notificationLog.update({
         where: { id: log.id },
-        data: { status: 'SENT', providerId: body?.request_id ? String(body.request_id) : null, deliveredAt: new Date() },
+        data: { status: 'SENT', providerId: body?.request_id ? String(body.request_id) : null },
       });
       await markUsed(smsEvent).catch(() => {});
       return { channel: 'SMS', recipient: r.phone, status: 'SENT' };

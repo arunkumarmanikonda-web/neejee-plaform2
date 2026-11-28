@@ -22,7 +22,7 @@ export async function POST(req: Request) {
     console.error('[webhooks.fast2sms] FAST2SMS_WEBHOOK_SECRET not configured');
     return NextResponse.json({ error: 'Webhook unavailable' }, { status: 503 });
   }
-  if (!verifySharedWebhookSecret(req, secret)) {
+  if (!verifySharedWebhookSecret(req, secret) && !verifySharedWebhookSecret(req, secret, 'webhook_secret_key')) {
     return NextResponse.json({ error: 'Invalid webhook token' }, { status: 401 });
   }
 
@@ -40,10 +40,13 @@ export async function POST(req: Request) {
       SENT: 'sent',
       FAILED: 'failed',
       UNDELIV: 'failed',
+      UNDELIVERED: 'failed',
+      UNDELIVERABLE: 'failed',
+      'NOT DELIVERED': 'failed',
       REJECTED: 'failed',
       EXPIRED: 'failed',
     };
-    const internalStatus = statusMap[status] || (status.includes('DELIV') ? 'delivered' : null);
+    const internalStatus = Object.prototype.hasOwnProperty.call(statusMap, status) ? statusMap[status] : null;
     if (!internalStatus) return NextResponse.json({ ok: true, ignored: true });
 
     const providerRecord = {
@@ -51,7 +54,7 @@ export async function POST(req: Request) {
       status,
       deliveredAt: body.delivered_at || body.deliveredAt || null,
       errorCode: body.error_code || null,
-      errorMessage: body.error_msg || body.error || null,
+      errorMessage: body.failure_reason || body.error_msg || body.error || body.status_description || null,
     };
 
     const updateData: any = {
@@ -64,14 +67,20 @@ export async function POST(req: Request) {
     }
 
     await prisma.notificationDispatch.updateMany({
-      where: { providerRequestId: requestId },
+      where: { channel: 'SMS', providerRequestId: requestId, status: { in: internalStatus === 'sent' ? ['queued'] : ['queued', 'sent'] } },
       data: updateData,
     });
 
+    const legacyStatus = internalStatus === 'failed' ? 'FAILED' : internalStatus === 'delivered' ? 'DELIVERED' : 'SENT';
+    await prisma.notificationLog.updateMany({
+      where: {channel:'SMS', providerId:requestId, status:{in:legacyStatus === 'SENT' ? ['QUEUED'] : ['QUEUED','SENT']}},
+      data: {status:legacyStatus, ...(legacyStatus === 'DELIVERED' ? {deliveredAt:new Date()} : {}),
+        ...(legacyStatus === 'FAILED' ? {errorMessage:providerRecord.errorMessage || status, deliveredAt:null} : {})},
+    });
     return NextResponse.json({ ok: true });
   } catch (error: any) {
-    console.warn('[webhooks.fast2sms] processing failed:', error?.message);
-    return NextResponse.json({ ok: true, suppressed: true });
+    console.warn('[webhooks.fast2sms] receipt processing failed');
+    return NextResponse.json({ error: 'Retry delivery receipt' }, { status: 503 });
   }
 }
 

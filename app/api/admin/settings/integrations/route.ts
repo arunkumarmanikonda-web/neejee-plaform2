@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import { getSession, requireRole } from '@/lib/auth';
 import { senderAddress, senderDomain, sendingState } from '@/lib/resend-sender';
 import { resolveResendKey, sendResendEmail } from '@/lib/seller-onboarding/transactional-email';
+import { fast2smsWebhook } from '@/lib/notifications/fast2sms-webhook';
+import { checkPayoutAccess } from '@/lib/razorpayx';
 import { falKey } from '@/lib/ai/fal-key';
 import { prisma } from '@/lib/prisma';
 
@@ -26,6 +28,8 @@ export async function GET() {
   const sender = senderDomain(senderAddress());
   const active = {socialConnection:{status:'ACTIVE',OR:[{tokenExpiresAt:null},{tokenExpiresAt:{gt:new Date()}}]}};
   const providers = await Promise.all([
+    fast2smsWebhook().then(result=>({service:'Fast2SMS',...result})),
+    checkPayoutAccess().then(result=>({service:'RazorpayX',...result})),
     read('fal.ai','https://api.fal.ai/v1/models/pricing?endpoint_id=fal-ai/nano-banana-2/edit',fal ? 'Key '+fal : '', d => Array.isArray(d.prices) && d.prices.length ? 'Model pricing available' : 'Model pricing unavailable'),
     read('Resend','https://api.resend.com/domains',email ? 'Bearer '+email : '',d => sendingState(Array.isArray(d.data) ? d.data : [],sender)),
     read('Meta app','https://graph.facebook.com/v24.0/'+encodeURIComponent(app || '')+'?fields=id',app && secret ? 'Bearer '+app+'|'+secret : '',d=>d.id===app ? 'App credentials accepted' : 'App ID did not match'),
