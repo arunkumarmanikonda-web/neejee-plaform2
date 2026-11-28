@@ -1,17 +1,10 @@
+import { senderAddress, senderDomain as fromDomain, verifiedSender, type SendingDomain } from '../resend-sender';
 const RESEND_API = 'https://api.resend.com';
 
 type DeliveryResult = {
   ok: true;
   id: string | null;
   from: string;
-};
-
-type ResendDomain = {
-  name?: string;
-  status?: string;
-  capabilities?: {
-    sending?: string;
-  };
 };
 
 function normalizeSecret(value: unknown): string {
@@ -39,7 +32,7 @@ function normalizeSecret(value: unknown): string {
   return normalized.replace(/[\r\n\t]/g, '').trim();
 }
 
-function resolveResendKey(): string {
+export function resolveResendKey(): string {
   const candidates = [
     process.env.RESEND_API_KEY,
     process.env.RESEND_KEY,
@@ -55,34 +48,13 @@ function resolveResendKey(): string {
   return '';
 }
 
-function normalizeFrom(value: unknown): string {
-  let from = String(value ?? '').trim();
-  const first = from[0];
-  const last = from[from.length - 1];
-  if (
-    from.length >= 2 &&
-    ((first === '"' && last === '"') ||
-      (first === "'" && last === "'") ||
-      (first === '`' && last === '`'))
-  ) {
-    from = from.slice(1, -1).trim();
-  }
-  return from;
-}
-
-function fromDomain(from: string): string | null {
-  const match = String(from || '').match(/<([^<>\s]+@[^<>\s]+)>/);
-  const address = match?.[1] || String(from || '').trim();
-  const at = address.lastIndexOf('@');
-  return at >= 0 ? address.slice(at + 1).toLowerCase() : null;
-}
-
 async function postEmail(input: {
   key: string;
   from: string;
   to: string;
   subject: string;
   html: string;
+  replyTo?: string;
 }) {
   const response = await fetch(`${RESEND_API}/emails`, {
     method: 'POST',
@@ -95,6 +67,7 @@ async function postEmail(input: {
       to: [input.to],
       subject: input.subject,
       html: input.html,
+      ...(input.replyTo ? {reply_to:input.replyTo} : {}),
     }),
   });
 
@@ -111,43 +84,22 @@ async function findVerifiedSendingDomain(key: string, preferredDomain: string | 
     if (!response.ok) return null;
 
     const payload = await response.json().catch(() => null);
-    const domains: ResendDomain[] = Array.isArray(payload?.data) ? payload.data : [];
-    const verified = domains.filter((domain) => {
-      const status = String(domain?.status || '').toLowerCase();
-      const sending = String(domain?.capabilities?.sending || '').toLowerCase();
-      return Boolean(domain?.name) &&
-        (status === 'verified' || status === 'partially_verified') &&
-        (sending === 'enabled' || sending === '');
-    });
-
-    if (!verified.length) return null;
-
-    if (preferredDomain) {
-      const exact = verified.find((domain) => String(domain.name).toLowerCase() === preferredDomain);
-      if (exact?.name) return exact.name;
-
-      const related = verified.find((domain) =>
-        preferredDomain.endsWith(`.${String(domain.name).toLowerCase()}`) ||
-        String(domain.name).toLowerCase().endsWith(`.${preferredDomain}`),
-      );
-      if (related?.name) return related.name;
-    }
-
-    const neejee = verified.find((domain) => String(domain.name).toLowerCase().endsWith('neejee.com'));
-    return neejee?.name || verified[0]?.name || null;
+    const domains: SendingDomain[] = Array.isArray(payload?.data) ? payload.data : [];
+    return verifiedSender(domains,preferredDomain || '') || null;
   } catch {
     return null;
   }
 }
 
-export async function sendSellerTransactionalEmail(input: {
+export async function sendResendEmail(input: {
   to: string;
   subject: string;
   html: string;
+  replyTo?: string;
 }): Promise<DeliveryResult> {
   const key = resolveResendKey();
   if (!key) {
-    throw new Error('Seller email service is not configured. Please contact NEEJEE support.');
+    throw new Error('Neejee email service needs a sending key.');
   }
 
   // Never print the key. This diagnostic is intentionally limited to safe shape
@@ -160,13 +112,14 @@ export async function sendSellerTransactionalEmail(input: {
     });
   }
 
-  const configuredFrom = normalizeFrom(process.env.EMAIL_FROM || 'NEEJEE <hello@neejee.com>');
+  const configuredFrom = senderAddress();
   const first = await postEmail({
     key,
     from: configuredFrom,
     to: input.to,
     subject: input.subject,
     html: input.html,
+    replyTo:input.replyTo,
   });
 
   if (first.response.ok) {
@@ -189,10 +142,10 @@ export async function sendSellerTransactionalEmail(input: {
   });
 
   // A common Resend 400 occurs when EMAIL_FROM points at a domain that is not
-  // verified for this API key. If another verified sending domain exists on the
+  // verified for this API key. If another verified Neejee sending domain exists on the
   // same Resend account, retry from that domain instead of falsely reporting
   // success to the seller.
-  if (first.response.status === 400 || firstCode === 'validation_error') {
+  if ([400,403,422].includes(first.response.status) && /domain|sender|from address/i.test(firstMessage)) {
     const verifiedDomain = await findVerifiedSendingDomain(key, fromDomain(configuredFrom));
     if (verifiedDomain && verifiedDomain !== fromDomain(configuredFrom)) {
       const fallbackFrom = `NEEJEE <hello@${verifiedDomain}>`;
@@ -202,6 +155,7 @@ export async function sendSellerTransactionalEmail(input: {
         to: input.to,
         subject: input.subject,
         html: input.html,
+        replyTo:input.replyTo,
       });
 
       if (retry.response.ok) {
@@ -229,3 +183,5 @@ export async function sendSellerTransactionalEmail(input: {
       : 'Email provider rejected the verification email. Please contact NEEJEE support.',
   );
 }
+
+export const sendSellerTransactionalEmail = sendResendEmail;

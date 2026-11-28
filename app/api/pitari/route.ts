@@ -17,7 +17,7 @@ const shop = {label:'Browse the collection',href:'/products'};
 const aaina = {label:'Try on with Aaina',href:'/ai/mirror'};
 const contact = serviceReplies.contact.links;
 const base: Prisma.ProductWhereInput = {status:'ACTIVE',takedownAt:null,catalogueExclude:false,
-  catalogueStockVisibility:{in:['SHOW_ALL','HIDE_STOCK','IN_STOCK_ONLY','LOW_STOCK_BADGE']},sellingPrice:{gt:0}};
+  category:{active:true,hidden:false},catalogueStockVisibility:{in:['SHOW_ALL','SHOW_EXACT','HIDE_STOCK','IN_STOCK_ONLY','LOW_STOCK_BADGE']},sellingPrice:{gt:0}};
 const groups: Record<string,string[]> = {sari:['saree','sari'],suit:['suit','salwar','kurta set'],bandhani:['bandhani','bandhej','bandhni'],
   banarasi:['banarasi','banarsi'],kanjivaram:['kanjivaram','kanjeevaram','kanchipuram']};
 const detailKeys = { origin:'region', material:'material', care:'careInstructions' } as const;

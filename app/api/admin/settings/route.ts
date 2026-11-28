@@ -5,6 +5,7 @@ import { razorpayxConfigured } from '@/lib/razorpayx';
 import { webhookSecretConfigured } from '@/lib/webhooks/auth';
 import { aisensyAdapter } from '@/lib/notifications/channels/aisensy';
 import { razorpayCredentials, liveCheckoutUnavailable } from '@/lib/payments/razorpay-credentials';
+import { falKey } from '@/lib/ai/fal-key';
 import { storageConfigured } from '@/lib/storage';
 
 export const dynamic = 'force-dynamic';
@@ -15,7 +16,7 @@ const KEYS = [
   'RAZORPAY_KEY_ID','RAZORPAY_KEY_SECRET','RAZORPAY_WEBHOOK_SECRET','SHIPROCKET_EMAIL','SHIPROCKET_PASSWORD','AISENSY_API_KEY',
   'RAZORPAYX_KEY_ID','RAZORPAYX_KEY_SECRET','RAZORPAYX_SOURCE_ACCOUNT_NUMBER','RAZORPAYX_WEBHOOK_SECRET',
   'SHIPROCKET_WEBHOOK_TOKEN','AISENSY_WEBHOOK_SECRET','FAST2SMS_WEBHOOK_SECRET',
-  'RESEND_API_KEY','OPENAI_API_KEY','FAL_KEY','REPLICATE_API_TOKEN','FACEBOOK_APP_ID','FACEBOOK_APP_SECRET','SOCIAL_TOKEN_SECRET',
+  'RESEND_API_KEY','EMAIL_FROM','OPENAI_API_KEY','FAL_KEY','REPLICATE_API_TOKEN','FACEBOOK_APP_ID','FACEBOOK_APP_SECRET','SOCIAL_TOKEN_SECRET',
   'FAST2SMS_API_KEY','FAST2SMS_SENDER_ID','FAST2SMS_ENTITY_ID','FAST2SMS_ROUTE','FAST2SMS_TEST_PHONE',
   'NEXT_PUBLIC_SITE_NAME','NEXT_PUBLIC_CANONICAL_BASE_URL','NEXT_PUBLIC_DEFAULT_META_TITLE','NEXT_PUBLIC_META_TITLE_TEMPLATE',
   'NEXT_PUBLIC_DEFAULT_META_DESCRIPTION','NEXT_PUBLIC_META_KEYWORDS','NEXT_PUBLIC_OG_TITLE','NEXT_PUBLIC_OG_DESCRIPTION',
@@ -90,7 +91,7 @@ function runtimeStatus() {
     resend: !!process.env.RESEND_API_KEY,
     aisensy: aisensyAdapter.isConfigured(),
     openai: !!process.env.OPENAI_API_KEY,
-    fal: !!process.env.FAL_KEY,
+    fal: !!falKey(),
     replicate: !!process.env.REPLICATE_API_TOKEN,
     sms: !!(process.env.FAST2SMS_API_KEY && process.env.FAST2SMS_SENDER_ID && fast2smsEntityId()),
     meta: !!(process.env.FACEBOOK_APP_ID && process.env.FACEBOOK_APP_SECRET),
