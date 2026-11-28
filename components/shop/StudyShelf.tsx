@@ -139,6 +139,7 @@ export function StudyShelf({ids, preview, email, initialPiece, home = false, rev
             {review ? <StudyPurchase piece={s}/> : preview ? <button type="button" className="loom-add" aria-label={'Add '+s.name+' to bag'} onClick={()=>buy(s,'/cart?bag=sample')}><Plus size={15}/> Add to bag</button> :
               <Link className="loom-add" href={'/style?study='+s.id}>Style this piece</Link>}
             <button type="button" className="loom-detail" onClick={()=>openPiece(s)}>Details</button>
+            {!review && !preview && <Link className="loom-style-link" href={'/enquire/'+s.id} aria-label={'Ask about availability of '+s.name}>Ask about availability</Link>}
             {preview && s.group==='sarees' && <Link className="loom-style-link" href={lookUrl('/ai/mirror',defaultStyling(s.id))}>Style in Aaina</Link>}
           </div>
         </div>
@@ -155,7 +156,7 @@ export function StudyShelf({ids, preview, email, initialPiece, home = false, rev
 
           <div className="nj-buy">{review ? <><strong>{formatINR(picked.price)}</strong><StudyPurchase key={picked.id} piece={picked}/></> : preview ? <><strong>{formatINR(picked.price)}</strong><small>Preview price · Sample checkout</small>
             <div className="nj-buy-actions"><button className="nj-primary" onClick={() => buy(picked,'/checkout/sample')}>Buy now</button><button className="nj-secondary" onClick={() => buy(picked,'/cart?bag=sample')}><ShoppingBag size={16}/> Add to bag</button></div>
-          </> : <><small>Not yet on sale</small><Link className="nj-primary" href={'/style?study='+picked.id}>Style this piece in Aaina</Link></>}</div>
+          </> : <><small>Not yet on sale</small><Link className="nj-primary" href={'/style?study='+picked.id}>Style this piece in Aaina</Link><Link className="nj-secondary" href={'/enquire/'+picked.id}>Ask about availability</Link></>}</div>
           {textile && <details className="loom-facts"><summary>Pattern &amp; textile details</summary>
             <p>{textile.reference}</p><dl className="nj-fabric-notes">{[['Border',textile.border],['Pallu',textile.pallu]].map(([label,value])=><div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}</dl>
             <small>Regional references describe the pattern on this preview piece.</small></details>}
