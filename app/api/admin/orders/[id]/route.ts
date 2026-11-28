@@ -137,12 +137,13 @@ export async function PATCH(request: Request, props: { params: Promise<{ id: str
 
     // Unified notification on status change. Routes through the engine —
     // logs, respects user preferences, fans out across configured channels.
-    if (status && ['SHIPPED', 'DELIVERED', 'CANCELLED', 'REFUNDED', 'CONFIRMED'].includes(status)) {
+    if (status && ['SHIPPED', 'OUT_FOR_DELIVERY', 'DELIVERED', 'CANCELLED', 'REFUNDED', 'CONFIRMED'].includes(status)) {
       try {
         const { notify } = await import('@/lib/notifications');
         const eventMap: Record<string, any> = {
           SHIPPED:   'ORDER_SHIPPED',
           DELIVERED: 'ORDER_DELIVERED',
+          OUT_FOR_DELIVERY: 'ORDER_OUT_FOR_DELIVERY',
           CANCELLED: 'ORDER_CANCELLED',
           REFUNDED:  'ORDER_REFUNDED',
           CONFIRMED: 'ORDER_CONFIRMED',
@@ -173,7 +174,7 @@ export async function PATCH(request: Request, props: { params: Promise<{ id: str
               orderNumber: updated.orderNumber,
             },
           };
-          notify({
+          await notify({
             event: eventMap[status],
             ...recipients,
             data: {

@@ -7,6 +7,18 @@ export function ProviderChecks({canEdit}:{canEdit:boolean}) {
   const [busy,setBusy]=useState(false);
   const [error,setError]=useState('');
   const [delivery,setDelivery]=useState('');
+  const [testPhone,setTestPhone]=useState('');
+  async function testWhatsApp() {
+    setBusy(true);setDelivery('');
+    try {
+      const response=await fetch('/api/admin/settings/integrations/whatsapp',{
+        method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({phone:testPhone}),
+      });
+      const data=await response.json();
+      setDelivery(data.message || data.error || 'The test status is unavailable.');
+    } catch {setDelivery('Check the campaign history before trying again.');}
+    finally {setBusy(false);}
+  }
   async function runProviderAction(sms=false) {
     setBusy(true);setDelivery('');
     try {
@@ -29,6 +41,12 @@ export function ProviderChecks({canEdit}:{canEdit:boolean}) {
     <button type="button" className="btn-outline" disabled={busy} onClick={check}>{busy?'Checking providers…':'Check provider connections'}</button>
     <button type="button" className="btn-outline ml-2" disabled={busy} onClick={()=>runProviderAction()}>Test email with Resend’s simulator</button>
     {canEdit && <button type="button" className="btn-outline ml-2" disabled={busy} onClick={()=>runProviderAction(true)}>Connect Fast2SMS delivery reports</button>}
+    {canEdit && <details className="mt-3"><summary>Test an AiSensy order message</summary>
+      <label className="mt-2 block">Consenting test mobile number
+        <input className="ml-2 border p-1" type="tel" autoComplete="off" value={testPhone} onChange={e=>setTestPhone(e.target.value)} />
+      </label>
+      <button type="button" className="btn-outline mt-2" disabled={busy || !testPhone.trim()} onClick={testWhatsApp}>Send one WhatsApp test</button>
+    </details>}
     <details className="mt-3"><summary>Provider callback addresses</summary>
       <ul><li>Shiprocket tracking · https://www.neejee.com/api/webhooks/courier</li>
         <li>Fast2SMS reports · https://www.neejee.com/api/webhooks/fast2sms</li>

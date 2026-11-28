@@ -1,3 +1,4 @@
+import { orderWhatsAppEnabled, orderWhatsAppPhone } from './order-whatsapp';
 import type { PrismaClient } from '@prisma/client';
 import type { Channel, ChannelAdapter, DispatchRecord, NotificationEvent } from './types';
 import { RETRY_NO_CONFIG, RETRY_RATE_LIMIT, RETRY_REASONS, currentOrderState, retryTime } from './retry-policy';
@@ -15,7 +16,12 @@ export async function retryOrderDispatch(
   const state = currentOrderState(row.event);
   const adapter = adapters[row.channel as Channel];
   const where = {id:row.id,status:'failed',attempt:row.attempt,providerRequestId:null,nextRetryAt:row.nextRetryAt,errorMessage:row.errorMessage};
-  const order = row.orderId && state && adapter ? await db.order.findUnique({where:{id:row.orderId},select:{status:true}}) : null;
+  const order = row.orderId && state && adapter ? await db.order.findUnique({where:{id:row.orderId},select:{status:true,userId:true,user:{select:{phone:true,whatsappOptIn:true,notificationPref:{select:{whatsappOptIn:true}}}}}}) : null;
+  if (row.channel === 'WHATSAPP' && (!orderWhatsAppEnabled() || !row.userId || order?.userId !== row.userId ||
+    orderWhatsAppPhone(order?.user) !== row.recipient)) {
+    await db.notificationDispatch.updateMany({where,data:{nextRetryAt:null}});
+    return {ok:false,skipped:'WhatsApp recipient is no longer eligible'};
+  }
   if (!adapter || !order || order.status !== state || row.attempt >= row.maxAttempts || now.getTime() - row.createdAt.getTime() > 24*3600_000) {
     await db.notificationDispatch.updateMany({where,data:{nextRetryAt:null}});
     return {ok:false,skipped:'expired or superseded'};

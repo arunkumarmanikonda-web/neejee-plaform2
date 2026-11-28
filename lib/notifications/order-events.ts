@@ -1,3 +1,4 @@
+import { orderWhatsAppEnabled, orderWhatsAppPhone } from './order-whatsapp';
 import { storeOrigin } from '@/lib/store-origin';
 // lib/notifications/order-events.ts
 // v26.3b — Central dispatcher for order lifecycle SMS + WhatsApp.
@@ -33,12 +34,13 @@ function rupees(paise: number | null | undefined): string {
 export async function fireOrderEvent(opts: {
   orderId: string;
   event: NotificationEvent;
+  whatsappForUser?: string;
   extra?: Record<string, string>;  // e.g. { awbNumber: '...', courier: 'Delhivery' }
 }) {
   const order = await prisma.order.findUnique({
     where: { id: opts.orderId },
     include: {
-      user: { select: { id: true, name: true, email: true, phone: true } },
+      user: { select: { id: true, name: true, phone: true, whatsappOptIn: true, notificationPref: { select: { whatsappOptIn: true } } } },
       address: { select: { phone: true, name: true } },
       items: {
         include: {
@@ -60,6 +62,13 @@ export async function fireOrderEvent(opts: {
     (order.address as any)?.name ||
     null;
   const userId = order.userId;
+  const recipient = orderWhatsAppPhone(order.user);
+  async function whatsapp(event: NotificationEvent, variables: Record<string,string>) {
+    if (!orderWhatsAppEnabled() || !recipient || !userId || (opts.whatsappForUser && opts.whatsappForUser !== userId)) {
+      return { ok: false, skipped: 'No eligible WhatsApp subscriber' };
+    }
+    return dispatchWhatsApp({event, variables, userId, orderId: opts.orderId, recipient});
+  }
 
   const base = storeOrigin();
   const trackLink = `${base}/help/track?order=${encodeURIComponent(order.orderNumber)}`;
@@ -76,6 +85,7 @@ export async function fireOrderEvent(opts: {
 
   switch (opts.event) {
     // ────────────────────────────────────────────────────────────
+    case 'ORDER_CONFIRMED':
     case 'ORDER_PLACED': {
       const smsVars = { ...baseVars };
       const waVars = {
@@ -85,19 +95,15 @@ export async function fireOrderEvent(opts: {
       };
 
       const smsEvent = order.paymentMethod === 'COD' ? 'ORDER_PLACED' : order.paymentStatus === 'PAID' ? 'ORDER_CONFIRMED' : null;
-      const sms = phone && smsEvent ? dispatchSms({
+      if (!smsEvent) return {ok:false, skipped:'Awaiting payment'};
+      const wa = whatsapp(smsEvent, waVars);
+      if (opts.whatsappForUser) return wa;
+      const sms = phone ? dispatchSms({
         event: smsEvent,
         recipient: phone,
         variables: smsVars,
         userId, orderId: order.id,
       }) : Promise.resolve({ ok: false, skipped: 'No recipient or confirmed payment' });
-
-      const wa = phone ? dispatchWhatsApp({
-        event: 'ORDER_PLACED',
-        recipient: phone,
-        variables: waVars,
-        userId, orderId: order.id,
-      }) : Promise.resolve({ ok: false, skipped: 'no phone' });
 
       const [smsRes, waRes] = await Promise.allSettled([sms, wa]);
       return { ok: true, sms: smsRes, wa: waRes };
@@ -105,20 +111,18 @@ export async function fireOrderEvent(opts: {
 
     // ────────────────────────────────────────────────────────────
     case 'ORDER_SHIPPED': {
-      const awbNumber = opts.extra?.awbNumber || order.awbNumber || '';
+      const awbNumber = opts.extra?.awbNumber || order.awbNumber || 'not yet available';
       const courier   = opts.extra?.courier || order.courier || 'Courier partner';
-      const expectedDelivery = opts.extra?.expectedDelivery || 'in 4-5 days';
+      const expectedDelivery = opts.extra?.expectedDelivery || 'awaiting courier confirmation';
       const trackLinkShipped = order.trackingUrl || trackLink;
 
       const smsVars = { ...baseVars, awbNumber, courier, trackLink: trackLinkShipped };
       const waVars = { ...baseVars, awbNumber, courier, expectedDelivery, trackLink: trackLinkShipped };
 
+      const wa = whatsapp('ORDER_SHIPPED', waVars);
+      if (opts.whatsappForUser) return wa;
       const sms = phone ? dispatchSms({
         event: 'ORDER_SHIPPED', recipient: phone, variables: smsVars,
-        userId, orderId: order.id,
-      }) : Promise.resolve({ skipped: true });
-      const wa = phone ? dispatchWhatsApp({
-        event: 'ORDER_SHIPPED', recipient: phone, variables: waVars,
         userId, orderId: order.id,
       }) : Promise.resolve({ skipped: true });
       const [s, w] = await Promise.allSettled([sms, wa]);
@@ -127,15 +131,13 @@ export async function fireOrderEvent(opts: {
 
     // ────────────────────────────────────────────────────────────
     case 'ORDER_OUT_FOR_DELIVERY': {
-      const awbNumber = opts.extra?.awbNumber || order.awbNumber || '';
+      const awbNumber = opts.extra?.awbNumber || order.awbNumber || 'not yet available';
       const smsVars = { firstName: baseVars.firstName, orderNumber: baseVars.orderNumber };
       const waVars  = { ...smsVars, awbNumber };
+      const wa = whatsapp('ORDER_OUT_FOR_DELIVERY', waVars);
+      if (opts.whatsappForUser) return wa;
       const sms = phone ? dispatchSms({
         event: 'ORDER_OUT_FOR_DELIVERY', recipient: phone, variables: smsVars,
-        userId, orderId: order.id,
-      }) : Promise.resolve({ skipped: true });
-      const wa = phone ? dispatchWhatsApp({
-        event: 'ORDER_OUT_FOR_DELIVERY', recipient: phone, variables: waVars,
         userId, orderId: order.id,
       }) : Promise.resolve({ skipped: true });
       const [s, w] = await Promise.allSettled([sms, wa]);
@@ -145,11 +147,9 @@ export async function fireOrderEvent(opts: {
     // ────────────────────────────────────────────────────────────
     case 'ORDER_DELIVERED': {
       const smsVars = { firstName: baseVars.firstName, orderNumber: baseVars.orderNumber };
+      const wa = whatsapp('ORDER_DELIVERED', smsVars);
+      if (opts.whatsappForUser) return wa;
       const sms = phone ? dispatchSms({
-        event: 'ORDER_DELIVERED', recipient: phone, variables: smsVars,
-        userId, orderId: order.id,
-      }) : Promise.resolve({ skipped: true });
-      const wa = phone ? dispatchWhatsApp({
         event: 'ORDER_DELIVERED', recipient: phone, variables: smsVars,
         userId, orderId: order.id,
       }) : Promise.resolve({ skipped: true });
@@ -161,16 +161,19 @@ export async function fireOrderEvent(opts: {
     case 'ORDER_CANCELLED': {
       const refundRupees = opts.extra?.refundRupees || rupees(order.total);
       const refundMethod = opts.extra?.refundMethod || (order.paymentMethod === 'COD' ? 'N/A (COD)' : 'Original payment method');
-      const refundEta    = opts.extra?.refundEta || '5-7 working days';
 
       const smsVars = { ...baseVars, refundRupees };
-      const waVars  = { ...baseVars, refundRupees, refundMethod, refundEta };
+      const unpaid = order.paymentStatus === 'PENDING' || order.paymentStatus === 'FAILED';
+      const waVars = {
+        ...baseVars,
+        refundRupees: opts.extra?.refundRupees || (unpaid ? '0' : order.paymentStatus === 'REFUNDED' ? rupees(order.total) : 'awaiting confirmation'),
+        refundMethod: unpaid ? 'not applicable' : refundMethod,
+        refundEta: unpaid ? 'not applicable' : (opts.extra?.refundEta || 'awaiting confirmation'),
+      };
+      const wa = whatsapp('ORDER_CANCELLED', waVars);
+      if (opts.whatsappForUser) return wa;
       const sms = phone ? dispatchSms({
         event: 'ORDER_CANCELLED', recipient: phone, variables: smsVars,
-        userId, orderId: order.id,
-      }) : Promise.resolve({ skipped: true });
-      const wa = phone ? dispatchWhatsApp({
-        event: 'ORDER_CANCELLED', recipient: phone, variables: waVars,
         userId, orderId: order.id,
       }) : Promise.resolve({ skipped: true });
       const [s, w] = await Promise.allSettled([sms, wa]);

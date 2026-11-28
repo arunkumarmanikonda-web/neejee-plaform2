@@ -8,6 +8,8 @@
 //   await dispatchWhatsApp({ event: 'ORDER_SHIPPED', recipient: phone,
 //                            variables: {...}, orderId, userId });
 
+import { createHash } from 'node:crypto';
+import { orderWhatsAppEvent } from './order-whatsapp';
 import { retryOrderDispatch } from './retry-worker';
 import { RETRY_NO_CONFIG, RETRY_RATE_LIMIT, retryTime } from './retry-policy';
 import { prisma } from '@/lib/prisma';
@@ -53,21 +55,23 @@ async function dispatchOnChannel(channel: Channel, opts: DispatchOptions) {
   const variables = normalizeVars(opts.variables);
   const templateName = `${channel}.${opts.event.toLowerCase()}`;
 
-  const row = await prisma.notificationDispatch.create({
-    data: {
-      channel,
-      event: opts.event,
-      templateName,
-      recipient: opts.recipient,
-      userId: opts.userId || null,
-      orderId: opts.orderId || null,
-      cartId: opts.cartId || null,
-      status: 'queued',
-      attempt: 1,
-      maxAttempts: 3,
-      payloadJson: variables as any,
-    } as any,
-  });
+  // Checkout confirmation, staff updates and courier callbacks can describe the same event.
+  const once = channel === 'WHATSAPP' && opts.orderId && orderWhatsAppEvent(opts.event);
+  const canonicalEvent = opts.event === 'ORDER_CONFIRMED' ? 'ORDER_PLACED' : opts.event;
+  const id = once ? 'wa_' + createHash('sha256').update(JSON.stringify([opts.orderId,canonicalEvent])).digest('hex') : undefined;
+  const data = {
+    id, channel, event: opts.event, templateName, recipient: opts.recipient,
+    userId: opts.userId || null, orderId: opts.orderId || null, cartId: opts.cartId || null,
+    status: 'queued', attempt: 1, maxAttempts: 3, payloadJson: variables,
+  };
+  let row: {id:string};
+  if (id) {
+    const claim = await prisma.notificationDispatch.createMany({data:[data], skipDuplicates:true});
+    if (!claim.count) return {ok:false, skipped:'Order update already recorded', dispatchId:id};
+    row = {id};
+  } else {
+    row = await prisma.notificationDispatch.create({data});
+  }
 
   // If adapter not configured, mark as failed (soft) and return — let the
   // retry cron re-attempt once env vars arrive.

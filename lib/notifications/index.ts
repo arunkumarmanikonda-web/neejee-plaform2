@@ -5,6 +5,8 @@
 import { prisma } from '@/lib/prisma';
 import { sendEmail } from '@/lib/email';
 import { renderTemplate } from './templates';
+import { orderWhatsAppEnabled, orderWhatsAppEvent } from './order-whatsapp';
+import { fireOrderEvent } from './order-events';
 import { CRITICAL_EVENTS } from './types';
 import type { NotifyArgs, NotificationRecipient, SendResult, NotificationEvent } from './types';
 
@@ -32,7 +34,16 @@ export async function notify(args: NotifyArgs): Promise<{ results: SendResult[] 
       }
       // WhatsApp: gated by env + user opt-in
       if (r.phone) {
-        if (WHATSAPP_ENABLED && r.whatsappOptIn !== false) {
+        const orderId = args.context?.type === 'ORDER' ? args.context.id : args.orderId;
+        const orderEvent = orderWhatsAppEvent(args.event);
+        if (orderId && orderEvent && orderWhatsAppEnabled() && r.whatsappOptIn === true && r.userId) {
+          try {
+            const sent = await fireOrderEvent({orderId, event: orderEvent, whatsappForUser: r.userId});
+            all.push({channel: 'WHATSAPP', recipient: r.phone, status: sent.ok ? 'SENT' : 'skipped' in sent ? 'SKIPPED' : 'FAILED'});
+          } catch {
+            all.push({channel: 'WHATSAPP', recipient: r.phone, status: 'FAILED', error: 'Order notification unavailable'});
+          }
+        } else if (WHATSAPP_ENABLED && r.whatsappOptIn === true) {
           all.push(await sendWhatsappChannel(r, args, rendered));
         } else {
           all.push(await logSkipped(r, args, 'WHATSAPP',

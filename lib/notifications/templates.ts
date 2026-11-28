@@ -111,6 +111,14 @@ export function renderTemplate(event: NotificationEvent, data: Record<string, an
         smsText: `NEEJEE: Order ${esc(data.orderNumber)} shipped. ${data.trackingNumber ? `Track: ${esc(data.trackingNumber)}` : ''}`,
       };
     }
+    case 'ORDER_OUT_FOR_DELIVERY': {
+      const orderNumber = esc(data.orderNumber);
+      return {
+        subject: `Out for delivery · ${orderNumber}`,
+        html: wrap(block('OUT FOR DELIVERY', 'Your parcel is on its way.', `<p>The courier has your Neejee order <strong>${orderNumber}</strong> out for delivery.</p>`)),
+        smsText: `NEEJEE: Order ${orderNumber} is out for delivery.`,
+      };
+    }
     case 'ORDER_DELIVERED': {
       return {
         subject: `Welcome home · ${esc(data.orderNumber)}`,
