@@ -3,7 +3,6 @@
 import { useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { styleHref } from '@/lib/pairing';
 import { Plus } from 'lucide-react';
 import { useCart } from '@/lib/cart-store';
 import { buildPricing } from '@/lib/catalog/pricing-read';
@@ -81,7 +80,7 @@ export function TileAdd({ slug, name, soldOut = false }: { slug: string; name: s
       const line = useCart.getState().items.find(item => item.productId === product.id && item.variantId === selected.id);
       if (intent === 'buy' && line) {
         added = true;
-        router.push(styleHref(product.id, selected.id));
+        router.push('/checkout');
         return;
       }
       if (selected.inventory != null && (line?.quantity ?? 0) >= selected.inventory) {
@@ -93,7 +92,7 @@ export function TileAdd({ slug, name, soldOut = false }: { slug: string; name: s
         images: selected.images?.length ? selected.images : product.images,
       });
       added = true;
-      router.push(intent === 'buy' ? styleHref(product.id,selected.id) : '/cart');
+      router.push(intent === 'buy' ? '/checkout' : '/cart');
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'Please try again.');
     } finally {

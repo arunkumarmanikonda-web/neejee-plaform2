@@ -17,6 +17,7 @@ import { studioHref } from '@/lib/studio';
 import { HeroCarousel } from '@/components/home/HeroCarousel';
 import { resolveMedia } from '@/lib/catalog/media-read';
 import { buildPricing } from '@/lib/catalog/pricing-read';
+import { isSoldOut } from '@/lib/fulfilment';
 import { formatINR } from '@/lib/money';
 import type { Prisma } from '@prisma/client';
 
@@ -156,6 +157,7 @@ async function getHomeData() {
       material:p.material, craft:p.craft, region:p.region, mrp:p.mrp, sellingPrice: p.sellingPrice,
       salePrice: p.salePrice, saleStartsAt: p.saleStartsAt, saleEndsAt: p.saleEndsAt,
       images: resolveMedia(p).gallery,
+      buyable: (!p.catalogueCtaMode || p.catalogueCtaMode === 'SHOP_NOW') && p.fulfilmentMode !== 'PREORDER' && !isSoldOut(p) && p.variants.some(v => v.inventory > 0),
       badges: p.badges, aiTryOnEligible: p.aiTryOnEligible,
       inventory: p.catalogueStockVisibility === 'SHOW_ALL'
         ? p.variants.reduce((sum, v) => sum + v.inventory, 0)
@@ -214,12 +216,12 @@ export async function FashionStorefront({review=false}:{review?:boolean}) {
     <>
       <Header shop/>
       <main className="house-front">
+        {!data.saree && data.spotlightCard && <StockFeature piece={data.spotlightCard} home={data.homeLead}/>}
         <HouseCampaign review={review} lead={data.saree} preview={previewPricingEnabled()} email={email}/>
         {(!fashion.length || moreFashion.length>0) && <div className="nj-market house-shelf" style={{paddingBottom:'1rem'}}>
           {fashion.length ? <section className="nj-shelf"><div className="nj-shelf-head"><h2>Sarees <em>&amp; suit sets</em></h2><Link className="nj-text-link" href="/edits/clothing">Shop the collection</Link></div><CatalogueGrid textiles products={moreFashion.map(p=>({...p,images:p.cover?[p.cover,...p.images.filter(i=>i!==p.cover)]:p.images}))}/></section> :
             <StudyShelf review={review} home ids={homeStudyIds} preview={previewPricingEnabled()} email={email}/>}
         </div>}
-        {!data.saree && data.spotlightCard && <StockFeature piece={data.spotlightCard} home={data.homeLead}/>}
         <StudioDoors roomPiece={data.spotlight?.roomHref ? data.spotlight.slug : undefined} wearable={data.saree?.mirror ? data.saree.slug : data.suit?.mirror ? data.suit.slug : undefined}/>
         {(data.heroBanners.length>0) && <HeroCarousel banners={data.heroBanners} spotlight={data.saree && data.saree.slug!==data.spotlight?.slug ? data.spotlight : null}/>}
 

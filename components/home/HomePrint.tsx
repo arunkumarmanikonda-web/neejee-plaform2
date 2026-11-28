@@ -17,6 +17,7 @@ type PrintPiece = {
   alias?: string;
   price?: string;
   href?: string;
+  buyable?: boolean;
 };
 
 function cataloguePiece(piece: ProductCardData): PrintPiece {
@@ -24,7 +25,7 @@ function cataloguePiece(piece: ProductCardData): PrintPiece {
   return {
     name:piece.name, alias:piece.shortName || undefined, caption:piece.poeticLine || [...new Set(facts.filter(Boolean))].join(' · '),
     price: formatINR(buildPricing(piece).effectivePrice), image: piece.images[0], detailImage:piece.images.find(src=>src && src!==piece.images[0]),
-    href: '/products/' + encodeURIComponent(piece.slug),
+    buyable:piece.buyable, href: '/products/' + encodeURIComponent(piece.slug),
   };
 }
 
@@ -62,6 +63,7 @@ function Shelf({ title, pieces, note }: { title:string; pieces:PrintPiece[]; not
           {p.caption && <p className="folio-copy">{p.caption}</p>}
           {p.detailImage && <PrintPhoto className="folio-swatch" src={p.detailImage} alt={'Another view of '+p.name}/>}
           {p.price && <p className="folio-price">{p.price}</p>}
+          {p.buyable && p.href && <a className="folio-buy" href={p.href}>Buy now</a>}
         </div>
       </article>)}
     </div>

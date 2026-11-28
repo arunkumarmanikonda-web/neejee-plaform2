@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { ProviderChecks } from '@/components/admin/ProviderChecks';
 import { useEffect, useMemo, useState } from 'react';
 
 type ApiField = {
@@ -381,6 +382,8 @@ export default function AdminSettingsPage() {
           <RuntimeMiniCard label="TAXONOMY ACCESS" value="Live via AI Manager" helper="Use /admin/ai?surface=taxonomy if direct route fails" />
           <RuntimeMiniCard label="META ACCESS" value="Live via AI Manager" helper="Use /admin/ai?surface=meta if direct route fails" />
         </div>
+
+        <ProviderChecks/>
 
         <div className="flex flex-wrap gap-3 mt-5">
           <Link href="/admin/ai" className="border border-kohl/20 px-4 py-2 rounded-sm text-sm font-medium text-kohl bg-beige">

@@ -8,3 +8,5 @@
 .nj-tile-purchase{min-width:0}.nj-add-tile{display:inline-flex;align-items:center;justify-content:center;gap:7px;color:#fff9ec;background:#79362d;border:1px solid #73382b;border-radius:3px;min-height:41px;padding:8px 15px;font:500 14px/1.3 var(--font-ui),sans-serif}.nj-add-tile:hover{background:#57291f}.nj-add-tile:disabled{opacity:.6;cursor:default}
 .nj-tile-options{display:grid;gap:3px;font:13px var(--font-ui);margin-bottom:5px}.nj-tile-options select{width:100%;padding:7px 4px;border:1px solid #b6a081;background:#fffbf3}.nj-tile-message{font:13px/1.3 var(--font-ui);margin:6px 0}
 @media(max-width:600px){.nj-gallery-nav{bottom:6px;font-size:11px}.nj-gallery-nav button{width:31px;height:32px}.nj-add-tile{width:100%;padding:7px 9px;min-height:42px}.nj-gallery-nav span i{font-size:9px}}
+
+.nj-photo-playback{position:absolute;left:.5rem;bottom:.5rem;z-index:3;display:grid;place-items:center;width:36px;height:36px;border-radius:50%;background:#fff9ed;color:#432b23;border:1px solid #a58966}.nj-gallery:has(.loom-gallery-nav)>.nj-photo-playback{bottom:3.3rem}

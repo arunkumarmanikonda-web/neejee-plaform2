@@ -14,7 +14,7 @@ import { WaitlistSignup } from '@/components/product/WaitlistSignup';
 import { ReviewsSection } from '@/components/product/ReviewsSection';
 import { BadgeRow } from '@/components/ui/Badge';
 import { track } from '@/lib/analytics';
-import { DetailViewer } from '@/components/product/DetailViewer';
+import { ProductPhotoGallery } from '@/components/product/ProductPhotoGallery';
 import { pieceFields, readPieceFacts, type PieceFacts } from '@/lib/catalog/piece-notes';
 import { ShareFind } from '@/components/product/ShareFind';
 import { defaultStyling, lookUrl } from '@/lib/stylebook';
@@ -90,10 +90,11 @@ function PDPInner() {
     ? (activeVariant?.inventory ?? product.totalInventory ?? 0)
     : 50;
 
-  const addAndGo = (destination: '/cart' | '/style') => {
+  const addAndGo = (destination: '/cart' | '/checkout' | '/style') => {
     if (added || !inStock) return;
     const existing=useCart.getState().items.find(i=>i.productId===product.id && (i.variantId||null)===(activeVariant?.id||null));
-    if(destination==='/style' && existing && existing.quantity>=qty){setAdded(true);router.push(styleHref(product.id,activeVariant?.id));return;}
+    const next = destination === '/style' ? styleHref(product.id,activeVariant?.id) : destination;
+    if(destination!=='/cart' && existing && existing.quantity>=qty){setAdded(true);router.push(next);return;}
     addItem({
       id: product.id,
       slug: product.slug,
@@ -104,9 +105,9 @@ function PDPInner() {
       inventory: stockLeft,
       variantId: activeVariant?.id,
       variantLabel: [activeVariant?.size, activeVariant?.color].filter(Boolean).join(' · ') || null,
-    } as any, destination==='/style'?Math.max(0,qty-(existing?.quantity||0)):qty);
+    } as any, destination!=='/cart'?Math.max(0,qty-(existing?.quantity||0)):qty);
     setAdded(true);
-    router.push(destination==='/style'?styleHref(product.id,activeVariant?.id):destination);
+    router.push(next);
   };
 
 
@@ -172,38 +173,8 @@ function PDPInner() {
       </nav>
 
       <article className="nj-product-detail max-w-8xl mx-auto px-6 lg:px-12 py-8 grid lg:grid-cols-2 gap-12">
-        <section>
-          <div className="aspect-[4/5] bg-beige relative overflow-hidden">
-            {galleryImages?.[activeImage] ? (
-              <Image src={galleryImages[activeImage]} alt={product.name} fill priority sizes="(min-width:1024px) 50vw, 100vw" className="object-cover" />
-            ) : (
-              <div className="w-full h-full flex items-center justify-center text-mitti italic">No image</div>
-            )}
-            <DetailViewer photos={galleryImages} selected={activeImage} onSelect={setActiveImage} name={product.name}/>
-            {eff.onSale && (
-              <span className="absolute top-4 left-4 badge-founder">ON SALE · -{dp}%</span>
-            )}
-            {product.arTryOnEligible && (
-              <span className="absolute top-20 right-4 bg-madder/85 text-ivory text-[10px] px-3 py-1 font-ui tracking-widest">✦ AR TRY-ON</span>
-            )}
-          </div>
-          {product.video && (/^https?:\/\//.test(product.video) || /^\/(?!\/)/.test(product.video)) && <details className="mt-3 border-y border-mitti/20 py-3">
-            <summary className="cursor-pointer font-ui text-sm">{product.aiTryOnEligible?'Watch the drape':'Watch the piece in motion'}</summary>
-            {/youtu\.be|youtube\.com|vimeo\.com/i.test(product.video)
-              ? <a className="inline-block my-2" href={product.video}>Open the original film</a>
-              : <video className="mt-3 max-h-96 w-full bg-ivory" controls playsInline preload="none" src={product.video} aria-label={'Film of '+product.name}/>}
-          </details>}
-          {galleryImages?.length > 1 && (
-            <div className="grid grid-cols-5 gap-2 mt-2">
-              {galleryImages.map((img: string, i: number) => (
-                <button key={i} aria-pressed={activeImage===i} aria-label={`View photograph ${i+1}`} onClick={() => setActiveImage(i)}
-                  className={`aspect-square overflow-hidden bg-beige ${activeImage === i ? 'ring-2 ring-madder' : ''}`}>
-                  <Image src={img} alt={`View ${i + 1}`} width={150} height={150} className="w-full h-full object-cover" />
-                </button>
-              ))}
-            </div>
-          )}
-        </section>
+        <ProductPhotoGallery key={product.id+'-'+(activeVariant?.id||'')} product={product} galleryImages={galleryImages}
+          activeImage={activeImage} setActiveImage={setActiveImage} onSale={eff.onSale} discount={dp}/>
 
         <section>
           {product.badges && product.badges.length > 0 && (
@@ -309,7 +280,7 @@ function PDPInner() {
               <WaitlistSignup productId={product.id} productName={product.name} source="pdp" />
             ) : (
               <div className="flex gap-3">
-                <button onClick={()=>addAndGo('/style')} disabled={!inStock || added} className="btn-primary flex-1 disabled:opacity-50">
+                <button onClick={()=>addAndGo(isPreorder(product) ? '/style' : '/checkout')} disabled={!inStock || added} className="btn-primary flex-1 disabled:opacity-50">
                   {isPreorder(product) ? 'RESERVE NOW' : 'BUY NOW'}
                 </button>
                 <button onClick={()=>addAndGo('/cart')} disabled={!inStock || added} className="btn-outline flex-1 disabled:opacity-50">

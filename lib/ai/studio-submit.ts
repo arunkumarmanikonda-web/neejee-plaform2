@@ -44,7 +44,9 @@ export async function submitStudio(request:Request,mode:StudioMode) {
     const mainImage = option.image || (!mirror ? piece.image : '');
     if (!mainImage) return NextResponse.json({error:'A fitting photo for this colour or size is not available yet.'},{status:422});
     const reference = new URL(mainImage,request.url).href;
-    const fabricDetails = ('fabricDetails' in option ? option.fabricDetails : undefined) || [];
+    const fabricDetails = study && styling
+      ? [{role:'border' as const, image:'/brand/study-views/'+styling.look+'.webp'}]
+      : ('fabricDetails' in option ? option.fabricDetails : undefined) || [];
     const input=await privateStudioReadUrl(proof.path);
     const styled = styling && (study || selectedAccessories(styling,accessories).length || Object.keys(own).length);
     const styledInput = styled || fabricDetails.length
@@ -58,17 +60,18 @@ export async function submitStudio(request:Request,mode:StudioMode) {
       productIds: [...new Set([...(study ? [] : [piece.id]), ...accessories.map(item => item.productId).filter((id): id is string => !!id)])],
       consentLogged: true, deleteAt: new Date(Date.now() + 30 * 86400000),
     };
+    if (!submit.ok) console.warn('[studio] fal submission declined', {mode, status: submit.providerStatus ?? 'unconfirmed'});
     if (submit.credentialRejected && openAiStyleAvailable()) {
       const prompt = styledInput?.prompt || (mirror
         ? 'Dress the person in image 1 in the exact garment from image 2. Preserve their appearance, pose and surroundings, and the colour, motifs and drape of the garment.'
         : 'Place the exact object from image 2 in the room from image 1. Match the existing perspective and lighting and preserve the room. Object: ' + description);
-      const jpg = await makeStyleImage(prompt, styledInput?.image_urls || [input, reference]);
+      const jpg = await makeStyleImage(prompt, styledInput?.image_urls || [input, reference], undefined, mirror);
       const path = makeUploadPath((mirror ? 'ai-mirror/' : 'ai-space/') + session.id, 'preview.jpg');
       const outputUrl = createPrivateAiMediaUrl(new URL(request.url).origin, path);
       await uploadPrivateAiFile(path, jpg, 'image/jpeg');
       try {
         const saved = await prisma.aiPreview.create({ data: { ...preview, outputImage: outputUrl } });
-        return NextResponse.json({ ok: true, done: true, configured: true, previewId: saved.id, outputUrl });
+        return NextResponse.json({ ok: true, done: true, configured: true, provider: 'openai', ...(session.role === 'SUPER_ADMIN' ? {falStatus: submit.providerStatus} : {}), previewId: saved.id, outputUrl });
       } catch (error) {
         await deleteFile('private-ai:' + path).catch(() => {});
         throw error;
@@ -80,7 +83,7 @@ export async function submitStudio(request:Request,mode:StudioMode) {
     if(submit.statusUrl)query.set('statusUrl',submit.statusUrl);
     if(submit.responseUrl)query.set('responseUrl',submit.responseUrl);
     signStudioJob(session.id,query);
-    return NextResponse.json({ok:true,done:false,configured:true,previewId:pending.id,pollUrl:'/api/ai/mirror/status?'+query.toString()});
+    return NextResponse.json({ok:true,done:false,configured:true,provider:'fal',previewId:pending.id,pollUrl:'/api/ai/mirror/status?'+query.toString()});
   } catch {
     return NextResponse.json({error:'The photo service could not finish this request. Please try again.'},{status:502});
   }

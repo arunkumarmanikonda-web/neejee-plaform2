@@ -1,3 +1,4 @@
+import { falKey } from './ai/fal-key';
 // Centralised AI integrations with safe fallbacks.
 //
 // Try-on: uses fal.ai's FASHN v1.5 (commercial-licensed) by default.
@@ -10,11 +11,11 @@
 //   Set OPENAI_API_KEY in env to activate.
 
 export function aiImageConfigured(): boolean {
-  return Boolean(process.env.FAL_KEY?.trim() || process.env.OPENAI_API_KEY?.trim());
+  return Boolean(falKey() || process.env.OPENAI_API_KEY?.trim());
 }
 
 export function aiMirrorConfigured(): boolean {
-  return Boolean(process.env.FAL_KEY?.trim() || process.env.OPENAI_API_KEY?.trim());
+  return Boolean(falKey() || process.env.OPENAI_API_KEY?.trim());
 }
 
 export function aiTextConfigured(): boolean {
@@ -39,7 +40,7 @@ interface FalRunArgs {
 }
 
 export async function falRun({ endpoint, input, timeoutMs = 90_000 }: FalRunArgs): Promise<{ ok: boolean; data?: any; error?: string; credentialRejected?: boolean }> {
-  const key = process.env.FAL_KEY;
+  const key = falKey();
   if (!key) return { ok: false, error: 'FAL_KEY not set', credentialRejected: true };
 
   try {
@@ -133,7 +134,7 @@ export async function virtualTryOn(personImageUrl: string, garmentImageUrl: stri
 // These split virtualTryOn into submit (fast) + status-check (per-poll),
 // so the client can poll past Vercel's 60s function limit without timing out.
 
-const TRYON_ENDPOINT = 'fal-ai/fashn/tryon/v1.5';
+const TRYON_ENDPOINT = 'fal-ai/fashn/tryon/v1.6';
 
 export async function falSubmitTryOn(
   personImageUrl: string,
@@ -144,7 +145,7 @@ export async function falSubmitTryOn(
         model_image: personImageUrl,
         garment_image: garmentImageUrl,
         category: 'auto',
-        mode: 'balanced',
+        mode: 'quality',
         garment_photo_type: 'auto',
         num_samples: 1,
         segmentation_free: true,
@@ -159,14 +160,14 @@ export async function submitRoomPlacement(room:string,piece:string,description:s
   });
 }
 
-export async function submitStudioTask(endpoint:string,input:Record<string,unknown>): Promise<{ ok: boolean; requestId?: string; endpoint?: string; statusUrl?: string; responseUrl?: string; error?: string; credentialRejected?: boolean }> {
-  const key=process.env.FAL_KEY;
-  if(!key)return {ok:false,error:'Image provider unavailable',credentialRejected:true};
+export async function submitStudioTask(endpoint:string,input:Record<string,unknown>): Promise<{ ok: boolean; requestId?: string; endpoint?: string; statusUrl?: string; responseUrl?: string; error?: string; credentialRejected?: boolean; providerStatus?: number }> {
+  const key=falKey();
+  if(!key)return {ok:false,error:'Image provider unavailable',credentialRejected:true,providerStatus:0};
   try {
     const submit=await fetch(FAL_BASE+'/'+endpoint,{method:'POST',headers:{Authorization:'Key '+key,'Content-Type':'application/json'},body:JSON.stringify(input),signal:AbortSignal.timeout(18000)});
     const data = await submit.json().catch(() => ({}));
     if (!submit.ok) {
-      return { ok: false, credentialRejected: submit.status === 401 || submit.status === 402, error: data?.detail || data?.error || `fal submit failed (${submit.status})` };
+      return { ok: false, providerStatus: submit.status, credentialRejected: submit.status === 401 || submit.status === 402, error: data?.detail || data?.error || `fal submit failed (${submit.status})` };
     }
     const requestId: string | undefined = data.request_id;
     if (!requestId) {
@@ -188,7 +189,7 @@ export async function falStatusCheck(
   endpoint: string,
   requestId: string
 ): Promise<{ ok: boolean; status?: string; outputUrl?: string; error?: string }> {
-  const key = process.env.FAL_KEY;
+  const key = falKey();
   if (!key) return { ok: false, error: 'FAL_KEY not set' };
   try {
     // Per fal.ai queue docs:
@@ -313,7 +314,7 @@ export async function generateThappaSeal(label: string): Promise<{
   outputUrl?: string;
   error?: string;
 }> {
-  const key = process.env.FAL_KEY;
+  const key = falKey();
   if (!key) return { ok: false, error: 'FAL_KEY not configured' };
 
   const cleanLabel = label.trim().toUpperCase().slice(0, 28);

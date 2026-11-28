@@ -1,9 +1,10 @@
+import { falKey } from './fal-key';
 import { falRun } from '@/lib/ai';
 import { makeUploadPath, storageConfigured, uploadFile } from '@/lib/storage';
 import { makeStyleImage, openAiStyleAvailable } from './openai-image';
 
 export function creativeImagesConfigured() {
-  return Boolean(process.env.FAL_KEY?.trim()) || (openAiStyleAvailable() && storageConfigured());
+  return Boolean(falKey()) || (openAiStyleAvailable() && storageConfigured());
 }
 
 type CreativeRequest = {
