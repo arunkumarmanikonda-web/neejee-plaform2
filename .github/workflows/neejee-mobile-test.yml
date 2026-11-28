@@ -36,7 +36,8 @@ jobs:
           REVIEW_HOST: ${{ inputs.review_host }}
         shell: bash
         run: |
-          sdkmanager "platforms;android-36" "build-tools;36.0.0"
+          sdk_root="${ANDROID_HOME:?Android SDK is required}"
+          "${sdk_root}/cmdline-tools/latest/bin/sdkmanager" --sdk_root="$sdk_root" "platforms;android-36" "build-tools;36.0.0"
           if [[ -n "$REVIEW_HOST" ]]; then
             bash mobile/android/build-test.sh "$REVIEW_HOST"
           else
