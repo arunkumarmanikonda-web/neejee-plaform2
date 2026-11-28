@@ -62,6 +62,7 @@ export async function requireSellerContext(user: SessionUser | null): Promise<
 > {
   const ctx = await getSellerContext(user);
   if (!ctx) return { ok: false, status: 401, error: 'No seller context for this user' };
+  if (ctx.seller.kycStatus !== 'APPROVED') return { ok: false, status: 403, error: 'Seller approval required' };
   return { ok: true, ctx };
 }
 

@@ -1,3 +1,4 @@
+import { resolveVendorForSession } from '@/lib/vendor-auth-helpers';
 // Vendor image upload — mirror of /api/admin/upload but accepts VENDOR / VENDOR_STAFF.
 // Used by /vendor/ai-photos for uploading raw phone shots.
 
@@ -11,11 +12,11 @@ export const runtime = 'nodejs';
 const ALLOWED = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/avif']);
 const MAX_SIZE = 15 * 1024 * 1024; // 15 MB — phone shots can be heavy
 
-const VENDOR_ROLES = ['VENDOR', 'VENDOR_STAFF'];
 
 export async function POST(request: Request) {
   const user = await getSession();
-  if (!user || !VENDOR_ROLES.includes(user.role)) {
+  const scope = await resolveVendorForSession(user);
+  if (!scope || scope.accessLevel === 'FINANCE_ONLY') {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
   if (!storageConfigured()) {

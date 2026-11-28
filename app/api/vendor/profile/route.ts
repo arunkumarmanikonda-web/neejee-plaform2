@@ -22,7 +22,7 @@ async function vendorGate() {
     where: { userId: session.id },
     include: { user: { select: { passwordHash: true } } },
   });
-  if (!vendor) return { error: 'No vendor profile', status: 404 };
+  if (!vendor || ['SUSPENDED','ARCHIVED'].includes(vendor.status)) return { error: 'No vendor profile', status: 404 };
   return { session, vendor };
 }
 

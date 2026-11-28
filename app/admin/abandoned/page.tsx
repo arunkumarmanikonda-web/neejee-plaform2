@@ -57,12 +57,10 @@ export default async function AdminAbandoned() {
       <div className="bg-banarasi/10 border border-banarasi/30 p-5">
         <p className="font-display text-lg text-kohl">Automated reminders</p>
         <p className="font-italic italic text-mitti text-sm mt-1">
-          3 gentle nudges at 2h, 24h, and 72h after abandonment. Strictly opt-in respected.
+          Recovery runs every 15 minutes and applies the timing and channel preferences set for the store.
         </p>
         <div className="mt-3 text-xs space-y-1 text-mitti">
-          <p>• Endpoint: <code className="bg-ivory px-2 py-0.5">/api/cron/abandoned-cart</code></p>
-          <p>• Auth: secured via <code className="bg-ivory px-2 py-0.5">CRON_SECRET</code> env var</p>
-          <p>• Schedule: hourly recommended (add to <code className="bg-ivory px-2 py-0.5">vercel.json</code>)</p>
+          <a className="underline" href="/admin/recovery-settings">Open recovery settings</a>
         </div>
       </div>
 

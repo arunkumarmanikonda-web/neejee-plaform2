@@ -190,6 +190,12 @@ export async function deletePrivateSellerFile(filePath:string):Promise<void> {
   return deleteStoredObject(PRIVATE_SELLER_STORAGE_BUCKET,path);
 }
 
+export async function deletePrivateVendorFile(filePath: string) {
+  const path = safeObjectPath(filePath);
+  if (!path || !path.startsWith('vendor-docs/')) throw new Error('Invalid private vendor file');
+  return deleteStoredObject(PRIVATE_SELLER_STORAGE_BUCKET, path);
+}
+
 async function deleteStoredObject(bucket:string,path:string):Promise<void> {
   if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) throw Error('Supabase storage not configured');
   const delUrl = `${SUPABASE_URL}/storage/v1/object/${encodeURIComponent(bucket)}/${path}`;

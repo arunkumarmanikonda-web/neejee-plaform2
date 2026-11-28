@@ -1,44 +1,44 @@
-﻿import chromium from '@sparticuz/chromium';
+import chromium from '@sparticuz/chromium';
 import puppeteer, { type Page } from 'puppeteer-core';
 import LambdaFS from '@sparticuz/chromium/build/lambdafs';
 import { join } from 'node:path';
 
-let linuxLibraries: Promise<string> | undefined;
-async function serverlessBrowserEnv() {
-  if (process.env.VERCEL !== '1' || process.env.CHROME_EXECUTABLE_PATH) return undefined;
-  // Chromium 126 only auto-loads these libraries on specific Lambda Node versions.
-  // Vercel's Node 22 runtime needs the same NSS/NSPR libraries for the browser process.
+import { access, mkdtemp, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+
+type BrowserRuntime = { executablePath: string; env?: Record<string, string | undefined> };
+let packagedRuntime: Promise<BrowserRuntime> | undefined;
+
+async function packagedBrowser(): Promise<BrowserRuntime> {
+  const executablePath = await chromium.executablePath();
+  if (process.platform !== 'linux') return { executablePath };
+
   const archive = join(process.cwd(), 'node_modules/@sparticuz/chromium/bin/al2023.tar.br');
-  linuxLibraries ??= LambdaFS.inflate(archive).catch(error => {
-    linuxLibraries = undefined;
-    throw error;
-  });
-  const libraryPath = join(await linuxLibraries, 'lib');
+  const libraryPath = join(await LambdaFS.inflate(archive), 'lib');
+  await access(join(libraryPath, 'libnss3.so'));
+
+  // Set the library path in the child immediately before starting the native binary.
+  const directory = await mkdtemp(join(tmpdir(), 'neejee-pdf-'));
+  const launcher = join(directory, 'chrome');
+  await writeFile(launcher, '#!/bin/sh\nexport LD_LIBRARY_PATH="$NEEJEE_CHROME_LIBS"\nexec "$NEEJEE_CHROME_BIN" "$@"\n', { mode: 0o700 });
   return {
-    PATH: process.env.PATH,
-    HOME: process.env.HOME,
-    TMPDIR: process.env.TMPDIR,
-    LANG: process.env.LANG,
-    TZ: process.env.TZ,
-    FONTCONFIG_PATH: process.env.FONTCONFIG_PATH || '/tmp/fonts',
-    LD_LIBRARY_PATH: [libraryPath, process.env.LD_LIBRARY_PATH].filter(Boolean).join(':'),
+    executablePath: launcher,
+    env: {
+      PATH: process.env.PATH, HOME: process.env.HOME, TMPDIR: process.env.TMPDIR,
+      LANG: process.env.LANG, TZ: process.env.TZ, FONTCONFIG_PATH: process.env.FONTCONFIG_PATH || '/tmp/fonts',
+      NEEJEE_CHROME_BIN: executablePath,
+      NEEJEE_CHROME_LIBS: [libraryPath, process.env.LD_LIBRARY_PATH].filter(Boolean).join(':'),
+    },
   };
 }
 
-async function resolveExecutablePath(): Promise<string> {
-  if (process.env.CHROME_EXECUTABLE_PATH) {
-    return process.env.CHROME_EXECUTABLE_PATH;
-  }
-
-  const executablePath = await chromium.executablePath();
-
-  if (!executablePath) {
-    throw new Error(
-      'No Chrome/Chromium executable found. Set CHROME_EXECUTABLE_PATH or install a Chromium runtime.'
-    );
-  }
-
-  return executablePath;
+function browserRuntime(): Promise<BrowserRuntime> {
+  if (process.env.CHROME_EXECUTABLE_PATH) return Promise.resolve({ executablePath: process.env.CHROME_EXECUTABLE_PATH });
+  packagedRuntime ??= packagedBrowser().catch(error => {
+    packagedRuntime = undefined;
+    throw error;
+  });
+  return packagedRuntime;
 }
 
 function resolveArgs(): string[] {
@@ -101,9 +101,8 @@ async function waitForAssets(page: Page): Promise<void> {
 
 export async function renderHtmlToPdfBuffer(html: string): Promise<Buffer> {
   const browser = await puppeteer.launch({
-    executablePath: await resolveExecutablePath(),
+    ...await browserRuntime(),
     args: resolveArgs(),
-    env: await serverlessBrowserEnv(),
     headless: true,
     defaultViewport: {
       width: 1400,

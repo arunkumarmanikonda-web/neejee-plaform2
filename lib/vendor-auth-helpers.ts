@@ -12,17 +12,17 @@ export async function resolveVendorForSession(session: SessionUser | null): Prom
   if (session.role === 'VENDOR') {
     const v = await prisma.vendor.findUnique({
       where: { userId: session.id },
-      select: { id: true },
+      select: { id: true, status: true },
     });
-    if (!v) return null;
+    if (!v || ['ARCHIVED', 'SUSPENDED'].includes(v.status)) return null;
     return { vendorId: v.id, isOwner: true, accessLevel: 'FULL' };
   }
   if (session.role === 'VENDOR_STAFF') {
     const tm = await prisma.vendorTeamMember.findUnique({
       where: { userId: session.id },
-      select: { vendorId: true, accessLevel: true, status: true },
+      select: { vendorId: true, accessLevel: true, status: true, vendor: { select: { status: true } } },
     });
-    if (!tm || tm.status !== 'ACTIVE') return null;
+    if (!tm || tm.status !== 'ACTIVE' || ['ARCHIVED', 'SUSPENDED'].includes(tm.vendor.status)) return null;
     return { vendorId: tm.vendorId, isOwner: false, accessLevel: tm.accessLevel as any };
   }
   return null;

@@ -1,3 +1,4 @@
+import { resolveVendorForSession } from '@/lib/vendor-auth-helpers';
 // GET /api/vendor/me — vendor profile + stats + profile completion + pending counts.
 // Powers the dashboard header and progress bar.
 import { NextResponse } from 'next/server';
@@ -11,6 +12,12 @@ export const runtime = 'nodejs';
 
 export async function GET() {
   const session = await getSession();
+  if (session?.role === 'VENDOR_STAFF') {
+    const scope = await resolveVendorForSession(session);
+    if (!scope) return NextResponse.json({ error: 'No active membership' }, { status: 403 });
+    const user = await prisma.user.findUnique({ where: { id: session.id }, select: { passwordHash: true } });
+    return NextResponse.json({ vendor: { id: scope.vendorId, contactEmail: session.email, hasPassword: !!user?.passwordHash }, accessLevel: scope.accessLevel });
+  }
   if (!session || session.role !== 'VENDOR') {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
@@ -21,7 +28,7 @@ export async function GET() {
         user: { select: { passwordHash: true } },
       },
     });
-    if (!vendor) return NextResponse.json({ error: 'No vendor profile' }, { status: 404 });
+    if (!vendor || ['SUSPENDED','ARCHIVED'].includes(vendor.status)) return NextResponse.json({ error: 'No vendor profile' }, { status: 404 });
 
     // Aggregate stats + outstanding balance
     const [poStats, docs, pendingChanges, receivedPos, paidPayouts] = await Promise.all([

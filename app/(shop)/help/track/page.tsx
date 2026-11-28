@@ -20,6 +20,7 @@ export default function TrackOrderPage() {
   const [error, setError] = useState('');
 
   useEffect(() => {
+    setOrderNumber(new URLSearchParams(window.location.search).get('order') || '');
     fetch('/api/me', { credentials: 'include', cache: 'no-store' })
       .then(r => r.ok ? r.json() : null)
       .then(d => { if (d?.email) setMe(d); })

@@ -1,3 +1,4 @@
+import { resolveVendorForSession } from '@/lib/vendor-auth-helpers';
 // /api/vendor/purchase-orders/[id]/messages
 // Vendor-portal endpoint: list & post messages on PO they belong to.
 
@@ -17,11 +18,13 @@ async function resolveVendor(poId: string) {
   if (!VENDOR_ROLES.includes(session.role)) {
     return { error: NextResponse.json({ error: 'Forbidden' }, { status: 403 }) } as const;
   }
-  const vendor = await prisma.vendor.findFirst({ where: { userId: session.id } });
+  const scope = await resolveVendorForSession(session);
+  if (!scope) return { error: NextResponse.json({ error: 'Access denied' }, { status: 403 }) } as const;
+  const vendor = await prisma.vendor.findUnique({ where: { id: scope.vendorId }, select: { id: true, legalName: true } });
   if (!vendor) return { error: NextResponse.json({ error: 'Vendor profile not found' }, { status: 404 }) } as const;
   // Verify the PO belongs to this vendor
   const po = await prisma.purchaseOrder.findUnique({
-    where: { id: poId },
+    where: { id: poId, status: { not: 'DRAFT' } },
     select: { id: true, vendorId: true },
   });
   if (!po || po.vendorId !== vendor.id) {

@@ -38,7 +38,7 @@ const SECTIONS: Array<{
     id: 'payments',
     title: 'Payments',
     helper: 'Razorpay credentials.',
-    keys: ['RAZORPAY_KEY_ID', 'RAZORPAY_KEY_SECRET'],
+    keys: ['RAZORPAY_KEY_ID', 'RAZORPAY_KEY_SECRET', 'RAZORPAY_WEBHOOK_SECRET'],
   },
   {
     id: 'payouts',
@@ -50,13 +50,19 @@ const SECTIONS: Array<{
     id: 'shipping',
     title: 'Shipping and messaging',
     helper: 'Shiprocket, AiSensy WhatsApp, and Resend email providers.',
-    keys: ['SHIPROCKET_EMAIL', 'SHIPROCKET_PASSWORD', 'SHIPROCKET_WEBHOOK_TOKEN', 'AISENSY_API_KEY', 'AISENSY_NUMBER', 'AISENSY_WEBHOOK_SECRET', 'RESEND_API_KEY'],
+    keys: ['SHIPROCKET_EMAIL', 'SHIPROCKET_PASSWORD', 'SHIPROCKET_WEBHOOK_TOKEN', 'AISENSY_API_KEY', 'AISENSY_WEBHOOK_SECRET', 'RESEND_API_KEY'],
   },
   {
     id: 'ai',
     title: 'AI services',
     helper: 'Models, recovery routing, and legacy image pipelines.',
     keys: ['OPENAI_API_KEY', 'FAL_KEY', 'REPLICATE_API_TOKEN'],
+  },
+  {
+    id: 'meta',
+    title: 'Meta social accounts',
+    helper: 'App credentials used by the social account connection. Changing the encryption key requires reconnecting existing accounts.',
+    keys: ['FACEBOOK_APP_ID', 'FACEBOOK_APP_SECRET', 'SOCIAL_TOKEN_SECRET'],
   },
   {
     id: 'sms',
@@ -71,6 +77,10 @@ const LABELS: Record<string, string> = {
   NEXT_PUBLIC_SUPABASE_URL: 'Supabase URL',
   SUPABASE_SERVICE_ROLE_KEY: 'Supabase service role key',
   SUPABASE_STORAGE_BUCKET: 'Supabase storage bucket',
+  RAZORPAY_WEBHOOK_SECRET: 'Checkout webhook signing secret',
+  FACEBOOK_APP_ID: 'Meta app ID',
+  FACEBOOK_APP_SECRET: 'Meta app secret',
+  SOCIAL_TOKEN_SECRET: 'Social token encryption key',
   RAZORPAY_KEY_ID: 'Razorpay key ID',
   RAZORPAY_KEY_SECRET: 'Razorpay key secret',
   RAZORPAYX_KEY_ID: 'Payout key ID',
@@ -83,7 +93,6 @@ const LABELS: Record<string, string> = {
   SHIPROCKET_EMAIL: 'Shiprocket email',
   SHIPROCKET_PASSWORD: 'Shiprocket password',
   AISENSY_API_KEY: 'AiSensy API key',
-  AISENSY_NUMBER: 'AiSensy number',
   RESEND_API_KEY: 'Resend API key',
   OPENAI_API_KEY: 'OpenAI API key',
   FAL_KEY: 'FAL key',
@@ -97,6 +106,7 @@ const LABELS: Record<string, string> = {
 
 const RUNTIME_LABELS: Array<{ key: string; label: string }> = [
   { key: 'database', label: 'Database' },
+  { key: 'paymentWebhook', label: 'Checkout webhook secret' },
   { key: 'directUrl', label: 'Direct URL' },
   { key: 'authSecret', label: 'Auth secret' },
   { key: 'baseUrl', label: 'Base URL' },

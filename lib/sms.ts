@@ -1,3 +1,4 @@
+import { fast2smsEntityId, fast2smsRoute } from '@/lib/fast2sms-config';
 // lib/sms.ts
 // Fast2SMS DLT-compliant SMS client.
 //
@@ -56,7 +57,7 @@ export async function sendDltSms(args: SendDltSmsArgs): Promise<SmsResult> {
 
   const body = new URLSearchParams({
     authorization: key,
-    route: 'dlt',
+    route: fast2smsRoute(),
     sender_id: senderId,
     message: args.templateId,        // DLT message_id (the numeric template id)
     variables_values: variables,
@@ -64,7 +65,8 @@ export async function sendDltSms(args: SendDltSmsArgs): Promise<SmsResult> {
     flash: '0',
   });
   // Optional DLT entity/header for telcos that require them on the wire
-  if (process.env.FAST2SMS_DLT_ENTITY_ID) body.append('entity_id', process.env.FAST2SMS_DLT_ENTITY_ID);
+  const entityId = fast2smsEntityId();
+  if (entityId) body.append('entity_id', entityId);
 
   try {
     const res = await fetch(`${FAST2SMS_BASE}/bulkV2`, {

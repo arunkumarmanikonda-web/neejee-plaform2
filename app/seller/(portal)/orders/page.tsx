@@ -35,6 +35,10 @@ export default function SellerOrdersPage() {
     })();
   }, []);
 
+  useEffect(() => {
+    if (!loading && window.location.hash) document.getElementById(window.location.hash.slice(1))?.scrollIntoView();
+  }, [loading]);
+
   const filtered = orders.filter(o => {
     if (filter === 'released') return o.isReleased;
     if (filter === 'pending_release') return !o.isReleased;
@@ -83,7 +87,7 @@ export default function SellerOrdersPage() {
       ) : (
         <div className="space-y-4">
           {filtered.map(o => (
-            <div key={o.orderId} className={`bg-ivory border rounded p-5 ${
+            <div key={o.orderId} id={`order-${o.orderNumber}`} className={`bg-ivory border rounded p-5 ${
               o.isReleased ? 'border-emerald-300' : 'border-mitti/20'
             }`}>
               <div className="flex items-start justify-between flex-wrap gap-3 mb-3">

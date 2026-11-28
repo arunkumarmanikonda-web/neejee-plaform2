@@ -1,3 +1,4 @@
+import { uploadVendorDocument } from '@/lib/vendor-private-files';
 // GET  /api/vendor/documents       — list this vendor's documents
 // POST /api/vendor/documents       — upload a document (multipart form-data:
 //                                    file, docType, title?)
@@ -5,7 +6,7 @@ import { NextResponse } from 'next/server';
 import { getSession } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { prismaErrorToHttp } from '@/lib/prisma-errors';
-import { uploadFile, makeUploadPath, storageConfigured } from '@/lib/storage';
+import { deletePrivateVendorFile, storageConfigured } from '@/lib/storage';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -26,7 +27,7 @@ async function vendorGate() {
   const session = await getSession();
   if (!session || session.role !== 'VENDOR') return { error: 'Unauthorized', status: 401 };
   const vendor = await prisma.vendor.findUnique({ where: { userId: session.id } });
-  if (!vendor) return { error: 'No vendor profile', status: 404 };
+  if (!vendor || ['SUSPENDED','ARCHIVED'].includes(vendor.status)) return { error: 'No vendor profile', status: 404 };
   return { session, vendor };
 }
 
@@ -54,6 +55,7 @@ export async function POST(request: Request) {
       error: 'File storage not configured. Set NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY.',
     }, { status: 500 });
   }
+  let unlinkedPath: string | undefined;
   try {
     const form = await request.formData();
     const file = form.get('file') as File | null;
@@ -73,8 +75,8 @@ export async function POST(request: Request) {
     }
 
     const buf = Buffer.from(await file.arrayBuffer());
-    const path = makeUploadPath(`vendor-docs/${g.vendor.id}/${docType.toLowerCase()}`, file.name);
-    const { url } = await uploadFile(path, buf, file.type);
+    const { path, url } = await uploadVendorDocument(g.vendor.id, buf, file.type);
+    unlinkedPath = path;
 
     const doc = await prisma.vendorDocument.create({
       data: {
@@ -90,6 +92,7 @@ export async function POST(request: Request) {
         uploadedOnBehalf: false,
       },
     });
+    unlinkedPath = undefined;
 
     await prisma.vendorAuditLog.create({
       data: {
@@ -103,6 +106,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ document: doc }, { status: 201 });
   } catch (e: any) {
+    if (unlinkedPath) await deletePrivateVendorFile(unlinkedPath).catch(() => console.warn('[vendor files] Private upload cleanup pending'));
     console.error('[vendor/documents POST]', e);
     const { status, message, code } = prismaErrorToHttp(e);
     return NextResponse.json({ error: message, code }, { status });

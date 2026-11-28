@@ -5,7 +5,7 @@ import { getSession } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { prismaErrorToHttp } from '@/lib/prisma-errors';
 import { computeSellerCompletion, sellerChecklist } from '@/lib/seller-profile';
-import { requireSellerContext } from '@/lib/seller-auth-helpers';
+import { requireSellerContext, canEditFinance } from '@/lib/seller-auth-helpers';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -27,7 +27,7 @@ export async function GET() {
 
     // Parallel aggregations — every block fail-safe
     const [
-      productStats, docs, pendingChanges, paidPayouts, inventorySubmissions, recentOrders,
+      productStats, docs, pendingChanges, paidPayouts, inventorySubmissions, orderValue, orderCount,
     ] = await Promise.all([
       prisma.product.groupBy({
         by: ['status'],
@@ -50,13 +50,8 @@ export async function GET() {
         where: { sellerId: ctx.seller.id },
         _count: { _all: true },
       }).catch(() => []),
-      // Approximate recent sales — orders that include any product of this seller
-      prisma.orderItem.findMany({
-        where: { product: { sellerId: ctx.seller.id } },
-        select: { quantity: true, total: true, order: { select: { createdAt: true, status: true } } },
-        orderBy: { id: 'desc' },
-        take: 50,
-      }).catch(() => []),
+      prisma.orderItem.aggregate({ where: { product: { sellerId: ctx.seller.id } }, _sum: { total: true } }),
+      prisma.order.count({ where: { items: { some: { product: { sellerId: ctx.seller.id } } } } }),
     ]);
 
     const approvedDocTypes = new Set<string>(
@@ -95,15 +90,8 @@ export async function GET() {
       else if (row.status === 'PUBLISHED') submissionBuckets.published += n;
     }
 
-    // Lifetime sales (rough)
-    let lifetimeRevenuePaise = 0;
-    let lifetimeOrderCount = 0;
-    const orderIdsSeen = new Set<string>();
-    for (const it of recentOrders) {
-      lifetimeRevenuePaise += it.total || 0;
-      // Best-effort: orderItem doesn't expose orderId here, so count items
-    }
-    lifetimeOrderCount = recentOrders.length;
+    const lifetimeRevenuePaise = orderValue._sum.total || 0;
+    const lifetimeOrderCount = orderCount;
 
     // Payouts
     const lifetimePayoutPaise = paidPayouts.reduce((s, p) => s + (p.netPayoutPaise || 0), 0);
@@ -121,11 +109,11 @@ export async function GET() {
         logoImage: seller.logoImage,
         coverImage: seller.coverImage,
         portfolio: seller.portfolio,
-        pan: seller.pan,
-        gstin: seller.gstin,
-        bankAccount: seller.bankAccount,
-        ifsc: seller.ifsc,
-        bankName: seller.bankName,
+        pan: canEditFinance(ctx) ? seller.pan : null,
+        gstin: canEditFinance(ctx) ? seller.gstin : null,
+        bankAccount: canEditFinance(ctx) ? seller.bankAccount : null,
+        ifsc: canEditFinance(ctx) ? seller.ifsc : null,
+        bankName: canEditFinance(ctx) ? seller.bankName : null,
         region: seller.region,
         craft: seller.craft,
         cluster: seller.cluster,
@@ -148,7 +136,7 @@ export async function GET() {
         pendingChangeRequestsCount: pendingChanges,
         lifetimeRevenuePaise,
         lifetimeOrderCount,
-        lifetimePayoutPaise,
+        lifetimePayoutPaise: canEditFinance(ctx) ? lifetimePayoutPaise : null,
       },
     });
   } catch (err: any) {

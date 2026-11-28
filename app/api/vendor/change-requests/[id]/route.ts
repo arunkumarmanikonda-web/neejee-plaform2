@@ -13,7 +13,7 @@ export async function DELETE(_req: Request, props: { params: Promise<{ id: strin
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
   const vendor = await prisma.vendor.findUnique({ where: { userId: session.id } });
-  if (!vendor) return NextResponse.json({ error: 'No vendor profile' }, { status: 404 });
+  if (!vendor || ['SUSPENDED','ARCHIVED'].includes(vendor.status)) return NextResponse.json({ error: 'No vendor profile' }, { status: 404 });
 
   const cr = await prisma.vendorChangeRequest.findFirst({
     where: { id: params.id, vendorId: vendor.id },

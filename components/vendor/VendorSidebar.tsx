@@ -27,8 +27,14 @@ const NAV_ACCOUNT = [
 ];
 
 export default function VendorSidebar({
-  vendorName, vendorStatus, pendingChangeRequestsCount,
-}: { vendorName: string; vendorStatus: string; pendingChangeRequestsCount: number }) {
+  vendorName, vendorStatus, pendingChangeRequestsCount, staffLevel,
+}: { vendorName: string; vendorStatus: string; pendingChangeRequestsCount: number; staffLevel?: string }) {
+  const visible = ({ href }: { href: string }) => {
+    if (!staffLevel) return true;
+    if (['/vendor/purchase-orders', '/vendor/account', '/vendor/help'].includes(href)) return true;
+    if (href === '/vendor/payouts') return staffLevel !== 'OPERATIONS_ONLY';
+    return staffLevel !== 'FINANCE_ONLY' && ['/vendor/catalog', '/vendor/ai-photos'].includes(href);
+  };
   const [mobileOpen, setMobileOpen] = useState(false);
   return (
     <>
@@ -67,9 +73,9 @@ export default function VendorSidebar({
           </button>
         </div>
         <nav className="flex-1 overflow-y-auto py-3 px-2 space-y-1">
-          <SidebarSection items={NAV_MAIN} pendingChangeRequestsCount={pendingChangeRequestsCount} onItemClick={() => setMobileOpen(false)} />
+          <SidebarSection items={NAV_MAIN.filter(visible)} pendingChangeRequestsCount={pendingChangeRequestsCount} onItemClick={() => setMobileOpen(false)} />
           <div className="my-3 border-t border-mitti/20" />
-          <SidebarSection items={NAV_ACCOUNT} pendingChangeRequestsCount={pendingChangeRequestsCount} onItemClick={() => setMobileOpen(false)} />
+          <SidebarSection items={NAV_ACCOUNT.filter(visible)} pendingChangeRequestsCount={pendingChangeRequestsCount} onItemClick={() => setMobileOpen(false)} />
         </nav>
         <div className="px-5 py-4 border-t border-mitti/20 text-[10px] text-beige/60">
           <p className="font-display text-sm text-ivory">NEE<span className="text-madder">·</span>JEE</p>

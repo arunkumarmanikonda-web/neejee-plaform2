@@ -1,26 +1,16 @@
-// Helper: resolve the Seller record for the current logged-in user.
-// Returns null if not a seller, throws if not authed.
 import { prisma } from './prisma';
 import { getSession } from './auth';
+import { canEditFinance, canEditInventory, getSellerContext } from './seller-auth-helpers';
 
-export async function getSellerContext() {
+export async function requireApprovedSeller(work: 'inventory' | 'finance') {
   const user = await getSession();
-  if (!user) return { user: null, seller: null, isAdmin: false };
-
-  const isAdmin = ['ADMIN', 'SUPER_ADMIN'].includes(user.role);
-  // Admins may pass through with no seller record
-  const seller = await prisma.seller.findFirst({
-    where: { userId: user.id },
-  }).catch(() => null);
-
-  return { user, seller, isAdmin };
-}
-
-export async function requireApprovedSeller() {
-  const { user, seller, isAdmin } = await getSellerContext();
   if (!user) return { ok: false as const, status: 401, error: 'Not signed in' };
-  if (isAdmin) return { ok: true as const, user, seller, isAdmin: true };
-  if (!seller) return { ok: false as const, status: 403, error: 'No seller account' };
-  if (seller.kycStatus !== 'APPROVED') return { ok: false as const, status: 403, error: 'Seller account not approved yet' };
-  return { ok: true as const, user, seller, isAdmin: false };
+  const isAdmin = ['ADMIN', 'SUPER_ADMIN'].includes(user.role);
+  const ctx = await getSellerContext(user);
+  if (!ctx && !isAdmin) return { ok: false as const, status: 403, error: 'No active seller account' };
+  if (ctx && (ctx.seller.kycStatus !== 'APPROVED' || !(work === 'finance' ? canEditFinance(ctx) : canEditInventory(ctx)))) {
+    return { ok: false as const, status: 403, error: 'Access denied for this seller account' };
+  }
+  const seller = await prisma.seller.findFirst({ where: ctx ? { id: ctx.seller.id } : { userId: user.id } });
+  return { ok: true as const, user, seller, isAdmin };
 }

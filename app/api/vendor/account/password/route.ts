@@ -1,3 +1,4 @@
+import { resolveVendorForSession } from '@/lib/vendor-auth-helpers';
 // POST /api/vendor/account/password
 // Body: { currentPassword?: string, newPassword: string }
 // If user already has a password, currentPassword is required (verify it).
@@ -13,7 +14,7 @@ export const runtime = 'nodejs';
 export async function POST(request: Request) {
   const session = await getSession();
   if (!session) return NextResponse.json({ error: 'Not signed in' }, { status: 401 });
-  if (!['VENDOR', 'VENDOR_STAFF'].includes(session.role)) {
+  if (!await resolveVendorForSession(session)) {
     return NextResponse.json({ error: 'Vendor accounts only' }, { status: 403 });
   }
   let body: any = {};

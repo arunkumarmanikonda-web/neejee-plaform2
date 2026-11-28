@@ -16,7 +16,7 @@ export async function DELETE(_req: Request, props: { params: Promise<{ id: strin
 
   try {
     const row = await prisma.sellerChangeRequest.findUnique({ where: { id: params.id } });
-    if (!row || row.sellerId !== gate.ctx.seller.id) {
+    if (!row || row.sellerId !== gate.ctx.seller.id || (!gate.ctx.isOwner && gate.ctx.accessLevel !== 'FULL' && row.requestedByUserId !== session!.id)) {
       return NextResponse.json({ error: 'Not found' }, { status: 404 });
     }
     if (row.status !== 'PENDING') {

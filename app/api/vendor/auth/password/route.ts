@@ -1,3 +1,4 @@
+import { resolveVendorForSession } from '@/lib/vendor-auth-helpers';
 // POST /api/vendor/auth/password
 // Two modes:
 //   { email, password }              → sign in with existing password
@@ -18,7 +19,7 @@ export async function POST(request: Request) {
   if (body?.setPassword) {
     const session = await getSession();
     if (!session) return NextResponse.json({ error: 'Not signed in' }, { status: 401 });
-    if (session.role !== 'VENDOR') {
+    if (!await resolveVendorForSession(session)) {
       return NextResponse.json({ error: 'Vendor accounts only' }, { status: 403 });
     }
     const pwd = String(body?.password || '');
@@ -38,19 +39,19 @@ export async function POST(request: Request) {
   if (!user || !user.passwordHash) {
     return NextResponse.json({ error: 'Invalid email or password' }, { status: 401 });
   }
-  if (user.role !== 'VENDOR') {
+  if (user.role !== 'VENDOR' && user.role !== 'VENDOR_STAFF') {
     return NextResponse.json({ error: 'This account is not a vendor account' }, { status: 403 });
   }
   const ok = await bcrypt.compare(password, user.passwordHash);
   if (!ok) return NextResponse.json({ error: 'Invalid email or password' }, { status: 401 });
 
-  const vendor = await prisma.vendor.findUnique({ where: { userId: user.id } });
-  if (!vendor || vendor.status === 'ARCHIVED' || vendor.status === 'SUSPENDED') {
+  const vendor = await resolveVendorForSession({ id: user.id, email: user.email, role: user.role });
+  if (!vendor) {
     return NextResponse.json({ error: 'Account is not active' }, { status: 403 });
   }
 
   await setSessionCookie({
-    id: user.id, email: user.email, name: user.name || undefined, role: 'VENDOR',
+    id: user.id, email: user.email, name: user.name || undefined, role: user.role,
   });
-  return NextResponse.json({ ok: true, vendorId: vendor.id });
+  return NextResponse.json({ ok: true, vendorId: vendor.vendorId });
 }

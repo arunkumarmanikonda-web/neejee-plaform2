@@ -132,6 +132,7 @@ export default function SmsAdminPage() {
 
     if (h.status === 'fulfilled') {
       setHealth(h.value as Health);
+      setTestPhone(current => current || h.value.testPhone || '');
     } else {
       setHealth({
         ok: false,

@@ -1,3 +1,4 @@
+import type { Seller } from '@prisma/client';
 // GET  /api/seller/profile — full seller profile
 // PATCH /api/seller/profile — edit. Approval-gated fields after first-time go through SellerChangeRequest.
 import { NextResponse } from 'next/server';
@@ -10,6 +11,13 @@ import { prismaErrorToHttp } from '@/lib/prisma-errors';
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
+function profileForAccess(seller: Seller, finance: boolean) {
+  const { id, slug, businessName, contactName, email, phone, story, logoImage, coverImage, portfolio, region, craft, cluster, yearsOfPractice,
+    kycStatus, isNeejeeSelect, qualityScore, commissionPct, pan, gstin, bankAccount, ifsc, bankName } = seller;
+  return { id, slug, businessName, contactName, email, phone, story, logoImage, coverImage, portfolio, region, craft, cluster, yearsOfPractice,
+    kycStatus, isNeejeeSelect, qualityScore, commissionPct, ...(finance && { pan, gstin, bankAccount, ifsc, bankName }) };
+}
+
 export async function GET() {
   const session = await getSession();
   const gate = await requireSellerContext(session);
@@ -19,7 +27,8 @@ export async function GET() {
     const seller = await prisma.seller.findUnique({
       where: { id: gate.ctx.seller.id },
     });
-    return NextResponse.json({ seller });
+    if (!seller) return NextResponse.json({ error: 'Seller not found' }, { status: 404 });
+    return NextResponse.json({ seller: profileForAccess(seller, canEditFinance(gate.ctx)) });
   } catch (err: any) {
     const m = prismaErrorToHttp(err);
     return NextResponse.json({ error: m.message }, { status: m.status });
@@ -39,7 +48,7 @@ export async function PATCH(req: Request) {
       reason?: string;
     };
     const changes = body.changes || {};
-    const supportingDocIds = body.supportingDocIds || [];
+    const supportingDocIds = [...new Set((Array.isArray(body.supportingDocIds) ? body.supportingDocIds : []).filter(id => typeof id === 'string'))];
     const reason = body.reason || null;
 
     if (Object.keys(changes).length === 0) {
@@ -84,63 +93,29 @@ export async function PATCH(req: Request) {
       }
     }
 
-    // Apply direct changes immediately
-    let updatedSeller = current;
-    if (Object.keys(directChanges).length > 0) {
-      updatedSeller = await prisma.seller.update({
-        where: { id: ctx.seller.id },
-        data: directChanges,
-      });
-      // Audit log
-      await prisma.sellerAuditLog.create({
-        data: {
-          sellerId: ctx.seller.id,
-          actorUserId: session!.id,
-          actorRole: ctx.actorRole,
-          action: 'PROFILE_DIRECT_EDIT',
-          details: { fields: Object.keys(directChanges) } as any,
-        },
-      }).catch(() => {});
+    const needsReview = Object.keys(gatedChanges).length > 0;
+    if (needsReview && !supportingDocIds.length) return NextResponse.json({ error: 'A supporting document is required for this change.' }, { status: 400 });
+    if (needsReview) {
+      const valid = await prisma.sellerDocument.count({ where: { sellerId: ctx.seller.id, id: { in: supportingDocIds }, changeRequestId: null } });
+      if (valid !== supportingDocIds.length) return NextResponse.json({ error: 'Select available documents from your studio.' }, { status: 400 });
     }
-
-    // Queue gated changes
-    let changeRequest = null;
-    if (Object.keys(gatedChanges).length > 0) {
-      // Mandatory supporting doc for sensitive edits
-      const hasDoc = supportingDocIds.length > 0;
-      if (!hasDoc) {
-        return NextResponse.json({
-          error: 'Supporting document required for sensitive changes (PAN, GSTIN, bank, address, legal name)',
-          gatedFields: Object.keys(gatedChanges),
-        }, { status: 400 });
-      }
-
-      changeRequest = await prisma.sellerChangeRequest.create({
-        data: {
-          sellerId: ctx.seller.id,
-          fieldChanges: gatedChanges as any,
-          reason,
-          status: 'PENDING',
-          requestedByUserId: session!.id,
-          requestedOnBehalf: false,
-          supportingDocs: supportingDocIds.length > 0
-            ? { connect: supportingDocIds.map(id => ({ id })) }
-            : undefined,
-        },
-        include: { supportingDocs: true },
-      });
-
-      // Audit log
-      await prisma.sellerAuditLog.create({
-        data: {
-          sellerId: ctx.seller.id,
-          actorUserId: session!.id,
-          actorRole: ctx.actorRole,
-          action: 'CHANGE_REQUEST_SUBMITTED',
-          details: { fields: Object.keys(gatedChanges), changeRequestId: changeRequest.id } as any,
-        },
-      }).catch(() => {});
-
+    const { updatedSeller, changeRequest } = await prisma.$transaction(async tx => {
+      const updatedSeller = Object.keys(directChanges).length
+        ? await tx.seller.update({ where: { id: ctx.seller.id }, data: directChanges }) : current;
+      if (Object.keys(directChanges).length) await tx.sellerAuditLog.create({ data: {
+        sellerId: ctx.seller.id, actorUserId: session!.id, actorRole: ctx.actorRole,
+        action: 'PROFILE_DIRECT_EDIT', details: { fields: Object.keys(directChanges) },
+      } });
+      if (!needsReview) return { updatedSeller, changeRequest: null };
+      const changeRequest = await tx.sellerChangeRequest.create({ data: {
+        sellerId: ctx.seller.id, fieldChanges: gatedChanges, reason, status: 'PENDING', requestedByUserId: session!.id,
+        supportingDocs: { connect: supportingDocIds.map(id => ({ id, sellerId: ctx.seller.id, changeRequestId: null })) },
+      }, include: { supportingDocs: true } });
+      await tx.sellerAuditLog.create({ data: { sellerId: ctx.seller.id, actorUserId: session!.id, actorRole: ctx.actorRole,
+        action: 'CHANGE_REQUEST_SUBMITTED', details: { fields: Object.keys(gatedChanges), changeRequestId: changeRequest.id } } });
+      return { updatedSeller, changeRequest };
+    });
+    if (changeRequest) {
       // Notify admins
       try {
         const { notify } = await import('@/lib/notifications');
@@ -158,7 +133,7 @@ export async function PATCH(req: Request) {
     }
 
     return NextResponse.json({
-      seller: updatedSeller,
+      seller: profileForAccess(updatedSeller, canEditFinance(ctx)),
       changeRequest,
       ignored,
       message: changeRequest

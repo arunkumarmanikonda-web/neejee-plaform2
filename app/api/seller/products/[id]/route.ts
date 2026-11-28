@@ -43,7 +43,7 @@ function noSellerRecordResponse() {
 
 export async function GET(_: Request, props: { params: Promise<{ id: string }> }) {
   const params = await props.params;
-  const ctx = await requireApprovedSeller();
+  const ctx = await requireApprovedSeller('inventory');
   if (!ctx.ok) {
     return NextResponse.json({ error: ctx.error }, { status: ctx.status });
   }
@@ -81,7 +81,7 @@ export async function GET(_: Request, props: { params: Promise<{ id: string }> }
 
 export async function PATCH(request: Request, props: { params: Promise<{ id: string }> }) {
   const params = await props.params;
-  const ctx = await requireApprovedSeller();
+  const ctx = await requireApprovedSeller('inventory');
   if (!ctx.ok) {
     return NextResponse.json({ error: ctx.error }, { status: ctx.status });
   }

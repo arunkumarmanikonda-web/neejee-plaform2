@@ -11,6 +11,7 @@ export async function GET(request: Request) {
   const session = await getSession();
   const v = await resolveVendorForSession(session);
   if (!v) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  if (!v.isOwner) return NextResponse.json({ error: 'Access denied' }, { status: 403 });
 
   const url = new URL(request.url);
   const limit = Math.min(Number(url.searchParams.get('limit') || 50), 200);

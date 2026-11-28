@@ -1,8 +1,9 @@
+import { storeOrigin } from '@/lib/store-origin';
 // Transactional email helper — Resend integration with a no-send development fallback.
 import { paiseToRupees } from './money';
 
 const RESEND_API = 'https://api.resend.com/emails';
-const BASE_URL = (process.env.NEXT_PUBLIC_BASE_URL || process.env.NEXT_PUBLIC_APP_URL || 'https://neejee.com').replace(/\/$/, '');
+const BASE_URL = storeOrigin();
 
 export interface SendEmailArgs {
   to: string;

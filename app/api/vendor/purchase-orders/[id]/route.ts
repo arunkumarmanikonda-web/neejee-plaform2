@@ -1,3 +1,4 @@
+import { resolveVendorForSession } from '@/lib/vendor-auth-helpers';
 // GET / PATCH vendor-side PO. Vendor can: CONFIRM (SENT→CONFIRMED),
 // DISPATCH with tracking (CONFIRMED→DISPATCHED), upload invoice, update notes.
 import { NextResponse } from 'next/server';
@@ -11,10 +12,11 @@ export const runtime = 'nodejs';
 
 async function vendorGate() {
   const session = await getSession();
-  if (!session || session.role !== 'VENDOR') return { error: 'Unauthorized', status: 401 };
-  const vendor = await prisma.vendor.findUnique({ where: { userId: session.id } });
+  const scope = await resolveVendorForSession(session);
+  if (!session || !scope) return { error: 'Unauthorized', status: 401 };
+  const vendor = await prisma.vendor.findUnique({ where: { id: scope.vendorId } });
   if (!vendor) return { error: 'No vendor profile', status: 404 };
-  return { session, vendor };
+  return { session, vendor, scope };
 }
 
 export async function GET(_req: Request, props: { params: Promise<{ id: string }> }) {
@@ -26,7 +28,7 @@ export async function GET(_req: Request, props: { params: Promise<{ id: string }
     include: { lines: { orderBy: { createdAt: 'asc' } } },
   });
   if (!po) return NextResponse.json({ error: 'Not found' }, { status: 404 });
-  return NextResponse.json({ purchaseOrder: po });
+  return NextResponse.json({ purchaseOrder: po, canDispatch: g.scope.accessLevel !== 'FINANCE_ONLY' });
 }
 
 // PATCH body modes (vendor):
@@ -44,6 +46,10 @@ export async function PATCH(request: Request, props: { params: Promise<{ id: str
 
   let body: any = {};
   try { body = await request.json(); } catch {}
+
+  if (g.scope.accessLevel === 'FINANCE_ONLY' && (body.transition || Object.keys(body).some(key => !['vendorInvoiceNumber', 'vendorInvoiceUrl'].includes(key)))) {
+    return NextResponse.json({ error: 'Operations access required' }, { status: 403 });
+  }
 
   // Field-only updates
   const fieldData: Record<string, any> = {};

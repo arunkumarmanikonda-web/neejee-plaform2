@@ -1,3 +1,4 @@
+import { fast2smsEntityId, fast2smsRoute } from '@/lib/fast2sms-config';
 import { NextRequest, NextResponse } from 'next/server';
 import { getSession, requireRole } from '@/lib/auth';
 import {
@@ -27,7 +28,7 @@ function getHealth() {
   const configured = !!(
     process.env.FAST2SMS_API_KEY &&
     process.env.FAST2SMS_SENDER_ID &&
-    process.env.FAST2SMS_ENTITY_ID
+    fast2smsEntityId()
   );
 
   return {
@@ -37,8 +38,9 @@ function getHealth() {
     phase: configured ? 'configured' : 'phase0',
     provider: 'Fast2SMS',
     senderId: process.env.FAST2SMS_SENDER_ID || '',
-    entityId: process.env.FAST2SMS_ENTITY_ID || '',
-    mode: process.env.FAST2SMS_ROUTE || 'dlt',
+    testPhone: process.env.FAST2SMS_TEST_PHONE || '',
+    entityId: fast2smsEntityId() || '',
+    mode: fast2smsRoute(),
     balance: null,
     message: configured
       ? 'Provider configuration is present. Manual admin test sending is enabled.'
@@ -178,8 +180,10 @@ export async function POST(req: NextRequest) {
   const senderId = tpl.providerSenderId || process.env.FAST2SMS_SENDER_ID || '';
 
   const url = new URL('https://www.fast2sms.com/dev/bulkV2');
-  url.searchParams.set('route', process.env.FAST2SMS_ROUTE || 'dlt');
+  url.searchParams.set('route', fast2smsRoute());
   url.searchParams.set('sender_id', senderId);
+  const entityId = fast2smsEntityId();
+  if (entityId) url.searchParams.set('entity_id', entityId);
   url.searchParams.set('message', tpl.templateId);
   url.searchParams.set('numbers', phone);
   if (variablesValues) {

@@ -1,3 +1,4 @@
+import { storeOrigin } from '@/lib/store-origin';
 // lib/notifications/order-events.ts
 // v26.3b — Central dispatcher for order lifecycle SMS + WhatsApp.
 //
@@ -60,8 +61,8 @@ export async function fireOrderEvent(opts: {
     null;
   const userId = order.userId;
 
-  const base = process.env.NEXT_PUBLIC_BASE_URL || 'https://neejee.com';
-  const trackLink = `${base}/orders/${encodeURIComponent(order.orderNumber)}`;
+  const base = storeOrigin();
+  const trackLink = `${base}/help/track?order=${encodeURIComponent(order.orderNumber)}`;
   const itemsSummary = order.items.slice(0, 3)
     .map((i: any) => `${i.quantity}× ${i.product?.name || 'item'}`).join(', ');
 
@@ -106,10 +107,10 @@ export async function fireOrderEvent(opts: {
       const awbNumber = opts.extra?.awbNumber || order.awbNumber || '';
       const courier   = opts.extra?.courier || order.courier || 'Courier partner';
       const expectedDelivery = opts.extra?.expectedDelivery || 'in 4-5 days';
-      const trackLinkShipped = order.trackingUrl || `${base}/track/${awbNumber}`;
+      const trackLinkShipped = order.trackingUrl || trackLink;
 
       const smsVars = { ...baseVars, awbNumber, courier, trackLink: trackLinkShipped };
-      const waVars = { ...baseVars, awbNumber, courier, expectedDelivery };
+      const waVars = { ...baseVars, awbNumber, courier, expectedDelivery, trackLink: trackLinkShipped };
 
       const sms = phone ? dispatchSms({
         event: 'ORDER_SHIPPED', recipient: phone, variables: smsVars,

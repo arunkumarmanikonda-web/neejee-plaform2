@@ -120,7 +120,11 @@ export default function TeamPage() {
                     }`}>{m.status}</span>
                   </td>
                   <td className="p-3 text-right">
-                    <button onClick={() => remove(m.id)} className="text-madder hover:opacity-70">
+                    {m.status === 'INVITED' && <button className="text-xs text-madder underline mr-2" onClick={() => {
+                    setInviteForm({ email: m.email, displayName: m.displayName || '', accessLevel: m.accessLevel });
+                    setShowInvite(true);
+                  }}>Resend invitation</button>}
+                  <button onClick={() => remove(m.id)} className="text-madder hover:opacity-70">
                       <Trash2 className="w-3 h-3" />
                     </button>
                   </td>

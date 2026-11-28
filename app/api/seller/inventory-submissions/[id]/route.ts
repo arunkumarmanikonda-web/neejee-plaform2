@@ -2,7 +2,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getSession } from '@/lib/auth';
-import { requireSellerContext } from '@/lib/seller-auth-helpers';
+import { requireSellerContext, canEditInventory } from '@/lib/seller-auth-helpers';
 import { prismaErrorToHttp } from '@/lib/prisma-errors';
 
 export const dynamic = 'force-dynamic';
@@ -13,6 +13,7 @@ export async function GET(_req: Request, props: { params: Promise<{ id: string }
   const session = await getSession();
   const gate = await requireSellerContext(session);
   if (!gate.ok) return NextResponse.json({ error: gate.error }, { status: gate.status });
+  if (!canEditInventory(gate.ctx)) return NextResponse.json({ error: 'Inventory access required' }, { status: 403 });
 
   try {
     const row = await prisma.sellerInventorySubmission.findUnique({
@@ -34,6 +35,7 @@ export async function DELETE(_req: Request, props: { params: Promise<{ id: strin
   const session = await getSession();
   const gate = await requireSellerContext(session);
   if (!gate.ok) return NextResponse.json({ error: gate.error }, { status: gate.status });
+  if (!canEditInventory(gate.ctx)) return NextResponse.json({ error: 'Inventory access required' }, { status: 403 });
 
   try {
     const row = await prisma.sellerInventorySubmission.findUnique({ where: { id: params.id } });

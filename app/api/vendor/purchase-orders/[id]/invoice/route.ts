@@ -1,3 +1,4 @@
+import { uploadVendorDocument } from '@/lib/vendor-private-files';
 // POST /api/vendor/purchase-orders/[id]/invoice
 // Multipart: file (PDF or image), invoiceNumber? (optional)
 // Uploads the invoice to Supabase Storage and stores the URL on the PO,
@@ -5,7 +6,7 @@
 import { NextResponse } from 'next/server';
 import { getSession } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
-import { uploadFile, makeUploadPath, storageConfigured } from '@/lib/storage';
+import { deletePrivateVendorFile, storageConfigured } from '@/lib/storage';
 import { resolveVendorForSession } from '@/lib/vendor-auth-helpers';
 
 export const dynamic = 'force-dynamic';
@@ -28,6 +29,7 @@ export async function POST(request: Request, props: { params: Promise<{ id: stri
   });
   if (!po) return NextResponse.json({ error: 'PO not found' }, { status: 404 });
 
+  let unlinkedPath: string | undefined;
   try {
     const form = await request.formData();
     const file = form.get('file') as File | null;
@@ -44,8 +46,8 @@ export async function POST(request: Request, props: { params: Promise<{ id: stri
     }
 
     const buf = Buffer.from(await file.arrayBuffer());
-    const path = makeUploadPath(`vendor-docs/${v.vendorId}/invoices`, file.name);
-    const { url } = await uploadFile(path, buf, file.type);
+    const { path, url } = await uploadVendorDocument(v.vendorId, buf, file.type);
+    unlinkedPath = path;
 
     // Update PO + create VendorDocument record
     const [updatedPo, doc] = await prisma.$transaction([
@@ -71,6 +73,7 @@ export async function POST(request: Request, props: { params: Promise<{ id: stri
         },
       }),
     ]);
+    unlinkedPath = undefined;
 
     await prisma.vendorAuditLog.create({
       data: {
@@ -84,6 +87,7 @@ export async function POST(request: Request, props: { params: Promise<{ id: stri
 
     return NextResponse.json({ purchaseOrder: updatedPo, document: doc });
   } catch (e: any) {
+    if (unlinkedPath) await deletePrivateVendorFile(unlinkedPath).catch(() => console.warn('[vendor files] Private upload cleanup pending'));
     console.error('[vendor invoice upload]', e);
     return NextResponse.json({ error: e?.message || 'Upload failed' }, { status: 500 });
   }

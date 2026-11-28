@@ -1,3 +1,4 @@
+import { storeOrigin } from '@/lib/store-origin';
 // POST /api/vendor/auth/forgot-password { email }
 // Generates a vendor magic link and emails it. Always returns 200 to avoid
 // leaking which emails exist in our system.
@@ -9,11 +10,7 @@ import { sendEmail } from '@/lib/email';
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
-function productionBaseUrl(): string {
-  const explicit = process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL;
-  if (explicit) return explicit.replace(/\/$/, '');
-  return 'https://www.neejee.com';
-}
+
 
 export async function POST(request: Request) {
   let body: any = {};
@@ -22,25 +19,18 @@ export async function POST(request: Request) {
   if (!email) return NextResponse.json({ ok: true });   // silent success
 
   // Look up vendor by contact email OR by team-member email.
-  let vendorId: string | null = null;
-  const vendor = await prisma.vendor.findUnique({ where: { contactEmail: email }, select: { id: true } });
-  if (vendor) {
-    vendorId = vendor.id;
-  } else {
-    const tm = await prisma.vendorTeamMember.findFirst({
-      where: { email, status: 'ACTIVE' },
-      select: { vendorId: true },
-    });
-    if (tm) vendorId = tm.vendorId;
-  }
-  if (!vendorId) return NextResponse.json({ ok: true });  // silent — email doesn't exist
+  const vendor = await prisma.vendor.findFirst({ where: { contactEmail: { equals: email, mode: 'insensitive' }, status: { notIn: ['SUSPENDED', 'ARCHIVED'] } }, select: { id: true } });
+  const member = vendor ? null : await prisma.vendorTeamMember.findFirst({
+    where: { email, status: 'ACTIVE', user: { email, role: 'VENDOR_STAFF' }, vendor: { status: { notIn: ['SUSPENDED', 'ARCHIVED'] } } },
+    select: { id: true, vendorId: true, userId: true },
+  });
+  if (!vendor && !member) return NextResponse.json({ ok: true });
 
   try {
-    const { token, expiresAt } = await createMagicTokenForVendor({
-      vendorId,
-      purpose: 'LOGIN',
-    });
-    const loginUrl = `${productionBaseUrl()}/vendor/login?token=${encodeURIComponent(token)}`;
+    const { token, expiresAt } = vendor
+      ? await createMagicTokenForVendor(vendor.id, { type: 'owner', email })
+      : await createMagicTokenForVendor(member!.vendorId, { type: 'member', email, userId: member!.userId, memberId: member!.id });
+    const loginUrl = `${storeOrigin()}/vendor/login?token=${encodeURIComponent(token)}`;
 
     await sendEmail({
       to: email,

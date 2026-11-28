@@ -1,3 +1,4 @@
+import { resolveVendorForSession } from '@/lib/vendor-auth-helpers';
 // GET /api/vendor/purchase-orders — list this vendor's POs (vendor-scoped).
 import { NextResponse } from 'next/server';
 import { getSession } from '@/lib/auth';
@@ -8,15 +9,12 @@ export const runtime = 'nodejs';
 
 export async function GET() {
   const session = await getSession();
-  if (!session || session.role !== 'VENDOR') {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
-  const vendor = await prisma.vendor.findUnique({ where: { userId: session.id } });
-  if (!vendor) return NextResponse.json({ error: 'No vendor profile' }, { status: 404 });
+  const scope = await resolveVendorForSession(session);
+  if (!scope) return NextResponse.json({ error: 'No active vendor account' }, { status: 403 });
 
   // Vendors see SENT and beyond — never DRAFT (admin still drafting)
   const pos = await prisma.purchaseOrder.findMany({
-    where: { vendorId: vendor.id, status: { notIn: ['DRAFT'] } },
+    where: { vendorId: scope.vendorId, status: { notIn: ['DRAFT'] } },
     orderBy: { createdAt: 'desc' },
     take: 100,
     select: {

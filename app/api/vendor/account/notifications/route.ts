@@ -1,3 +1,4 @@
+import { resolveVendorForSession } from '@/lib/vendor-auth-helpers';
 // GET / PUT /api/vendor/account/notifications
 // Vendor users (owner OR team) manage their own channel preferences.
 import { NextResponse } from 'next/server';
@@ -10,7 +11,7 @@ export const runtime = 'nodejs';
 async function gate() {
   const session = await getSession();
   if (!session) return { error: 'Unauthorized', status: 401 };
-  if (!['VENDOR', 'VENDOR_STAFF'].includes(session.role)) {
+  if (!await resolveVendorForSession(session)) {
     return { error: 'Vendor accounts only', status: 403 };
   }
   return { session };

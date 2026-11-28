@@ -29,16 +29,22 @@ const NAV_ACCOUNT = [
 ];
 
 export default function SellerSidebar({
-  sellerName, sellerStatus, isNeejeeSelect, isOwner,
+  sellerName, sellerStatus, isNeejeeSelect, isOwner, staffLevel,
   pendingChangeRequestsCount, submissionsNeedingInfoCount,
 }: {
   sellerName: string;
   sellerStatus: string;
   isNeejeeSelect: boolean;
   isOwner: boolean;
+  staffLevel?: string;
   pendingChangeRequestsCount: number;
   submissionsNeedingInfoCount: number;
 }) {
+  const visible = (item: { href: string }) => {
+    if (staffLevel === 'FINANCE_ONLY') return !item.href.startsWith('/seller/inventory');
+    if (staffLevel === 'INVENTORY_ONLY') return !['/seller/bank','/seller/commissions','/seller/payouts','/seller/documents'].includes(item.href);
+    return true;
+  };
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
 
@@ -99,7 +105,7 @@ export default function SellerSidebar({
           <div>
             <p className="label text-banarasi/70 mb-2 text-[10px]">MAIN WORK</p>
             <div className="space-y-1">
-              {NAV_MAIN.map(item => {
+              {NAV_MAIN.filter(visible).map(item => {
                 const active = pathname === item.href || pathname?.startsWith(item.href + '/');
                 const badge = item.badgeKey ? (badges as any)[item.badgeKey] : 0;
                 return (
