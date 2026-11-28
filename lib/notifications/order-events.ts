@@ -84,12 +84,13 @@ export async function fireOrderEvent(opts: {
         paymentMethod: order.paymentMethod === 'COD' ? 'Cash on Delivery' : 'Online (Paid)',
       };
 
-      const sms = phone ? dispatchSms({
-        event: 'ORDER_PLACED',
+      const smsEvent = order.paymentMethod === 'COD' ? 'ORDER_PLACED' : order.paymentStatus === 'PAID' ? 'ORDER_CONFIRMED' : null;
+      const sms = phone && smsEvent ? dispatchSms({
+        event: smsEvent,
         recipient: phone,
         variables: smsVars,
         userId, orderId: order.id,
-      }) : Promise.resolve({ ok: false, skipped: 'no phone' });
+      }) : Promise.resolve({ ok: false, skipped: 'No recipient or confirmed payment' });
 
       const wa = phone ? dispatchWhatsApp({
         event: 'ORDER_PLACED',

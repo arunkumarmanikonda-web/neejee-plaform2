@@ -1,3 +1,4 @@
+import approvedVariables from './notifications/neejee-sms-variables.json';
 import { prisma } from '@/lib/prisma';
 
 export type SmsEvent =
@@ -48,6 +49,11 @@ export interface ResolvedTemplate {
 const CACHE_TTL_MS = 60_000;
 let cache: { at: number; map: Map<SmsEvent, ResolvedTemplate> } | null = null;
 
+export function smsVariablesFor(messageId: string, configured: unknown): string[] {
+  const mapping: Record<string,string[]> = approvedVariables;
+  return Object.prototype.hasOwnProperty.call(mapping,messageId) ? mapping[messageId] : Array.isArray(configured) ? configured : [];
+}
+
 function normalizeId(value: unknown): string {
   return String(value ?? '').trim();
 }
@@ -67,7 +73,7 @@ async function loadTemplateMap(): Promise<Map<SmsEvent, ResolvedTemplate>> {
 
   const approvedByMessageId = new Map(
     providerRows
-      .filter((r) => !r.status || /approved/i.test(String(r.status)))
+      .filter((r) => /^approved$/i.test(String(r.status || '').trim()))
       .map((r) => [normalizeId(r.messageId), r] as const)
       .filter(([messageId]) => !!messageId)
   );
@@ -97,7 +103,7 @@ async function loadTemplateMap(): Promise<Map<SmsEvent, ResolvedTemplate>> {
       event: r.event as SmsEvent,
       templateId: normalizedTemplateId,
       body: r.body,
-      varOrder: Array.isArray(r.varOrder) ? r.varOrder : [],
+      varOrder: smsVariablesFor(normalizedTemplateId,r.varOrder),
       active: r.active,
       ready: r.active && !!providerMatch,
       providerApproved: !!providerMatch,

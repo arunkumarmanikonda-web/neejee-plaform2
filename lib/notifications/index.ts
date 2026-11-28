@@ -258,25 +258,32 @@ async function sendSmsChannel(r: ResolvedRecipient, args: NotifyArgs, t: { smsTe
 
     // Variable values are passed in via args.context.smsVars (caller responsibility) or fall back to smsText itself for single-var templates.
     const ctxVars = (args.context as any)?.smsVars as Record<string, string | number> | undefined;
-    const varValues: string = tpl.varOrder
-      .map(k => String(ctxVars?.[k] ?? ''))
-      .join('|');
+    const vars: Record<string, unknown> = {...args.data,...ctxVars};
+    vars.firstName = String(vars.firstName || r.name || vars.customerName || vars.vendorName || vars.sellerName || 'Customer').trim().split(/\s+/)[0];
+    vars.payoutRef ||= vars.reference || vars.payoutId || args.context?.id;
+    vars.recoveryLink ||= vars.recoverLink || vars.cartLink;
+    const values = tpl.varOrder.map(key => String(vars[key] ?? '').trim());
+    if (values.some(value=>!value || value.includes('|'))) {
+      await prisma.notificationLog.update({where:{id:log.id},data:{status:'SKIPPED',errorMessage:'Incomplete approved SMS template variables'}});
+      return {channel:'SMS',recipient:r.phone,status:'SKIPPED',error:'Incomplete approved SMS template variables'};
+    }
+    const varValues = values.join('|');
 
     const digits = r.phone.replace(/^\+91/, '').replace(/[^\d]/g, '');
     const params = new URLSearchParams({
-      authorization: FAST2SMS_KEY,
       route: 'dlt',
-      sender_id: process.env.FAST2SMS_SENDER_ID || 'NEEJEY',
+      sender_id: tpl.providerSenderId || process.env.FAST2SMS_SENDER_ID || 'NEEJEY',
       message: tpl.templateId,
       variables_values: varValues,
       numbers: digits,
     });
-    const res = await fetch(`https://www.fast2sms.com/dev/bulkV2?${params.toString()}`);
+    if (tpl.providerEntityId) params.set('entity_id',tpl.providerEntityId);
+    const res = await fetch('https://www.fast2sms.com/dev/bulkV2',{method:'POST',headers:{authorization:FAST2SMS_KEY,'Content-Type':'application/x-www-form-urlencoded'},body:params,redirect:'error',signal:AbortSignal.timeout(15000)});
     const body = await res.json().catch(() => ({}));
-    if (res.ok && body?.return !== false) {
+    if (res.ok && body?.return === true && body?.request_id) {
       await prisma.notificationLog.update({
         where: { id: log.id },
-        data: { status: 'SENT', providerId: body?.request_id ? String(body.request_id) : null, deliveredAt: new Date() },
+        data: { status: 'SENT', providerId: body?.request_id ? String(body.request_id) : null },
       });
       await markUsed(smsEvent).catch(() => {});
       return { channel: 'SMS', recipient: r.phone, status: 'SENT' };

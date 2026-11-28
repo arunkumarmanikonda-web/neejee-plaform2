@@ -13,6 +13,16 @@ import { mapRzpxStatusToVendor, mapRzpxStatusToSeller } from '@/lib/payouts/orch
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
+// Events may repeat or arrive out of order. Only a reversal supersedes a processed payout.
+function acceptsStatus(previous: string | null, current: string, incoming: string) {
+  const stages: Record<string, number> = { pending: 1, queued: 1, initiated: 1, processing: 2, processed: 3, failed: 3, rejected: 3, cancelled: 3, reversed: 4 };
+  if (!Object.prototype.hasOwnProperty.call(stages, incoming)) return false;
+  if (previous === incoming || previous === 'reversed') return false;
+  if (previous === 'processed' || current === 'PAID') return incoming === 'reversed';
+  if (previous && ['failed','rejected','cancelled'].includes(previous)) return false;
+  return stages[incoming] >= (stages[previous || ''] || 0);
+}
+
 export async function POST(req: Request) {
   const raw = await req.text();
   const signature = req.headers.get('x-razorpay-signature') || '';
@@ -37,7 +47,7 @@ export async function POST(req: Request) {
   }
 
   const rzpxId        = String(payout.id || '');
-  const rawStatus     = String(payout.status || '');
+  const rawStatus     = String(payout.status || '').toLowerCase();
   const failureReason = payout.failure_reason || payout.error_description || null;
   const utr           = payout.utr || null;
 
@@ -52,9 +62,13 @@ export async function POST(req: Request) {
   });
   if (vp) {
     const mapped = mapRzpxStatusToVendor(rawStatus);
+    if (vp.rzpxStatus === rawStatus && utr && vp.transactionRef !== utr) {
+      await prisma.vendorPayout.updateMany({where:{id:vp.id,rzpxPayoutId:rzpxId,rzpxStatus:rawStatus,transactionRef:vp.transactionRef},data:{transactionRef:utr}});
+    }
+    if (!acceptsStatus(vp.rzpxStatus, vp.status, rawStatus)) return NextResponse.json({ok:true, ignored:true});
     const wasPaid = vp.status === 'PAID';
-    const updated = await prisma.vendorPayout.update({
-      where: { id: vp.id },
+    const changed = await prisma.vendorPayout.updateMany({
+      where: { id: vp.id, rzpxPayoutId: rzpxId, status: vp.status, rzpxStatus: vp.rzpxStatus },
       data: {
         status: mapped,
         rzpxStatus: rawStatus,
@@ -63,6 +77,8 @@ export async function POST(req: Request) {
         paidAt: mapped === 'PAID' ? (vp.paidAt || new Date()) : vp.paidAt,
       },
     });
+
+    if (!changed.count) return NextResponse.json({error:'Retry payout event'}, {status:503});
 
     // v23.37: fire PAYOUT_PAID notification once (only on transition to PAID)
     if (mapped === 'PAID' && !wasPaid) {
@@ -84,7 +100,7 @@ export async function POST(req: Request) {
             data: {
               vendorName: vendor?.displayName || vendor?.legalName,
               amountPaise: vp.netPaise,
-              utr: utr || updated.transactionRef,
+              utr: utr || vp.transactionRef,
               invoiceRef: vp.id,
             },
             context: {
@@ -93,7 +109,7 @@ export async function POST(req: Request) {
               smsVars: {
                 amount: amountRs.toString(),
                 invoice: vp.id.slice(-8).toUpperCase(),
-                utr: utr || updated.transactionRef || 'n/a',
+                utr: utr || vp.transactionRef || 'n/a',
               },
             } as any,
           }).catch(e => console.warn('[notify PAYOUT_PAID]', e?.message));
@@ -113,9 +129,13 @@ export async function POST(req: Request) {
   });
   if (sp) {
     const mapped = mapRzpxStatusToSeller(rawStatus);
+    if (sp.rzpxStatus === rawStatus && utr && sp.utr !== utr) {
+      await prisma.payout.updateMany({where:{id:sp.id,rzpxPayoutId:rzpxId,rzpxStatus:rawStatus,utr:sp.utr},data:{utr:utr}});
+    }
+    if (!acceptsStatus(sp.rzpxStatus, sp.status, rawStatus)) return NextResponse.json({ok:true, ignored:true});
     const wasPaid = sp.status === 'PAID';
-    const updated = await prisma.payout.update({
-      where: { id: sp.id },
+    const changed = await prisma.payout.updateMany({
+      where: { id: sp.id, rzpxPayoutId: rzpxId, status: sp.status, rzpxStatus: sp.rzpxStatus },
       data: {
         status: mapped,
         rzpxStatus: rawStatus,
@@ -124,6 +144,8 @@ export async function POST(req: Request) {
         paidAt: mapped === 'PAID' ? (sp.paidAt || new Date()) : sp.paidAt,
       },
     });
+
+    if (!changed.count) return NextResponse.json({error:'Retry payout event'}, {status:503});
 
     // v23.37: fire SELLER_PAYOUT_PAID notification once
     if (mapped === 'PAID' && !wasPaid) {
@@ -145,14 +167,14 @@ export async function POST(req: Request) {
             data: {
               sellerName: seller?.contactName || seller?.businessName,
               amountPaise: sp.netPayoutPaise,
-              utr: utr || updated.utr,
+              utr: utr || sp.utr,
             },
             context: {
               type: 'SELLER_PAYOUT',
               id: sp.id,
               smsVars: {
                 amount: amountRs.toString(),
-                utr: utr || updated.utr || 'n/a',
+                utr: utr || sp.utr || 'n/a',
               },
             } as any,
           }).catch(e => console.warn('[notify SELLER_PAYOUT_PAID]', e?.message));

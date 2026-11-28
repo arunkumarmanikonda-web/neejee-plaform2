@@ -85,13 +85,14 @@ export default function SmsAdminPage() {
   const [testEvent, setTestEvent] = useState('');
   const [testVars, setTestVars] = useState<Record<string, string>>({});
   const [testResult, setTestResult] = useState<string | null>(null);
+  const [testLogId, setTestLogId] = useState('');
   const [sending, setSending] = useState(false);
   const [providerHtml, setProviderHtml] = useState('');
   const [syncingProvider, setSyncingProvider] = useState(false);
 
   const selectableTemplates = useMemo(
-    () => templates.filter((row) => !!row.active && !!String(row.templateId || '').trim()),
-    [templates]
+    () => templates.filter(row=>row.active && providerTemplates.some(p=>p.messageId===row.templateId && /^approved$/i.test(String(p.status || '').trim()))),
+    [templates,providerTemplates]
   );
 
   const selectedTemplate =
@@ -275,7 +276,18 @@ export default function SmsAdminPage() {
     }
   }
 
+  async function checkTestReceipt() {
+    setSending(true);
+    try {
+      const res=await fetch('/api/admin/sms/test/receipt',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:testLogId})});
+      const data=await res.json();
+      setTestResult(data.message || data.error || 'Receipt unavailable.');
+    } catch {setTestResult('The provider report could not be checked.');}
+    finally {setSending(false);}
+  }
+
   async function sendTest() {
+    setTestLogId('');
     setSending(true);
     setTestResult(null);
 
@@ -306,7 +318,8 @@ export default function SmsAdminPage() {
       const text = await res.text();
       const data = text ? JSON.parse(text) : {};
       if (!res.ok) throw new Error(data?.error || data?.message || `Test failed (${res.status})`);
-      setTestResult('SMS test request accepted.');
+      setTestLogId(data.testLogId || '');
+      setTestResult('Fast2SMS accepted the test. Delivery confirmation is pending.');
     } catch (e: any) {
       setTestResult(e?.message || 'SMS test failed.');
     } finally {
@@ -481,6 +494,7 @@ export default function SmsAdminPage() {
           {sending ? 'Sending' : 'Send test'}
         </button>
 
+        {testLogId && <button type="button" disabled={sending} className="ml-3 btn-outline" onClick={()=>void checkTestReceipt()}>Check test delivery</button>}
         {testResult ? (
           <div className={`mt-3 px-3 py-2 font-ui text-sm ${/saved|accepted|imported/i.test(testResult) ? 'bg-green-50 text-green-800' : 'bg-red-50 text-red-800'}`}>
             {testResult}

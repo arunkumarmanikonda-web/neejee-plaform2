@@ -1,5 +1,6 @@
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
+const approvedVariables = require('../lib/notifications/neejee-sms-variables.json');
 
 const SOURCE_NAME = 'Fast2SMS DLT API 16-07-2026 04-47-59 pm.xlsx';
 
@@ -179,15 +180,8 @@ async function main() {
     }
 
     const provider = catalogById.get(item.messageId);
-    const expectedVarCount = provider.variableCount;
-
-    let nextVarOrder = Array.isArray(existing.varOrder) ? [...existing.varOrder] : [];
-    if (nextVarOrder.length > expectedVarCount) {
-      nextVarOrder = nextVarOrder.slice(0, expectedVarCount);
-    }
-    while (nextVarOrder.length < expectedVarCount) {
-      nextVarOrder.push(`var${nextVarOrder.length + 1}`);
-    }
+    const nextVarOrder = approvedVariables[item.messageId];
+    if (!nextVarOrder || nextVarOrder.length !== provider.variableCount) throw Error('Variable order does not match approved template '+item.messageId);
 
     const nextNotes = mergeNotes(existing.notes, item.note);
 

@@ -51,7 +51,7 @@ const SECTIONS: Array<{
     id: 'shipping',
     title: 'Shipping and messaging',
     helper: 'Shiprocket, AiSensy WhatsApp, and Resend email providers.',
-    keys: ['SHIPROCKET_EMAIL', 'SHIPROCKET_PASSWORD', 'SHIPROCKET_WEBHOOK_TOKEN', 'AISENSY_API_KEY', 'AISENSY_WEBHOOK_SECRET', 'RESEND_API_KEY', 'EMAIL_FROM'],
+    keys: ['SHIPROCKET_EMAIL', 'SHIPROCKET_PASSWORD', 'SHIPROCKET_PICKUP_LOCATION', 'SHIPROCKET_WEBHOOK_TOKEN', 'AISENSY_API_KEY', 'AISENSY_WEBHOOK_SECRET', 'RESEND_API_KEY', 'EMAIL_FROM'],
   },
   {
     id: 'ai',
@@ -88,6 +88,7 @@ const LABELS: Record<string, string> = {
   RAZORPAYX_KEY_SECRET: 'Payout key secret',
   RAZORPAYX_SOURCE_ACCOUNT_NUMBER: 'Payout source account number',
   RAZORPAYX_WEBHOOK_SECRET: 'Payout webhook signing secret',
+  SHIPROCKET_PICKUP_LOCATION: 'Registered pickup location name',
   SHIPROCKET_WEBHOOK_TOKEN: 'Shiprocket callback token',
   AISENSY_WEBHOOK_SECRET: 'WhatsApp delivery callback secret',
   FAST2SMS_WEBHOOK_SECRET: 'SMS delivery callback secret',
@@ -384,7 +385,7 @@ export default function AdminSettingsPage() {
           <RuntimeMiniCard label="META ACCESS" value="Live via AI Manager" helper="Use /admin/ai?surface=meta if direct route fails" />
         </div>
 
-        <ProviderChecks/>
+        <ProviderChecks canEdit={!!data?.canEdit}/>
 
         <div className="flex flex-wrap gap-3 mt-5">
           <Link href="/admin/ai" className="border border-kohl/20 px-4 py-2 rounded-sm text-sm font-medium text-kohl bg-beige">
