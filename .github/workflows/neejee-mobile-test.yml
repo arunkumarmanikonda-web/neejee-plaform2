@@ -1,5 +1,11 @@
 name: Build Neejee test apps
 on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'mobile/**'
+      - 'app/staff/open/**'
+      - '.github/workflows/neejee-mobile-test.yml'
   push:
     branches:
       - release/neejee-commerce
@@ -17,7 +23,7 @@ permissions:
   contents: read
 jobs:
   android:
-    if: github.event_name == 'workflow_dispatch'
+    if: github.event_name != 'push'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -30,7 +36,8 @@ jobs:
           REVIEW_HOST: ${{ inputs.review_host }}
         shell: bash
         run: |
-          sdkmanager "platforms;android-36" "build-tools;36.0.0"
+          sdk_root="${ANDROID_HOME:?Android SDK is required}"
+          "${sdk_root}/cmdline-tools/latest/bin/sdkmanager" --sdk_root="$sdk_root" "platforms;android-36" "build-tools;36.0.0"
           if [[ -n "$REVIEW_HOST" ]]; then
             bash mobile/android/build-test.sh "$REVIEW_HOST"
           else
