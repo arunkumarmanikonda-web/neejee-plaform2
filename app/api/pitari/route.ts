@@ -4,6 +4,8 @@ import { prisma } from '@/lib/prisma';
 import type { Prisma } from '@prisma/client';
 import { buildPricing } from '@/lib/catalog/pricing-read';
 import { notesPageType, notesSlug, notesTemplate, pieceFields, readPieceFacts, requestedPieceField } from '@/lib/catalog/piece-notes';
+import { shopHelp } from '@/lib/sakhi-help';
+import { getPublicContact } from '@/lib/public-contact';
 import { getSession } from '@/lib/auth';
 import { answerOrder, orderQuestion } from '@/lib/sakhi-orders';
 import { styleBrief, styleTip } from '@/lib/sakhi-advice';
@@ -50,6 +52,12 @@ export async function POST(req: Request) {
           items:{select:{quantity:true,product:{select:{name:true}}}},disputes:{where:{resourceType:'ORDER',id:{startsWith:'return-'}},select:{status:true}}}
       })));
     } catch { return reply({text:'I couldn’t retrieve your order just now. You can open order tracking or contact the team.',links:[...serviceReplies.track.links,...contact]},503); }
+  }
+  const help=shopHelp(q);
+  if (help) return reply(help);
+  if (p.service==='contact' || /phone number|email address|whatsapp|customer care/i.test(q)) {
+    const team=await getPublicContact();
+    return reply({text:'You can reach our team at '+team.email+(team.phone?' or '+team.phone:'')+'. If you’re asking about a purchase, include the order number.',links:contact});
   }
   if (p.service) return reply(serviceReplies[p.service]);
   const prior=typeof body.piece==='string' && /^[\w-]{1,160}$/.test(body.piece) ? body.piece : undefined;
