@@ -1,6 +1,6 @@
 export type PitariLink = { label: string; href: string };
-export type PitariReply = { text: string; links: PitariLink[]; piece?: string };
-export const pitariTopics = ['Show me sarees under ₹6,000', 'What comes in a suit?', 'How do I use Aaina?'];
+export type PitariReply = { text: string; links: PitariLink[]; piece?: string; order?: string };
+export const pitariTopics = ['Show me sarees under ₹6,000', 'Help me style a saree', 'Where is my order?'];
 const synonyms: [RegExp, string][] = [
   [/\b(bandhani|bandhej|bandhni)\b|बंधनी|बांधनी/i,'bandhani'],
   [/\b(banarasi|banarsi)\b|बनारसी/i,'banarasi'],

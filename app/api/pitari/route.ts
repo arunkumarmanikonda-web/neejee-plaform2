@@ -4,6 +4,9 @@ import { prisma } from '@/lib/prisma';
 import type { Prisma } from '@prisma/client';
 import { buildPricing } from '@/lib/catalog/pricing-read';
 import { notesPageType, notesSlug, notesTemplate, pieceFields, readPieceFacts, requestedPieceField } from '@/lib/catalog/piece-notes';
+import { getSession } from '@/lib/auth';
+import { answerOrder, orderQuestion } from '@/lib/sakhi-orders';
+import { styleBrief, styleTip } from '@/lib/sakhi-advice';
 import { formatINR } from '@/lib/money';
 import { aiTextConfigured, openaiChat } from '@/lib/ai';
 import { parsePitari, serviceReplies, type PitariReply } from '@/lib/pitari';
@@ -24,6 +27,10 @@ const rank = unstable_cache(async (brief:string) => {
     messages:[{role:'user',content:brief}],temperature:0,jsonMode:true,timeoutMs:1250});
   return response.ok && Array.isArray(response.json?.order) ? response.json.order : [];
 },['sakhi-merchandise-order-v1'],{revalidate:600});
+const advise = unstable_cache(async (brief: NonNullable<ReturnType<typeof styleBrief>>) => {
+  const result=await openaiChat({system:'You are Sakhi, Neejee’s warm Indian stylist. Give two practical, concrete suggestions in the specified language in fewer than 65 words. Use the supplied styling preferences. Never claim that a piece is stocked, mention a price, make store promises or invent an order.',messages:[{role:'user',content:JSON.stringify(brief)}],temperature:0.45,timeoutMs:4200});
+  return result.ok ? result.text?.trim().slice(0,650) : undefined;
+},['sakhi-style-advice-v1'],{revalidate:86400});
 function reply(body: PitariReply, status = 200) {
   return NextResponse.json(body,{status,headers:{'Cache-Control':'no-store'}});
 }
@@ -33,11 +40,28 @@ export async function POST(req: Request) {
   try { body=await req.json(); } catch { return reply({text:'Please enter a question.',links:[]},400); }
   if (typeof body?.message!=='string'||!body.message.trim()||body.message.length>320) return reply({text:'Ask a question of up to 320 characters.',links:[]},400);
   const q=body.message.trim().toLowerCase(), p=parsePitari(q);
+  const order = orderQuestion(q,body.order);
+  if (order) {
+    try {
+      const customer = await getSession();
+      return reply(await answerOrder(customer?.id, order, (userId,orderNumber) => prisma.order.findMany({
+        where:{userId,...(orderNumber ? {orderNumber} : {})},orderBy:[{createdAt:'desc'},{id:'desc'}],take:orderNumber?1:3,
+        select:{orderNumber:true,status:true,paymentStatus:true,total:true,createdAt:true,shippedAt:true,deliveredAt:true,courier:true,awbNumber:true,
+          items:{select:{quantity:true,product:{select:{name:true}}}},disputes:{where:{resourceType:'ORDER',id:{startsWith:'return-'}},select:{status:true}}}
+      })));
+    } catch { return reply({text:'I couldn’t retrieve your order just now. You can open order tracking or contact the team.',links:[...serviceReplies.track.links,...contact]},503); }
+  }
   if (p.service) return reply(serviceReplies[p.service]);
   const prior=typeof body.piece==='string' && /^[\w-]{1,160}$/.test(body.piece) ? body.piece : undefined;
   const variantId=typeof body.variant === 'string' && /^[\w-]{1,110}$/.test(body.variant) ? body.variant : undefined;
   const field=requestedPieceField(q), styling=wantsStyling(q), priceQuestion=/how much|what.*(?:cost|price)|price of|कीमत/.test(q);
   const genericAaina=/\baaina\b|आईना|how does mirror|how to (try on|use mirror)|fitting room/.test(q);
+  const brief=styleBrief(q);
+  if (brief && (!prior || !/this (?:piece|saree)|style (?:it|this)|my own/i.test(q))) {
+    const advice=aiTextConfigured() ? await advise(brief).catch(()=>undefined) : undefined;
+    const links=brief.topic==='lighting' ? [shop] : [aaina,{label:'Explore sarees',href:'/edits/sarees'}];
+    return reply({text:advice || styleTip(brief.topic),links});
+  }
   try {
     if(prior && (field||styling||priceQuestion||genericAaina||p.detail)) {
       const piece=await prisma.product.findFirst({where:{...base,slug:prior},select:{

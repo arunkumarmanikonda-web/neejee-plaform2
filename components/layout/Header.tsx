@@ -149,7 +149,7 @@ export function Header({ shop = false }: { shop?: boolean } = {}) {
           </div>
         </div>
         <MegaMenuNav onNavigate={()=>setOpen(false)}/>
-        <Pitari showLauncher={false}/>
+        <Pitari key={me?.id || 'guest'} showLauncher={false}/>
 
         {open && (
           <div id="neejee-shop-menu" className={styles.drawer + " border-t border-beige bg-ivory overflow-y-auto"}>
