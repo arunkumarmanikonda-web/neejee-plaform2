@@ -28,6 +28,7 @@ const TEMPLATE_NAME_MAP: Partial<Record<NotificationEvent, string | null>> = {
   OTP_SIGNUP:              null,
   // Order lifecycle
   ORDER_PLACED:            'order_placed',
+  ORDER_CONFIRMED:         'order_placed',
   ORDER_SHIPPED:           'order_shipped',
   ORDER_OUT_FOR_DELIVERY:  'out_for_delivery',
   ORDER_DELIVERED:         'order_delivered',
@@ -68,8 +69,8 @@ export const aisensyAdapter: ChannelAdapter = {
   },
 
   async send(d: DispatchRecord): Promise<ChannelSendResult> {
-    const apiKey = process.env.AISENSY_API_KEY;
-    const apiUrl = process.env.AISENSY_API_URL || 'https://backend.aisensy.com/campaign/t1/api/v2';
+    const apiKey = process.env.AISENSY_API_KEY?.trim();
+    const apiUrl = process.env.AISENSY_API_URL?.trim() || 'https://backend.aisensy.com/campaign/t1/api/v2';
 
     if (!apiKey) {
       return { ok: false, errorMessage: 'AISENSY_API_KEY not set', permanentFailure: false };
@@ -85,7 +86,7 @@ export const aisensyAdapter: ChannelAdapter = {
     }
 
     // Build positional template params
-    const order = VAR_ORDER[d.event] || [];
+    const order = VAR_ORDER[d.event === 'ORDER_CONFIRMED' ? 'ORDER_PLACED' : d.event] || [];
     const templateParams: string[] = [];
     for (const key of order) {
       const v = d.variables![key];
@@ -122,20 +123,22 @@ export const aisensyAdapter: ChannelAdapter = {
       });
       const data = await res.json().catch(() => ({}));
 
-      if (!res.ok || data?.success === false || data?.status === 'error') {
+      const providerRequestId = data?.submitted_message_id || data?.messageId || data?.id || data?.data?.messageId;
+      const accepted = data?.success === true || data?.success === 'true' || Boolean(providerRequestId);
+      if (!res.ok || !accepted || String(data?.success) === 'false' || data?.errorCode || data?.status === 'error') {
         return {
           ok: false,
           providerResponse: data,
           rateLimited: res.status === 429,
           retryAfterMs: retryAfterMs(res.headers.get('retry-after')),
-          errorMessage: data?.message || data?.error || `HTTP ${res.status}`,
+          errorMessage: data?.errorMessage || data?.message || data?.error || `AiSensy did not confirm submission (HTTP ${res.status})`,
           permanentFailure: res.status === 400 || res.status === 401 || res.status === 403,
         };
       }
 
       return {
         ok: true,
-        providerRequestId: data?.messageId || data?.id || data?.data?.messageId || undefined,
+        providerRequestId: providerRequestId || undefined,
         providerResponse: data,
       };
     } catch (e: any) {

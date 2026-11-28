@@ -492,6 +492,7 @@ export async function POST(request: Request) {
           ...(fullOrder?.userId
             ? { userId: fullOrder.userId }
             : { recipients: [{ email: recipientEmail, name: fullOrder?.guestName || undefined }] }),
+          context: { type: 'ORDER', id: order.id },
           data: {
             orderNumber: order.orderNumber,
             customerName: fullOrder?.user?.name || fullOrder?.guestName || 'friend',
