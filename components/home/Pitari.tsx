@@ -63,7 +63,6 @@ export function Pitari({ showLauncher = true }: { showLauncher?: boolean } = {})
     const onHide = () => { dialog.current?.close(); clear(); };
     if (new URLSearchParams(location.search).get('ask')==='sakhi') {
       open(new Event(eventName));
-      const url=new URL(location.href); url.searchParams.delete('ask'); history.replaceState(history.state,'',url);
     }
     window.addEventListener('pagehide',onHide);
     window.addEventListener(eventName,open);
@@ -74,7 +73,14 @@ export function Pitari({ showLauncher = true }: { showLauncher?: boolean } = {})
     {showLauncher && <button type="button" className={styles.launch} title="Ask Sakhi" aria-label="Ask Sakhi, shopping help" aria-haspopup="dialog" onClick={()=>{if(activeProduct)piece.current=activeProduct; dialog.current?.showModal();}}>
       Ask Sakhi
     </button>}
-    <dialog ref={dialog} onClose={clear} className={styles.dialog} aria-labelledby="pitari-heading" onClick={e=>{if(e.target===dialog.current) dialog.current.close();}}>
+    <dialog ref={dialog} onClose={()=>{
+      clear();
+      const url=new URL(location.href);
+      if (url.searchParams.get('ask')==='sakhi') {
+        url.searchParams.delete('ask');
+        history.replaceState(history.state,'',url);
+      }
+    }} className={styles.dialog} aria-labelledby="pitari-heading" onClick={e=>{if(e.target===dialog.current) dialog.current.close();}}>
       <div className={styles.panel}>
         <header>
           <div><h2 id="pitari-heading">Ask Sakhi</h2></div>
