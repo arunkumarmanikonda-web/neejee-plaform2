@@ -26,7 +26,7 @@ export function Header({ shop = false }: { shop?: boolean } = {}) {
   const menuTrigger = useRef<HTMLButtonElement>(null);
   const header = useRef<HTMLElement>(null);
   const searchTrigger = useRef<HTMLButtonElement>(null);
-  const [me, setMe] = useState<Me | null>(null);
+  const [me, setMe] = useState<Me | null | undefined>(undefined);
   const [mobileMains, setMobileMains] = useState<MobileMain[]>([]);
   const [mobileOpenMain, setMobileOpenMain] = useState<string | null>(null);
   const ready = useClientReady();
@@ -60,7 +60,7 @@ export function Header({ shop = false }: { shop?: boolean } = {}) {
         if (r.status === 401) setMe(null);
         return null;
       })
-      .then(d => { if (d?.email) setMe(d); })
+      .then(d => setMe(d?.email ? d : null))
       .catch(() => setMe(null));
   }, []);
 
@@ -149,7 +149,7 @@ export function Header({ shop = false }: { shop?: boolean } = {}) {
           </div>
         </div>
         <MegaMenuNav onNavigate={()=>setOpen(false)}/>
-        <Pitari key={me?.id || 'guest'} showLauncher={false}/>
+        <Pitari identity={me === undefined ? undefined : me?.id || null} showLauncher={false}/>
 
         {open && (
           <div id="neejee-shop-menu" className={styles.drawer + " border-t border-beige bg-ivory overflow-y-auto"}>
