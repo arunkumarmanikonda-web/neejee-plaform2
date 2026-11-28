@@ -24,6 +24,8 @@ public final class Home extends Activity {
     private static final int PAPER = Color.rgb(249,245,234), INK = Color.rgb(43,37,31), WINE = Color.rgb(115,52,53);
     private final Set<String> reviewHosts = new HashSet<>();
     private String origin;
+    private boolean staff;
+    private LinearLayout nav;
     private int dp(int size) { return Math.round(getResources().getDisplayMetrics().density * size); }
     private Bitmap asset(String name) {
         try (InputStream in = getAssets().open(name)) { return BitmapFactory.decodeStream(in); }
@@ -52,18 +54,36 @@ public final class Home extends Activity {
         mark.setPadding(dp(30),dp(14),dp(30),dp(14)); mark.setContentDescription("Neejee. Found. Personal."); column.addView(mark,row(72));
         ImageView campaign = new ImageView(this); campaign.setImageBitmap(asset("surkh.webp")); campaign.setScaleType(ImageView.ScaleType.CENTER_CROP);
         campaign.setContentDescription("Surkh, a vermilion saree with gold checks."); column.addView(campaign,row(240));
-        LinearLayout nav = new LinearLayout(this); nav.setOrientation(LinearLayout.VERTICAL); nav.setPadding(dp(22),dp(16),dp(22),dp(16)); column.addView(nav,row(-2));
-        nav.addView(heading("Sarees, suits & objects",27),row(-2));
-        boolean connectFirst = !reviewHosts.isEmpty() && !getPreferences(MODE_PRIVATE).contains("origin");
-        addButton(nav,connectFirst ? "Connect review storefront" : "Enter the shop",true,() -> {
-            if (connectFirst && !getPreferences(MODE_PRIVATE).contains("origin")) review(); else visit("/");
-        });
-        addButton(nav,"Try a saree with Aaina",false,() -> visit("/ai/mirror"));
-        addButton(nav,"Shopping bag",false,() -> visit("/cart"));
-        addButton(nav,"My account and orders",false,() -> visit("/account"));
-        addButton(nav,"Staff console",false,() -> visit("/admin"));
-        if (!reviewHosts.isEmpty() && !connectFirst) addButton(nav,"Change review storefront",false,this::review);
+        nav = new LinearLayout(this); nav.setOrientation(LinearLayout.VERTICAL); nav.setPadding(dp(22),dp(16),dp(22),dp(16)); column.addView(nav,row(-2));
+        staff = state != null && state.getBoolean("staff");
+        showWorkspace(staff);
     }
+    private void showWorkspace(boolean team) {
+        staff = team;
+        nav.removeAllViews();
+        nav.addView(heading(team ? "Staff workspace" : "Sarees, suits & objects",27),row(-2));
+        if (team) {
+            addButton(nav,"Staff sign-in and dashboard",true,() -> staffPage("dashboard"));
+            addButton(nav,"Create a product",false,() -> staffPage("new"));
+            addButton(nav,"Manage product listings",false,() -> staffPage("products"));
+            addButton(nav,"Inventory",false,() -> staffPage("inventory"));
+            addButton(nav,"Orders",false,() -> staffPage("orders"));
+            addButton(nav,"Store settings",false,() -> staffPage("settings"));
+            addButton(nav,"Back to the shop",false,() -> showWorkspace(false));
+        } else {
+            addButton(nav,"Shop as a guest",true,() -> visit("/"));
+            addButton(nav,"Customer sign-in and orders",false,() -> visit("/account?tab=orders"));
+            addButton(nav,"Track a guest order",false,() -> visit("/help/track"));
+            addButton(nav,"Ask Sakhi",false,() -> visit("/?ask=sakhi"));
+            addButton(nav,"Try a saree with Aaina",false,() -> visit("/ai/mirror"));
+            addButton(nav,"Shopping bag",false,() -> visit("/cart"));
+            addButton(nav,"Staff workspace",false,() -> showWorkspace(true));
+            if (!reviewHosts.isEmpty()) addButton(nav,"Review storefront options",false,this::review);
+        }
+    }
+    private void staffPage(String screen) { visit("/staff/open?screen=" + screen); }
+    @Override public void onSaveInstanceState(Bundle state) { super.onSaveInstanceState(state); state.putBoolean("staff",staff); }
+    @Override public void onBackPressed() { if (staff) showWorkspace(false); else super.onBackPressed(); }
     private void addButton(LinearLayout parent, String title, boolean primary, Runnable action) {
         Button button = new Button(this); button.setText(title); button.setAllCaps(false); button.setTextSize(16);
         button.setBackgroundTintList(android.content.res.ColorStateList.valueOf(primary ? WINE : Color.rgb(242,234,219)));

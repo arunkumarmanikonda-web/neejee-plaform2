@@ -1,5 +1,11 @@
 name: Build Neejee test apps
 on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'mobile/**'
+      - 'app/staff/open/**'
+      - '.github/workflows/neejee-mobile-test.yml'
   push:
     branches:
       - release/neejee-commerce
@@ -17,7 +23,7 @@ permissions:
   contents: read
 jobs:
   android:
-    if: github.event_name == 'workflow_dispatch'
+    if: github.event_name != 'push'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4

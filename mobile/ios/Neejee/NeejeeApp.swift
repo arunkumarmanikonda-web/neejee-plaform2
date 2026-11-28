@@ -30,6 +30,7 @@ struct AppHome: View {
     }()
     @AppStorage("shopOrigin") private var storedOrigin = ""
     @State private var destination: Destination?
+    @State private var staff = false
     @State private var showReview = false
     @State private var reviewText = ""
     @State private var invalid = false
@@ -61,18 +62,27 @@ struct AppHome: View {
                     .overlay { Image("Surkh").resizable().scaledToFill() }.clipped()
                     .accessibilityLabel("Surkh, a vermilion saree with gold checks.")
                 VStack(alignment: .leading, spacing: 9) {
-                    Text("Sarees, suits & objects").font(.system(.title, design: .serif)).padding(.bottom, 3)
-                    if !reviewHosts.isEmpty && storedOrigin.isEmpty {
-                        entry("Connect review storefront", primary: true) { reviewText = ""; invalid = false; showReview = true }
+                    Text(staff ? "Staff workspace" : "Sarees, suits & objects")
+                        .font(.system(.title, design: .serif)).padding(.bottom, 3)
+                    if staff {
+                        entry("Staff sign-in and dashboard", primary: true) { open("/staff/open?screen=dashboard") }
+                        entry("Create a product") { open("/staff/open?screen=new") }
+                        entry("Manage product listings") { open("/staff/open?screen=products") }
+                        entry("Inventory") { open("/staff/open?screen=inventory") }
+                        entry("Orders") { open("/staff/open?screen=orders") }
+                        entry("Store settings") { open("/staff/open?screen=settings") }
+                        entry("Back to the shop") { staff = false }
                     } else {
-                        entry("Enter the shop", primary: true) { open("/") }
-                    }
-                    entry("Try a saree with Aaina") { open("/ai/mirror") }
-                    entry("Shopping bag") { open("/cart") }
-                    entry("My account and orders") { open("/account") }
-                    entry("Staff console") { open("/admin") }
-                    if !reviewHosts.isEmpty && !storedOrigin.isEmpty {
-                        entry("Change review storefront") { reviewText = ""; invalid = false; showReview = true }
+                        entry("Shop as a guest", primary: true) { open("/") }
+                        entry("Customer sign-in and orders") { open("/account?tab=orders") }
+                        entry("Track a guest order") { open("/help/track") }
+                        entry("Ask Sakhi") { open("/?ask=sakhi") }
+                        entry("Try a saree with Aaina") { open("/ai/mirror") }
+                        entry("Shopping bag") { open("/cart") }
+                        entry("Staff workspace") { staff = true }
+                        if !reviewHosts.isEmpty {
+                            entry("Review storefront options") { reviewText = ""; invalid = false; showReview = true }
+                        }
                     }
                 }.padding(20)
             }.frame(maxWidth: 720).frame(maxWidth: .infinity)
