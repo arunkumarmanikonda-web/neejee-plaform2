@@ -6,3 +6,6 @@
 .copy h2{font-family:var(--font-display),Georgia,serif;font-size:clamp(1.8rem,3vw,3rem);line-height:1.02}
 .copy strong{font-size:1.25rem}.copy>a{color:#5e3428;font-size:.91rem}.copy p{max-width:38ch}
 @media(max-width:700px){.feature{grid-template-columns:1fr}.photo img{height:min(34svh,275px)}.copy{gap:.65rem}.copy h2{font-size:2.35rem}}
+
+.photo :global(.nj-gallery){position:relative;width:100%;height:clamp(225px,32vw,425px);overflow:hidden;aspect-ratio:auto}.photo :global(.nj-image-open){display:block;height:100%;width:100%}.photo :global(.nj-image-open) img{height:100%;width:100%;object-fit:contain}.feature:first-child{margin-top:0}.copy :global(.nj-purchase-buttons){gap:.65rem}.copy :global(.nj-buy-immediate){order:-1;min-width:8rem}
+@media(max-width:700px){.photo :global(.nj-gallery){height:clamp(195px,31svh,280px)}}

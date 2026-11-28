@@ -2,7 +2,7 @@ import sharp from 'sharp';
 
 export const openAiStyleAvailable = () => Boolean(process.env.OPENAI_API_KEY?.trim());
 
-export async function makeStyleImage(prompt: string, refs: string[], aspect?: string): Promise<Buffer> {
+export async function makeStyleImage(prompt: string, refs: string[], aspect?: string, fitting = false): Promise<Buffer> {
   const key = process.env.OPENAI_API_KEY?.trim();
   if (!key) throw new Error('openai_unavailable');
   const ratio = aspect?.match(/^(\d{1,2}):(\d{1,2})$/);
@@ -10,13 +10,15 @@ export async function makeStyleImage(prompt: string, refs: string[], aspect?: st
   const height = Number(ratio?.[2]);
   const size = !width || !height ? 'auto' : width === height ? '1024x1024' : width > height ? '1536x1024' : '1024x1536';
   const endpoint = refs.length ? 'edits' : 'generations';
+  const model = process.env.OPENAI_STYLE_IMAGE_MODEL?.trim() || 'gpt-image-1.5';
   const response = await fetch('https://api.openai.com/v1/images/' + endpoint, {
     method: 'POST', redirect: 'error', cache: 'no-store', signal: AbortSignal.timeout(175000),
     headers: { Authorization: 'Bearer ' + key, 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      model: process.env.OPENAI_STYLE_IMAGE_MODEL?.trim() || 'gpt-image-1.5',
+      model,
       prompt, ...(refs.length ? { images: refs.map(image_url => ({ image_url })) } : {}),
-      n: 1, quality: 'medium', size, output_format: 'jpeg',
+      n: 1, quality: fitting ? 'high' : 'medium', size,
+      ...(fitting && refs.length && (model === 'gpt-image-1.5' || model === 'gpt-image-1') ? {input_fidelity:'high'} : {}), output_format: 'jpeg',
     }),
   });
   const json = await response.json().catch(() => null);
@@ -34,5 +36,5 @@ export async function makeStyleImage(prompt: string, refs: string[], aspect?: st
   } else {
     photo.resize({ width: 1600, height: 1600, fit: 'inside', withoutEnlargement: true });
   }
-  return photo.jpeg({ quality: 88 }).toBuffer();
+  return photo.jpeg({ quality: fitting ? 94 : 88 }).toBuffer();
 }

@@ -50,6 +50,8 @@ export function StudioSession({mode,piece,initialVariant,signedIn,configured,sty
   const [error,setError]=useState('');
   const [result,setResult]=useState('');
   const [previewId,setPreviewId]=useState('');
+  const [renderer,setRenderer]=useState('');
+  const [falStatus,setFalStatus]=useState<number>();
   const [showOriginal,setShowOriginal]=useState(false);
   const pending=useRef(false);
   const cachedPhoto=useRef('');
@@ -80,6 +82,8 @@ export function StudioSession({mode,piece,initialVariant,signedIn,configured,sty
       const job=await res.json();
       if (!res.ok || job.configured===false) throw Error(job.error || 'The studio is unavailable right now.');
       setPreviewId(job.previewId||'');
+      setRenderer(job.provider || '');
+      setFalStatus(job.falStatus);
       if(job.outputUrl){setResult(job.outputUrl);return;}
       if(!job.pollUrl?.startsWith('/api/ai/')) throw Error('The preview could not start. Please try again.');
       const deadline=Date.now()+300000;
@@ -109,8 +113,9 @@ export function StudioSession({mode,piece,initialVariant,signedIn,configured,sty
         <div className={styles.compare} aria-label="Compare photographs">
           <button aria-pressed={showOriginal} onClick={()=>setShowOriginal(true)}>Original photo</button>
           <button aria-pressed={!showOriginal} onClick={()=>setShowOriginal(false)}>With the piece</button></div>
-        <img className={styles.result} src={showOriginal?photo:result} alt={showOriginal?'Your original photograph':'Your generated preview with '+piece.name}/>
+        <img className={styles.result} data-renderer={renderer} src={showOriginal?photo:result} alt={showOriginal?'Your original photograph':'Your generated preview with '+piece.name}/>
         <p className={styles.note}>{mirror?'The preview shows styling. Check garment measurements before ordering.':'Perspective, scale and colour are approximate. Check the product dimensions before ordering.'}</p>
+        {typeof falStatus === 'number' && <small>Staff diagnostic · OpenAI rendered this fitting. {falStatus ? 'fal.ai returned HTTP '+falStatus+'.' : 'The fal.ai key is missing.'}</small>}
         <DeleteAiPreviewButton previewId={previewId} onDeleted={()=>{setFile(null);setConsent(false);setResult('');setShowOriginal(false);setPreviewId('');cachedPhoto.current='';}}/>
         {!editorial&&<AiCommerceCompletion mode={mirror?'mirror':'space'} sourceProduct={piece} sourceVariantId={variant?.id}/>}
       </> : <>

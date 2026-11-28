@@ -1,3 +1,4 @@
+import { falKey } from './fal-key';
 // Store only opaque job identifiers and fixed diagnostics. Uploaded photos never enter a log.
 const falQueue='https://queue.fal.run/fal-ai/nano-banana-2';
 const replicate='https://api.replicate.com/v1';
@@ -7,7 +8,7 @@ type Issue={provider:Provider;code:string;retryable:boolean};
 export class GuestRenderError extends Error {
   constructor(public readonly issues:Issue[]){super(issues.map(x=>x.provider+'_'+x.code).join('.'));}
 }
-const credential=(provider:Provider)=>(provider==='fal'?process.env.FAL_KEY:process.env.REPLICATE_API_TOKEN)?.trim();
+const credential=(provider:Provider)=>(provider==='fal'?falKey():process.env.REPLICATE_API_TOKEN)?.trim();
 export const guestRenderingConfigured=()=>!!(credential('fal')||credential('replicate'));
 function auth(provider:Provider){return {Authorization:(provider==='fal'?'Key ':'Bearer ')+credential(provider)};}
 function reason(provider:Provider,status:number,body:unknown):Issue{

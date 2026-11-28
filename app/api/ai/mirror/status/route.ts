@@ -1,3 +1,4 @@
+import { falKey } from '@/lib/ai/fal-key';
 // Poll fal.ai for the current status of a try-on job.
 // Provider URLs are treated as untrusted client input and must remain on approved hosts.
 import { verifyStudioJob } from '@/lib/ai/studio-job';
@@ -107,7 +108,7 @@ export async function GET(request: Request) {
   }
 
   if (!verifyStudioJob(session.id,url.searchParams)) return NextResponse.json({error:'Please start a new preview.'},{status:400});
-  const key = process.env.FAL_KEY;
+  const key = falKey();
   if (!key) return NextResponse.json({ error: 'AI provider is not configured' }, { status: 503 });
 
   const fallbackStatusUrl = `${FAL_BASE}/${endpoint}/requests/${requestId}/status`;

@@ -46,3 +46,11 @@
   .folio-solo .folio-swatch {position:static;width:26mm;height:22mm;margin-top:3mm}
   .folio-solo h3 {font-size:23pt}
 }
+
+@media print {
+  .folio-sheet {break-inside:avoid;display:flow-root}
+  .folio-sheet .folio-solo .folio-card {display:flex;align-items:center;break-inside:avoid}
+  .folio-solo .folio-card>picture {display:block;flex:0 0 52%;min-width:0}
+  .folio-solo .folio-card>.folio-ticket {flex:1;min-width:0}
+  .folio-buy {display:inline-block;margin-top:2mm;padding:1.8mm 4mm;background:#681e32;color:white!important;font:600 10pt Arial,sans-serif;text-decoration:none}
+}
