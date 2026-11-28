@@ -1,3 +1,4 @@
+import { fast2smsEntityId } from '@/lib/fast2sms-config';
 import { NextRequest, NextResponse } from 'next/server';
 import { getSession, requireRole } from '@/lib/auth';
 import { razorpayxConfigured } from '@/lib/razorpayx';
@@ -91,7 +92,7 @@ function runtimeStatus() {
     openai: !!process.env.OPENAI_API_KEY,
     fal: !!process.env.FAL_KEY,
     replicate: !!process.env.REPLICATE_API_TOKEN,
-    sms: !!(process.env.FAST2SMS_API_KEY && process.env.FAST2SMS_SENDER_ID && process.env.FAST2SMS_ENTITY_ID),
+    sms: !!(process.env.FAST2SMS_API_KEY && process.env.FAST2SMS_SENDER_ID && fast2smsEntityId()),
     meta: !!(process.env.FACEBOOK_APP_ID && process.env.FACEBOOK_APP_SECRET),
     paymentWebhook: !!process.env.RAZORPAY_WEBHOOK_SECRET,
     socialTokenSecret: !!(process.env.SOCIAL_TOKEN_SECRET || process.env.AUTH_SECRET),

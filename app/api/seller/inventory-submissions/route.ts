@@ -32,6 +32,7 @@ export async function GET(req: Request) {
   const session = await getSession();
   const gate = await requireSellerContext(session);
   if (!gate.ok) return NextResponse.json({ error: gate.error }, { status: gate.status });
+  if (!canEditInventory(gate.ctx)) return NextResponse.json({ error: 'Inventory access required' }, { status: 403 });
 
   try {
     const url = new URL(req.url);
@@ -57,12 +58,8 @@ export async function POST(req: Request) {
   const session = await getSession();
   const gate = await requireSellerContext(session);
   if (!gate.ok) return NextResponse.json({ error: gate.error }, { status: gate.status });
-  if (!canEditInventory(gate.ctx)) {
-    return NextResponse.json(
-      { error: 'You do not have inventory access for this studio' },
-      { status: 403 }
-    );
-  }
+  if (!canEditInventory(gate.ctx)) return NextResponse.json({ error: 'Inventory access required' }, { status: 403 });
+
 
   try {
     const body = await req.json();

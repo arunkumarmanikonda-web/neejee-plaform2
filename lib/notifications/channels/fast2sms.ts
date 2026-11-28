@@ -1,3 +1,4 @@
+import { fast2smsEntityId, fast2smsRoute } from '@/lib/fast2sms-config';
 import { retryAfterMs } from '../retry-policy';
 import type {
   ChannelAdapter,
@@ -229,7 +230,7 @@ export const fast2smsAdapter: ChannelAdapter = {
 
     const params = new URLSearchParams({
       authorization: apiKey,
-      route: 'dlt',
+      route: fast2smsRoute(),
       sender_id: senderId,
       message: messageId,
       variables_values: values.join('|'),
@@ -237,8 +238,9 @@ export const fast2smsAdapter: ChannelAdapter = {
       numbers: phone,
     });
 
-    if (process.env.FAST2SMS_DLT_ENTITY_ID) {
-      params.append('entity_id', process.env.FAST2SMS_DLT_ENTITY_ID);
+    const entityId = fast2smsEntityId();
+    if (entityId) {
+      params.append('entity_id', entityId);
     }
 
     try {

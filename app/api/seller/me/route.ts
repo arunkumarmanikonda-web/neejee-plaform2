@@ -136,7 +136,7 @@ export async function GET() {
         pendingChangeRequestsCount: pendingChanges,
         lifetimeRevenuePaise,
         lifetimeOrderCount,
-        lifetimePayoutPaise,
+        lifetimePayoutPaise: canEditFinance(ctx) ? lifetimePayoutPaise : null,
       },
     });
   } catch (err: any) {

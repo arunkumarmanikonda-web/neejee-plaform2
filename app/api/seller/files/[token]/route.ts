@@ -12,7 +12,7 @@ export async function GET(_req:Request,{params}:{params:Promise<{token:string}>}
   if (!/^[A-Za-z0-9_-]{1,800}$/.test(token)) return missing();
   const admin=requireRole(user,['SUPER_ADMIN','ADMIN']);
   const seller=admin?null:await getSellerContext(user);
-  if (!admin&&!seller) return missing();
+  if (!admin&&(!seller || seller.seller.kycStatus !== 'APPROVED')) return missing();
   const fileUrl='/api/seller/files/'+token;
   if (admin || (seller && canEditInventory(seller))) {
     const row=await prisma.sellerInventorySubmission.findFirst({where:{sourceFileUrl:fileUrl,...(seller?{sellerId:seller.seller.id}:{})},select:{sellerId:true,sourceFileName:true}});

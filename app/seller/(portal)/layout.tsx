@@ -28,6 +28,7 @@ export default async function PortalLayout({ children }: { children: React.React
   // to exist in production so legacy Prisma schema drift cannot break login.
   let seller: any = null;
   let isOwner = false;
+  let staffLevel: string | undefined;
 
   try {
     if (user.role === 'SELLER') {
@@ -59,6 +60,7 @@ export default async function PortalLayout({ children }: { children: React.React
       });
       if (tm) {
         seller = tm.seller;
+        staffLevel = tm.accessLevel;
         isOwner = false;
       }
     }
@@ -177,6 +179,7 @@ export default async function PortalLayout({ children }: { children: React.React
         sellerStatus={seller?.kycStatus || 'ADMIN'}
         isNeejeeSelect={!!seller?.isNeejeeSelect}
         isOwner={isOwner}
+        staffLevel={staffLevel}
         pendingChangeRequestsCount={pendingChangeRequestsCount}
         submissionsNeedingInfoCount={submissionsNeedingInfoCount}
       />

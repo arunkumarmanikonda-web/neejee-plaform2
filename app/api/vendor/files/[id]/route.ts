@@ -11,7 +11,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   const { id } = await params;
   const missing = () => NextResponse.json({ error: 'File unavailable' }, { status: 404 });
   if (!/^[a-f0-9-]{36}$/.test(id)) return missing();
-  const admin = requireRole(user, ['ADMIN', 'SUPER_ADMIN']);
+  const admin = requireRole(user, ['ADMIN', 'SUPER_ADMIN', 'FINANCE']);
   const scope = admin ? null : await resolveVendorForSession(user);
   if (!admin && !scope) return missing();
   const fileUrl = vendorFilePrefix + id;

@@ -48,6 +48,8 @@ export default function SellerDashboard() {
   if (!me) return null;
 
   const { seller, ctx, stats } = me;
+  const finance = ctx.isOwner || ctx.accessLevel !== 'INVENTORY_ONLY';
+  const inventory = ctx.isOwner || ctx.accessLevel !== 'FINANCE_ONLY';
   const greeting = ctx.isOwner ? seller.contactName || seller.businessName : 'Welcome back';
 
   return (
@@ -75,13 +77,13 @@ export default function SellerDashboard() {
 
       {/* Stats row */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <StatCard
+        {inventory && <StatCard
           icon={Package}
           label="ACTIVE PRODUCTS"
           value={String(stats.productBuckets.active)}
           sub={`${stats.productBuckets.draft} drafts`}
           href="/seller/inventory"
-        />
+        />}
         <StatCard
           icon={ShoppingBag}
           label="ORDERS (LIFETIME)"
@@ -89,13 +91,13 @@ export default function SellerDashboard() {
           sub={formatINRShort(stats.lifetimeRevenuePaise) + ' revenue'}
           href="/seller/orders"
         />
-        <StatCard
+        {finance && <StatCard
           icon={Wallet}
           label="PAYOUTS RECEIVED"
           value={formatINRShort(stats.lifetimePayoutPaise)}
           sub="lifetime"
           href="/seller/payouts"
-        />
+        />}
         <StatCard
           icon={TrendingUp}
           label="QUALITY SCORE"
@@ -112,7 +114,7 @@ export default function SellerDashboard() {
             <div className="flex-1">
               <h3 className="font-display text-lg text-kohl">A few things need you</h3>
               <div className="mt-2 space-y-1 text-sm text-mitti">
-                {stats.submissionBuckets.needsInfo > 0 && (
+                {inventory && stats.submissionBuckets.needsInfo > 0 && (
                   <p>
                     <Link href="/seller/inventory?status=NEEDS_INFO" className="text-banarasi hover:underline font-medium">
                       {stats.submissionBuckets.needsInfo} inventory submission{stats.submissionBuckets.needsInfo === 1 ? '' : 's'} need more information
@@ -160,7 +162,7 @@ export default function SellerDashboard() {
 
       {/* Inventory CTA */}
       <section className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Link href="/seller/inventory/submit"
+        {inventory && <><Link href="/seller/inventory/submit"
           className="block bg-ivory border border-mitti/30 p-6 rounded hover:border-kohl transition-colors">
           <Upload className="w-6 h-6 text-banarasi" />
           <h4 className="font-display text-lg text-kohl mt-3">Submit a new product</h4>
@@ -174,6 +176,7 @@ export default function SellerDashboard() {
             {stats.submissionBuckets.pending + stats.submissionBuckets.underReview} under review
           </p>
         </Link>
+        </>}
         <Link href="/seller/orders"
           className="block bg-ivory border border-mitti/30 p-6 rounded hover:border-kohl transition-colors">
           <ShoppingBag className="w-6 h-6 text-banarasi" />

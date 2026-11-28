@@ -15,7 +15,7 @@ export async function GET() {
 
   try {
     const rows = await prisma.sellerChangeRequest.findMany({
-      where: { sellerId: gate.ctx.seller.id },
+      where: { sellerId: gate.ctx.seller.id, ...(!gate.ctx.isOwner && gate.ctx.accessLevel !== 'FULL' && { requestedByUserId: session!.id }) },
       include: { supportingDocs: { select: { id: true, fileName: true, fileUrl: true, docType: true } } },
       orderBy: { createdAt: 'desc' },
     });

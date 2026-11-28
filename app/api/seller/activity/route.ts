@@ -16,7 +16,7 @@ export async function GET(req: Request) {
   try {
     const limit = Math.min(parseInt(new URL(req.url).searchParams.get('limit') || '100'), 500);
     const logs = await prisma.sellerAuditLog.findMany({
-      where: { sellerId: gate.ctx.seller.id },
+      where: { sellerId: gate.ctx.seller.id, ...(!gate.ctx.isOwner && gate.ctx.accessLevel !== 'FULL' && { actorUserId: session!.id }) },
       orderBy: { createdAt: 'desc' },
       take: limit,
     });
