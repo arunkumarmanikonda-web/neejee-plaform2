@@ -91,8 +91,8 @@ export default function SmsAdminPage() {
   const [syncingProvider, setSyncingProvider] = useState(false);
 
   const selectableTemplates = useMemo(
-    () => templates.filter((row) => !!row.active && !!String(row.templateId || '').trim()),
-    [templates]
+    () => templates.filter(row=>row.active && providerTemplates.some(p=>p.messageId===row.templateId && /^approved$/i.test(String(p.status || '').trim()))),
+    [templates,providerTemplates]
   );
 
   const selectedTemplate =

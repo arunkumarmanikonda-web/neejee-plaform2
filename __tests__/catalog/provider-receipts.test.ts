@@ -4,6 +4,16 @@ import Module from 'node:module';
 import {createHmac} from 'node:crypto';
 import {fast2smsWebhook} from '../../lib/notifications/fast2sms-webhook';
 
+test('approved Neejee sender templates use the name, order reference and OTP in their published positions',async ()=>{
+  const {smsVariablesFor,buildVarValues}=await import('../../lib/sms-registry');
+  const order=smsVariablesFor('218994',['orderNumber','total']);
+  assert.deepEqual(order,['firstName','orderNumber']);
+  assert.equal(buildVarValues({varOrder:order} as any,{firstName:'Arun',orderNumber:'TEST',total:4999}),'Arun|TEST');
+  assert.deepEqual(smsVariablesFor('218985',['otp','var2']),['firstName','otpCode']);
+  assert.deepEqual(smsVariablesFor('219003',['orderNumber']),['firstName']);
+  assert.deepEqual(smsVariablesFor('new-template',['custom']),['custom']);
+});
+
 test('SMS setup uses the store entity, preserves other callbacks and recognizes an existing subscription',async t=>{
   const keys = ['FAST2SMS_API_KEY','FAST2SMS_ENTITY_ID','FAST2SMS_WEBHOOK_SECRET'];
   const old = keys.map(k=>process.env[k]);

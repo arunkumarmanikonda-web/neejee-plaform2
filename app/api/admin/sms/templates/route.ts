@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getSession, requireRole } from '@/lib/auth';
-import { invalidateTemplateCache } from '@/lib/sms-registry';
+import { invalidateTemplateCache, smsVariablesFor } from '@/lib/sms-registry';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -43,7 +43,7 @@ async function validateTemplateId(templateId: unknown) {
     where: { messageId: normalized },
   });
 
-  if (provider) {
+  if (provider && /^approved$/i.test(String(provider.status || '').trim())) {
     return { ok: true as const, normalized, provider };
   }
 
@@ -69,7 +69,7 @@ async function validateTemplateId(templateId: unknown) {
 export async function GET() {
   if (!(await gate())) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   const rows = await prisma.smsTemplate.findMany({ orderBy: { event: 'asc' } });
-  return NextResponse.json({ templates: rows });
+  return NextResponse.json({templates:rows.map(row=>({...row,varOrder:smsVariablesFor(row.templateId || '',row.varOrder)}))});
 }
 
 export async function PATCH(req: NextRequest) {
@@ -106,7 +106,7 @@ export async function PATCH(req: NextRequest) {
     data: {
       ...(templateId !== undefined && { templateId }),
       ...(body !== undefined && { body: String(body) }),
-      ...(Array.isArray(varOrder) && { varOrder }),
+      ...(Array.isArray(varOrder) && {varOrder:smsVariablesFor(templateId || '',varOrder)}),
       ...(active !== undefined && { active }),
       ...(label !== undefined && { label }),
       ...(category !== undefined && { category }),

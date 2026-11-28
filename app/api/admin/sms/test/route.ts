@@ -177,6 +177,9 @@ export async function POST(req: NextRequest) {
   }
 
   const vars = normalizeVars(body?.vars);
+  if (tpl.varOrder.some(key=>!String(vars[key] ?? '').trim() || String(vars[key]).includes('|'))) {
+    return NextResponse.json({error:'Fill each approved template variable before sending.'},{status:400});
+  }
   const variablesValues = buildVarValues(tpl, vars);
   const senderId = tpl.providerSenderId || process.env.FAST2SMS_SENDER_ID || '';
 

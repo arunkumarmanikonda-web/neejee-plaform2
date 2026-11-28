@@ -139,6 +139,7 @@ function varOrderForEvent(event: NotificationEvent): string[] {
 }
 
 const VAR_ALIASES: Record<string, string[]> = {
+  otpCode: ['code','otp'],
   firstName: ['customerName', 'name', 'sellerName', 'vendorName', 'first_name'],
   orderNumber: ['orderRef', 'reference', 'order_id'],
   recoveryLink: ['recoverLink', 'cartLink', 'link', 'checkoutLink'],
@@ -195,7 +196,21 @@ export const fast2smsAdapter: ChannelAdapter = {
       };
     }
 
-    const messageId = templateIdForEvent(d.event);
+    let messageId = templateIdForEvent(d.event);
+    let variables = varOrderForEvent(d.event);
+    let templateSender = senderId;
+    if (!messageId) {
+      const {getTemplate,mapNotificationToSmsEvent} = await import('@/lib/sms-registry');
+      const event = mapNotificationToSmsEvent(d.event) || (d.event.startsWith('CART_') ? 'abandoned_cart' : null);
+      let template;
+      try { template = event ? await getTemplate(event) : null; }
+      catch { return {ok:false,permanentFailure:false,errorMessage:'SMS template registry unavailable'}; }
+      if (template?.ready) {
+        messageId = template.templateId;
+        variables = template.varOrder;
+        templateSender = template.providerSenderId || senderId;
+      }
+    }
     if (!messageId) {
       return {
         ok: false,
@@ -204,12 +219,11 @@ export const fast2smsAdapter: ChannelAdapter = {
       };
     }
 
-    const order = varOrderForEvent(d.event);
     const values: string[] = [];
 
-    for (const key of order) {
+    for (const key of variables) {
       const value = resolveVar(d.variables as Record<string, any>, key);
-      if (value === undefined) {
+      if (value === undefined || value.includes('|')) {
         return {
           ok: false,
           errorMessage: `Missing required variable: ${key} for event ${d.event}`,
@@ -231,7 +245,7 @@ export const fast2smsAdapter: ChannelAdapter = {
     const params = new URLSearchParams({
       authorization: apiKey,
       route: fast2smsRoute(),
-      sender_id: senderId,
+      sender_id: templateSender,
       message: messageId,
       variables_values: values.join('|'),
       flash: '0',
