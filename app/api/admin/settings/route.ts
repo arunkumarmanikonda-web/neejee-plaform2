@@ -154,10 +154,14 @@ export async function PUT(req: NextRequest) {
     }
     const type = !PUBLIC.has(key) || existing?.type === 'sensitive' ? 'sensitive' : 'plain';
     const path = existing ? `/v9/projects/${c.projectId}/env/${existing.id}` : `/v10/projects/${c.projectId}/env`;
+    // Rotate by ID. Vercel rejects the key field on an existing Secret, even for the same name.
+    const change = existing
+      ? { value, ...(existing.type !== type ? { type } : {}) }
+      : { key, value, type, target: ['production'] };
     try {
       const res = await vfetch(path, {
         method: existing ? 'PATCH' : 'POST',
-        body: JSON.stringify({key, value, type, target:['production']}),
+        body: JSON.stringify(change),
       });
       if (res.ok) updated.push(key);
       else failed.push({key, error:`Vercel declined this setting (HTTP ${res.status}).`});
