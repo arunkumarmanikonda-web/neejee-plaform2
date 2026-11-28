@@ -10,11 +10,12 @@ import styles from './Pitari.module.css';
 type Turn = { question: string; answer: PitariReply };
 const eventName = 'neejee:ask-pitari';
 
-export function Pitari({ showLauncher = true }: { showLauncher?: boolean } = {}) {
+export function Pitari({ showLauncher = true, identity }: { showLauncher?: boolean; identity?: string | null } = {}) {
   const pathname = usePathname();
   const activeProduct = pathname?.match(/^\/products\/([^/]+)\/?$/)?.[1];
   const dialog = useRef<HTMLDialogElement>(null);
   const end = useRef<HTMLDivElement>(null);
+  const lastIdentity = useRef<string | null>();
   const order = useRef<string>();
   const version = useRef(0);
   const clear = useCallback(() => {
@@ -29,6 +30,11 @@ export function Pitari({ showLauncher = true }: { showLauncher?: boolean } = {})
   const [turns,setTurns] = useState<Turn[]>([]);
   const [pending,setPending] = useState('');
   const [input,setInput] = useState('');
+  useEffect(()=>{
+    if (identity === undefined) return;
+    if (lastIdentity.current !== undefined && lastIdentity.current !== identity) clear();
+    lastIdentity.current=identity;
+  },[identity,clear]);
   const ask = useCallback(async (q: string) => {
     const question = q.trim().slice(0,320);
     if (!question || busy.current) return;
