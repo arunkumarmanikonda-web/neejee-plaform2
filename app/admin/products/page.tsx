@@ -664,8 +664,8 @@ function BulkPanel({ onImported, statusFilter }: { onImported: () => void; statu
             <div className="p-4 border border-mitti/20 bg-beige/20 mb-3">
               <div className="font-display text-lg text-kohl mb-1">1. Download blank template</div>
               <p className="text-xs text-mitti mb-3">
-                One workbook, two sheets: <em>Products</em> and <em>How to use</em>.
-                Mandatory: Name, Category slug, MRP, Selling Price. SKUs auto-generate.
+                Fill in the <em>Products</em> sheet. Each PRODUCT row needs a name, category, MRP and selling price.
+                Enter a category name or slug. Leave the SKU blank to generate one.
               </p>
               <a
                 href="/api/admin/products/template" download
@@ -678,12 +678,13 @@ function BulkPanel({ onImported, statusFilter }: { onImported: () => void; statu
             <div className="p-4 border border-mitti/20 bg-beige/20 mb-3">
               <div className="font-display text-lg text-kohl mb-1">2. Upload filled template</div>
               <p className="text-xs text-mitti mb-3">
-                Every row becomes a DRAFT product. Add images, story, badges, AI-drafted copy from the editor afterwards, then publish.
+                Each new PRODUCT starts as a draft. Add a VARIANT row for each size or colour and enter its stock.
+                Place variants below their product or enter its Parent SKU. Review the draft, add photos and publish.
               </p>
               <input
                 ref={fileRef}
                 type="file"
-                accept=".xlsx,.xls"
+                accept=".xlsx"
                 onChange={onFile}
                 disabled={importing}
                 className="block w-full text-xs font-ui text-kohl
@@ -702,7 +703,7 @@ function BulkPanel({ onImported, statusFilter }: { onImported: () => void; statu
             <div className="p-4 border border-mitti/20 bg-beige/20">
               <div className="font-display text-lg text-kohl mb-1">3. Export current catalog</div>
               <p className="text-xs text-mitti mb-3">
-                Downloads <strong>{statusFilter === 'ALL' ? 'all products' : `products in ${statusFilter} status`}</strong> with the first product image embedded in each row.
+                Downloads <strong>{statusFilter === 'ALL' ? 'all products' : `products in ${statusFilter} status`}</strong> with each available cover photo on its product row.
               </p>
               <button
                 onClick={downloadExport}

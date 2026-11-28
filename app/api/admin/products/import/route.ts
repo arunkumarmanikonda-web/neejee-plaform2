@@ -140,47 +140,56 @@ export async function POST(request: Request) {
         continue;
       }
 
-      try {
-        const sku = d.sku || await generateSkuFor(cat.id);
+      for (let attempt = 1; attempt <= 3; attempt++) {
+        try {
+          const sku = d.sku || await generateSkuFor(cat.id);
 
-        const {draft}=await draftMerchandise({...d, description:d.shortDescription, categoryName:cat.name, colours:colours.get(row.rowIndex)}, {useAI:false});
-        const slug = await generateSlug(draft.name);
+          const {draft}=await draftMerchandise({...d, description:d.shortDescription, categoryName:cat.name, colours:colours.get(row.rowIndex)}, {useAI:false});
+          const slug = await generateSlug(draft.name);
 
-        const created = await prisma.product.create({
-          data: {
-            ...draft,
-            id: importId,
-            slug,
-            sku,
-            categoryId: cat.id,
-            craft: d.craft || null,
-            region: d.region || null,
-            material: d.material || null,
-            mrp: Math.round((d.mrp || 0) * 100),           // rupees -> paise
-            sellingPrice: Math.round((d.sellingPrice || 0) * 100),
-            status: 'DRAFT',
-            images: [],
-            badges: [],
-            gstRate: 5.0,
-            codEligible: true,
-            returnEligible: true,
-            aiTryOnEligible: false,
-            aiRoomEligible: false,
-          },
-        });
+          const created = await prisma.product.create({
+            data: {
+              ...draft,
+              id: importId,
+              slug,
+              sku,
+              categoryId: cat.id,
+              craft: d.craft || null,
+              region: d.region || null,
+              material: d.material || null,
+              mrp: Math.round((d.mrp || 0) * 100),           // rupees -> paise
+              sellingPrice: Math.round((d.sellingPrice || 0) * 100),
+              status: 'DRAFT',
+              images: [],
+              badges: [],
+              gstRate: 5.0,
+              codEligible: true,
+              returnEligible: true,
+              aiTryOnEligible: false,
+              aiRoomEligible: false,
+            },
+          });
 
-        recordParent(created, 'created', aiCreated.length ? 'Created sub-category: ' + aiCreated.join(', ') : undefined);
-      } catch (e: any) {
-        if (e?.code === 'P2002') {
-          const concurrent = await prisma.product.findUnique({where:{id:importId},select:{id:true,sku:true,name:true}});
-          if (concurrent) { recordParent(concurrent,'skipped','Product already imported.'); continue; }
+          recordParent(created, 'created', aiCreated.length ? 'Created sub-category: ' + aiCreated.join(', ') : undefined);
+        } catch (e: any) {
+          if (e?.code === 'P2002') {
+            const concurrent = await prisma.product.findUnique({where:{id:importId},select:{id:true,sku:true,name:true}});
+            if (concurrent) {
+              recordParent(concurrent, 'skipped', 'Product already imported.');
+              break;
+            }
+            // Another upload may have won the same generated SKU or slug.
+            const target = e.meta?.target;
+            if (attempt < 3 && Array.isArray(target) && (target.includes('slug') || (!d.sku && target.includes('sku')))) continue;
+          }
+          results.push({
+            rowIndex: row.rowIndex,
+            rowType: 'PRODUCT',
+            status: 'error',
+            message: e.message || 'Unknown error creating product',
+          });
         }
-        results.push({
-          rowIndex: row.rowIndex,
-          rowType: 'PRODUCT',
-          status: 'error',
-          message: e.message || 'Unknown error creating product',
-        });
+        break;
       }
       continue;
     }

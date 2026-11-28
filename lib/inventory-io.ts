@@ -27,7 +27,7 @@ export const IMPORT_COLUMNS: Array<{
   { key: 'parentSku', header: 'Parent SKU', width: 22, required: false, note: 'For VARIANT rows only. The SKU of the parent product (or leave blank to attach to the most recent PRODUCT row above).', example: '' },
   // Product columns (filled for PRODUCT rows)
   { key: 'name', header: 'Name *', width: 40, required: true, note: 'Product name (required for PRODUCT rows).', example: 'Banarasi Katan silk saree' },
-  { key: 'sku', header: 'SKU (auto if blank)', width: 22, required: false, note: 'Leave blank to auto-generate. Format CAT-CRAFT-XXXX. Use a distinct SKU for each product. Existing items are edited from Products.', example: '' },
+  { key: 'sku', header: 'SKU (auto if blank)', width: 22, required: false, note: 'Leave blank to generate a category-based SKU. Use a distinct SKU for each product. Existing items are edited from Products.', example: '' },
   { key: 'category', header: 'Category (slug OR free text) *', width: 28, required: true, note: 'Slug (e.g. women/sarees/banarasi), single leaf slug (banarasi), or free text (“Banarasi saree”). If no exact match is found, AI auto-resolves it from the product name/craft/material and auto-creates the sub-category if needed.', example: 'women/sarees/banarasi' },
   { key: 'craft', header: 'Craft', width: 22, required: false, note: 'e.g. Banarasi Katan, Kalamkari, Phulkari', example: 'Banarasi Katan' },
   { key: 'region', header: 'Region', width: 20, required: false, note: 'e.g. Varanasi, Uttar Pradesh', example: 'Varanasi' },
@@ -121,10 +121,10 @@ export async function buildTemplateWorkbook(): Promise<Buffer> {
   notes.addRow({ col: 'PRODUCT vs VARIANT', req: '', note: 'A PRODUCT row creates a new piece. VARIANT rows beneath it add size/colour/dimension options. Each variant gets its own stock count.' });
   notes.addRow({ col: 'Variants order', req: '', note: 'List variants immediately below their parent PRODUCT row. They will automatically attach to the closest PRODUCT row above (unless you specify Parent SKU).' });
   notes.addRow({ col: 'Suggested sizes by category', req: '', note: 'Clothing: XS / S / M / L / XL / XXL / Free Size. Jewellery: usually just one variant called "One size". Furniture / homewares: use dimensions e.g. "24cm × 18cm × 30cm".' });
-  notes.addRow({ col: 'No variants needed?', req: '', note: 'If a piece has no size/colour run (e.g. a one-of-a-kind piece), leave all VARIANT rows out. The PRODUCT row alone is enough.' });
+  notes.addRow({ col: 'No variants needed?', req: '', note: 'A PRODUCT row alone creates a draft. To record stock for a single-option piece, add a VARIANT row with a size such as One size and its unit count.' });
   notes.addRow({});
-  notes.addRow({ col: 'Important', req: '', note: 'All imported rows land as DRAFT. Review each in the admin product editor, add images, story, care notes, AI-drafted content, then publish.' });
-  notes.addRow({ col: 'SKU', req: '', note: 'Leave SKU blank to auto-generate. Format: CAT3-CRAFT3-XXXX (e.g. SAR-BAN-K47X). Variant SKUs auto-derive from parent + suffix.' });
+  notes.addRow({ col: 'Important', req: '', note: 'New products start as drafts. Review stock and prices, add photos and publish in Products. Re-uploading the same rows preserves existing items. Edit existing stock and prices in the admin.' });
+  notes.addRow({ col: 'SKU', req: '', note: 'Leave the product SKU blank to generate one from its category. Variant SKUs use the parent SKU and an option suffix.' });
 
   const buf = await wb.xlsx.writeBuffer();
   return Buffer.from(buf);
@@ -270,7 +270,7 @@ export async function parseInventoryWorkbook(buffer: Buffer | ArrayBuffer): Prom
         shortDescription: cellToString(get('shortDescription')) || undefined,
       };
       if (!data.name) errors.push('Name is required');
-      if (!data.category) errors.push('Category slug is required');
+      if (!data.category) errors.push('Enter a category name or slug');
       if (data.mrp == null || data.mrp <= 0) errors.push('MRP is required and must be > 0');
       if (data.sellingPrice == null || data.sellingPrice <= 0) errors.push('Selling Price is required and must be > 0');
       if (data.mrp != null && data.sellingPrice != null && data.sellingPrice > data.mrp) {

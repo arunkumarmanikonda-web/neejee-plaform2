@@ -32,10 +32,19 @@ test('a blank current or unmodified legacy template imports no examples, and rea
 
 test('inventory upload keeps S/M/L stock, isolates rejected parents, resolves explicit links and replays safely',async t=>{
   const products: any[]=[{id:'existing',sku:'TAKEN',name:'Existing'}], variants:any[]=[];
+  let simulatedCollision = false;
   const repo=(rows:any[])=>({
     findFirst:async({where}:any)=>rows.find(r=>Object.entries(where).every(([k,v])=>r[k]===v))||null,
     findUnique:async({where}:any)=>rows.find(r=>Object.entries(where).every(([k,v])=>r[k]===v))||null,
-    create:async({data}:any)=>{if(rows.some(r=>r.id===data.id||r.sku===data.sku))throw Object.assign(Error('duplicate'),{code:'P2002'});rows.push(data);return data;},
+    create:async({data}:any)=>{
+      if (rows === products && !simulatedCollision) {
+        simulatedCollision = true;
+        throw Object.assign(Error('Concurrent slug'), {code:'P2002', meta:{target:['slug']}});
+      }
+      if(rows.some(r=>r.id===data.id||r.sku===data.sku))throw Object.assign(Error('duplicate'),{code:'P2002'});
+      rows.push(data);
+      return data;
+    },
   });
   const mocks:Record<string,any>={
     '@/lib/auth':{getSession:async()=>({role:'SUPER_ADMIN'}),requireRole:()=>true},
@@ -60,5 +69,6 @@ test('inventory upload keeps S/M/L stock, isolates rejected parents, resolves ex
   assert.ok(products.filter(p=>p.id!=='existing').every(p=>p.status==='DRAFT'));
   const replay=await upload();
   assert.equal(replay.summary.productsCreated,0);assert.equal(replay.summary.variantsCreated,0);
+  assert.equal(simulatedCollision,true);
   assert.equal(products.length,3);assert.equal(variants.length,5);
 });

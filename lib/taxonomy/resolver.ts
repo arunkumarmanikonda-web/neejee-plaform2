@@ -422,5 +422,12 @@ export async function generateSkuFor(categoryId: string) {
   while (parts.length < 3) parts.push('GEN');
   const prefix = `NEE-${parts.join('-')}`;
   const count = await prisma.product.count({ where: { sku: { startsWith: prefix } } });
-  return `${prefix}-${String(count + 1).padStart(4, '0')}`;
+  let sequence = count + 1;
+  let candidate = `${prefix}-${String(sequence).padStart(4, '0')}`;
+  // Earlier numbers can be missing after deletions or an explicit merchant SKU.
+  while (await prisma.product.findUnique({ where: { sku: candidate }, select: { id: true } })) {
+    sequence++;
+    candidate = `${prefix}-${String(sequence).padStart(4, '0')}`;
+  }
+  return candidate;
 }
