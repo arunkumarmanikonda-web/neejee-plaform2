@@ -51,7 +51,7 @@ const SECTIONS: Array<{
     id: 'shipping',
     title: 'Shipping and messaging',
     helper: 'Shiprocket, AiSensy WhatsApp, and Resend email providers.',
-    keys: ['SHIPROCKET_EMAIL', 'SHIPROCKET_PASSWORD', 'SHIPROCKET_WEBHOOK_TOKEN', 'AISENSY_API_KEY', 'AISENSY_WEBHOOK_SECRET', 'RESEND_API_KEY'],
+    keys: ['SHIPROCKET_EMAIL', 'SHIPROCKET_PASSWORD', 'SHIPROCKET_WEBHOOK_TOKEN', 'AISENSY_API_KEY', 'AISENSY_WEBHOOK_SECRET', 'RESEND_API_KEY', 'EMAIL_FROM'],
   },
   {
     id: 'ai',
@@ -95,6 +95,7 @@ const LABELS: Record<string, string> = {
   SHIPROCKET_PASSWORD: 'Shiprocket password',
   AISENSY_API_KEY: 'AiSensy API key',
   RESEND_API_KEY: 'Resend API key',
+  EMAIL_FROM: 'Transactional sender address',
   OPENAI_API_KEY: 'OpenAI API key',
   FAL_KEY: 'FAL key',
   REPLICATE_API_TOKEN: 'Replicate token',

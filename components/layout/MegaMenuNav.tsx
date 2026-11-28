@@ -66,15 +66,15 @@ export default function MegaMenuNav({ onNavigate }: { onNavigate?: () => void } 
         <div className={styles.discoverPanel}>
           {discoverLinks.map(([label, href]) => <Link href={href} key={href} onClick={closeMenu}>{label}</Link>)}
           {more.map(item => <Link href={'/categories/' + encodeURIComponent(item.slug)} key={item.id} onClick={closeMenu}>{item.name}</Link>)}
-          <button type="button" onClick={() => {
-            closeMenu();
-            summary.current?.focus();
-            window.dispatchEvent(new CustomEvent('neejee:ask-pitari'));
-          }}>Ask Sakhi</button>
+
         </div>
       </details>
       <Link className={styles.fitting} href="/ai/mirror" onClick={closeMenu} aria-label="Try on a saree with Aaina"
         aria-current={pathname === '/ai/mirror' ? 'page' : undefined}><ScanFace aria-hidden="true"/>Aaina <span>try-on</span></Link>
+      <button type="button" className={styles.department} aria-haspopup="dialog" aria-label="Ask Sakhi" onClick={() => {
+        closeMenu();
+        window.dispatchEvent(new CustomEvent('neejee:ask-pitari'));
+      }}>Sakhi</button>
     </div>
   </nav>;
 }

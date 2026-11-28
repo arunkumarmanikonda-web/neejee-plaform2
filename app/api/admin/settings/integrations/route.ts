@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getSession, requireRole } from '@/lib/auth';
+import { senderAddress, senderDomain, sendingState } from '@/lib/resend-sender';
+import { resolveResendKey, sendResendEmail } from '@/lib/seller-onboarding/transactional-email';
 import { falKey } from '@/lib/ai/fal-key';
 import { prisma } from '@/lib/prisma';
 
@@ -20,13 +22,12 @@ async function read(service: string, url: string, authorization: string, evaluat
 
 export async function GET() {
   if (!requireRole(await getSession(), ['SUPER_ADMIN','ADMIN'])) return NextResponse.json({error:'Unauthorized'}, {status:401});
-  const fal = falKey(), email = process.env.RESEND_API_KEY?.trim(), app = process.env.FACEBOOK_APP_ID?.trim(), secret = process.env.FACEBOOK_APP_SECRET?.trim();
-  const sender = (process.env.EMAIL_FROM || 'hello@neejee.com').match(/@([^>\s]+)/)?.[1]?.toLowerCase();
+  const fal = falKey(), email = resolveResendKey(), app = process.env.FACEBOOK_APP_ID?.trim(), secret = process.env.FACEBOOK_APP_SECRET?.trim();
+  const sender = senderDomain(senderAddress());
   const active = {socialConnection:{status:'ACTIVE',OR:[{tokenExpiresAt:null},{tokenExpiresAt:{gt:new Date()}}]}};
   const providers = await Promise.all([
     read('fal.ai','https://api.fal.ai/v1/models/pricing?endpoint_id=fal-ai/nano-banana-2/edit',fal ? 'Key '+fal : '', d => Array.isArray(d.prices) && d.prices.length ? 'Model pricing available' : 'Model pricing unavailable'),
-    read('Resend','https://api.resend.com/domains',email ? 'Bearer '+email : '',d =>
-      d.data?.some((x:{name:string;status:string})=>x.name?.toLowerCase()===sender && x.status==='verified') ? 'Sending domain verified' : 'Sending domain verification not confirmed'),
+    read('Resend','https://api.resend.com/domains',email ? 'Bearer '+email : '',d => sendingState(Array.isArray(d.data) ? d.data : [],sender)),
     read('Meta app','https://graph.facebook.com/v24.0/'+encodeURIComponent(app || '')+'?fields=id',app && secret ? 'Bearer '+app+'|'+secret : '',d=>d.id===app ? 'App credentials accepted' : 'App ID did not match'),
   ]);
   const [facebook,instagram]=await Promise.all([
@@ -34,4 +35,14 @@ export async function GET() {
     prisma.instagramBusinessConnection.count({where:active}),
   ]).catch(()=>[null,null]);
   return NextResponse.json({providers,facebook,instagram}, {headers:{'Cache-Control':'private, no-store'}});
+}
+
+export async function POST(request: Request) {
+  const session=await getSession();
+  if (!requireRole(session,['SUPER_ADMIN','ADMIN'])) return NextResponse.json({error:'Unauthorized'},{status:401});
+  if (request.headers.get('origin') !== new URL(request.url).origin) return NextResponse.json({error:'Open this check from store settings.'},{status:403});
+  try {
+    const sent=await sendResendEmail({to:'delivered@resend.dev',subject:'Neejee transactional delivery test',html:'<p>Neejee delivery verification.</p>'});
+    return NextResponse.json({message:'Resend accepted the test from '+senderDomain(sent.from)+'.',id:sent.id},{headers:{'Cache-Control':'private, no-store'}});
+  } catch { return NextResponse.json({error:'Resend did not confirm this test. Check the sending domain and the sending permission on the key.'},{status:502}); }
 }

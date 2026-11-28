@@ -2,7 +2,7 @@ import { storeOrigin } from '@/lib/store-origin';
 // Transactional email helper — Resend integration with a no-send development fallback.
 import { paiseToRupees } from './money';
 
-const RESEND_API = 'https://api.resend.com/emails';
+import { resolveResendKey, sendResendEmail } from './seller-onboarding/transactional-email';
 const BASE_URL = storeOrigin();
 
 export interface SendEmailArgs {
@@ -37,43 +37,12 @@ function firstName(value: unknown): string {
 }
 
 export async function sendEmail({ to, subject, html, replyTo }: SendEmailArgs) {
-  const key = process.env.RESEND_API_KEY;
-  const from = process.env.EMAIL_FROM || 'NEEJEE <hello@neejee.com>';
-
-  if (!key) {
-    console.info('[email] no RESEND_API_KEY; email suppressed', { subject: String(subject).slice(0, 160) });
-    return { ok: true, dev: true };
-  }
-
+  if (!resolveResendKey() && process.env.NODE_ENV !== 'production') return {ok:true,dev:true};
   try {
-    const res = await fetch(RESEND_API, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${key}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        from,
-        to: [to],
-        subject,
-        html,
-        ...(replyTo ? { reply_to: replyTo } : {}),
-      }),
-    });
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) {
-      console.warn('[email] Resend failed', {
-        status: res.status,
-        code: data?.name || data?.error?.name || null,
-        subject: String(subject).slice(0, 160),
-      });
-      return { ok: false, error: 'Email provider rejected the request' };
-    }
-    console.info('[email] sent', { id: data?.id || null, subject: String(subject).slice(0, 160) });
-    return { ok: true, id: data.id };
-  } catch (error: any) {
-    console.warn('[email] Resend exception', { message: error?.message });
-    return { ok: false, error: 'Email provider unavailable' };
+    const sent=await sendResendEmail({to,subject,html,replyTo});
+    return {ok:true,id:sent.id};
+  } catch {
+    return {ok:false,error:'The email provider could not confirm sending.'};
   }
 }
 
