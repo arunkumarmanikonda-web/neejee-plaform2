@@ -69,3 +69,10 @@ test('an authenticated jewellery fitting saves the generated photograph privatel
   assert.equal(verifyPrivateAiMediaRequest(new URL(result.outputUrl)).path,'ai-tryon/test-user/result.jpg');
   assert.deepEqual([generations,uploads,writes],[1,1,1]);
 });
+
+test('a product campaign with no reference cannot start a paid generation', async t => {
+  const { runMarketingStudio, StudioInputError } = await import('../../lib/marketing/studio');
+  const fetch = t.mock.method(globalThis,'fetch', async () => {throw new Error('unexpected request');});
+  await assert.rejects(runMarketingStudio({flow:'single_product'}), StudioInputError);
+  assert.equal(fetch.mock.callCount(),0);
+});

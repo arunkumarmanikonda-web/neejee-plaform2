@@ -11,6 +11,8 @@ import { openaiChat } from '@/lib/ai';
 import { runCreativeImages } from '@/lib/ai/creative-images';
 import { prisma } from '@/lib/prisma';
 
+export class StudioInputError extends Error {}
+
 export type StudioFlow = 'single_product' | 'range' | 'offer' | 'generic';
 
 export type StudioFormat =
@@ -359,11 +361,10 @@ export async function runMarketingStudio(req: StudioRequest): Promise<StudioResu
         variants: { select: { images: true }, take: 4 },
       },
     });
-    productNames = ps.map(p => p.name);
     // For ranges, take 1 hero per product (up to 4 references total)
     for (const p of ps) {
       const heroes = pickHeroes(p);
-      if (heroes[0]) productImageUrls.push(heroes[0]);
+      if (heroes[0]) { productImageUrls.push(heroes[0]); productNames.push(p.name); }
       if (productImageUrls.length >= 4) break;
     }
   } else if (req.categoryId) {
@@ -375,12 +376,15 @@ export async function runMarketingStudio(req: StudioRequest): Promise<StudioResu
       },
       take: 8,
     });
-    productNames = ps.map(p => p.name);
     for (const p of ps) {
       const heroes = pickHeroes(p);
-      if (heroes[0]) productImageUrls.push(heroes[0]);
+      if (heroes[0]) { productImageUrls.push(heroes[0]); productNames.push(p.name); }
       if (productImageUrls.length >= 4) break;
     }
+  }
+
+  if ((req.flow === 'single_product' || req.flow === 'range') && !productImageUrls.length) {
+    throw new StudioInputError('Add a photograph to a selected product before generating its campaign.');
   }
 
   // 2) Build the (format × style) pair list. Caller may supply singles or arrays.
