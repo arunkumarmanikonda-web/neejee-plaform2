@@ -13,11 +13,11 @@
 import { NextResponse } from 'next/server';
 import { getSession, requireRole } from '@/lib/auth';
 import { generateAiImage, type ImageGenModel, type AspectRatio } from '@/lib/ai/generate-image';
-import { aiImageConfigured } from '@/lib/ai';
+import { creativeImagesConfigured } from '@/lib/ai/creative-images';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
-export const maxDuration = 180;
+export const maxDuration = 240;
 
 export async function POST(req: Request) {
   const user = await getSession();
@@ -25,10 +25,10 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  if (!aiImageConfigured()) {
+  if (!creativeImagesConfigured()) {
     return NextResponse.json({
       configured: false,
-      error: 'AI image generation is not configured. Set FAL_KEY in Vercel env vars.',
+      error: 'Configure fal.ai or OpenAI with media storage.',
     }, { status: 200 });
   }
 
@@ -43,8 +43,8 @@ export async function POST(req: Request) {
     }
 
     const aspectRatio = (body.aspectRatio as AspectRatio) || '16:9';
-    const model = (body.model as ImageGenModel) || 'nano-banana-pro';
     const referenceImageUrls = Array.isArray(body.referenceImageUrls) ? body.referenceImageUrls : undefined;
+    const model = (body.model as ImageGenModel) || (referenceImageUrls?.length ? 'flux-kontext' : 'nano-banana-pro');
     const folder = typeof body.folder === 'string' ? body.folder : 'ai-generated';
     const filenameHint = typeof body.filenameHint === 'string' ? body.filenameHint : 'image';
 

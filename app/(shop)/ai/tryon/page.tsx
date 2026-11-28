@@ -288,7 +288,7 @@ function TryOnInner() {
                 className="mt-1"
               />
               <span className="text-mitti text-xs leading-relaxed">
-                I understand this is an AI-generated preview. NEEJEE will keep my portrait for 30 days
+                I agree to send my portrait to fal.ai or OpenAI for this try-on. NEEJEE will keep my portrait for 30 days
                 to deliver this preview, then it will be deleted automatically. No piece is sold based
                 on this preview alone — please review the actual product photographs.
               </span>

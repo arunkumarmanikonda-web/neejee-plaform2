@@ -2,6 +2,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getSession, requireRole } from '@/lib/auth';
+import { shiprocketConfigured } from '@/lib/shiprocket';
 import { sendEmail, orderShippedEmail, orderDeliveredEmail } from '@/lib/email';
 
 export const dynamic = 'force-dynamic';
@@ -31,7 +32,7 @@ export async function GET(request: Request, props: { params: Promise<{ id: strin
       },
     });
     if (!order) return NextResponse.json({ error: 'Order not found' }, { status: 404 });
-    return NextResponse.json({ order });
+    return NextResponse.json({ order, shiprocketConfigured: shiprocketConfigured() });
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: 500 });
   }
@@ -45,16 +46,17 @@ export async function PATCH(request: Request, props: { params: Promise<{ id: str
   }
   try {
     const body = await request.json();
-    const { status, trackingUrl, awbNumber, courier } = body;
-    if (status && !VALID_STATUSES.includes(status)) {
+    const { status: requestedStatus, trackingUrl, awbNumber, courier } = body;
+    if (requestedStatus && !VALID_STATUSES.includes(requestedStatus)) {
       return NextResponse.json({ error: 'Invalid status' }, { status: 400 });
     }
     const existing = await prisma.order.findFirst({
       where: { OR: [{ orderNumber: params.id }, { id: params.id }] },
-      select: { id: true },
+      select: { id: true, status: true },
     });
     if (!existing) return NextResponse.json({ error: 'Order not found' }, { status: 404 });
 
+    const status = requestedStatus !== existing.status ? requestedStatus : undefined;
     const data: any = {};
     if (status) {
       data.status = status;
@@ -65,11 +67,14 @@ export async function PATCH(request: Request, props: { params: Promise<{ id: str
     if (awbNumber !== undefined) data.awbNumber = awbNumber;
     if (courier !== undefined) data.courier = courier;
 
-    const updated = await prisma.order.update({
-      where: { id: existing.id },
-      data,
-      include: { user: true },
+    const updated = await prisma.$transaction(async tx => {
+      if (Object.keys(data).length) {
+        const changed = await tx.order.updateMany({where: {id: existing.id, status: existing.status}, data});
+        if (!changed.count) return null;
+      }
+      return tx.order.findUnique({where: {id: existing.id}, include: {user: true}});
     });
+    if (!updated) return NextResponse.json({ error: 'Order changed. Refresh before saving.' }, { status: 409 });
 
     // v23.40.9 — Auto-post to revenue ledger on CONFIRMED or DELIVERED.
     // Idempotent (SalesInvoice.orderId unique). COD orders typically become

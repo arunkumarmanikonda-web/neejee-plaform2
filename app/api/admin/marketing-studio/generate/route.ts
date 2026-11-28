@@ -2,7 +2,7 @@
 import { NextResponse } from 'next/server';
 import { getSession } from '@/lib/auth';
 import { canDraftMarketing } from '@/lib/marketing/roles';
-import { runMarketingStudio } from '@/lib/marketing/studio';
+import { runMarketingStudio, StudioInputError } from '@/lib/marketing/studio';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -20,6 +20,7 @@ export async function POST(req: Request) {
     const result = await runMarketingStudio(body);
     return NextResponse.json(result);
   } catch (err: any) {
+    if (err instanceof StudioInputError) return NextResponse.json({ error: err.message }, { status: 422 });
     console.error('[marketing-studio.generate]', err);
     return NextResponse.json({ error: err?.message || 'Generation failed' }, { status: 500 });
   }

@@ -1,15 +1,16 @@
 // AI Jewellery Try-On — composites a jewellery piece onto a user portrait.
 // Single-call synchronous endpoint (flux-pro/kontext completes in ~30-50s).
 // Re-hosts the output to Supabase storage so the URL is permanent.
+import { createPrivateAiMediaUrl, verifyPrivateAiMediaRequest } from '@/lib/ai/private-media';
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getSession } from '@/lib/auth';
 import { aiImageConfigured, jewelleryTryOn, detectJewelleryType, type JewelleryType } from '@/lib/ai';
-import { uploadFile, storageConfigured, makeUploadPath } from '@/lib/storage';
+import { privateStudioReadUrl, uploadPrivateAiFile, storageConfigured, makeUploadPath, deleteFile } from '@/lib/storage';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
-export const maxDuration = 180; // flux kontext + safety check + rehost upload can take up to ~150s
+export const maxDuration = 240; // flux kontext + safety check + rehost upload can take up to ~150s
 
 const VALID_TYPES: JewelleryType[] = ['earrings', 'necklace', 'bangle', 'ring', 'auto'];
 
@@ -21,12 +22,19 @@ export async function POST(request: Request) {
 
   try {
     const { productId, personImageUrl, consent, jewelleryType } = await request.json();
-    if (!consent) return NextResponse.json({ error: 'Consent required for AI generation' }, { status: 400 });
+    if (consent !== true) return NextResponse.json({ error: 'Consent required for AI generation' }, { status: 400 });
     if (!personImageUrl) return NextResponse.json({ error: 'Portrait image required' }, { status: 400 });
     if (!productId) return NextResponse.json({ error: 'Product required' }, { status: 400 });
 
-    const product = await prisma.product.findUnique({
-      where: { id: productId },
+    let source: URL;
+    try { source = new URL(personImageUrl); } catch { return NextResponse.json({ error: 'Choose your portrait again.' }, { status: 400 }); }
+    const proof = verifyPrivateAiMediaRequest(source);
+    if (source.pathname !== '/api/ai/media' || !proof.ok || !proof.path.startsWith('ai-tryon/' + session.id + '/')) {
+      return NextResponse.json({ error: 'Choose your portrait again.' }, { status: 400 });
+    }
+    const canonicalSource = new URL(source.pathname + source.search, request.url).href;
+    const product = await prisma.product.findFirst({
+      where: { id: productId, status: 'ACTIVE', takedownAt: null, catalogueExclude: false, catalogueImageApproved: true },
       select: {
         id: true,
         name: true,
@@ -52,69 +60,34 @@ export async function POST(request: Request) {
       type = detectJewelleryType(product.category?.name || '', product.name, product.craft);
     }
 
-    // If AI not configured, return a stub preview
-    if (!aiImageConfigured()) {
-      const stub = await prisma.aiPreview.create({
-        data: {
-          userId: session.id,
-          type: 'MIRROR', // reusing the enum for now
-          sourceImage: personImageUrl,
-          outputImage: jewelleryImage,
-          productIds: [product.id],
-          consentLogged: true,
-          deleteAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
-        },
-      });
-      return NextResponse.json({
-        ok: true,
-        configured: false,
-        previewId: stub.id,
-        outputUrl: jewelleryImage,
-        type,
-        message: 'AR Try-On is being prepared. Showing the piece for now.',
-      });
+    if (!aiImageConfigured() || !storageConfigured()) {
+      return NextResponse.json({ error: 'Try-on is temporarily unavailable.' }, { status: 503 });
     }
-
-    // Run the actual AI composition
-    console.log('[jewellery-tryon] starting fal call', { productId: product.id, type, personImageUrl: personImageUrl.slice(0, 80), jewelleryImage: jewelleryImage.slice(0, 80) });
-    const result = await jewelleryTryOn(personImageUrl, jewelleryImage, type, product.name);
-    if (!result.ok || !result.outputUrl) {
-      console.error('[jewellery-tryon] fal failure', { error: result.error, productId: product.id });
-      return NextResponse.json({ error: result.error || 'AR Try-On generation failed' }, { status: 502 });
+    const portrait = await privateStudioReadUrl(proof.path);
+    const result = await jewelleryTryOn(portrait, new URL(jewelleryImage, request.url).href, type, product.name);
+    if (!result.ok) return NextResponse.json({ error: result.error || 'Try-on could not finish.' }, { status: 502 });
+    let image = result.jpeg;
+    let contentType = 'image/jpeg';
+    if (!image && result.outputUrl) {
+      const remote = new URL(result.outputUrl);
+      if (remote.protocol !== 'https:' || !(remote.hostname === 'fal.media' || remote.hostname.endsWith('.fal.media'))) throw Error('Unrecognised output.');
+      const response = await fetch(remote, { redirect: 'error', signal: AbortSignal.timeout(30000) });
+      contentType = response.headers.get('content-type')?.split(';')[0] || '';
+      if (!response.ok || !['image/jpeg', 'image/png', 'image/webp'].includes(contentType)) throw Error('Invalid image.');
+      image = Buffer.from(await response.arrayBuffer());
     }
-    console.log('[jewellery-tryon] fal success, output URL host:', new URL(result.outputUrl).hostname);
-
-    // Re-host on Supabase so the URL is permanent (fal CDN URLs are ephemeral)
-    let finalUrl = result.outputUrl;
-    if (storageConfigured()) {
-      try {
-        const fetched = await fetch(result.outputUrl);
-        if (fetched.ok) {
-          const buf = Buffer.from(await fetched.arrayBuffer());
-          const ct = fetched.headers.get('content-type') || 'image/jpeg';
-          const ext = ct.includes('png') ? 'png' : 'jpg';
-          const path = makeUploadPath('jewellery-tryons', `${session.id}-${product.id}.${ext}`);
-          const up = await uploadFile(path, buf, ct);
-          finalUrl = up.url;
-        }
-      } catch {
-        // Fall back to the ephemeral fal URL
-      }
-    }
-
-    // Persist as an AiPreview record
+    if (!image?.length || image.length > 16 * 1024 * 1024) throw Error('Invalid image.');
+    const ext = contentType === 'image/png' ? 'png' : contentType === 'image/webp' ? 'webp' : 'jpg';
+    const path = makeUploadPath('ai-tryon/' + session.id, 'preview.' + ext);
+    const finalUrl = createPrivateAiMediaUrl(new URL(request.url).origin, path);
+    await uploadPrivateAiFile(path, image, contentType);
     const preview = await prisma.aiPreview.create({
-      data: {
-        userId: session.id,
-        type: 'MIRROR',
-        sourceImage: personImageUrl,
-        outputImage: finalUrl,
-        productIds: [product.id],
-        consentLogged: true,
-        deleteAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
-      },
+      data: { userId: session.id, type: 'MIRROR', sourceImage: canonicalSource, outputImage: finalUrl,
+        productIds: [product.id], consentLogged: true, deleteAt: new Date(Date.now() + 30 * 86400000) },
+    }).catch(async error => {
+      await deleteFile('private-ai:' + path).catch(() => {});
+      throw error;
     });
-
     return NextResponse.json({
       ok: true,
       configured: true,
@@ -124,6 +97,6 @@ export async function POST(request: Request) {
       productName: product.name,
     });
   } catch (e: any) {
-    return NextResponse.json({ error: e.message || 'Unknown error' }, { status: 500 });
+    return NextResponse.json({ error: 'The photo service could not finish this preview.' }, { status: 502 });
   }
 }

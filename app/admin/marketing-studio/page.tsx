@@ -419,11 +419,10 @@ export default function MarketingStudioPage() {
                     <strong>Reason:</strong> {result.diagnostics.imageError}
                   </div>
                 ) : (
-                  <div className="text-xs">No error message returned. Check Vercel logs for [falRun] entries.</div>
+                  <div className="text-xs">Check the image providers in AI Manager.</div>
                 )}
                 <div className="text-xs">
-                  Common causes: (1) <code>FAL_KEY</code> not set in Vercel env vars, (2) account out of credits,
-                  (3) prompt flagged by safety filter, (4) rate-limited. The copy below is still usable.
+                  Check provider access, remaining credits and media storage in Settings. The draft copy is available below.
                 </div>
               </div>
             )}
