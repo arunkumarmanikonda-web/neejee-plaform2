@@ -39,11 +39,10 @@ test('production settings stay in one target, preserve successful fields and red
   assert.equal(calls.length,3);
   assert.ok(calls.every(c=>c.url.searchParams.get('teamId')==='example-team'));
   assert.equal(calls[0].url.searchParams.get('decrypt'),'false');
-  assert.ok(calls.some(c=>c.method==='PATCH'&&c.url.pathname.endsWith('/solo')));
-  for(const change of calls.slice(1)){
-    assert.deepEqual(change.body.target,['production']);
-    assert.equal(change.body.type,'sensitive');
-  }
+  const rotation = calls.find(c=>c.method==='PATCH' && c.url.pathname.endsWith('/solo'));
+  assert.deepEqual(rotation?.body,{value:'fixture'});
+  const creation = calls.find(c=>c.method==='POST');
+  assert.deepEqual(creation?.body,{key:'OPENAI_API_KEY',value:'fixture',target:['production'],type:'sensitive'});
 });
 
 test('campaign previews render inside a sandbox without referrers or active browser permissions',()=>{
