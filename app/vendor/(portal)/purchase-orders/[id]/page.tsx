@@ -13,6 +13,7 @@ export default function VendorPoDetail() {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null);
+  const [operations, setOperations] = useState(false);
   const [dispatchForm, setDispatchForm] = useState({ trackingNumber: '', trackingUrl: '', vendorInvoiceNumber: '', vendorInvoiceUrl: '' });
   const [showDispatch, setShowDispatch] = useState(false);
 
@@ -21,6 +22,7 @@ export default function VendorPoDetail() {
     const d = await r.json();
     if (r.ok) {
       setPo(d.purchaseOrder);
+      setOperations(d.canDispatch === true);
       setDispatchForm({
         trackingNumber: d.purchaseOrder.trackingNumber || '',
         trackingUrl: d.purchaseOrder.trackingUrl || '',
@@ -56,8 +58,8 @@ export default function VendorPoDetail() {
   if (loading) return <div className="min-h-screen flex items-center justify-center"><Loader2 className="w-5 h-5 animate-spin text-madder" /></div>;
   if (!po) return <div className="p-8 text-sm text-madder">PO not found.</div>;
 
-  const canConfirm  = po.status === 'SENT';
-  const canDispatch = po.status === 'CONFIRMED';
+  const canConfirm  = operations && po.status === 'SENT';
+  const canDispatch = operations && po.status === 'CONFIRMED';
 
   return (
     <div className="min-h-screen bg-beige">
@@ -135,6 +137,11 @@ export default function VendorPoDetail() {
           <PoChat purchaseOrderId={id} side="vendor" />
         </section>
 
+        {!operations && <section className="mt-5"><h2 className="font-display text-lg">Supplier invoice</h2>
+          <Input label="Invoice number" value={dispatchForm.vendorInvoiceNumber} onChange={v => setDispatchForm({ ...dispatchForm, vendorInvoiceNumber: v })} />
+          <InvoiceUpload poId={id} currentUrl={dispatchForm.vendorInvoiceUrl} invoiceNumber={dispatchForm.vendorInvoiceNumber}
+            onUploaded={url => setDispatchForm({ ...dispatchForm, vendorInvoiceUrl: url })} />
+        </section>}
         {showDispatch && (
           <div className="fixed inset-0 bg-kohl/40 z-50 flex items-center justify-center p-4">
             <div className="bg-ivory max-w-md w-full p-6 space-y-3">

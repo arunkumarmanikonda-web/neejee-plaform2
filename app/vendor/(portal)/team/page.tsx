@@ -106,7 +106,11 @@ export default function VendorTeamPage() {
                 >
                   {ACCESS_LEVELS.map(l => <option key={l.key} value={l.key}>{l.label}</option>)}
                 </select>
-                {m.status === 'ACTIVE' && (
+                {m.status === 'INVITED' && <button className="text-xs text-madder underline mr-2" onClick={() => {
+                    setInviteForm({ email: m.email, displayName: m.displayName || '', accessLevel: m.accessLevel });
+                    setShowInvite(true);
+                  }}>Resend invitation</button>}
+                  {m.status === 'ACTIVE' && (
                   <button onClick={() => updateMember(m.id, { status: 'SUSPENDED' })} className="text-xs text-mitti hover:text-madder">Suspend</button>
                 )}
                 {m.status === 'SUSPENDED' && (

@@ -29,7 +29,7 @@ export type NotificationEvent =
   // ── Finance / payouts ───────────────────────────────
   | "PAYOUT_SCHEDULED" | "PAYOUT_PAID"
   | "EXPENSE_PENDING_APPROVAL" | "EXPENSE_APPROVED" | "EXPENSE_REJECTED"
-  | "FINANCE_WEEKLY_SUMMARY" | "FINANCE_OVERDUE_DIGEST"
+  | "FORECAST_STOCKOUT_WARNING" | "FINANCE_WEEKLY_SUMMARY" | "FINANCE_OVERDUE_DIGEST"
   // ── Marketing ───────────────────────────────────────
   | "MARKETING_APPROVAL_REQUESTED" | "MARKETING_APPROVED" | "MARKETING_REJECTED" | "MARKETING_WITHDRAWN"
   // ── Seller lifecycle ────────────────────────────────

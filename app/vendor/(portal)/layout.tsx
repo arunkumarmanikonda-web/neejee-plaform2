@@ -1,3 +1,4 @@
+import { resolveVendorForSession } from '@/lib/vendor-auth-helpers';
 // Shared layout for the authenticated vendor portal — branded header + sidebar.
 // Public routes (/vendor/login, /vendor) stay outside this group so they keep
 // their own full-screen layout.
@@ -14,10 +15,11 @@ export const runtime = 'nodejs';
 export default async function VendorPortalLayout({ children }: { children: React.ReactNode }) {
   const session = await getSession();
   if (!session) redirect('/vendor/login');
-  if (session.role !== 'VENDOR') redirect('/vendor/login');
+  const scope = await resolveVendorForSession(session);
+  if (!scope) redirect('/vendor/login');
 
   const vendor = await prisma.vendor.findUnique({
-    where: { userId: session.id },
+    where: { id: scope.vendorId },
     select: { id: true, legalName: true, displayName: true, status: true },
   });
   if (!vendor) redirect('/vendor/login');
@@ -30,6 +32,7 @@ export default async function VendorPortalLayout({ children }: { children: React
     <div className="min-h-screen bg-beige flex">
       {/* Sidebar (sticky on desktop, drawer on mobile) */}
       <VendorSidebar
+        staffLevel={scope.isOwner ? undefined : scope.accessLevel}
         vendorName={vendor.displayName || vendor.legalName}
         vendorStatus={vendor.status}
         pendingChangeRequestsCount={pendingChangeRequestsCount}

@@ -11,7 +11,7 @@ async function ownerGate() {
   const session = await getSession();
   if (!session || session.role !== 'VENDOR') return { error: 'Only primary vendor user', status: 403 };
   const vendor = await prisma.vendor.findUnique({ where: { userId: session.id } });
-  if (!vendor) return { error: 'No vendor', status: 404 };
+  if (!vendor || ['SUSPENDED','ARCHIVED'].includes(vendor.status)) return { error: 'No vendor', status: 404 };
   return { session, vendor };
 }
 
@@ -27,6 +27,7 @@ export async function PATCH(request: Request, props: { params: Promise<{ id: str
   });
   if (!member) return NextResponse.json({ error: 'Not found' }, { status: 404 });
 
+  if (body.status === 'ACTIVE' && (!member.acceptedAt || member.status !== 'SUSPENDED')) return NextResponse.json({ error: 'The member must accept a fresh invitation.' }, { status: 409 });
   const data: Record<string, any> = {};
   if (body.accessLevel && ['FULL', 'FINANCE_ONLY', 'OPERATIONS_ONLY'].includes(body.accessLevel)) {
     data.accessLevel = body.accessLevel;

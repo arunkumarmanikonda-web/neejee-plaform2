@@ -10,7 +10,7 @@ export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
 export async function GET() {
-  const ctx = await requireApprovedSeller();
+  const ctx = await requireApprovedSeller('inventory');
   if (!ctx.ok) return NextResponse.json({ error: ctx.error }, { status: ctx.status });
   if (!ctx.seller) return NextResponse.json({ products: [] });
 
@@ -43,7 +43,7 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  const ctx = await requireApprovedSeller();
+  const ctx = await requireApprovedSeller('inventory');
   if (!ctx.ok) return NextResponse.json({ error: ctx.error }, { status: ctx.status });
   if (!ctx.seller) return NextResponse.json({ error: 'No seller record' }, { status: 404 });
 

@@ -16,6 +16,7 @@ export async function GET() {
   const session = await getSession();
   const v = await resolveVendorForSession(session);
   if (!v) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  if (v.accessLevel === 'OPERATIONS_ONLY') return NextResponse.json({ error: 'Access denied' }, { status: 403 });
 
   const [pos, payouts] = await Promise.all([
     prisma.purchaseOrder.findMany({

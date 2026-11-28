@@ -1,3 +1,4 @@
+import { storeOrigin } from '@/lib/store-origin';
 // POST /api/admin/vendors/[id]/invite
 // Generates a one-time magic link for the vendor and emails it to them via Resend.
 // The link is also returned so the admin can copy/share manually if email fails.
@@ -15,11 +16,7 @@ export const runtime = 'nodejs';
 // (project-codebase-v2-fixed-xyz.vercel.app) are password-protected by Vercel
 // itself and would force the vendor through Vercel's login — never embed them
 // into a magic link.
-function productionBaseUrl(): string {
-  const explicit = process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL;
-  if (explicit) return explicit.replace(/\/$/, '');
-  return 'https://www.neejee.com';
-}
+
 
 export async function POST(_req: Request, props: { params: Promise<{ id: string }> }) {
   const params = await props.params;
@@ -32,16 +29,13 @@ export async function POST(_req: Request, props: { params: Promise<{ id: string 
   try {
     const vendor = await prisma.vendor.findUnique({ where: { id: params.id } });
     if (!vendor) return NextResponse.json({ error: 'Vendor not found' }, { status: 404 });
-    if (vendor.status === 'ARCHIVED') {
-      return NextResponse.json({ error: 'Cannot invite an archived vendor' }, { status: 400 });
+    if (['ARCHIVED', 'SUSPENDED'].includes(vendor.status)) {
+      return NextResponse.json({ error: 'Cannot invite an inactive vendor' }, { status: 400 });
     }
 
-    const { token, expiresAt } = await createMagicTokenForVendor({
-      vendorId: vendor.id,
-      purpose: 'LOGIN',
-    });
+    const { token, expiresAt } = await createMagicTokenForVendor(vendor.id, { type: 'owner', email: vendor.contactEmail.trim().toLowerCase() });
 
-    const baseUrl = productionBaseUrl();
+    const baseUrl = storeOrigin();
     const loginUrl = `${baseUrl}/vendor/login?token=${encodeURIComponent(token)}`;
     const portalUrl = `${baseUrl}/vendor`;
 
@@ -67,7 +61,7 @@ export async function POST(_req: Request, props: { params: Promise<{ id: string 
       portalUrl,
       expiresAt,
       vendorEmail: vendor.contactEmail,
-      emailSent: !!emailResult?.ok,
+      emailSent: !!emailResult?.ok && !emailResult?.dev,
       emailDevMode: !!emailResult?.dev,
     });
   } catch (e: any) {

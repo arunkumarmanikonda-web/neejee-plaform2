@@ -19,7 +19,10 @@ export async function GET() {
     const seller = await prisma.seller.findUnique({
       where: { id: gate.ctx.seller.id },
     });
-    return NextResponse.json({ seller });
+    if (!seller) return NextResponse.json({ error: 'Seller not found' }, { status: 404 });
+    if (canEditFinance(gate.ctx)) return NextResponse.json({ seller });
+    const { id, businessName, contactName, email, phone, story, logoImage, coverImage, portfolio, region, craft, cluster, yearsOfPractice } = seller;
+    return NextResponse.json({ seller: { id, businessName, contactName, email, phone, story, logoImage, coverImage, portfolio, region, craft, cluster, yearsOfPractice } });
   } catch (err: any) {
     const m = prismaErrorToHttp(err);
     return NextResponse.json({ error: m.message }, { status: m.status });

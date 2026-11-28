@@ -12,7 +12,7 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
   const vendor = await prisma.vendor.findUnique({ where: { userId: session.id } });
-  if (!vendor) return NextResponse.json({ error: 'No vendor profile' }, { status: 404 });
+  if (!vendor || ['SUSPENDED','ARCHIVED'].includes(vendor.status)) return NextResponse.json({ error: 'No vendor profile' }, { status: 404 });
 
   const url = new URL(request.url);
   const status = url.searchParams.get('status') || undefined;

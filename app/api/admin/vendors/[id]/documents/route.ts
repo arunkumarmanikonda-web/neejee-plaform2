@@ -1,3 +1,4 @@
+import { uploadVendorDocument } from '@/lib/vendor-private-files';
 // GET  /api/admin/vendors/[id]/documents — list docs for a vendor
 // POST /api/admin/vendors/[id]/documents — admin uploads a doc on vendor's behalf
 //        (when vendor sends docs via WhatsApp/email)
@@ -6,7 +7,7 @@ import { NextResponse } from 'next/server';
 import { getSession } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { prismaErrorToHttp } from '@/lib/prisma-errors';
-import { uploadFile, makeUploadPath, storageConfigured } from '@/lib/storage';
+import { deletePrivateVendorFile, storageConfigured } from '@/lib/storage';
 import { notify } from '@/lib/notifications';
 import { DOC_TYPE_LABELS } from '@/lib/vendor-profile';
 
@@ -62,6 +63,7 @@ export async function POST(request: Request, props: { params: Promise<{ id: stri
   const vendor = await prisma.vendor.findUnique({ where: { id: params.id } });
   if (!vendor) return NextResponse.json({ error: 'Vendor not found' }, { status: 404 });
 
+  let unlinkedPath: string | undefined;
   try {
     const form = await request.formData();
     const file = form.get('file') as File | null;
@@ -83,8 +85,8 @@ export async function POST(request: Request, props: { params: Promise<{ id: stri
     }
 
     const buf = Buffer.from(await file.arrayBuffer());
-    const path = makeUploadPath(`vendor-docs/${vendor.id}/${docType.toLowerCase()}`, file.name);
-    const { url } = await uploadFile(path, buf, file.type);
+    const { path, url } = await uploadVendorDocument(vendor.id, buf, file.type);
+    unlinkedPath = path;
 
     const doc = await prisma.vendorDocument.create({
       data: {
@@ -101,6 +103,7 @@ export async function POST(request: Request, props: { params: Promise<{ id: stri
         ...(autoApprove ? { reviewedByUserId: g.session.id, reviewedAt: new Date() } : {}),
       },
     });
+    unlinkedPath = undefined;
     await prisma.vendorAuditLog.create({
       data: {
         vendorId: vendor.id,
@@ -112,6 +115,7 @@ export async function POST(request: Request, props: { params: Promise<{ id: stri
     });
     return NextResponse.json({ document: doc }, { status: 201 });
   } catch (e: any) {
+    if (unlinkedPath) await deletePrivateVendorFile(unlinkedPath).catch(() => console.warn('[vendor files] Private upload cleanup pending'));
     console.error('[admin vendor doc upload]', e);
     const { status, message, code } = prismaErrorToHttp(e);
     return NextResponse.json({ error: message, code }, { status });

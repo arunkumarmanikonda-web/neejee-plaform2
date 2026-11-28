@@ -1,10 +1,11 @@
+import { storeOrigin } from '@/lib/store-origin';
 // Email templates for every notification event. Each renders to { subject, html }.
 // Shared brand header/footer keeps the visual identity consistent across all
 // transactional mail — same look as lib/email.ts welcome / order templates.
 import type { NotificationEvent } from './types';
 import { paiseToRupees } from '@/lib/money';
 
-const PROD_URL = (process.env.NEXT_PUBLIC_APP_URL || 'https://www.neejee.com').replace(/\/$/, '');
+const PROD_URL = storeOrigin();
 
 // ── Shared chrome ──────────────────────────────────────────────
 const brandHeader = `
@@ -561,7 +562,7 @@ export function renderTemplate(event: NotificationEvent, data: Record<string, an
           'READY TO DISPATCH',
           `Order ${esc(data.orderNumber)}`,
           `<p>Full shipping address and buyer details are now visible in your dashboard. Please pack and dispatch within 48 hours.</p>`,
-          { href: `${PROD_URL}/seller/orders/${esc(data.orderNumber)}`, label: 'OPEN ORDER' },
+          { href: `${PROD_URL}/seller/orders#order-${encodeURIComponent(data.orderNumber)}`, label: 'OPEN ORDER' },
         )),
         smsText: `NEEJEE: Order ${esc(data.orderNumber)} ready to dispatch. Buyer info available.`,
       };
@@ -632,6 +633,16 @@ export function renderTemplate(event: NotificationEvent, data: Record<string, an
         html: wrap(block('WITHDRAWN', `${esc(data.resourceType)} withdrawn from queue`,
           `<p>${esc(data.note || 'No reason given')}</p>`)),
         smsText: `NEEJEE: ${esc(data.resourceType)} withdrawn.`,
+      };
+    }
+
+    case 'FORECAST_STOCKOUT_WARNING': {
+      const lines = String(data.firstFew || '').split('\n').map(item => `<p>${esc(item)}</p>`).join('');
+      return {
+        subject: `NEEJEE inventory forecast for ${Number(data.count)} products`,
+        html: wrap(block('INVENTORY FORECAST', 'Products approaching stockout', lines,
+          { href: `${PROD_URL}/admin/forecast?scope=PRODUCT`, label: 'REVIEW FORECAST' })),
+        smsText: `NEEJEE: ${Number(data.count)} products have a forecast stockout.`,
       };
     }
 

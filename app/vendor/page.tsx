@@ -11,7 +11,7 @@ export const runtime = 'nodejs';
 export default async function VendorIndexPage() {
   const session = await getSession();
   if (!session) redirect('/vendor/login');
-  if (session.role === 'VENDOR') redirect('/vendor/dashboard');
+  if (['VENDOR', 'VENDOR_STAFF'].includes(session.role)) redirect('/vendor/dashboard');
   // If an admin/customer/etc. lands here, send them to login (vendor portal only)
   redirect('/vendor/login');
 }

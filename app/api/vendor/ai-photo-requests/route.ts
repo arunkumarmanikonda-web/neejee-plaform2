@@ -1,3 +1,4 @@
+import { resolveVendorForSession } from '@/lib/vendor-auth-helpers';
 // /api/vendor/ai-photo-requests
 // Vendor uploads raw shots + asks admin to generate studio imagery.
 
@@ -16,7 +17,9 @@ async function resolveVendor() {
   if (!VENDOR_ROLES.includes(session.role)) {
     return { error: NextResponse.json({ error: 'Forbidden' }, { status: 403 }) } as const;
   }
-  const vendor = await prisma.vendor.findFirst({ where: { userId: session.id } });
+  const scope = await resolveVendorForSession(session);
+  if (!scope || scope.accessLevel === 'FINANCE_ONLY') return { error: NextResponse.json({ error: 'Access denied' }, { status: 403 }) } as const;
+  const vendor = await prisma.vendor.findUnique({ where: { id: scope.vendorId }, select: { id: true, legalName: true } });
   if (!vendor) return { error: NextResponse.json({ error: 'Vendor profile not found' }, { status: 404 }) } as const;
   return { session, vendor } as const;
 }

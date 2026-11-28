@@ -3,7 +3,6 @@
 // (02:00 UTC = 07:30 IST)
 
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
 import { refreshAllForecasts } from '@/lib/forecast/compute';
 
 export const dynamic = 'force-dynamic';
@@ -26,26 +25,15 @@ export async function GET(req: NextRequest) {
     if (result.stockoutWarnings.length > 0) {
       try {
         const { notify } = await import('@/lib/notifications');
-        const admins = await prisma.user.findMany({
-          where: { role: { in: ['ADMIN', 'SUPER_ADMIN'] } },
-          select: { id: true },
-        });
         const summary = result.stockoutWarnings
           .slice(0, 10)
           .map(w => `• ${w.productName}: stockout in ~${w.days}d`)
           .join('\n');
-        for (const a of admins) {
-          notify({
-            event: 'FORECAST_STOCKOUT_WARNING',
-            userId: a.id,
-            data: {
-              count: result.stockoutWarnings.length,
-              firstFew: summary,
-              link: '/admin/forecast?scope=PRODUCT',
-            },
-            context: { type: 'FORECAST', id: 'daily' },
-          } as any).catch(() => {});
-        }
+        await notify({
+          event: 'FORECAST_STOCKOUT_WARNING', toAdmins: true, channels: ['EMAIL'],
+          data: { count: result.stockoutWarnings.length, firstFew: summary },
+          context: { type: 'FORECAST', id: 'daily' },
+        });
       } catch (e: any) {
         console.warn('[cron forecast] notify:', e?.message);
       }

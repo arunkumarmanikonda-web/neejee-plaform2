@@ -32,6 +32,8 @@ const nextConfig = {
 
   async redirects() {
     return [
+      { source: '/track/:awb', destination: '/help/track', permanent: false },
+      { source: '/seller/orders/:number', destination: '/seller/orders#order-:number', permanent: false },
       { source: '/sellers/apply', destination: '/sell/apply', permanent: true },
       { source: '/catalogue', destination: '/products', permanent: true },
       { source: '/sell', destination: '/sell/apply', permanent: true },

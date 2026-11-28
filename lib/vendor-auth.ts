@@ -1,74 +1,50 @@
-// Vendor portal authentication: magic links + optional password.
-// Magic link flow:
-//   1. Admin invites vendor → /api/admin/vendors/[id]/invite creates a token
-//   2. We email the vendor a link like /vendor/login?token=...
-//   3. They click → token consumed → session cookie set
-//   4. First visit prompts them to either keep magic-link login OR set a password
-import { randomBytes } from 'crypto';
-import bcrypt from 'bcryptjs';
-import { prisma } from '@/lib/prisma';
+import { createHash, randomBytes } from 'node:crypto';
+import { prisma } from './prisma';
+import { z } from 'zod';
 
-export const VENDOR_TOKEN_TTL_MINUTES = 60 * 24; // 24 hours
+const binding = z.discriminatedUnion('type', [
+  z.object({ type: z.literal('owner'), email: z.string().email() }),
+  z.object({ type: z.literal('member'), email: z.string().email(), memberId: z.string(), userId: z.string() }),
+]);
+type Binding = z.infer<typeof binding>;
+const digest = (token: string) => createHash('sha256').update(token).digest('hex');
 
-export function generateMagicToken(): string {
-  // 32 random bytes → url-safe base64 (~43 chars). Enough entropy.
-  return randomBytes(32).toString('base64url');
-}
-
-export async function hashMagicToken(token: string): Promise<string> {
-  return bcrypt.hash(token, 10);
-}
-
-export async function compareMagicToken(token: string, hash: string): Promise<boolean> {
-  return bcrypt.compare(token, hash);
-}
-
-export async function createMagicTokenForVendor(args: {
-  vendorId: string;
-  purpose?: 'LOGIN' | 'SET_PASSWORD';
-}): Promise<{ token: string; expiresAt: Date }> {
-  const token = generateMagicToken();
-  const tokenHash = await hashMagicToken(token);
-  const expiresAt = new Date(Date.now() + VENDOR_TOKEN_TTL_MINUTES * 60 * 1000);
-  await prisma.vendorMagicToken.create({
-    data: {
-      vendorId: args.vendorId,
-      tokenHash,
-      purpose: args.purpose || 'LOGIN',
-      expiresAt,
-    },
-  });
+export async function createMagicTokenForVendor(vendorId: string, recipient: Binding) {
+  const token = randomBytes(32).toString('base64url');
+  const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
+  await prisma.vendorMagicToken.create({ data: { vendorId, purpose: JSON.stringify(recipient), tokenHash: digest(token), expiresAt } });
   return { token, expiresAt };
 }
 
-// Verify a token presented by the browser. Returns the vendor row (and consumes
-// the token) on success; null on failure. Defensive against replay by marking
-// `consumedAt` even on partial hash misses.
-export async function consumeMagicToken(rawToken: string): Promise<{
-  vendorId: string;
-  purpose: string;
-} | null> {
-  if (!rawToken || rawToken.length < 10) return null;
-  // We don't know which row to look up by, so fetch recent unconsumed tokens
-  // and bcrypt-compare. Limit to last 24h × few hundred candidates max.
-  const candidates = await prisma.vendorMagicToken.findMany({
-    where: {
-      consumedAt: null,
-      expiresAt: { gte: new Date() },
-    },
-    orderBy: { createdAt: 'desc' },
-    take: 200,
-  });
-  for (const c of candidates) {
-    // eslint-disable-next-line no-await-in-loop
-    const match = await compareMagicToken(rawToken, c.tokenHash);
-    if (match) {
-      await prisma.vendorMagicToken.update({
-        where: { id: c.id },
-        data: { consumedAt: new Date() },
-      });
-      return { vendorId: c.vendorId, purpose: c.purpose };
+export async function consumeMagicToken(token: string) {
+  if (!/^[A-Za-z0-9_-]{43}$/.test(token)) return null;
+  return prisma.$transaction(async tx => {
+    const where = { tokenHash: digest(token), consumedAt: null, expiresAt: { gt: new Date() } };
+    const row = await tx.vendorMagicToken.findFirst({ where, include: { vendor: true } });
+    if (!row || ['ARCHIVED', 'SUSPENDED'].includes(row.vendor.status)) return null;
+    const parsed = binding.safeParse(JSON.parse(row.purpose));
+    if (!parsed.success) return null;
+    const recipient = parsed.data;
+    const vendor = row.vendor;
+    const claimed = await tx.vendorMagicToken.updateMany({ where: { ...where, id: row.id }, data: { consumedAt: new Date() } });
+    if (claimed.count !== 1) return null;
+    if (recipient.type === 'member') {
+      const member = await tx.vendorTeamMember.findFirst({ where: {
+        id: recipient.memberId, vendorId: vendor.id, email: recipient.email, userId: recipient.userId,
+        status: 'ACTIVE', user: { role: 'VENDOR_STAFF', email: recipient.email },
+      }, include: { user: true } });
+      return member ? { user: member.user, vendorId: vendor.id } : null;
     }
-  }
-  return null;
+    if (vendor.contactEmail.trim().toLowerCase() !== recipient.email) return null;
+    const existing = await tx.user.findUnique({ where: { email: recipient.email }, include: { vendor: { select: { id: true } } } });
+    if ((existing && !['CUSTOMER', 'VENDOR'].includes(existing.role)) || (existing?.vendor && existing.vendor.id !== vendor.id)
+      || (vendor.userId && vendor.userId !== existing?.id)) return null;
+    const user = existing
+      ? await tx.user.update({ where: { id: existing.id, role: existing.role }, data: { role: 'VENDOR', emailVerified: existing.emailVerified || new Date() } })
+      : await tx.user.create({ data: { email: recipient.email, name: vendor.contactPerson || vendor.legalName, role: 'VENDOR', emailVerified: new Date() } });
+    const linked = await tx.vendor.updateMany({ where: { id: vendor.id, userId: vendor.userId, status: vendor.status, contactEmail: vendor.contactEmail },
+      data: { userId: user.id, status: vendor.status === 'PENDING' ? 'ACTIVE' : vendor.status } });
+    if (linked.count !== 1) throw new Error('Vendor contact changed during sign-in');
+    return { user, vendorId: vendor.id };
+  });
 }

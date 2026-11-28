@@ -26,6 +26,7 @@ export async function PATCH(req: Request, props: { params: Promise<{ id: string 
     }
 
     const { accessLevel, status } = await req.json();
+  if (status === 'ACTIVE' && (!member.acceptedAt || member.status !== 'SUSPENDED')) return NextResponse.json({ error: 'The member must accept a fresh invitation.' }, { status: 409 });
     const updated = await prisma.sellerTeamMember.update({
       where: { id: params.id },
       data: {

@@ -10,7 +10,7 @@ export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
 export async function GET() {
-  const ctx = await requireApprovedSeller();
+  const ctx = await requireApprovedSeller('finance');
   if (!ctx.ok) return NextResponse.json({ error: ctx.error }, { status: ctx.status });
   if (!ctx.seller) return NextResponse.json({ invoices: [], summary: null, pendingOrders: 0 });
 
