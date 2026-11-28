@@ -91,7 +91,7 @@ export function HomePrint({lead,fashion,curated,arrivals,founderNote,preview}:Pr
   };
   const items = fashion ? fashion.map(cataloguePiece) : homeStudyIds.map(id=>collectionPiece(studies.find(p=>p.id===id)!,preview));
   const founder = founderNote?.trim().split(/\n\s*\n/)[0];
-  return <div className="neejee-home-print">
+  return <><style media="print">{'@page {size:A4 landscape;margin:8mm 10mm}'}</style><div className="neejee-home-print">
     <Sheet label="Featured saree">
       <div className="folio-feature">
         <div className="folio-photo"><PrintPhoto className="folio-hero-image" src={hero.image} alt={hero.title}/>
@@ -113,5 +113,5 @@ export function HomePrint({lead,fashion,curated,arrivals,founderNote,preview}:Pr
     {curated.length>0 && <Shelf title="Nidhi’s picks" pieces={curated.slice(0,4).map(cataloguePiece)}/>}
     {curated.length>4 && <Shelf title="Nidhi’s picks" pieces={curated.slice(4).map(cataloguePiece)}/>}
     {arrivals.length>0 && <Shelf title="Just arrived" pieces={arrivals.map(cataloguePiece)}/>}
-  </div>;
+  </div></>;
 }
